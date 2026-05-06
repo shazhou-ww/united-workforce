@@ -50,7 +50,11 @@ Use \`uncaged-workflow thread ${ctx.threadId}\` to read the full workflow thread
 
 ## Task
 
-Create a branch, commit the changes, and push. Report whether the push succeeded or failed, the branch name, and the commit SHA.`;
+Create a branch, commit the changes, and push. Report whether the push succeeded or failed, the branch name, and the commit SHA.
+
+## On failure
+
+If any git operation fails (hook rejection, push denied, merge conflict, etc.), **do not attempt to fix it yourself**. Your job is to capture the key error output and report it back clearly so other roles in the workflow can address it.`;
 }
 
 /**
