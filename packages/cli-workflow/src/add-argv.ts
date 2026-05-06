@@ -9,49 +9,81 @@ export type ParsedAddArgv = {
   typesPath: string | null;
 };
 
+type ParsedLongFlag =
+  | { advance: 2; kind: "descriptor"; value: string }
+  | { advance: 2; kind: "types"; value: string };
+
+type PositionalSlots = {
+  name: string | undefined;
+  filePath: string | undefined;
+};
+
+function assignPositional(tok: string, slots: PositionalSlots): Result<void, string> {
+  if (slots.name === undefined) {
+    slots.name = tok;
+    return ok(undefined);
+  }
+  if (slots.filePath === undefined) {
+    slots.filePath = tok;
+    return ok(undefined);
+  }
+  return err("too many arguments");
+}
+
+function tryParseAddLongFlag(argv: string[], index: number): Result<ParsedLongFlag | null, string> {
+  const tok = argv[index];
+  if (tok !== "--descriptor" && tok !== "--types") {
+    return ok(null);
+  }
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    return err(
+      tok === "--descriptor" ? "missing value for --descriptor" : "missing value for --types",
+    );
+  }
+  if (tok === "--descriptor") {
+    return ok({ advance: 2, kind: "descriptor", value });
+  }
+  return ok({ advance: 2, kind: "types", value });
+}
+
 export function parseAddArgv(argv: string[]): Result<ParsedAddArgv, string> {
-  let name: string | undefined;
-  let filePath: string | undefined;
+  const slots: PositionalSlots = { name: undefined, filePath: undefined };
   let descriptorPath: string | null = null;
   let typesPath: string | null = null;
 
   let i = 0;
   while (i < argv.length) {
+    const flag = tryParseAddLongFlag(argv, i);
+    if (!flag.ok) {
+      return flag;
+    }
+    if (flag.value !== null) {
+      const f = flag.value;
+      if (f.kind === "descriptor") {
+        descriptorPath = f.value;
+      } else {
+        typesPath = f.value;
+      }
+      i += f.advance;
+      continue;
+    }
+
     const tok = argv[i];
-    if (tok === "--descriptor") {
-      const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--")) {
-        return err("missing value for --descriptor");
-      }
-      descriptorPath = value;
-      i += 2;
-      continue;
-    }
-    if (tok === "--types") {
-      const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--")) {
-        return err("missing value for --types");
-      }
-      typesPath = value;
-      i += 2;
-      continue;
-    }
-    if (tok !== undefined && tok.startsWith("--")) {
+    if (tok?.startsWith("--")) {
       return err(`unknown add flag: ${tok}`);
     }
     if (tok === undefined) {
       break;
     }
-    if (name === undefined) {
-      name = tok;
-    } else if (filePath === undefined) {
-      filePath = tok;
-    } else {
-      return err("too many arguments");
+    const placed = assignPositional(tok, slots);
+    if (!placed.ok) {
+      return placed;
     }
     i += 1;
   }
 
+  const { name, filePath } = slots;
   if (name === undefined || name === "" || filePath === undefined || filePath === "") {
     return err("add requires <name> <file>");
   }

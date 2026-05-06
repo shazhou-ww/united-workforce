@@ -38,6 +38,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["examples/**/*.ts", "packages/workflow/__tests__/fixtures/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
     }
   ],
   "linter": {

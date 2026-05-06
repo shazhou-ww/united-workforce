@@ -19,7 +19,7 @@ export const descriptor = {
 };
 
 const greeter: Role<Roles["greeter"]> = async (ctx) => ({
-  content: "Hello, " + ctx.start.content,
+  content: `Hello, ${ctx.start.content}`,
   meta: { greeting: "Hello!" },
 });
 

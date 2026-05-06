@@ -56,6 +56,127 @@ async function registerHash(
   return ok(undefined);
 }
 
+async function addFromTypeScript(
+  storageRoot: string,
+  workflowName: string,
+  resolvedTsPath: string,
+): Promise<Result<CmdAddSuccess, string>> {
+  const built = await buildWorkflowFromTypeScript(resolvedTsPath);
+  if (!built.ok) {
+    return built;
+  }
+
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(built.value.esmJsSource);
+  const hash = hashWorkflowBundleBytes(bytes);
+
+  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
+    esmJs: { kind: "text", text: built.value.esmJsSource },
+    yaml: { kind: "text", text: built.value.yamlSource },
+    dts: { kind: "text", text: built.value.dtsSource },
+  });
+  if (!stored.ok) {
+    return stored;
+  }
+
+  const regResult = await registerHash(storageRoot, workflowName, hash);
+  if (!regResult.ok) {
+    return regResult;
+  }
+
+  return ok({ hash, warnings: [] });
+}
+
+async function resolveYamlAndOptionalTypes(
+  args: ParsedAddArgv,
+  resolvedBundlePath: string,
+): Promise<Result<{ yamlText: string; dtsText: string | null; warnings: string[] }, string>> {
+  const warnings: string[] = [];
+  const yamlResolved =
+    args.descriptorPath !== null
+      ? resolve(args.descriptorPath)
+      : defaultDescriptorPath(resolvedBundlePath);
+
+  let yamlText: string;
+  try {
+    yamlText = await readFile(yamlResolved, "utf8");
+  } catch {
+    return err(`descriptor YAML not found: ${yamlResolved}`);
+  }
+
+  let dtsText: string | null = null;
+  if (args.typesPath !== null) {
+    const typesResolved = resolve(args.typesPath);
+    try {
+      dtsText = await readFile(typesResolved, "utf8");
+    } catch {
+      return err(`types file not found: ${typesResolved}`);
+    }
+  } else {
+    const typesDefault = defaultTypesPath(resolvedBundlePath);
+    try {
+      dtsText = await readFile(typesDefault, "utf8");
+    } catch {
+      warnings.push(`optional types file not found (${basename(typesDefault)}); skipped`);
+    }
+  }
+
+  return ok({ yamlText, dtsText, warnings });
+}
+
+async function addFromEsmJs(
+  storageRoot: string,
+  workflowName: string,
+  args: ParsedAddArgv,
+  resolvedBundlePath: string,
+): Promise<Result<CmdAddSuccess, string>> {
+  let source: string;
+  try {
+    source = await readFile(resolvedBundlePath, "utf8");
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return err(`failed to read bundle: ${message}`);
+  }
+
+  const validated = validateWorkflowBundle({
+    filePath: resolvedBundlePath,
+    source,
+  });
+  if (!validated.ok) {
+    return validated;
+  }
+
+  const companions = await resolveYamlAndOptionalTypes(args, resolvedBundlePath);
+  if (!companions.ok) {
+    return companions;
+  }
+
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(source);
+  const hash = hashWorkflowBundleBytes(bytes);
+
+  const dts =
+    companions.value.dtsText === null
+      ? null
+      : { kind: "text" as const, text: companions.value.dtsText };
+
+  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
+    esmJs: { kind: "text", text: source },
+    yaml: { kind: "text", text: companions.value.yamlText },
+    dts,
+  });
+  if (!stored.ok) {
+    return stored;
+  }
+
+  const regResult = await registerHash(storageRoot, workflowName, hash);
+  if (!regResult.ok) {
+    return regResult;
+  }
+
+  return ok({ hash, warnings: companions.value.warnings });
+}
+
 export async function cmdAdd(
   storageRoot: string,
   args: ParsedAddArgv,
@@ -73,103 +194,15 @@ export async function cmdAdd(
     return err(`file not found: ${args.filePath}`);
   }
 
-  const warnings: string[] = [];
-
   if (isTypeScriptWorkflow(resolvedPath)) {
-    const built = await buildWorkflowFromTypeScript(resolvedPath);
-    if (!built.ok) {
-      return built;
-    }
-
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(built.value.esmJsSource);
-    const hash = hashWorkflowBundleBytes(bytes);
-
-    const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
-      esmJs: { kind: "text", text: built.value.esmJsSource },
-      yaml: { kind: "text", text: built.value.yamlSource },
-      dts: { kind: "text", text: built.value.dtsSource },
-    });
-    if (!stored.ok) {
-      return stored;
-    }
-
-    const regResult = await registerHash(storageRoot, args.name, hash);
-    if (!regResult.ok) {
-      return regResult;
-    }
-
-    return ok({ hash, warnings });
+    return addFromTypeScript(storageRoot, args.name, resolvedPath);
   }
 
   if (!isEsmBundle(resolvedPath)) {
     return err('workflow file must be ".ts" or end with ".esm.js"');
   }
 
-  let source: string;
-  try {
-    source = await readFile(resolvedPath, "utf8");
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return err(`failed to read bundle: ${message}`);
-  }
-
-  const validated = validateWorkflowBundle({
-    filePath: resolvedPath,
-    source,
-  });
-  if (!validated.ok) {
-    return validated;
-  }
-
-  const yamlResolved =
-    args.descriptorPath !== null ? resolve(args.descriptorPath) : defaultDescriptorPath(resolvedPath);
-
-  let yamlText: string;
-  try {
-    yamlText = await readFile(yamlResolved, "utf8");
-  } catch {
-    return err(`descriptor YAML not found: ${yamlResolved}`);
-  }
-
-  let dtsSource: { kind: "text"; text: string } | null = null;
-  if (args.typesPath !== null) {
-    const typesResolved = resolve(args.typesPath);
-    try {
-      const text = await readFile(typesResolved, "utf8");
-      dtsSource = { kind: "text", text };
-    } catch {
-      return err(`types file not found: ${typesResolved}`);
-    }
-  } else {
-    const typesDefault = defaultTypesPath(resolvedPath);
-    try {
-      const text = await readFile(typesDefault, "utf8");
-      dtsSource = { kind: "text", text };
-    } catch {
-      warnings.push(`optional types file not found (${basename(typesDefault)}); skipped`);
-    }
-  }
-
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(source);
-  const hash = hashWorkflowBundleBytes(bytes);
-
-  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
-    esmJs: { kind: "text", text: source },
-    yaml: { kind: "text", text: yamlText },
-    dts: dtsSource,
-  });
-  if (!stored.ok) {
-    return stored;
-  }
-
-  const regResult = await registerHash(storageRoot, args.name, hash);
-  if (!regResult.ok) {
-    return regResult;
-  }
-
-  return ok({ hash, warnings });
+  return addFromEsmJs(storageRoot, args.name, args, resolvedPath);
 }
 
 export function formatAddSuccess(name: string, filePath: string, hash: string): string {

@@ -4,8 +4,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdKill } from "../src/cmd-kill.js";
 import { cmdPause } from "../src/cmd-pause.js";
@@ -15,6 +13,7 @@ import { cmdRun } from "../src/cmd-run.js";
 import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
 import { pathExists } from "../src/fs-utils.js";
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 
 const fastBundleSource = `export default async function* (input) {
   yield { role: "planner", content: "plan", meta: { plan: input.prompt } };

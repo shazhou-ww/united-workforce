@@ -12,9 +12,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-export type BundleFileSource =
-  | { kind: "text"; text: string }
-  | { kind: "path"; path: string };
+export type BundleFileSource = { kind: "text"; text: string } | { kind: "path"; path: string };
 
 export type WorkflowBundleStoreInput = {
   esmJs: BundleFileSource;

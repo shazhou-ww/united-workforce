@@ -5,14 +5,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
-
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdHistory } from "../src/cmd-history.js";
 import { cmdList, formatListLines } from "../src/cmd-list.js";
 import { cmdRemove } from "../src/cmd-remove.js";
 import { cmdRollback } from "../src/cmd-rollback.js";
 import { cmdShow } from "../src/cmd-show.js";
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 
 describe("cli workflow commands", () => {
   let prevEnv: string | undefined;
@@ -142,6 +141,39 @@ export default async function* (input) {
       return;
     }
     expect(entry.hash).toBe(hash);
+  });
+
+  test("add from .esm.js with --descriptor uses explicit YAML path", async () => {
+    const bundleDir = join(storageRoot, "w");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "app.esm.js");
+    const yamlPath = join(bundleDir, "desc.yaml");
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "x", meta: {} };
+  return { returnCode: 0, summary: "x" };
+}
+`,
+      "utf8",
+    );
+    await writeFile(yamlPath, MINIMAL_DESCRIPTOR_YAML, "utf8");
+
+    const added = await cmdAdd(storageRoot, {
+      name: "app",
+      filePath: bundlePath,
+      descriptorPath: yamlPath,
+      typesPath: null,
+    });
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+    const yamlStored = await readFile(
+      join(storageRoot, "bundles", `${added.value.hash}.yaml`),
+      "utf8",
+    );
+    expect(yamlStored).toContain("fixture");
   });
 
   test("add from .esm.js warns when optional .d.ts is missing", async () => {

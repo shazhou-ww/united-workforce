@@ -2,12 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdFork } from "../src/cmd-fork.js";
 import { cmdRun } from "../src/cmd-run.js";
 import { pathExists } from "../src/fs-utils.js";
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
 const threeRoleBundleSource = `export default async function* (input) {

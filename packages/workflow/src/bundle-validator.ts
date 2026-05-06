@@ -9,6 +9,7 @@ import type {
   ImportDeclaration,
   Node,
   Program,
+  VariableDeclaration,
 } from "acorn";
 import * as acorn from "acorn";
 
@@ -72,21 +73,22 @@ function exportSpecifierIsDefaultReExport(spec: ExportSpecifier): boolean {
   return spec.exported.type === "Identifier" && spec.exported.name === "default";
 }
 
+function exportNamedDeclarationOffersDefault(named: ExportNamedDeclaration): boolean {
+  if (named.source !== null && named.source !== undefined) {
+    return false;
+  }
+  return named.specifiers.some(
+    (spec) => spec.type === "ExportSpecifier" && exportSpecifierIsDefaultReExport(spec),
+  );
+}
+
 function programHasDefaultExport(body: readonly Node[]): boolean {
   for (const stmt of body) {
     if (stmt.type === "ExportDefaultDeclaration") {
       return true;
     }
-    if (stmt.type === "ExportNamedDeclaration") {
-      const named = stmt as ExportNamedDeclaration;
-      if (named.source !== null && named.source !== undefined) {
-        continue;
-      }
-      for (const spec of named.specifiers) {
-        if (spec.type === "ExportSpecifier" && exportSpecifierIsDefaultReExport(spec)) {
-          return true;
-        }
-      }
+    if (stmt.type === "ExportNamedDeclaration" && exportNamedDeclarationOffersDefault(stmt)) {
+      return true;
     }
   }
   return false;
@@ -123,6 +125,22 @@ function bindingInitializerIsCallable(init: Node): boolean {
   );
 }
 
+function variableDeclarationBindsCallableName(stmt: VariableDeclaration, name: string): boolean {
+  for (const decl of stmt.declarations) {
+    if (decl.id.type !== "Identifier" || decl.id.name !== name) {
+      continue;
+    }
+    const init = decl.init;
+    if (init === null || init === undefined) {
+      continue;
+    }
+    if (bindingInitializerIsCallable(init)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function programDeclaresCallableExportBinding(program: Program, name: string): boolean {
   for (const stmt of program.body) {
     if (stmt.type === "FunctionDeclaration") {
@@ -132,19 +150,8 @@ function programDeclaresCallableExportBinding(program: Program, name: string): b
         return true;
       }
     }
-    if (stmt.type === "VariableDeclaration") {
-      for (const decl of stmt.declarations) {
-        if (decl.id.type !== "Identifier" || decl.id.name !== name) {
-          continue;
-        }
-        const init = decl.init;
-        if (init === null || init === undefined) {
-          continue;
-        }
-        if (bindingInitializerIsCallable(init)) {
-          return true;
-        }
-      }
+    if (stmt.type === "VariableDeclaration" && variableDeclarationBindsCallableName(stmt, name)) {
+      return true;
     }
   }
   return false;

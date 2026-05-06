@@ -3,6 +3,14 @@ import { describe, expect, test } from "bun:test";
 import { validateWorkflowBundle } from "../src/bundle-validator.js";
 
 describe("validateWorkflowBundle", () => {
+  test("accepts export { local as default } when local is a call expression result", () => {
+    const source = `var wf = createFn({});
+export { wf as default };
+`;
+    const r = validateWorkflowBundle({ filePath: "/tmp/w.esm.js", source });
+    expect(r.ok).toBe(true);
+  });
+
   test("accepts minimal valid builtin-only bundle", () => {
     const source = `import fs from "node:fs";
 

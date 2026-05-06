@@ -6,10 +6,7 @@ import { validateWorkflowBundle } from "./bundle-validator.js";
 import { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
 import { generateWorkflowBundleTypes } from "./generate-types.js";
 import { err, ok, type Result } from "./result.js";
-import {
-  validateWorkflowDescriptor,
-  type WorkflowDescriptor,
-} from "./workflow-descriptor.js";
+import { validateWorkflowDescriptor } from "./workflow-descriptor.js";
 
 export type BuildPipelineResult = {
   esmJsSource: string;
@@ -33,9 +30,9 @@ async function findPackageRoot(startDir: string): Promise<string> {
   }
 }
 
-async function loadDescriptorFromSourceTs(absoluteTsPath: string): Promise<
-  Result<WorkflowDescriptor, string>
-> {
+async function loadDescriptorFromSourceTs(
+  absoluteTsPath: string,
+): Promise<Result<WorkflowDescriptor, string>> {
   let mod: Record<string, unknown>;
   try {
     const href = pathToFileURL(absoluteTsPath).href;
