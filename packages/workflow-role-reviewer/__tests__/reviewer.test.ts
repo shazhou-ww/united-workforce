@@ -88,7 +88,7 @@ describe("createReviewerRole", () => {
     expect(out.meta).toEqual({ status: "rejected", issues: ["secrets in code"] });
   });
 
-  test("prompt includes threadId from context", async () => {
+  test("system prompt includes configured cwd (thread CLI hint comes from agent layer)", async () => {
     globalThis.fetch = (() =>
       Promise.resolve(
         toolCallResponse(JSON.stringify({ status: "approved" })),
@@ -106,6 +106,8 @@ describe("createReviewerRole", () => {
       { cwd: "/proj" },
     );
     await role(makeCtx());
-    expect(seen).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
+    expect(seen).toContain("/proj");
+    expect(seen).toContain("code reviewer");
+    expect(seen).not.toContain("uncaged-workflow thread");
   });
 });

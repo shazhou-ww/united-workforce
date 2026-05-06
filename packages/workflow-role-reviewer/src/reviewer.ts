@@ -1,4 +1,4 @@
-import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
+import type { AgentFn, Role } from "@uncaged/workflow";
 import { createRole } from "@uncaged/workflow-agent-llm";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
@@ -22,14 +22,10 @@ export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
   cwd: ".",
 };
 
-function reviewerPrompt(config: ReviewerConfig, ctx: ThreadContext): string {
+function reviewerPrompt(config: ReviewerConfig): string {
   const { cwd } = config;
 
   return `You are a code reviewer. The project is at \`${cwd}\`.
-
-## Context
-
-Use \`uncaged-workflow thread ${ctx.threadId}\` to read the full workflow thread for context on what was done and why.
 
 ## Task
 
@@ -51,7 +47,7 @@ export function createReviewerRole(
   return createRole({
     name: "reviewer",
     schema: reviewerMetaSchema,
-    systemPrompt: async (ctx) => reviewerPrompt(config, ctx),
+    systemPrompt: reviewerPrompt(config),
     agent: adapter,
     extract: {
       provider: extract.provider,

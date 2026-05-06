@@ -1,4 +1,4 @@
-import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
+import type { AgentFn, Role } from "@uncaged/workflow";
 import { createRole } from "@uncaged/workflow-agent-llm";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
@@ -26,22 +26,18 @@ Each phase must have: a short **name** (stable identifier), a **description** of
 
 Order phases so earlier steps unblock later ones. Cover root cause, edge cases, and verification across the phases. Do not emit separate file lists or a free-form "approach" field — put that detail inside phase descriptions.`;
 
-function plannerSystemPrompt(_config: PlannerConfig): string {
-  return PLANNER_SYSTEM;
-}
-
 /**
  * Planner role: produces ordered implementation phases for the coder to execute sequentially.
  */
 export function createPlannerRole(
   adapter: AgentFn,
   extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: PlannerMeta },
-  config: PlannerConfig = DEFAULT_PLANNER_CONFIG,
+  _config: PlannerConfig = DEFAULT_PLANNER_CONFIG,
 ): Role<PlannerMeta> {
   return createRole({
     name: "planner",
     schema: plannerMetaSchema,
-    systemPrompt: async (_ctx: ThreadContext) => plannerSystemPrompt(config),
+    systemPrompt: PLANNER_SYSTEM,
     agent: adapter,
     extract: {
       provider: extract.provider,

@@ -6,7 +6,7 @@ import type { LlmProvider } from "./types.js";
 export type CreateRoleArgs<M extends Record<string, unknown>> = {
   name: string;
   schema: z.ZodType<M>;
-  systemPrompt: string | ((ctx: ThreadContext) => Promise<string>);
+  systemPrompt: string;
   agent: AgentFn;
   extract: {
     provider: LlmProvider;
@@ -23,9 +23,7 @@ function resolveExtractDryRun(extractDryRun: boolean | null): boolean {
 /** Builds a {@link Role} from an {@link AgentFn}, system prompt, Zod meta schema, and extract wiring. */
 export function createRole<M extends Record<string, unknown>>(args: CreateRoleArgs<M>): Role<M> {
   return async (ctx: ThreadContext) => {
-    const promptText =
-      typeof args.systemPrompt === "string" ? args.systemPrompt : await args.systemPrompt(ctx);
-    const raw = await args.agent(ctx, promptText);
+    const raw = await args.agent(ctx, args.systemPrompt);
     const meta = await extractMetaOrThrow(args.name, raw, args.schema, {
       provider: args.extract.provider,
       dryRun: resolveExtractDryRun(args.extract.dryRun),

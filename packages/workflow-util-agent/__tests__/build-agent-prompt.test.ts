@@ -46,7 +46,7 @@ describe("buildAgentPrompt", () => {
     expect(text).toContain("only step full body");
     expect(text).toContain('Meta: {"files":["a.ts"]}');
     expect(text).toContain("## Tools");
-    expect(text).toContain("uncaged-workflow thread <threadId>");
+    expect(text).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
   });
 
   test("two or more steps: previous steps are meta-only; latest step is full", () => {
@@ -78,6 +78,7 @@ describe("buildAgentPrompt", () => {
     expect(text).toContain("last step full content");
     expect(text).toContain('Meta: {"done":true}');
     expect(text).toContain("## Tools");
+    expect(text).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
   });
 
   test("middle steps show meta summary only, not full content", () => {

@@ -96,26 +96,6 @@ describe("createRole", () => {
     expect(seen[0].steps).toEqual([]);
   });
 
-  test("resolves dynamic systemPrompt functions before AgentFn", async () => {
-    globalThis.fetch = (() =>
-      Promise.resolve(toolCallResponse(JSON.stringify({ n: 99 })))) as unknown as typeof fetch;
-
-    const schema = z.object({ n: z.number() });
-    const agent: AgentFn = async (_ctx, prompt) => prompt;
-    const role = createRole({
-      name: "test",
-      schema,
-      systemPrompt: async (ctx) => `rounds=${ctx.steps.length}`,
-      agent,
-      extract: { provider, dryRun: null, dryRunMeta: { n: 0 } },
-    });
-
-    const ctx = makeCtx();
-    const out = await role(ctx);
-    expect(out.content).toBe("rounds=0");
-    expect(out.meta).toEqual({ n: 99 });
-  });
-
   test("extract dryRun null runs live extract path", async () => {
     const spy = spyOn(extractMetaModule, "extractMetaOrThrow").mockResolvedValue({ n: 0 });
 

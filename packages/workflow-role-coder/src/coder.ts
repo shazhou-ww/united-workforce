@@ -1,4 +1,4 @@
-import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
+import type { AgentFn, Role } from "@uncaged/workflow";
 import { createRole } from "@uncaged/workflow-agent-llm";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
@@ -40,7 +40,7 @@ export function createCoderRole(
   return createRole({
     name: "coder",
     schema: coderMetaSchema,
-    systemPrompt: async (_ctx: ThreadContext) => coderSystemPrompt(config),
+    systemPrompt: coderSystemPrompt(config),
     agent: adapter,
     extract: {
       provider: extract.provider,

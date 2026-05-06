@@ -41,7 +41,9 @@ export function buildAgentPrompt(systemPrompt: string, ctx: ThreadContext): stri
 
   lines.push("");
   lines.push("## Tools");
-  lines.push("Use `uncaged-workflow thread <threadId>` to read full details of any previous step.");
+  lines.push(
+    `Use \`uncaged-workflow thread ${ctx.threadId}\` to read full details of any previous step.`,
+  );
 
   return lines.join("\n");
 }

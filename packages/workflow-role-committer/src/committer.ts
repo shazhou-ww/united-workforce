@@ -1,4 +1,4 @@
-import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
+import type { AgentFn, Role } from "@uncaged/workflow";
 import {
   createRole,
   decorateRole,
@@ -46,12 +46,8 @@ function resolveExtractDryRun(extractDryRun: boolean | null): boolean {
   return extractDryRun === true;
 }
 
-function committerSystemPrompt(ctx: ThreadContext, config: CommitterConfig): string {
+function committerSystemPrompt(config: CommitterConfig): string {
   return `You are the git committer for this workflow. The project is at \`${config.cwd}\`.
-
-## Context
-
-Use \`uncaged-workflow thread ${ctx.threadId}\` to read the full workflow thread for context on what was done and why.
 
 ## Task
 
@@ -77,7 +73,7 @@ export function createCommitterRole(
   const inner: Role<CommitterMeta> = createRole({
     name: "committer",
     schema: committerMetaSchema,
-    systemPrompt: async (ctx) => committerSystemPrompt(ctx, config),
+    systemPrompt: committerSystemPrompt(config),
     agent: adapter,
     extract,
   });
