@@ -15,7 +15,12 @@ export const committerMetaSchema = z.discriminatedUnion("status", [
     commitSha: z.string(),
   }),
   z.object({
-    status: z.literal("failed"),
+    status: z.literal("recoverable"),
+    error: z.string(),
+    logRef: z.string().nullable(),
+  }),
+  z.object({
+    status: z.literal("unrecoverable"),
     error: z.string(),
     logRef: z.string().nullable(),
   }),
@@ -54,7 +59,10 @@ Create a branch, commit the changes, and push. Report whether the push succeeded
 
 ## On failure
 
-If any git operation fails (hook rejection, push denied, merge conflict, etc.), **do not attempt to fix it yourself**. Your job is to capture the key error output and report it back clearly so other roles in the workflow can address it.`;
+If any git operation fails, **do not attempt to fix it yourself**. Capture the key error output and classify it:
+
+- **Recoverable**: failures that a coder can fix (lint/test hook rejection, merge conflict, commit validation errors)
+- **Unrecoverable**: failures beyond code changes (no push permission, remote not found, authentication denied, disk full)`;
 }
 
 /**
@@ -83,7 +91,7 @@ export function createCommitterRole(
     onFail<CommitterMeta>({
       label: "committer",
       meta: {
-        status: "failed",
+        status: "unrecoverable",
         error: "committer role threw before structured result",
         logRef: null,
       },

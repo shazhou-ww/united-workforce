@@ -31,6 +31,9 @@ export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
   }
 
   if (last.role === "committer") {
+    if (last.meta.status === "recoverable" && ctx.steps.length < maxRounds - 1) {
+      return "coder";
+    }
     return END;
   }
 

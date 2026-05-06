@@ -68,7 +68,7 @@ describe("createCommitterRole", () => {
 
   test("returns failed meta when extraction reports failure", async () => {
     const failed = {
-      status: "failed" as const,
+      status: "recoverable" as const,
       error: "working tree clean; nothing to commit",
       logRef: null as string | null,
     };
@@ -91,7 +91,7 @@ describe("createCommitterRole", () => {
 
   test("returns failed meta with logRef when extraction includes it", async () => {
     const failed = {
-      status: "failed" as const,
+      status: "recoverable" as const,
       error: "push rejected",
       logRef: "LOGREF01",
     };
@@ -125,7 +125,7 @@ describe("createCommitterRole", () => {
 
     const out = await role(makeCtx());
     expect(out.meta).toEqual({
-      status: "failed",
+      status: "unrecoverable",
       error: "committer role threw before structured result",
       logRef: null,
     });
