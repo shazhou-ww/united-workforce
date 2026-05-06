@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "composite": true
+    "composite": true,
+    "types": ["bun-types"]
   },
   "include": ["src/**/*.ts"],
   "references": [{ "path": "../workflow" }, { "path": "../workflow-util-role" }]

@@ -423,7 +423,7 @@ async function main(): Promise<void> {
     });
   }
 
-  const server = createServer((socket) => {
+  const server = createServer((socket: Socket) => {
     void (async () => {
       const line = await readLineFromSocket(socket);
       if (line === null) {
@@ -439,7 +439,7 @@ async function main(): Promise<void> {
     })();
   });
 
-  server.on("error", (errObj) => {
+  server.on("error", (errObj: Error) => {
     bootLog("W8YK4NPX", `worker server error: ${errObj.message}`);
     process.exit(1);
   });

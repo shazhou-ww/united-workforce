@@ -1,4 +1,4 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { join } from "node:path";
@@ -23,7 +23,7 @@ function isProcessAlive(pid: number): boolean {
 
 async function waitForReadyLine(
   childStdout: NodeJS.ReadableStream,
-  child: ChildProcessWithoutNullStreams,
+  child: ChildProcess,
 ): Promise<Result<number, string>> {
   return await new Promise((resolve) => {
     let buf = "";
