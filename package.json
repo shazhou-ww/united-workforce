@@ -7,7 +7,8 @@
   ],
   "scripts": {
     "build": "bun run --filter '*' build",
-    "check": "biome check .",
+    "check": "bunx tsc --build && biome check .",
+    "typecheck": "bunx tsc --build",
     "format": "biome format --write .",
     "test": "bun run --filter '*' test"
   },

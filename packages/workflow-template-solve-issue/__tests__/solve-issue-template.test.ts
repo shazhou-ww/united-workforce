@@ -115,7 +115,7 @@ describe("createSolveIssueRoles", () => {
     expect(typeof roles.committer).toBe("function");
 
     const ctx = makeCtx(10, []);
-    const plannerOut = await roles.planner(ctx);
+    const plannerOut = await roles.planner(ctx as unknown as ThreadContext);
     expect(plannerOut.meta.plan).toBe("");
     expect(Array.isArray(plannerOut.meta.files)).toBe(true);
   });
