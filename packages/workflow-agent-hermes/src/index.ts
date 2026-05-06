@@ -1,13 +1,12 @@
 import type { AgentFn } from "@uncaged/workflow";
+import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 
-import { buildAgentPrompt } from "./build-agent-prompt.js";
-import { type SpawnCliError, spawnCli } from "./spawn-cli.js";
 import type { HermesAgentConfig } from "./types.js";
 import { validateHermesAgentConfig } from "./validate-config.js";
 
 const HERMES_DEFAULT_MAX_TURNS = 90;
 
-export { buildAgentPrompt } from "./build-agent-prompt.js";
+export { buildAgentPrompt } from "@uncaged/workflow-util-agent";
 export type { HermesAgentConfig } from "./types.js";
 export { validateHermesAgentConfig } from "./validate-config.js";
 
@@ -36,7 +35,7 @@ export function createHermesAgent(config: HermesAgentConfig): AgentFn {
   const timeoutMs = config.timeout;
 
   return async (ctx, systemPrompt) => {
-    const fullPrompt = buildAgentPrompt(ctx, systemPrompt);
+    const fullPrompt = buildAgentPrompt(systemPrompt, ctx);
     const args = [
       "chat",
       "-q",

@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-agent-cursor",
+  "name": "@uncaged/workflow-util-agent",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
@@ -9,7 +9,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow": "workspace:*",
-    "@uncaged/workflow-util-agent": "workspace:*"
+    "@uncaged/workflow": "workspace:*"
   }
 }

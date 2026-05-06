@@ -1,26 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { START, type ThreadContext } from "@uncaged/workflow";
-
-import { buildAgentPrompt, createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
-
-function makeCtx(): ThreadContext {
-  return {
-    start: {
-      role: START,
-      content: "user task",
-      meta: { maxRounds: 5 },
-      timestamp: 1,
-    },
-    steps: [
-      {
-        role: "coder",
-        content: "first draft",
-        meta: {},
-        timestamp: 2,
-      },
-    ],
-  };
-}
+import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config", () => {
@@ -51,16 +30,6 @@ describe("validateCursorAgentConfig", () => {
       timeout: -1,
     });
     expect(r.ok).toBe(false);
-  });
-});
-
-describe("buildAgentPrompt", () => {
-  test("includes system prompt, start, and steps", () => {
-    const text = buildAgentPrompt(makeCtx(), "Be helpful.");
-    expect(text).toContain("Be helpful.");
-    expect(text).toContain("user task");
-    expect(text).toContain("coder");
-    expect(text).toContain("first draft");
   });
 });
 

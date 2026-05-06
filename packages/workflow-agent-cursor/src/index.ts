@@ -1,11 +1,10 @@
 import type { AgentFn } from "@uncaged/workflow";
+import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 
-import { buildAgentPrompt } from "./build-agent-prompt.js";
-import { type SpawnCliError, spawnCli } from "./spawn-cli.js";
 import type { CursorAgentConfig } from "./types.js";
 import { validateCursorAgentConfig } from "./validate-config.js";
 
-export { buildAgentPrompt } from "./build-agent-prompt.js";
+export { buildAgentPrompt } from "@uncaged/workflow-util-agent";
 export type { CursorAgentConfig } from "./types.js";
 export { validateCursorAgentConfig } from "./validate-config.js";
 
@@ -39,7 +38,7 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
   const timeoutMs = config.timeout;
 
   return async (ctx, systemPrompt) => {
-    const fullPrompt = buildAgentPrompt(ctx, systemPrompt);
+    const fullPrompt = buildAgentPrompt(systemPrompt, ctx);
     const args = [
       "-p",
       fullPrompt,

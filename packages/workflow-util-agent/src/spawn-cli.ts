@@ -7,11 +7,18 @@ export type SpawnCliError =
   | { kind: "timeout" }
   | { kind: "spawn_failed"; message: string };
 
+export type SpawnCliConfig = {
+  cwd: string | null;
+  timeoutMs: number | null;
+};
+
+export type SpawnCliResult = Result<string, SpawnCliError>;
+
 export function spawnCli(
   command: string,
   args: string[],
-  options: { cwd: string | null; timeoutMs: number | null },
-): Promise<Result<string, SpawnCliError>> {
+  options: SpawnCliConfig,
+): Promise<SpawnCliResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd === null ? undefined : options.cwd,

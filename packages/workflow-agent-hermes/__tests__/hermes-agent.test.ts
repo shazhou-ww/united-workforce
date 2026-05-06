@@ -1,19 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { START, type ThreadContext } from "@uncaged/workflow";
-
-import { buildAgentPrompt, createHermesAgent, validateHermesAgentConfig } from "../src/index.js";
-
-function makeCtx(): ThreadContext {
-  return {
-    start: {
-      role: START,
-      content: "plan the migration",
-      meta: { maxRounds: 8 },
-      timestamp: 1,
-    },
-    steps: [],
-  };
-}
+import { createHermesAgent, validateHermesAgentConfig } from "../src/index.js";
 
 describe("validateHermesAgentConfig", () => {
   test("accepts valid config", () => {
@@ -33,14 +19,6 @@ describe("validateHermesAgentConfig", () => {
     if (!r.ok) {
       expect(r.error).toContain("timeout");
     }
-  });
-});
-
-describe("buildAgentPrompt", () => {
-  test("includes system and thread start", () => {
-    const text = buildAgentPrompt(makeCtx(), "You are a planner.");
-    expect(text).toContain("You are a planner.");
-    expect(text).toContain("plan the migration");
   });
 });
 
