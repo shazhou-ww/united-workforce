@@ -1,6 +1,14 @@
-import { type AgentFn, err, ok, type Result, type ThreadContext } from "@uncaged/workflow";
+import {
+  type AgentFn,
+  err,
+  type LlmProvider,
+  ok,
+  type Result,
+  type ThreadContext,
+} from "@uncaged/workflow";
 
-import type { LlmMessage, LlmProvider } from "@uncaged/workflow-util-role";
+/** OpenAI chat completion message shape (passed to `/chat/completions`). */
+export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
 
 export type LlmChatError =
   | { kind: "http_error"; status: number; body: string }
@@ -89,13 +97,13 @@ export async function chatCompletionText(options: {
   return parseAssistantText(res.value);
 }
 
-/** Single-turn chat adapter: system comes from `createRole` prompt; user is the thread start frame. */
+/** Single-turn chat adapter: system prompt comes from {@link ThreadContext.currentRole}. */
 export function createLlmAdapter(provider: LlmProvider): AgentFn {
-  return async (ctx: ThreadContext, systemPrompt: string) => {
+  return async (ctx: ThreadContext) => {
     const result = await chatCompletionText({
       provider,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: ctx.currentRole.systemPrompt },
         { role: "user", content: ctx.start.content },
       ],
     });

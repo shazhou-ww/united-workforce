@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
-import { createRoleModerator } from "../src/create-role-moderator.js";
+import { createWorkflow } from "../src/create-workflow.js";
 import { executeThread } from "../src/engine.js";
 import { createLogger } from "../src/logger.js";
 import { END } from "../src/types.js";
@@ -23,35 +23,46 @@ type DemoMeta = {
   coder: z.infer<typeof coderMetaSchema>;
 };
 
-const demoWorkflow = createRoleModerator<DemoMeta>({
-  roles: {
-    planner: {
-      description: "Demo planner",
-      schema: plannerMetaSchema,
-      run: async () => ({
-        content: "plan-body",
-        meta: { plan: "do-it", files: ["a.ts"] },
-      }),
+const demoExtract = {
+  provider: { baseUrl: "http://127.0.0.1:9", apiKey: "test", model: "test" },
+  dryRun: true,
+} as const;
+
+const demoWorkflow = createWorkflow<DemoMeta>(
+  {
+    roles: {
+      planner: {
+        description: "Demo planner",
+        systemPrompt: "You are a planner.",
+        schema: plannerMetaSchema,
+        dryRunMeta: { plan: "do-it", files: ["a.ts"] },
+      },
+      coder: {
+        description: "Demo coder",
+        systemPrompt: "You are a coder.",
+        schema: coderMetaSchema,
+        dryRunMeta: { diff: "+ok" },
+      },
     },
-    coder: {
-      description: "Demo coder",
-      schema: coderMetaSchema,
-      run: async () => ({
-        content: "code-body",
-        meta: { diff: "+ok" },
-      }),
+    moderator: (ctx) => {
+      if (ctx.steps.length === 0) {
+        return "planner";
+      }
+      if (ctx.steps.length === 1) {
+        return "coder";
+      }
+      return END;
     },
   },
-  moderator: (ctx) => {
-    if (ctx.steps.length === 0) {
-      return "planner";
-    }
-    if (ctx.steps.length === 1) {
-      return "coder";
-    }
-    return END;
+  {
+    agent: async () => "unused",
+    overrides: {
+      planner: async () => "plan-body",
+      coder: async () => "code-body",
+    },
   },
-});
+  demoExtract,
+);
 
 describe("executeThread", () => {
   test("writes RFC-001 `.data.jsonl` start + role records and `.info.jsonl` logs", async () => {

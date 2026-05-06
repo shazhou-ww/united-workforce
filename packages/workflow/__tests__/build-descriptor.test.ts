@@ -19,8 +19,9 @@ describe("buildDescriptor", () => {
       roles: {
         analyst: {
           description: "Analyzes input",
+          systemPrompt: "You are an analyst.",
           schema,
-          run: async () => ({ content: "", meta: { title: "", count: 0 } }),
+          dryRunMeta: { title: "", count: 0 },
         },
       },
       moderator: () => END,

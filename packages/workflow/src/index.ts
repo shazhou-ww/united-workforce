@@ -7,7 +7,7 @@ export {
 } from "./base32.js";
 export { buildDescriptor } from "./build-descriptor.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
-export { createRoleModerator } from "./create-role-moderator.js";
+export { createWorkflow } from "./create-workflow.js";
 export {
   type ExecuteThreadIo,
   type ExecuteThreadOptions,
@@ -15,6 +15,7 @@ export {
   type PrefilledDiskStep,
 } from "./engine.js";
 export { type ExtractedBundleExports, extractBundleExports } from "./extract-bundle-exports.js";
+export { extractMetaOrThrow } from "./extract-meta.js";
 export {
   buildForkPlan,
   type ForkHistoricalStep,
@@ -25,6 +26,12 @@ export {
 } from "./fork-thread.js";
 export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
 export { hashWorkflowBundleBytes } from "./hash.js";
+export {
+  type LlmError,
+  llmErrorToCause,
+  llmExtract,
+  llmExtractWithRetry,
+} from "./llm-extract.js";
 export {
   type CreateLoggerOptions,
   createLogger,
@@ -50,14 +57,15 @@ export { err, ok, type Result } from "./result.js";
 export { getDefaultWorkflowStorageRoot } from "./storage-root.js";
 export { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 export {
+  type AgentBinding,
   type AgentFn,
   END,
+  type ExtractConfig,
+  type LlmProvider,
   type Moderator,
-  type Role,
   type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
-  type RoleResult,
   type RoleStep,
   START,
   type StartStep,

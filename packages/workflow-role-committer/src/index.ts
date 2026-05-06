@@ -1,7 +1,1 @@
-export {
-  type CommitterConfig,
-  type CommitterMeta,
-  committerMetaSchema,
-  createCommitterRole,
-  DEFAULT_COMMITTER_CONFIG,
-} from "./committer.js";
+export { type CommitterMeta, committerMetaSchema, committerRole } from "./committer.js";

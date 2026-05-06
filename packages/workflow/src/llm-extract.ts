@@ -1,5 +1,6 @@
-import { err, ok, type Result } from "@uncaged/workflow";
 import * as z from "zod/v4";
+
+import { err, ok, type Result } from "./result.js";
 import type { LlmProvider } from "./types.js";
 
 export type LlmExtractArgs<T> = {

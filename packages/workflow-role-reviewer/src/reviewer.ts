@@ -1,6 +1,4 @@
-import type { AgentFn, Role } from "@uncaged/workflow";
-import { createRole } from "@uncaged/workflow-agent-llm";
-import type { LlmProvider } from "@uncaged/workflow-util-role";
+import type { RoleDefinition } from "@uncaged/workflow";
 import * as z from "zod/v4";
 
 export const reviewerMetaSchema = z.discriminatedUnion("status", [
@@ -14,45 +12,12 @@ export const reviewerMetaSchema = z.discriminatedUnion("status", [
 ]);
 export type ReviewerMeta = z.infer<typeof reviewerMetaSchema>;
 
-export type ReviewerConfig = {
-  cwd: string;
+const REVIEWER_SYSTEM = `You are a code reviewer. Review the current git diff. Give a clear approve or reject verdict.
+Only reject for blocking issues. End with your verdict.`;
+
+export const reviewerRole: RoleDefinition<ReviewerMeta> = {
+  description: "Runs git diff checks and sets approved when the change is ready.",
+  systemPrompt: REVIEWER_SYSTEM,
+  schema: reviewerMetaSchema,
+  dryRunMeta: { status: "approved" },
 };
-
-export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
-  cwd: ".",
-};
-
-function reviewerPrompt(config: ReviewerConfig): string {
-  const { cwd } = config;
-
-  return `You are a code reviewer. The project is at \`${cwd}\`.
-
-## Task
-
-Review the current git diff in \`${cwd}\`. Give a clear **approve** or **reject** verdict.
-
-Only reject for **blocking issues** — things that must be fixed before merge. Do not mention minor style preferences or non-blocking suggestions; they will be ignored.
-
-End with your verdict — clearly state whether the code is approved or rejected, and if rejected, list the blocking issues.`;
-}
-
-/**
- * Code review role: agent inspects git diffs; structured extract yields approve/reject verdict.
- */
-export function createReviewerRole(
-  adapter: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: ReviewerMeta },
-  config: ReviewerConfig = DEFAULT_REVIEWER_CONFIG,
-): Role<ReviewerMeta> {
-  return createRole({
-    name: "reviewer",
-    schema: reviewerMetaSchema,
-    systemPrompt: reviewerPrompt(config),
-    agent: adapter,
-    extract: {
-      provider: extract.provider,
-      dryRun: extract.dryRun,
-      dryRunMeta: extract.dryRunMeta,
-    },
-  });
-}

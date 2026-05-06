@@ -7,6 +7,13 @@ export const END = "__end__" as const;
 /** Maps role names → their meta types. Single generic drives all inference. */
 export type RoleMeta = Record<string, Record<string, unknown>>;
 
+/** OpenAI-compatible LLM endpoint used for structured meta extraction. */
+export type LlmProvider = {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+};
+
 /** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
 export type RoleOutput = {
   role: string;
@@ -39,12 +46,6 @@ export type WorkflowFn = (
   options: WorkflowFnOptions,
 ) => AsyncGenerator<RoleOutput, WorkflowResult>;
 
-/** Typed output of a Role execution. */
-export type RoleResult<Meta extends Record<string, unknown>> = {
-  content: string;
-  meta: Meta;
-};
-
 /** Engine start frame: initial prompt + thread identity. */
 export type StartStep = {
   role: typeof START;
@@ -58,33 +59,39 @@ export type RoleStep<M extends RoleMeta> = {
   [K in keyof M & string]: { role: K; meta: M[K]; content: string; timestamp: number };
 }[keyof M & string];
 
-/** Thread-scoped context passed to roles and moderator. */
+/** Thread-scoped context passed to agents and moderator. */
 export type ThreadContext<M extends RoleMeta = RoleMeta> = {
   threadId: string;
+  currentRole: {
+    name: string;
+    systemPrompt: string;
+  };
   start: StartStep;
   steps: RoleStep<M>[];
 };
 
-/**
- * A Role — receives full thread context, returns typed content + meta.
- * Implementation can be an agent, LLM call, script, HTTP request, etc.
- */
-export type Role<Meta extends Record<string, unknown>> = (
-  ctx: ThreadContext,
-) => Promise<RoleResult<Meta>>;
+/** Raw string output from an LLM/CLI adapter; meta is extracted by the engine. */
+export type AgentFn = (ctx: ThreadContext) => Promise<string>;
 
-/** Role wiring: runtime {@link Role}, JSON Schema for `meta`, and human-readable description. */
-export type RoleDefinition<Meta extends Record<string, unknown>> = {
-  description: string;
-  run: Role<Meta>;
-  schema: z.ZodType<Meta>;
+/** Runtime agent assignment (optional per-role overrides). */
+export type AgentBinding = {
+  agent: AgentFn;
+  overrides?: Partial<Record<string, AgentFn>>;
 };
 
-/**
- * An Agent — raw string output interface for LLM/CLI adapters.
- * Structured meta is extracted by the role's extract layer.
- */
-export type AgentFn = (ctx: ThreadContext, systemPrompt: string) => Promise<string>;
+/** Structured extraction settings for the workflow engine. */
+export type ExtractConfig = {
+  provider: LlmProvider;
+  dryRun: boolean;
+};
+
+/** Role wiring: prompts, schema, dry-run meta, and human-readable description. */
+export type RoleDefinition<Meta extends Record<string, unknown>> = {
+  description: string;
+  systemPrompt: string;
+  schema: z.ZodType<Meta>;
+  dryRunMeta: Meta;
+};
 
 /**
  * The Moderator — a pure routing function.

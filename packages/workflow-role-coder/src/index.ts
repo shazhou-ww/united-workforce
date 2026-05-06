@@ -1,7 +1,1 @@
-export {
-  type CoderConfig,
-  type CoderMeta,
-  coderMetaSchema,
-  createCoderRole,
-  DEFAULT_CODER_CONFIG,
-} from "./coder.js";
+export { type CoderMeta, coderMetaSchema, coderRole } from "./coder.js";

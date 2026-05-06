@@ -1,20 +1,6 @@
 export {
-  type CreateRoleArgs,
-  createRole,
-  decorateRole,
-  extractMetaOrThrow,
-  type LlmError,
-  type LlmExtractArgs,
+  chatCompletionText,
+  createLlmAdapter,
+  type LlmChatError,
   type LlmMessage,
-  type LlmProvider,
-  llmErrorToCause,
-  llmExtract,
-  llmExtractWithRetry,
-  type MetaExtractConfig,
-  type OnFailOptions,
-  onFail,
-  type RoleDecorator,
-  type WithDryRunOptions,
-  withDryRun,
-} from "@uncaged/workflow-util-role";
-export { chatCompletionText, createLlmAdapter, type LlmChatError } from "./create-llm-adapter.js";
+} from "./create-llm-adapter.js";

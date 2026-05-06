@@ -13,6 +13,7 @@ function makeCtx(userContent: string): ThreadContext {
     },
     steps: [],
     threadId: "01TEST000000000000000000TR",
+    currentRole: { name: "planner", systemPrompt: "system instructions" },
   };
 }
 
@@ -30,7 +31,7 @@ describe("createLlmAdapter", () => {
 
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);
-    const out = await adapter(makeCtx("trigger text"), "system instructions");
+    const out = await adapter(makeCtx("trigger text"));
 
     globalThis.fetch = originalFetch;
 
@@ -49,7 +50,7 @@ describe("createLlmAdapter", () => {
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);
 
-    await expect(adapter(makeCtx("hi"), "sys")).rejects.toThrow("llm:");
+    await expect(adapter(makeCtx("hi"))).rejects.toThrow("llm:");
     globalThis.fetch = originalFetch;
   });
 
@@ -59,7 +60,7 @@ describe("createLlmAdapter", () => {
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);
 
-    await expect(adapter(makeCtx("hi"), "sys")).rejects.toThrow();
+    await expect(adapter(makeCtx("hi"))).rejects.toThrow();
     globalThis.fetch = originalFetch;
   });
 });

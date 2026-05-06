@@ -18,6 +18,7 @@ describe("buildAgentPrompt", () => {
       start: startTask("fix the bug"),
       steps: [],
       threadId: "01TEST000000000000000000TR",
+      currentRole: { name: START, systemPrompt: "" },
     };
     const text = buildAgentPrompt("You are an agent.", ctx);
     expect(text).toContain("You are an agent.");
@@ -30,6 +31,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("user task"),
       threadId: "01TEST000000000000000000TR",
+      currentRole: { name: "coder", systemPrompt: "" },
       steps: [
         {
           role: "coder",
@@ -53,6 +55,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("first message full: task content here"),
       threadId: "01TEST000000000000000000TR",
+      currentRole: { name: "coder", systemPrompt: "" },
       steps: [
         {
           role: "planner",
@@ -85,6 +88,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("start"),
       threadId: "01TEST000000000000000000TR",
+      currentRole: { name: "c", systemPrompt: "" },
       steps: [
         {
           role: "a",

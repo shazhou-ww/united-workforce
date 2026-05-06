@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  type AgentFn,
   END,
   type RoleStep,
   START,
@@ -11,8 +10,8 @@ import {
 import type { PlannerMeta } from "@uncaged/workflow-role-planner";
 
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
-import { solveIssueModerator } from "../src/moderator.js";
-import { createSolveIssueRoles, type SolveIssueMeta } from "../src/roles.js";
+import { createSolveIssueRun, plannerRole, solveIssueModerator } from "../src/index.js";
+import type { SolveIssueMeta } from "../src/roles.js";
 
 const DEFAULT_PHASES: PlannerMeta["phases"] = [
   { name: "phase-a", description: "Do the work", acceptance: "Done" },
@@ -33,6 +32,7 @@ function makeCtx(
 ): ThreadContext<SolveIssueMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
+    currentRole: { name: START, systemPrompt: "" },
     start: makeStart(maxRounds),
     steps,
   };
@@ -75,6 +75,11 @@ function committerStep(): RoleStep<SolveIssueMeta> {
     timestamp: 4,
   };
 }
+
+const stubExtract = {
+  provider: { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
+  dryRun: true,
+} as const;
 
 describe("solveIssueModerator", () => {
   test("routes planner → coder → reviewer → committer → END", () => {
@@ -131,57 +136,53 @@ describe("solveIssueModerator", () => {
   });
 });
 
-describe("createSolveIssueRoles", () => {
-  test("returns all four role callables", async () => {
-    const agent = async () => '{"phases":[{"name":"x","description":"d","acceptance":"a"}]}';
-    const roles = createSolveIssueRoles({
-      agent,
-      workdir: "/tmp/repo",
-      extract: null,
-    });
-
-    expect(typeof roles.planner.run).toBe("function");
-    expect(typeof roles.coder.run).toBe("function");
-    expect(typeof roles.reviewer.run).toBe("function");
-    expect(typeof roles.committer.run).toBe("function");
-
-    const ctx = makeCtx(10, []);
-    const plannerOut = await roles.planner.run(ctx as unknown as ThreadContext);
-    expect(plannerOut.meta.phases).toEqual([
-      { name: "phase-1", description: "placeholder", acceptance: "placeholder" },
-    ]);
+describe("createSolveIssueRun", () => {
+  test("dry-run extraction yields role dryRunMeta for planner", async () => {
+    const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
+    const gen = run(
+      { prompt: "task", steps: [] },
+      { threadId: "01TEST000000000000000000TR", isDryRun: true, maxRounds: 20 },
+    );
+    const first = await gen.next();
+    expect(first.done).toBe(false);
+    if (first.done) {
+      throw new Error("expected yield");
+    }
+    expect(first.value.role).toBe("planner");
+    expect(first.value.meta).toEqual(plannerRole.dryRunMeta);
   });
 
-  test("per-role agents override default agent", async () => {
+  test("per-role agent overrides default", async () => {
     const calls: string[] = [];
-    const tag =
-      (label: string): AgentFn =>
-      async () => {
-        calls.push(label);
-        return "";
-      };
-
-    const roles = createSolveIssueRoles({
-      agent: tag("default"),
-      agents: {
-        planner: tag("planner"),
-        coder: tag("coder"),
+    const run = createSolveIssueRun(
+      {
+        agent: async () => {
+          calls.push("default");
+          return "";
+        },
+        overrides: {
+          planner: async () => {
+            calls.push("planner");
+            return "";
+          },
+          coder: async () => {
+            calls.push("coder");
+            return "";
+          },
+        },
       },
-      workdir: "/tmp/repo",
-      extract: null,
-    });
-
-    const ctx = makeCtx(10, []);
-    await roles.planner.run(ctx as unknown as ThreadContext);
+      stubExtract,
+    );
+    const gen = run(
+      { prompt: "task", steps: [] },
+      { threadId: "01TEST000000000000000000TR", isDryRun: true, maxRounds: 20 },
+    );
+    await gen.next();
     expect(calls).toEqual(["planner"]);
 
     calls.length = 0;
-    await roles.coder.run(ctx as unknown as ThreadContext);
+    await gen.next();
     expect(calls).toEqual(["coder"]);
-
-    calls.length = 0;
-    await roles.reviewer.run(ctx as unknown as ThreadContext);
-    expect(calls).toEqual(["default"]);
   });
 });
 

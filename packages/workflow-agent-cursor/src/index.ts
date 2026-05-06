@@ -37,8 +37,8 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
   const modelFlag = resolveCursorModel(config.model);
   const timeoutMs = config.timeout;
 
-  return async (ctx, systemPrompt) => {
-    const fullPrompt = buildAgentPrompt(systemPrompt, ctx);
+  return async (ctx) => {
+    const fullPrompt = buildAgentPrompt(ctx.currentRole.systemPrompt, ctx);
     const args = [
       "-p",
       fullPrompt,

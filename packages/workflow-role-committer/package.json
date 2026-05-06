@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@uncaged/workflow": "workspace:*",
-    "@uncaged/workflow-util-role": "workspace:*",
     "zod": "^4.0.0"
   }
 }
