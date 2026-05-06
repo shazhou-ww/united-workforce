@@ -26,6 +26,7 @@ export type ThreadInput = {
 
 /** Options passed to a workflow bundle's `run` export (engine-provided). */
 export type WorkflowFnOptions = {
+  threadId: string;
   isDryRun: boolean;
   maxRounds: number;
 };
@@ -57,6 +58,7 @@ export type RoleStep<M extends RoleMeta> = {
 
 /** Thread-scoped context passed to roles and moderator. */
 export type ThreadContext<M extends RoleMeta = RoleMeta> = {
+  threadId: string;
   start: StartStep;
   steps: RoleStep<M>[];
 };

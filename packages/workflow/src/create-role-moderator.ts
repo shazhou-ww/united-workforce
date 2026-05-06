@@ -54,6 +54,7 @@ export function createRoleModerator<M extends RoleMeta>(
       }
 
       const ctx: ThreadContext<M> = {
+        threadId: options.threadId,
         start,
         steps,
       };
