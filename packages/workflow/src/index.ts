@@ -5,6 +5,7 @@ export {
   encodeCrockfordBase32Bits,
   encodeUint64AsCrockford,
 } from "./base32.js";
+export { buildDescriptor } from "./build-descriptor.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
 export { createRoleModerator } from "./create-role-moderator.js";
 export {
@@ -53,6 +54,7 @@ export {
   END,
   type Moderator,
   type Role,
+  type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
   type RoleResult,

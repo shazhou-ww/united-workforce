@@ -13,7 +13,11 @@
     "xxhashjs": "^0.2.2",
     "yaml": "^2.8.4"
   },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
   "devDependencies": {
-    "@types/acorn": "^6.0.4"
+    "@types/acorn": "^6.0.4",
+    "zod": "^4.0.0"
   }
 }

@@ -25,7 +25,7 @@ function makeCtx(
   steps: ThreadContext<SolveIssueMeta>["steps"],
 ): ThreadContext<SolveIssueMeta> {
   return {
-    threadId: "01TEST00000000000000000000",
+    threadId: "01TEST000000000000000000TR",
     start: makeStart(maxRounds),
     steps,
   };
@@ -112,13 +112,13 @@ describe("createSolveIssueRoles", () => {
       extract: null,
     });
 
-    expect(typeof roles.planner).toBe("function");
-    expect(typeof roles.coder).toBe("function");
-    expect(typeof roles.reviewer).toBe("function");
-    expect(typeof roles.committer).toBe("function");
+    expect(typeof roles.planner.run).toBe("function");
+    expect(typeof roles.coder.run).toBe("function");
+    expect(typeof roles.reviewer.run).toBe("function");
+    expect(typeof roles.committer.run).toBe("function");
 
     const ctx = makeCtx(10, []);
-    const plannerOut = await roles.planner(ctx as unknown as ThreadContext);
+    const plannerOut = await roles.planner.run(ctx as unknown as ThreadContext);
     expect(plannerOut.meta.plan).toBe("");
     expect(Array.isArray(plannerOut.meta.files)).toBe(true);
   });

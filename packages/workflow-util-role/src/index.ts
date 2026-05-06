@@ -1,4 +1,3 @@
-export { buildDescriptorFromRoles, type RoleDescriptorInput } from "./build-descriptor.js";
 export { type CreateRoleArgs, createRole } from "./create-role.js";
 export {
   decorateRole,

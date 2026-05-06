@@ -1,5 +1,4 @@
 export {
-  buildDescriptorFromRoles,
   type CreateRoleArgs,
   createRole,
   decorateRole,
@@ -15,7 +14,6 @@ export {
   type OnFailOptions,
   onFail,
   type RoleDecorator,
-  type RoleDescriptorInput,
   type WithDryRunOptions,
   withDryRun,
 } from "@uncaged/workflow-util-role";

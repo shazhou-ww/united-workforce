@@ -42,8 +42,8 @@ function makeCtx(): ThreadContext {
       meta: { maxRounds: 10 },
       timestamp: Date.now(),
     },
-      steps: [],
-      threadId: "01TEST000000000000000000TR",
+    steps: [],
+    threadId: "01TEST000000000000000000TR",
   };
 }
 

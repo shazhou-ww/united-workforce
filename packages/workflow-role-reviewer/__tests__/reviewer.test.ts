@@ -29,7 +29,7 @@ function toolCallResponse(argsJson: string): Response {
 
 function makeCtx(): ThreadContext {
   return {
-    threadId: "01TEST00000000000000000000",
+    threadId: "01TEST000000000000000000TR",
     start: {
       role: START,
       content: "task",
@@ -106,6 +106,6 @@ describe("createReviewerRole", () => {
       { cwd: "/proj" },
     );
     await role(makeCtx());
-    expect(seen).toContain("uncaged-workflow thread 01TEST00000000000000000000");
+    expect(seen).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
   });
 });

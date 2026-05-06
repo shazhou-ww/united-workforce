@@ -1,34 +1,22 @@
-import { committerMetaSchema } from "@uncaged/workflow-role-committer";
-import { reviewerMetaSchema } from "@uncaged/workflow-role-reviewer";
-import { buildDescriptorFromRoles } from "@uncaged/workflow-util-role";
+import { buildDescriptor } from "@uncaged/workflow";
 
-import { coderMetaSchema, plannerMetaSchema } from "./roles.js";
+import { solveIssueModerator } from "./moderator.js";
+import {
+  createSolveIssueRoles,
+  SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
+  type SolveIssueRolesConfig,
+} from "./roles.js";
+
+const BUILD_DESCRIPTOR_CONFIG: SolveIssueRolesConfig = {
+  agent: async () => "",
+  workdir: "/tmp/uncaged-workflow-descriptor-stub",
+  extract: null,
+};
 
 export function buildSolveIssueDescriptor() {
-  return buildDescriptorFromRoles({
-    description:
-      "Plan, implement, review, and commit changes to resolve an issue end-to-end (planner → coder → reviewer → committer).",
-    roles: {
-      planner: {
-        name: "planner",
-        schema: plannerMetaSchema,
-        description: "Analyzes the issue and proposes plan, files, and approach.",
-      },
-      coder: {
-        name: "coder",
-        schema: coderMetaSchema,
-        description: "Implements the planner output and summarizes touched files.",
-      },
-      reviewer: {
-        name: "reviewer",
-        schema: reviewerMetaSchema,
-        description: "Runs git diff checks and sets approved when the change is ready.",
-      },
-      committer: {
-        name: "committer",
-        schema: committerMetaSchema,
-        description: "Creates branch, commits, and pushes when review passes.",
-      },
-    },
+  return buildDescriptor({
+    description: SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
+    roles: createSolveIssueRoles(BUILD_DESCRIPTOR_CONFIG),
+    moderator: solveIssueModerator,
   });
 }

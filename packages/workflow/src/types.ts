@@ -1,3 +1,5 @@
+import type * as z from "zod/v4";
+
 /** Sentinel values for automaton control flow. */
 export const START = "__start__" as const;
 export const END = "__end__" as const;
@@ -71,6 +73,13 @@ export type Role<Meta extends Record<string, unknown>> = (
   ctx: ThreadContext,
 ) => Promise<RoleResult<Meta>>;
 
+/** Role wiring: runtime {@link Role}, JSON Schema for `meta`, and human-readable description. */
+export type RoleDefinition<Meta extends Record<string, unknown>> = {
+  description: string;
+  run: Role<Meta>;
+  schema: z.ZodType<Meta>;
+};
+
 /**
  * An Agent — raw string output interface for LLM/CLI adapters.
  * Structured meta is extracted by the role's extract layer.
@@ -89,6 +98,7 @@ export type Moderator<M extends RoleMeta> = (
 
 /** Complete workflow definition as authored by users. */
 export type WorkflowDefinition<M extends RoleMeta> = {
-  roles: { [K in keyof M & string]: Role<M[K]> };
+  description: string;
+  roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
   moderator: Moderator<M>;
 };

@@ -65,12 +65,12 @@ export function createRoleModerator<M extends RoleMeta>(
         return { returnCode: 0, summary: "completed: moderator returned END" };
       }
 
-      const roleFn = def.roles[next];
-      if (roleFn === undefined) {
+      const roleDef = def.roles[next];
+      if (roleDef === undefined) {
         return { returnCode: 1, summary: `unknown role: ${next}` };
       }
 
-      const result = await roleFn(ctx as unknown as ThreadContext);
+      const result = await roleDef.run(ctx as unknown as ThreadContext);
       const ts = Date.now();
       const step = {
         role: next,

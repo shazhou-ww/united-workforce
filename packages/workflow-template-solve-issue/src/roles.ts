@@ -1,7 +1,15 @@
-import type { AgentFn, Role } from "@uncaged/workflow";
+import type { AgentFn, RoleDefinition } from "@uncaged/workflow";
 import { createRole } from "@uncaged/workflow-agent-llm";
-import { type CommitterMeta, createCommitterRole } from "@uncaged/workflow-role-committer";
-import { createReviewerRole, type ReviewerMeta } from "@uncaged/workflow-role-reviewer";
+import {
+  type CommitterMeta,
+  committerMetaSchema,
+  createCommitterRole,
+} from "@uncaged/workflow-role-committer";
+import {
+  createReviewerRole,
+  type ReviewerMeta,
+  reviewerMetaSchema,
+} from "@uncaged/workflow-role-reviewer";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
@@ -18,6 +26,9 @@ Focus on: root cause, edge cases, and how the implementation will be verified. O
 const CODER_SYSTEM = `You are a **coder**. The previous step produced a plan: read the thread and implement that plan in the repository.
 
 Make focused changes, follow project conventions, and explain what you changed.`;
+
+export const SOLVE_ISSUE_WORKFLOW_DESCRIPTION =
+  "Plan, implement, review, and commit changes to resolve an issue end-to-end (planner → coder → reviewer → committer).";
 
 export const plannerMetaSchema = z.object({
   plan: z.string(),
@@ -80,10 +91,10 @@ function resolveExtract(config: SolveIssueRolesConfig): {
 }
 
 export type SolveIssueRoles = {
-  planner: Role<PlannerMeta>;
-  coder: Role<CoderMeta>;
-  reviewer: Role<ReviewerMeta>;
-  committer: Role<CommitterMeta>;
+  planner: RoleDefinition<PlannerMeta>;
+  coder: RoleDefinition<CoderMeta>;
+  reviewer: RoleDefinition<ReviewerMeta>;
+  committer: RoleDefinition<CommitterMeta>;
 };
 
 export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssueRoles {
@@ -95,7 +106,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     cwd: config.workdir,
   };
 
-  const planner: Role<PlannerMeta> = createRole({
+  const plannerRun = createRole({
     name: "planner",
     schema: plannerMetaSchema,
     systemPrompt: PLANNER_SYSTEM,
@@ -107,7 +118,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     },
   });
 
-  const coder: Role<CoderMeta> = createRole({
+  const coderRun = createRole({
     name: "coder",
     schema: coderMetaSchema,
     systemPrompt: CODER_SYSTEM,
@@ -119,7 +130,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     },
   });
 
-  const reviewer: Role<ReviewerMeta> = createReviewerRole(
+  const reviewerRun = createReviewerRole(
     config.agent,
     {
       provider: extract.provider,
@@ -129,7 +140,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     reviewerConfig,
   );
 
-  const committer: Role<CommitterMeta> = createCommitterRole(
+  const committerRun = createCommitterRole(
     config.agent,
     {
       provider: extract.provider,
@@ -139,5 +150,26 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     committerConfig,
   );
 
-  return { planner, coder, reviewer, committer };
+  return {
+    planner: {
+      description: "Analyzes the issue and proposes plan, files, and approach.",
+      run: plannerRun,
+      schema: plannerMetaSchema,
+    },
+    coder: {
+      description: "Implements the planner output and summarizes touched files.",
+      run: coderRun,
+      schema: coderMetaSchema,
+    },
+    reviewer: {
+      description: "Runs git diff checks and sets approved when the change is ready.",
+      run: reviewerRun,
+      schema: reviewerMetaSchema,
+    },
+    committer: {
+      description: "Creates branch, commits, and pushes when review passes.",
+      run: committerRun,
+      schema: committerMetaSchema,
+    },
+  };
 }

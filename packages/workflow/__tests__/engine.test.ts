@@ -2,27 +2,45 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as z from "zod/v4";
 
 import { createRoleModerator } from "../src/create-role-moderator.js";
 import { executeThread } from "../src/engine.js";
 import { createLogger } from "../src/logger.js";
 import { END } from "../src/types.js";
 
+const plannerMetaSchema = z.object({
+  plan: z.string(),
+  files: z.array(z.string()),
+});
+
+const coderMetaSchema = z.object({
+  diff: z.string(),
+});
+
 type DemoMeta = {
-  planner: Record<string, unknown>;
-  coder: Record<string, unknown>;
+  planner: z.infer<typeof plannerMetaSchema>;
+  coder: z.infer<typeof coderMetaSchema>;
 };
 
 const demoWorkflow = createRoleModerator<DemoMeta>({
   roles: {
-    planner: async () => ({
-      content: "plan-body",
-      meta: { plan: "do-it", files: ["a.ts"] },
-    }),
-    coder: async () => ({
-      content: "code-body",
-      meta: { diff: "+ok" },
-    }),
+    planner: {
+      description: "Demo planner",
+      schema: plannerMetaSchema,
+      run: async () => ({
+        content: "plan-body",
+        meta: { plan: "do-it", files: ["a.ts"] },
+      }),
+    },
+    coder: {
+      description: "Demo coder",
+      schema: coderMetaSchema,
+      run: async () => ({
+        content: "code-body",
+        meta: { diff: "+ok" },
+      }),
+    },
   },
   moderator: (ctx) => {
     if (ctx.steps.length === 0) {
