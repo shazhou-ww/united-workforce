@@ -19,14 +19,63 @@ Monorepo uses **bun workspace**.
 
 ## 2. Workflow Physical Implementation
 
-A **Workflow** is a single-file ESM module that default-exports a function:
+A **Workflow** is a single-file ESM module that default-exports an **AsyncGenerator** function:
 
 ```typescript
+/** What each yield produces — one role's output. */
+type RoleOutput = {
+  role: string;
+  content: string;
+  meta: Record<string, unknown>;
+};
+
+/** What the generator returns when done. */
+type WorkflowResult = {
+  returnCode: number;
+  summary: string;
+};
+
+/** The bundle contract — an AsyncGenerator, not a Promise. */
 type WorkflowFn = (
   prompt: string,
   options: { isDryRun: boolean; maxRounds: number }
-) => Promise<{ returnCode: number; summary: string }>;
+) => AsyncGenerator<RoleOutput, WorkflowResult>;
 ```
+
+### Why AsyncGenerator?
+
+The workflow **yields** each role output instead of writing to an injected writer or
+exporting a framework-specific shape:
+
+```typescript
+// Example bundle — zero framework dependency
+export default async function* (prompt, options) {
+  const plan = await callLLM("plan: " + prompt);
+  yield { role: "planner", content: plan, meta: { files: ["src/auth.ts"] } };
+
+  const code = await callLLM("implement: " + plan);
+  yield { role: "coder", content: code, meta: { diff: "..." } };
+
+  return { returnCode: 0, summary: "Fixed auth bug" };
+}
+```
+
+**Engine controls the loop**, not the bundle:
+- Each `yield` → engine writes to `.data.jsonl`, checks `AbortSignal`, handles pause/resume
+- `return` → engine writes the final result, marks thread complete
+- **Fork** = replay the first N yields from persisted `.data.jsonl`, then resume iteration
+- **Zero injection** — the bundle doesn't import or receive anything from the engine
+
+This follows the **Dependency Inversion Principle**: the engine depends on the
+generator protocol (a language primitive), not on a framework-specific `WorkflowDefinition`.
+Bundles remain pure functions with no coupling to `@uncaged/workflow`.
+
+### Relationship to Role/Moderator Pattern
+
+The Role + Moderator pattern from Section 8 is one **implementation strategy** inside a
+bundle, not the bundle contract itself. A helper like `createRoleModerator(roles, moderator)`
+can produce the AsyncGenerator internally, but simple workflows can yield directly without
+any framework types.
 
 ### Constraints
 
@@ -202,11 +251,32 @@ No concurrency control or timeout settings in the registry — those belong to e
 |---------|-------------|
 | `uncaged-workflow fork <thread-id> [--from-role <role>]` | Fork from a historical thread state |
 
-## 8. Workflow Execution Model: Role, Moderator, Agent
+## 8. Role/Moderator Pattern (Helper, Not Contract)
 
-A workflow is a finite-state automaton driven by three concepts:
+The bundle contract is the AsyncGenerator from Section 2. The Role + Moderator pattern
+below is a **convenience helper** for the common case of multi-role workflows with a
+routing function. It lives in `@uncaged/workflow` as an optional utility.
 
-### Core Types
+### Helper Function
+
+```typescript
+function createRoleModerator<M extends RoleMeta>(
+  def: { roles: { [K in keyof M & string]: Role<M[K]> }; moderator: Moderator<M> }
+): (prompt: string, options: { isDryRun: boolean; maxRounds: number }) => AsyncGenerator<RoleOutput, WorkflowResult>;
+```
+
+Usage in a bundle:
+
+```typescript
+import { createRoleModerator } from "@uncaged/workflow";
+
+export default createRoleModerator({
+  roles: { planner, coder },
+  moderator(ctx) { return ctx.steps.length === 0 ? "planner" : END; },
+});
+```
+
+### Supporting Types
 
 ```typescript
 /** Sentinel values for automaton control flow. */
@@ -267,7 +337,7 @@ type WorkflowDefinition<M extends RoleMeta> = {
 };
 ```
 
-### Execution Flow
+### Execution Flow (when using createRoleModerator)
 
 ```
 START (prompt) → Moderator → Role A → Moderator → Role B → ... → Moderator → END
