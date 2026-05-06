@@ -2,12 +2,12 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-
+import type { PrefilledDiskStep } from "./engine.js";
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { createLogger } from "./logger.js";
 import { err, ok, type Result } from "./result.js";
 import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
-import type { WorkflowFn } from "./types.js";
+import type { RoleOutput, WorkflowFn } from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
 
@@ -17,6 +17,10 @@ type RunCommand = {
   workflowName: string;
   prompt: string;
   options: { isDryRun: boolean; maxRounds: number };
+  steps: RoleOutput[];
+  /** Timestamps aligned with `steps` for `.data.jsonl` replay; length must match `steps` when non-null. */
+  stepTimestamps: number[] | null;
+  forkSourceThreadId: string | null;
 };
 
 type KillCommand = {
@@ -41,6 +45,59 @@ type ThreadHandle = {
   pauseGate: ThreadPauseGate;
 };
 
+function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null {
+  const role = obj.role;
+  const content = obj.content;
+  const meta = obj.meta;
+  if (typeof role !== "string" || typeof content !== "string") {
+    return null;
+  }
+  if (meta === null || typeof meta !== "object") {
+    return null;
+  }
+  return { role, content, meta: meta as Record<string, unknown> };
+}
+
+function parseRunStepsPayload(rec: Record<string, unknown>): {
+  steps: RoleOutput[];
+  stepTimestamps: number[] | null;
+} | null {
+  const raw = rec.steps;
+  if (raw === undefined || raw === null) {
+    return { steps: [], stepTimestamps: null };
+  }
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  const steps: RoleOutput[] = [];
+  const timestamps: number[] = [];
+  let anyTimestamp = false;
+  for (const item of raw) {
+    if (item === null || typeof item !== "object") {
+      return null;
+    }
+    const o = item as Record<string, unknown>;
+    const out = parseRoleOutputRecord(o);
+    if (out === null) {
+      return null;
+    }
+    steps.push(out);
+    const ts = o.timestamp;
+    if (ts === undefined) {
+      timestamps.push(0);
+    } else if (typeof ts === "number") {
+      timestamps.push(ts);
+      anyTimestamp = true;
+    } else {
+      return null;
+    }
+  }
+  return {
+    steps,
+    stepTimestamps: anyTimestamp ? timestamps : null,
+  };
+}
+
 function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null {
   const threadId = rec.threadId;
   const workflowName = rec.workflowName;
@@ -62,12 +119,27 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
   if (typeof isDryRun !== "boolean" || typeof maxRounds !== "number") {
     return null;
   }
+  const parsedSteps = parseRunStepsPayload(rec);
+  if (parsedSteps === null) {
+    return null;
+  }
+  const rawFork = rec.forkSourceThreadId;
+  let forkSourceThreadId: string | null = null;
+  if (rawFork !== undefined && rawFork !== null) {
+    if (typeof rawFork !== "string" || rawFork === "") {
+      return null;
+    }
+    forkSourceThreadId = rawFork;
+  }
   return {
     type: "run",
     threadId,
     workflowName,
     prompt,
     options: { isDryRun, maxRounds },
+    steps: parsedSteps.steps,
+    stepTimestamps: parsedSteps.stepTimestamps,
+    forkSourceThreadId,
   };
 }
 
@@ -305,14 +377,30 @@ async function main(): Promise<void> {
 
       const logger = createLogger({ sink: { kind: "file", path: infoJsonlPath } });
 
+      const baseTs = Date.now();
+      let prefilledDiskSteps: PrefilledDiskStep[] | null = null;
+      if (cmd.steps.length > 0) {
+        prefilledDiskSteps = cmd.steps.map((step, i) => {
+          const ts = cmd.stepTimestamps?.[i];
+          return {
+            role: step.role,
+            content: step.content,
+            meta: step.meta,
+            timestamp: typeof ts === "number" && ts > 0 ? ts : baseTs + i,
+          };
+        });
+      }
+
       await executeThread(
         workflowFn,
         cmd.workflowName,
-        { prompt: cmd.prompt, steps: [] },
+        { prompt: cmd.prompt, steps: cmd.steps },
         {
           ...cmd.options,
           signal: ac.signal,
           awaitAfterEachYield: () => pauseGate.awaitAfterYield(),
+          forkSourceThreadId: cmd.forkSourceThreadId,
+          prefilledDiskSteps,
         },
         io,
         logger,

@@ -11,7 +11,16 @@ export {
   type ExecuteThreadIo,
   type ExecuteThreadOptions,
   executeThread,
+  type PrefilledDiskStep,
 } from "./engine.js";
+export {
+  buildForkPlan,
+  type ForkHistoricalStep,
+  type ForkPlan,
+  type ParsedThreadStartRecord,
+  parseThreadDataJsonl,
+  selectForkHistoricalSteps,
+} from "./fork-thread.js";
 export { hashWorkflowBundleBytes } from "./hash.js";
 export {
   type CreateLoggerOptions,

@@ -8,8 +8,13 @@ import { join } from "node:path";
 import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
 
 const bundleSource = `export default async function* (input) {
-  yield { role: "planner", content: "p", meta: { plan: input.prompt } };
-  yield { role: "coder", content: "c", meta: { diff: "y" } };
+  const has = (r) => input.steps.some((s) => s.role === r);
+  if (!has("planner")) {
+    yield { role: "planner", content: "p", meta: { plan: input.prompt } };
+  }
+  if (!has("coder")) {
+    yield { role: "coder", content: "c", meta: { diff: "y" } };
+  }
   return { returnCode: 0, summary: "completed: moderator returned END" };
 }
 `;
@@ -107,6 +112,69 @@ describe("worker process", () => {
           .split("\n")
           .filter((l) => l !== "").length,
       ).toBe(3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
+
+  test("run with historical steps + forkSourceThreadId replays then continues", async () => {
+    const root = await mkdtemp(join(tmpdir(), "wf-worker-fork-"));
+    try {
+      const hash = "C9NMV6V2TQT81";
+      await mkdir(join(root, "bundles"), { recursive: true });
+      const bundlePath = join(root, "bundles", `${hash}.esm.js`);
+      await writeFile(bundlePath, bundleSource, "utf8");
+
+      const scriptPath = getWorkerHostScriptPath();
+      const child = spawn(process.execPath, [scriptPath, bundlePath, root, hash], {
+        stdio: ["ignore", "pipe", "inherit"],
+      });
+
+      if (child.stdout === null) {
+        throw new Error("missing stdout");
+      }
+
+      const port = await readReadyPort(child);
+
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const srcId = "01SRCMMMMMMMMMMMMMMMMMMMM";
+      await sendJson(port, {
+        type: "run",
+        threadId,
+        workflowName: "demo-flow",
+        prompt: "hello",
+        options: { isDryRun: false, maxRounds: 5 },
+        steps: [
+          {
+            role: "planner",
+            content: "p-old",
+            meta: { plan: "z" },
+            timestamp: 555,
+          },
+        ],
+        forkSourceThreadId: srcId,
+      });
+
+      const exitCode: number = await new Promise((resolve) => {
+        child.on("exit", (code) => resolve(code ?? 1));
+      });
+
+      expect(exitCode).toBe(0);
+
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const text = await readFile(dataPath, "utf8");
+      const lines = text
+        .trim()
+        .split("\n")
+        .filter((l) => l !== "");
+      expect(lines.length).toBe(3);
+      const start = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+      expect(start.forkFrom).toEqual({ threadId: srcId });
+      const replay = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      expect(replay.role).toBe("planner");
+      expect(replay.timestamp).toBe(555);
+      const coder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
+      expect(coder.role).toBe("coder");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -52,7 +52,14 @@ describe("executeThread", () => {
         demoWorkflow,
         "demo-flow",
         { prompt: "Fix the login redirect bug in #3", steps: [] },
-        { isDryRun: false, maxRounds: 5, signal: ac.signal, awaitAfterEachYield: async () => {} },
+        {
+          isDryRun: false,
+          maxRounds: 5,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
+        },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
       );
@@ -115,6 +122,7 @@ describe("executeThread", () => {
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
 
+      const histTs = 9_000_000;
       const result = await executeThread(
         demoWorkflow,
         "demo-flow",
@@ -128,7 +136,21 @@ describe("executeThread", () => {
             },
           ],
         },
-        { isDryRun: false, maxRounds: 5, signal: ac.signal, awaitAfterEachYield: async () => {} },
+        {
+          isDryRun: false,
+          maxRounds: 5,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: "01SRC1111111111111111111",
+          prefilledDiskSteps: [
+            {
+              role: "planner",
+              content: "plan-body",
+              meta: { plan: "do-it", files: ["a.ts"] },
+              timestamp: histTs,
+            },
+          ],
+        },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
       );
@@ -140,9 +162,16 @@ describe("executeThread", () => {
         .trim()
         .split("\n")
         .filter((l) => l !== "");
-      expect(lines.length).toBe(2);
+      expect(lines.length).toBe(3);
 
-      const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      const start = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+      expect(start.forkFrom).toEqual({ threadId: "01SRC1111111111111111111" });
+
+      const role0 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      expect(role0.role).toBe("planner");
+      expect(role0.timestamp).toBe(histTs);
+
+      const role1 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("coder");
       expect(role1.content).toBe("code-body");
     } finally {
@@ -171,6 +200,8 @@ describe("executeThread", () => {
           maxRounds: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,

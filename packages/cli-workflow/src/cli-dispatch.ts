@@ -1,5 +1,6 @@
 import { printCliError, printCliLine } from "./cli-output.js";
 import { cmdAdd, formatAddSuccess } from "./cmd-add.js";
+import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdKill } from "./cmd-kill.js";
 import { cmdList, formatListLines } from "./cmd-list.js";
@@ -31,6 +32,7 @@ function usage(): string {
     "  uncaged-workflow threads [name]",
     "  uncaged-workflow thread <id>",
     "  uncaged-workflow thread rm <id>",
+    "  uncaged-workflow fork <thread-id> [--from-role <role>]",
   ].join("\n");
 }
 
@@ -258,6 +260,21 @@ async function dispatchThreadBranch(storageRoot: string, rest: string[]): Promis
   return dispatchThread(storageRoot, rest);
 }
 
+async function dispatchFork(storageRoot: string, argv: string[]): Promise<number> {
+  const parsed = parseForkArgv(argv);
+  if (!parsed.ok) {
+    printCliError(`${usage()}\n\nerror: ${parsed.error}`);
+    return 1;
+  }
+  const result = await cmdFork(storageRoot, parsed.value.threadId, parsed.value.fromRole);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(result.value.threadId);
+  return 0;
+}
+
 type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
 
 const COMMAND_TABLE: Record<string, DispatchFn> = {
@@ -274,6 +291,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   resume: dispatchResume,
   threads: dispatchThreads,
   thread: dispatchThreadBranch,
+  fork: dispatchFork,
 };
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
