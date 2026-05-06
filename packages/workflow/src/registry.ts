@@ -3,22 +3,19 @@ import { dirname, join } from "node:path";
 
 import { parseDocument, stringify } from "yaml";
 
+import { normalizeWorkflowRegistryRoot } from "./registry-normalize.js";
+import type {
+  WorkflowHistoryEntry,
+  WorkflowRegistryEntry,
+  WorkflowRegistryFile,
+} from "./registry-types.js";
 import { err, ok, type Result } from "./result.js";
 
-export type WorkflowHistoryEntry = {
-  hash: string;
-  timestamp: number;
-};
-
-export type WorkflowRegistryEntry = {
-  hash: string;
-  timestamp: number;
-  history: WorkflowHistoryEntry[];
-};
-
-export type WorkflowRegistryFile = {
-  workflows: Record<string, WorkflowRegistryEntry>;
-};
+export type {
+  WorkflowHistoryEntry,
+  WorkflowRegistryEntry,
+  WorkflowRegistryFile,
+} from "./registry-types.js";
 
 export function workflowRegistryPath(storageRoot: string): string {
   return join(storageRoot, "workflow.yaml");
@@ -26,50 +23,6 @@ export function workflowRegistryPath(storageRoot: string): string {
 
 function emptyRegistry(): WorkflowRegistryFile {
   return { workflows: {} };
-}
-
-function normalizeRegistry(raw: unknown): Result<WorkflowRegistryFile, Error> {
-  if (raw === null || typeof raw !== "object") {
-    return err(new Error("registry root must be a mapping"));
-  }
-  const root = raw as Record<string, unknown>;
-  const workflowsRaw = root.workflows;
-  if (workflowsRaw === null || workflowsRaw === undefined || typeof workflowsRaw !== "object") {
-    return err(new Error('registry must contain a "workflows" mapping'));
-  }
-  const workflows: Record<string, WorkflowRegistryEntry> = {};
-  for (const [name, entryRaw] of Object.entries(workflowsRaw)) {
-    if (entryRaw === null || typeof entryRaw !== "object") {
-      return err(new Error(`workflow "${name}" must be a mapping`));
-    }
-    const e = entryRaw as Record<string, unknown>;
-    const hash = e.hash;
-    const timestamp = e.timestamp;
-    const historyRaw = e.history;
-    if (typeof hash !== "string") {
-      return err(new Error(`workflow "${name}" must have a string hash`));
-    }
-    if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
-      return err(new Error(`workflow "${name}" must have a finite numeric timestamp`));
-    }
-    if (!Array.isArray(historyRaw)) {
-      return err(new Error(`workflow "${name}" must have a history array`));
-    }
-    const history: WorkflowHistoryEntry[] = [];
-    for (let i = 0; i < historyRaw.length; i++) {
-      const h = historyRaw[i];
-      if (h === null || typeof h !== "object") {
-        return err(new Error(`workflow "${name}" history[${i}] must be a mapping`));
-      }
-      const he = h as Record<string, unknown>;
-      if (typeof he.hash !== "string" || typeof he.timestamp !== "number" || !Number.isFinite(he.timestamp)) {
-        return err(new Error(`workflow "${name}" history[${i}] must have hash and timestamp`));
-      }
-      history.push({ hash: he.hash, timestamp: he.timestamp });
-    }
-    workflows[name] = { hash, timestamp, history };
-  }
-  return ok({ workflows });
 }
 
 export function parseWorkflowRegistryYaml(text: string): Result<WorkflowRegistryFile, Error> {
@@ -82,14 +35,16 @@ export function parseWorkflowRegistryYaml(text: string): Result<WorkflowRegistry
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));
   }
-  return normalizeRegistry(doc);
+  return normalizeWorkflowRegistryRoot(doc);
 }
 
 export function stringifyWorkflowRegistryYaml(registry: WorkflowRegistryFile): string {
-  return `${stringify(registry, { indent: 2 })}\n`;
+  return `${stringify(registry, { indent: 2, defaultStringType: "QUOTE_DOUBLE" })}\n`;
 }
 
-export async function readWorkflowRegistry(storageRoot: string): Promise<Result<WorkflowRegistryFile, Error>> {
+export async function readWorkflowRegistry(
+  storageRoot: string,
+): Promise<Result<WorkflowRegistryFile, Error>> {
   const path = workflowRegistryPath(storageRoot);
   let text: string;
   try {

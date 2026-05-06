@@ -6,10 +6,15 @@ export {
   encodeUint64AsCrockford,
 } from "./base32.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
+export {
+  type ExecuteThreadIo,
+  type ExecuteThreadOptions,
+  executeThread,
+} from "./engine.js";
 export { hashWorkflowBundleBytes } from "./hash.js";
 export {
-  createLogger,
   type CreateLoggerOptions,
+  createLogger,
   type LogFn,
   type LoggerSink,
 } from "./logger.js";
@@ -21,12 +26,26 @@ export {
   registerWorkflowVersion,
   stringifyWorkflowRegistryYaml,
   unregisterWorkflow,
-  workflowRegistryPath,
-  writeWorkflowRegistry,
   type WorkflowHistoryEntry,
   type WorkflowRegistryEntry,
   type WorkflowRegistryFile,
+  workflowRegistryPath,
+  writeWorkflowRegistry,
 } from "./registry.js";
 export { err, ok, type Result } from "./result.js";
 export { getDefaultWorkflowStorageRoot } from "./storage-root.js";
+export {
+  type AgentFn,
+  END,
+  type Moderator,
+  type Role,
+  type RoleMeta,
+  type RoleResult,
+  type RoleStep,
+  START,
+  type StartStep,
+  type ThreadContext,
+  type WorkflowDefinition,
+} from "./types.js";
 export { generateUlid } from "./ulid.js";
+export { getWorkerHostScriptPath } from "./worker-entry-path.js";

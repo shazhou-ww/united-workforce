@@ -1,11 +1,9 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
   "files": {
-    "ignore": ["**/dist/**", "**/node_modules/**"]
+    "includes": ["**", "!**/dist", "!**/node_modules"]
   },
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2,
@@ -19,7 +17,7 @@
   },
   "overrides": [
     {
-      "include": ["**/__tests__/**"],
+      "includes": ["**/__tests__/**"],
       "linter": {
         "rules": {
           "suspicious": {
@@ -27,6 +25,16 @@
           },
           "style": {
             "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.d.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
           }
         }
       }
@@ -43,7 +51,6 @@
         "noParameterProperties": "error",
         "useImportType": "error",
         "useShorthandFunctionType": "error",
-        "noVar": "error",
         "useConst": "error",
         "useEnumInitializers": "error"
       },
@@ -60,15 +67,15 @@
         }
       },
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noVar": "error",
+        "noConsole": "error"
       },
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error"
       },
-      "nursery": {
-        "noConsole": "error"
-      }
+      "nursery": {}
     }
   }
 }

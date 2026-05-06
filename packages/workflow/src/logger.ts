@@ -1,6 +1,10 @@
 import { appendFileSync } from "node:fs";
 
+import { CROCKFORD_BASE32_ALPHABET } from "./base32.js";
+
 const TAG_LENGTH = 8;
+
+const TAG_CHAR_SET: ReadonlySet<string> = new Set(CROCKFORD_BASE32_ALPHABET.split(""));
 
 function assertValidLogTag(tag: string): void {
   if (tag.length !== TAG_LENGTH) {
@@ -12,15 +16,13 @@ function assertValidLogTag(tag: string): void {
       throw new Error("log tag validation failed");
     }
     const upper = ch.toUpperCase();
-    if (!/[0-9A-HJKMNP-TV-Z]/.test(upper)) {
+    if (!TAG_CHAR_SET.has(upper)) {
       throw new Error(`invalid Crockford Base32 character in log tag: ${ch}`);
     }
   }
 }
 
-export type LoggerSink =
-  | { kind: "stderr" }
-  | { kind: "file"; path: string };
+export type LoggerSink = { kind: "stderr" } | { kind: "file"; path: string };
 
 export type CreateLoggerOptions = {
   sink: LoggerSink;
@@ -33,12 +35,11 @@ export function createLogger(options: CreateLoggerOptions): LogFn {
   if (options.sink.kind === "stderr") {
     return (tag: string, content: string) => {
       assertValidLogTag(tag);
-      const line =
-        `${JSON.stringify({
-          tag: tag.toUpperCase(),
-          content,
-          timestamp: Date.now(),
-        })}\n`;
+      const line = `${JSON.stringify({
+        tag: tag.toUpperCase(),
+        content,
+        timestamp: Date.now(),
+      })}\n`;
       process.stderr.write(line);
     };
   }
@@ -46,12 +47,11 @@ export function createLogger(options: CreateLoggerOptions): LogFn {
   const filePath = options.sink.path;
   return (tag: string, content: string) => {
     assertValidLogTag(tag);
-    const line =
-      `${JSON.stringify({
-        tag: tag.toUpperCase(),
-        content,
-        timestamp: Date.now(),
-      })}\n`;
+    const line = `${JSON.stringify({
+      tag: tag.toUpperCase(),
+      content,
+      timestamp: Date.now(),
+    })}\n`;
     appendFileSync(filePath, line, "utf8");
   };
 }

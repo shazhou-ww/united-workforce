@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "./result.js";
 
-/** Crockford Base32 alphabet (no I, L, O, U). */
-export const CROCKFORD_BASE32_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXZ";
+/** Crockford Base32 alphabet (no I, L, O, U) — exactly 32 symbols. */
+export const CROCKFORD_BASE32_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 const DECODE_MAP: Record<string, number> = (() => {
   const map: Record<string, number> = {};
@@ -31,13 +31,16 @@ export function encodeCrockfordBase32Bits(value: bigint, bitLength: number): str
   let result = "";
   for (let i = 0; i < charCount; i++) {
     const shift = totalBits - 5 * (i + 1);
-    const quintet = Number((shifted >> BigInt(shift)) & 0x1fn);
+    const quintet = Number((shifted >> BigInt(shift)) & 31n);
     result += CROCKFORD_BASE32_ALPHABET[quintet];
   }
   return result;
 }
 
-export function decodeCrockfordBase32Bits(encoded: string, bitLength: number): Result<bigint, Error> {
+export function decodeCrockfordBase32Bits(
+  encoded: string,
+  bitLength: number,
+): Result<bigint, Error> {
   if (bitLength <= 0) {
     return err(new Error("bitLength must be positive"));
   }
@@ -57,7 +60,7 @@ export function decodeCrockfordBase32Bits(encoded: string, bitLength: number): R
     if (val === undefined) {
       return err(new Error(`invalid Crockford Base32 character: ${ch}`));
     }
-    shifted = (shifted << 5n) | BigInt(val);
+    shifted = (shifted << 5n) | BigInt(val & 31);
   }
   return ok(shifted >> BigInt(padBits));
 }

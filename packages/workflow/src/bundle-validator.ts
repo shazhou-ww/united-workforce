@@ -1,7 +1,13 @@
 import { isBuiltin } from "node:module";
-
+import type {
+  CallExpression,
+  ExportAllDeclaration,
+  ExportNamedDeclaration,
+  ImportDeclaration,
+  Node,
+  Program,
+} from "acorn";
 import * as acorn from "acorn";
-import type { Node, Program } from "acorn";
 
 import { err, ok, type Result } from "./result.js";
 
@@ -26,22 +32,36 @@ function isAllowedImportSpecifier(spec: string): boolean {
   return isBuiltin(spec);
 }
 
-function walk(node: Node, visit: (n: Node) => void): void {
-  visit(node);
+function pushNestedAstNodes(value: unknown, out: Node[]): void {
+  if (value === null || value === undefined) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (item !== null && typeof item === "object" && "type" in item) {
+        out.push(item as Node);
+      }
+    }
+    return;
+  }
+  if (typeof value === "object" && "type" in value) {
+    out.push(value as Node);
+  }
+}
+
+function collectChildNodes(node: Node): Node[] {
+  const children: Node[] = [];
   for (const key of Object.keys(node)) {
     const val = (node as Record<string, unknown>)[key];
-    if (val === null || val === undefined) {
-      continue;
-    }
-    if (Array.isArray(val)) {
-      for (const item of val) {
-        if (item !== null && typeof item === "object" && "type" in item) {
-          walk(item as Node, visit);
-        }
-      }
-    } else if (typeof val === "object" && "type" in val) {
-      walk(val as Node, visit);
-    }
+    pushNestedAstNodes(val, children);
+  }
+  return children;
+}
+
+function walkAst(node: Node, visit: (n: Node) => void): void {
+  visit(node);
+  for (const child of collectChildNodes(node)) {
+    walkAst(child, visit);
   }
 }
 
@@ -52,6 +72,85 @@ function programHasDefaultExport(body: readonly Node[]): boolean {
     }
   }
   return false;
+}
+
+function stringLiteralModuleSpecifier(src: Node): string | null {
+  if (src.type !== "Literal" || typeof src.value !== "string") {
+    return null;
+  }
+  return src.value;
+}
+
+function validateImportDeclaration(node: ImportDeclaration): string | null {
+  const spec = stringLiteralModuleSpecifier(node.source);
+  if (spec === null) {
+    return "only static string import specifiers are allowed";
+  }
+  if (!isAllowedImportSpecifier(spec)) {
+    return `disallowed import specifier "${spec}" (only Node built-ins are allowed)`;
+  }
+  return null;
+}
+
+function validateExportSource(
+  src: Node,
+  staticMessage: string,
+  disallowedPrefix: string,
+): string | null {
+  const spec = stringLiteralModuleSpecifier(src);
+  if (spec === null) {
+    return staticMessage;
+  }
+  if (!isAllowedImportSpecifier(spec)) {
+    return `${disallowedPrefix} "${spec}" (only Node built-ins are allowed)`;
+  }
+  return null;
+}
+
+function validateExportNamedDeclaration(node: ExportNamedDeclaration): string | null {
+  if (node.source === null || node.source === undefined) {
+    return null;
+  }
+  return validateExportSource(
+    node.source,
+    "only static string re-export specifiers are allowed",
+    "disallowed re-export specifier",
+  );
+}
+
+function validateExportAllDeclaration(node: ExportAllDeclaration): string | null {
+  return validateExportSource(
+    node.source,
+    "only static string export-all specifiers are allowed",
+    "disallowed export-all specifier",
+  );
+}
+
+function validateRequireCall(node: CallExpression): string | null {
+  const callee = node.callee;
+  if (callee.type === "Identifier" && callee.name === "require") {
+    return "require() is not allowed in workflow bundles";
+  }
+  return null;
+}
+
+function bundleConstraintViolationForNode(node: Node): string | null {
+  if (node.type === "ImportExpression") {
+    return "dynamic import() is not allowed in workflow bundles";
+  }
+  if (node.type === "ImportDeclaration") {
+    return validateImportDeclaration(node);
+  }
+  if (node.type === "ExportNamedDeclaration") {
+    return validateExportNamedDeclaration(node);
+  }
+  if (node.type === "ExportAllDeclaration") {
+    return validateExportAllDeclaration(node);
+  }
+  if (node.type === "CallExpression") {
+    return validateRequireCall(node);
+  }
+  return null;
 }
 
 /**
@@ -84,58 +183,19 @@ export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Re
     return err("workflow bundle must have a default export");
   }
 
-  let walkError: string | null = null;
-  walk(ast, (n) => {
-    if (walkError !== null) {
+  let violation: string | null = null;
+  walkAst(ast, (node) => {
+    if (violation !== null) {
       return;
     }
-    if (n.type === "ImportExpression") {
-      walkError = "dynamic import() is not allowed in workflow bundles";
-      return;
-    }
-    if (n.type === "ImportDeclaration") {
-      const src = n.source;
-      if (src.type !== "Literal" || typeof src.value !== "string") {
-        walkError = "only static string import specifiers are allowed";
-        return;
-      }
-      if (!isAllowedImportSpecifier(src.value)) {
-        walkError = `disallowed import specifier "${src.value}" (only Node built-ins are allowed)`;
-      }
-      return;
-    }
-    if (n.type === "ExportNamedDeclaration" && n.source !== null && n.source !== undefined) {
-      const src = n.source;
-      if (src.type !== "Literal" || typeof src.value !== "string") {
-        walkError = "only static string re-export specifiers are allowed";
-        return;
-      }
-      if (!isAllowedImportSpecifier(src.value)) {
-        walkError = `disallowed re-export specifier "${src.value}" (only Node built-ins are allowed)`;
-      }
-      return;
-    }
-    if (n.type === "ExportAllDeclaration") {
-      const src = n.source;
-      if (src.type !== "Literal" || typeof src.value !== "string") {
-        walkError = "only static string export-all specifiers are allowed";
-        return;
-      }
-      if (!isAllowedImportSpecifier(src.value)) {
-        walkError = `disallowed export-all specifier "${src.value}" (only Node built-ins are allowed)`;
-      }
-      return;
-    }
-    if (n.type === "CallExpression") {
-      const c = n.callee;
-      if (c.type === "Identifier" && c.name === "require") {
-        walkError = "require() is not allowed in workflow bundles";
-      }
+    const next = bundleConstraintViolationForNode(node);
+    if (next !== null) {
+      violation = next;
     }
   });
 
-  if (walkError !== null) {
-    return err(walkError);
+  if (violation !== null) {
+    return err(violation);
   }
 
   return ok(undefined);
