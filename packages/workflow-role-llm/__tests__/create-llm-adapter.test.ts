@@ -19,13 +19,13 @@ describe("createLlmAdapter", () => {
   const originalFetch = globalThis.fetch;
 
   test("posts system + user (start.content) and returns assistant text", async () => {
-    globalThis.fetch = () =>
+    globalThis.fetch = (() =>
       Promise.resolve(
         new Response(JSON.stringify({ choices: [{ message: { content: "model reply" } }] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
-      );
+      )) as unknown as typeof fetch;
 
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);
@@ -37,13 +37,13 @@ describe("createLlmAdapter", () => {
   });
 
   test("throws on non-ok fetch response", async () => {
-    globalThis.fetch = () =>
+    globalThis.fetch = (() =>
       Promise.resolve(
         new Response("Internal Server Error", {
           status: 500,
           headers: { "Content-Type": "text/plain" },
         }),
-      );
+      )) as unknown as typeof fetch;
 
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);
@@ -53,7 +53,7 @@ describe("createLlmAdapter", () => {
   });
 
   test("throws on fetch network failure", async () => {
-    globalThis.fetch = () => Promise.reject(new Error("ECONNREFUSED"));
+    globalThis.fetch = (() => Promise.reject(new Error("ECONNREFUSED"))) as unknown as typeof fetch;
 
     const provider = { baseUrl: "https://api.example/v1", apiKey: "k", model: "m" };
     const adapter = createLlmAdapter(provider);

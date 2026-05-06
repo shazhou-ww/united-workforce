@@ -55,7 +55,8 @@ describe("createRole", () => {
   });
 
   test("runs AgentFn then structured extract", async () => {
-    globalThis.fetch = () => Promise.resolve(toolCallResponse(JSON.stringify({ n: 3 })));
+    globalThis.fetch = (() =>
+      Promise.resolve(toolCallResponse(JSON.stringify({ n: 3 })))) as unknown as typeof fetch;
 
     const schema = z.object({ n: z.number() });
     const agent: AgentFn = async (_ctx, prompt) => prompt;
@@ -73,7 +74,8 @@ describe("createRole", () => {
   });
 
   test("passes ThreadContext to AgentFn", async () => {
-    globalThis.fetch = () => Promise.resolve(toolCallResponse(JSON.stringify({ n: 0 })));
+    globalThis.fetch = (() =>
+      Promise.resolve(toolCallResponse(JSON.stringify({ n: 0 })))) as unknown as typeof fetch;
 
     const seen: ThreadContext[] = [];
     const agent: AgentFn = async (ctx, _prompt) => {
@@ -94,7 +96,8 @@ describe("createRole", () => {
   });
 
   test("resolves dynamic systemPrompt functions before AgentFn", async () => {
-    globalThis.fetch = () => Promise.resolve(toolCallResponse(JSON.stringify({ n: 99 })));
+    globalThis.fetch = (() =>
+      Promise.resolve(toolCallResponse(JSON.stringify({ n: 99 })))) as unknown as typeof fetch;
 
     const schema = z.object({ n: z.number() });
     const agent: AgentFn = async (_ctx, prompt) => prompt;

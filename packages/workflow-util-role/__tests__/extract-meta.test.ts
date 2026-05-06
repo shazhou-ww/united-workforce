@@ -14,10 +14,10 @@ describe("extractMetaOrThrow", () => {
 
   test("dryRun returns dryRunMeta without calling fetch", async () => {
     let calls = 0;
-    globalThis.fetch = () => {
+    globalThis.fetch = (() => {
       calls += 1;
       return Promise.resolve(new Response("{}", { status: 200 }));
-    };
+    }) as unknown as typeof fetch;
 
     const schema = z.object({ n: z.number() });
     const out = await extractMetaOrThrow("r", "raw", schema, {
@@ -33,7 +33,7 @@ describe("extractMetaOrThrow", () => {
   });
 
   test("throws when extraction fails after retry", async () => {
-    globalThis.fetch = () =>
+    globalThis.fetch = (() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -49,7 +49,7 @@ describe("extractMetaOrThrow", () => {
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
-      );
+      )) as unknown as typeof fetch;
 
     const schema = z.object({ n: z.number() });
 
@@ -61,7 +61,7 @@ describe("extractMetaOrThrow", () => {
   });
 
   test("returns validated meta on successful tool call", async () => {
-    globalThis.fetch = () =>
+    globalThis.fetch = (() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -82,7 +82,7 @@ describe("extractMetaOrThrow", () => {
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
-      );
+      )) as unknown as typeof fetch;
 
     const schema = z.object({
       branch: z.string(),

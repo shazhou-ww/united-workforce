@@ -17,7 +17,7 @@ describe("llmExtract", () => {
     let capturedUrl: string | null = null;
     let capturedInit: RequestInit | null = null;
 
-    globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((input: Request | string | URL, init?: RequestInit) => {
       capturedUrl = typeof input === "string" ? input : input.toString();
       capturedInit = init ?? null;
       return Promise.resolve(
@@ -44,7 +44,7 @@ describe("llmExtract", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
       );
-    };
+    }) as unknown as typeof fetch;
 
     const result = await llmExtract({
       text: "some plan",
@@ -66,13 +66,13 @@ describe("llmExtract", () => {
     }
     expect(result.value).toEqual({ name: "cpu-usage", description: "CPU load" });
 
-    expect(capturedUrl).toBe("https://example.com/v1/chat/completions");
-    expect(capturedInit?.method).toBe("POST");
-    expect(capturedInit?.headers).toMatchObject({
+    expect(capturedUrl!).toBe("https://example.com/v1/chat/completions");
+    expect(capturedInit!.method).toBe("POST");
+    expect(capturedInit!.headers).toMatchObject({
       Authorization: "Bearer k",
       "Content-Type": "application/json",
     });
-    const body = JSON.parse(capturedInit?.body as string) as {
+    const body = JSON.parse(capturedInit!.body as string) as {
       model: string;
       tool_choice: { function: { name: string } };
     };
@@ -83,7 +83,7 @@ describe("llmExtract", () => {
   test("returns schema_validation_failed when arguments do not match the schema", async () => {
     const schema = z.object({ n: z.number() });
 
-    globalThis.fetch = () =>
+    globalThis.fetch = (() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -99,7 +99,7 @@ describe("llmExtract", () => {
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
-      );
+      )) as unknown as typeof fetch;
 
     const result = await llmExtract({
       text: "x",
@@ -120,10 +120,10 @@ describe("llmExtract", () => {
 
   test("dryRun skips fetch and returns dryRunMeta", async () => {
     let calls = 0;
-    globalThis.fetch = () => {
+    globalThis.fetch = (() => {
       calls += 1;
       return Promise.resolve(new Response("{}", { status: 200 }));
-    };
+    }) as unknown as typeof fetch;
 
     const schema = z.object({ n: z.number() });
     const result = await llmExtract({

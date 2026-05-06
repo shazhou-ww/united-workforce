@@ -50,7 +50,10 @@ describe("createReviewerRole", () => {
   });
 
   test("runs reviewer extract", async () => {
-    globalThis.fetch = () => Promise.resolve(toolCallResponse(JSON.stringify({ approved: true })));
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        toolCallResponse(JSON.stringify({ approved: true })),
+      )) as unknown as typeof fetch;
 
     const agent: AgentFn = async (_ctx, prompt) => {
       expect(prompt).toContain("git diff");
@@ -68,7 +71,10 @@ describe("createReviewerRole", () => {
   });
 
   test("includes uncaged-workflow thread hint when threadId set", async () => {
-    globalThis.fetch = () => Promise.resolve(toolCallResponse(JSON.stringify({ approved: false })));
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        toolCallResponse(JSON.stringify({ approved: false })),
+      )) as unknown as typeof fetch;
 
     let seen = "";
     const agent: AgentFn = async (_ctx, prompt) => {
