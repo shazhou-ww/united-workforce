@@ -1,0 +1,16 @@
+{
+  "name": "@uncaged/workflow-role-committer",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-role-llm": "workspace:*",
+    "zod": "^4.0.0"
+  }
+}
