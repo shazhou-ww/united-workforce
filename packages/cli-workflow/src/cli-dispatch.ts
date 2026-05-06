@@ -1,6 +1,5 @@
-import { parseAddArgv } from "./add-argv.js";
 import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
-import { cmdAdd, formatAddSuccess } from "./cmd-add.js";
+import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdKill } from "./cmd-kill.js";
@@ -19,7 +18,7 @@ import { parseRunArgv } from "./run-argv.js";
 function usage(): string {
   return [
     "Usage:",
-    "  uncaged-workflow add <name> <file> [--descriptor <path>] [--types <path>]",
+    "  uncaged-workflow add <name> <file.esm.js> [--types <path>]",
     "  uncaged-workflow list",
     "  uncaged-workflow show <name>",
     "  uncaged-workflow remove <name>",

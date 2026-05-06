@@ -8,7 +8,7 @@ export type WorkflowRoleDescriptor = {
   schema: WorkflowRoleSchema;
 };
 
-/** Workflow metadata exported as `export const descriptor` from TypeScript sources. */
+/** Workflow metadata exported as `export const descriptor` from `.esm.js` bundles. */
 export type WorkflowDescriptor = {
   description: string;
   roles: Record<string, WorkflowRoleDescriptor>;

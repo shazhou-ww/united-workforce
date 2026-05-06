@@ -19,7 +19,7 @@ Monorepo uses **bun workspace**.
 
 ## 2. Workflow Physical Implementation
 
-A **Workflow** is a single-file ESM module that default-exports an **AsyncGenerator** function:
+A **Workflow** is a single-file ESM module that **named-exports** an **AsyncGenerator** function as `run` and workflow metadata as `descriptor`:
 
 ```typescript
 /** What each yield produces — one role's output. */
@@ -54,8 +54,22 @@ The workflow **yields** each role output instead of writing to an injected write
 exporting a framework-specific shape:
 
 ```typescript
-// Example bundle — zero framework dependency
-export default async function* (input, options) {
+// Example bundle — zero framework dependency (named exports only)
+export const descriptor = {
+  description: "Fix auth bug",
+  roles: {
+    planner: {
+      description: "Plans the fix",
+      schema: { type: "object", properties: { files: { type: "array", items: { type: "string" } } } },
+    },
+    coder: {
+      description: "Implements the plan",
+      schema: { type: "object", properties: { diff: { type: "string" } } },
+    },
+  },
+};
+
+export const run = async function* (input, options) {
   const plan = await callLLM("plan: " + input.prompt);
   yield { role: "planner", content: plan, meta: { files: ["src/auth.ts"] } };
 
@@ -63,7 +77,7 @@ export default async function* (input, options) {
   yield { role: "coder", content: code, meta: { diff: "..." } };
 
   return { returnCode: 0, summary: "Fixed auth bug" };
-}
+};
 ```
 
 **Engine controls the loop**, not the bundle:
@@ -104,14 +118,20 @@ any framework types.
 ### Constraints
 
 - Single `.esm.js` file
+- Named exports `run` (callable AsyncGenerator workflow) and `descriptor` (metadata object)
+- No default export
 - No dynamic `import()`
 - All static imports must be Node built-in modules only
 
 This guarantees the file is self-contained, and its **XXH64 hash** (encoded as Crockford Base32) serves as a globally unique version identifier.
 
-### Role Descriptor (Optional)
+### Role Descriptor (`export const descriptor`)
 
-A YAML file alongside the bundle describes roles for tooling/agent consumption:
+The bundle **must** export a `descriptor` object describing roles for tooling/agent consumption.
+
+Shape: `{ description: string, roles: Record<string, { description: string, schema: JSONSchema }> }`
+
+When you register a bundle via `uncaged-workflow add`, the engine imports the module, validates `descriptor`, and writes `{hash}.yaml` next to `{hash}.esm.js` under `bundles/` (same serialized shape as below):
 
 ```yaml
 description: "Workflow brief introduction"
@@ -136,9 +156,7 @@ roles:
           type: string
 ```
 
-Format: `{ description: string, roles: Record<string, { description: string, schema: JSONSchema }> }`
-
-This file is **not required** for execution.
+Execution uses `run` only; YAML is for tooling and introspection.
 
 ## 3. Storage Layout
 
@@ -148,7 +166,7 @@ All data lives under `~/.uncaged/workflow/`:
 ~/.uncaged/workflow/
 ├── bundles/                              # ESM bundles
 │   ├── C9NMV6V2TQT81.esm.js             # Crockford Base32 of XXH64 hash
-│   └── C9NMV6V2TQT81.yaml               # Role descriptor (optional)
+│   └── C9NMV6V2TQT81.yaml               # Role descriptor (from bundle export, at register time)
 ├── logs/                                 # Thread data, one folder per bundle hash
 │   └── C9NMV6V2TQT81/
 │       ├── 01KQXKW18CT8G75T53R8F4G7YG.data.jsonl
@@ -249,7 +267,7 @@ No concurrency control or timeout settings in the registry — those belong to e
 
 | Command | Description |
 |---------|-------------|
-| `uncaged-workflow add <name> <file>` | Register a workflow bundle |
+| `uncaged-workflow add <name> <file.esm.js> [--types <path>]` | Register a compiled `.esm.js` bundle (descriptor extracted from `export const descriptor`) |
 | `uncaged-workflow list` | List registered workflows |
 | `uncaged-workflow show <name>` | Show workflow details |
 | `uncaged-workflow remove <name>` | Remove a workflow |
@@ -292,9 +310,17 @@ function createRoleModerator<M extends RoleMeta>(
 Usage in a bundle:
 
 ```typescript
-import { createRoleModerator } from "@uncaged/workflow";
+import { createRoleModerator, END } from "@uncaged/workflow";
 
-export default createRoleModerator({
+export const descriptor = {
+  description: "Example multi-role workflow",
+  roles: {
+    planner: { description: "Plans work", schema: {} },
+    coder: { description: "Writes code", schema: {} },
+  },
+};
+
+export const run = createRoleModerator({
   roles: { planner, coder },
   moderator(ctx) { return ctx.steps.length === 0 ? "planner" : END; },
 });

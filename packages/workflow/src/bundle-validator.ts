@@ -2,7 +2,6 @@ import { isBuiltin } from "node:module";
 import type {
   CallExpression,
   ExportAllDeclaration,
-  ExportDefaultDeclaration,
   ExportNamedDeclaration,
   ExportSpecifier,
   FunctionDeclaration,
@@ -69,52 +68,32 @@ function walkAst(node: Node, visit: (n: Node) => void): void {
   }
 }
 
-function exportSpecifierIsDefaultReExport(spec: ExportSpecifier): boolean {
-  return spec.exported.type === "Identifier" && spec.exported.name === "default";
+function exportSpecifierExportedName(spec: ExportSpecifier): string | null {
+  if (spec.exported.type !== "Identifier") {
+    return null;
+  }
+  return spec.exported.name;
 }
 
-function exportNamedDeclarationOffersDefault(named: ExportNamedDeclaration): boolean {
+function exportNamedDeclReExportsDefault(named: ExportNamedDeclaration): boolean {
   if (named.source !== null && named.source !== undefined) {
     return false;
   }
   return named.specifiers.some(
-    (spec) => spec.type === "ExportSpecifier" && exportSpecifierIsDefaultReExport(spec),
+    (spec) => spec.type === "ExportSpecifier" && exportSpecifierExportedName(spec) === "default",
   );
 }
 
-function programHasDefaultExport(body: readonly Node[]): boolean {
-  for (const stmt of body) {
+function programUsesDefaultExport(program: Program): boolean {
+  for (const stmt of program.body) {
     if (stmt.type === "ExportDefaultDeclaration") {
       return true;
     }
-    if (stmt.type === "ExportNamedDeclaration" && exportNamedDeclarationOffersDefault(stmt)) {
+    if (stmt.type === "ExportNamedDeclaration" && exportNamedDeclReExportsDefault(stmt)) {
       return true;
     }
   }
   return false;
-}
-
-function findDefaultExportLocalBindingName(program: Program): string | null {
-  for (const stmt of program.body) {
-    if (stmt.type !== "ExportNamedDeclaration") {
-      continue;
-    }
-    const named = stmt as ExportNamedDeclaration;
-    if (named.source !== null && named.source !== undefined) {
-      continue;
-    }
-    for (const spec of named.specifiers) {
-      if (spec.type !== "ExportSpecifier" || !exportSpecifierIsDefaultReExport(spec)) {
-        continue;
-      }
-      const loc = spec.local;
-      if (loc.type !== "Identifier") {
-        return null;
-      }
-      return loc.name;
-    }
-  }
-  return null;
 }
 
 function bindingInitializerIsCallable(init: Node): boolean {
@@ -157,30 +136,140 @@ function programDeclaresCallableExportBinding(program: Program, name: string): b
   return false;
 }
 
-function defaultExportDeclarationIsCallable(program: Program): boolean {
-  for (const stmt of program.body) {
-    if (stmt.type !== "ExportDefaultDeclaration") {
-      continue;
-    }
-    const decl = (stmt as ExportDefaultDeclaration).declaration;
-    if (
-      decl.type === "FunctionDeclaration" ||
-      decl.type === "FunctionExpression" ||
-      decl.type === "ArrowFunctionExpression"
-    ) {
-      return true;
-    }
-    if (decl.type === "CallExpression") {
-      return true;
-    }
+function namedExportDeclExportsRunCallable(named: ExportNamedDeclaration): boolean {
+  const decl = named.declaration;
+  if (decl === null || decl === undefined) {
     return false;
   }
+  if (decl.type === "FunctionDeclaration") {
+    const id = decl.id;
+    return id !== null && id !== undefined && id.type === "Identifier" && id.name === "run";
+  }
+  if (decl.type === "VariableDeclaration") {
+    return variableDeclarationBindsCallableName(decl, "run");
+  }
+  return false;
+}
 
-  const exportBinding = findDefaultExportLocalBindingName(program);
+function findRunExportLocalBindingName(program: Program): string | null {
+  for (const stmt of program.body) {
+    if (stmt.type !== "ExportNamedDeclaration") {
+      continue;
+    }
+    const named = stmt as ExportNamedDeclaration;
+    if (named.source !== null && named.source !== undefined) {
+      continue;
+    }
+    for (const spec of named.specifiers) {
+      if (spec.type !== "ExportSpecifier" || exportSpecifierExportedName(spec) !== "run") {
+        continue;
+      }
+      const loc = spec.local;
+      if (loc.type !== "Identifier") {
+        return null;
+      }
+      return loc.name;
+    }
+  }
+  return null;
+}
+
+function runExportIsCallable(program: Program): boolean {
+  for (const stmt of program.body) {
+    if (stmt.type === "ExportNamedDeclaration") {
+      const named = stmt as ExportNamedDeclaration;
+      if (namedExportDeclExportsRunCallable(named)) {
+        return true;
+      }
+    }
+  }
+
+  const exportBinding = findRunExportLocalBindingName(program);
   if (exportBinding !== null) {
     return programDeclaresCallableExportBinding(program, exportBinding);
   }
   return false;
+}
+
+function namedExportDeclExportsDescriptor(named: ExportNamedDeclaration): boolean {
+  const decl = named.declaration;
+  if (decl === null || decl === undefined || decl.type !== "VariableDeclaration") {
+    return false;
+  }
+  for (const d of decl.declarations) {
+    if (d.id.type === "Identifier" && d.id.name === "descriptor") {
+      return true;
+    }
+  }
+  return false;
+}
+
+function functionDeclarationNamed(stmt: FunctionDeclaration, name: string): boolean {
+  const id = stmt.id;
+  return id !== null && id !== undefined && id.type === "Identifier" && id.name === name;
+}
+
+function variableDeclarationNames(stmt: VariableDeclaration, name: string): boolean {
+  for (const decl of stmt.declarations) {
+    if (decl.id.type === "Identifier" && decl.id.name === name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function programDeclaresBindingName(program: Program, name: string): boolean {
+  for (const stmt of program.body) {
+    if (
+      stmt.type === "FunctionDeclaration" &&
+      functionDeclarationNamed(stmt as FunctionDeclaration, name)
+    ) {
+      return true;
+    }
+    if (stmt.type === "VariableDeclaration" && variableDeclarationNames(stmt, name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function findDescriptorExportLocalBindingName(program: Program): string | null {
+  for (const stmt of program.body) {
+    if (stmt.type !== "ExportNamedDeclaration") {
+      continue;
+    }
+    const named = stmt as ExportNamedDeclaration;
+    if (named.source !== null && named.source !== undefined) {
+      continue;
+    }
+    for (const spec of named.specifiers) {
+      if (spec.type !== "ExportSpecifier" || exportSpecifierExportedName(spec) !== "descriptor") {
+        continue;
+      }
+      const loc = spec.local;
+      if (loc.type !== "Identifier") {
+        return null;
+      }
+      return loc.name;
+    }
+  }
+  return null;
+}
+
+function descriptorExportExists(program: Program): boolean {
+  for (const stmt of program.body) {
+    if (stmt.type === "ExportNamedDeclaration") {
+      const named = stmt as ExportNamedDeclaration;
+      if (namedExportDeclExportsDescriptor(named)) {
+        return true;
+      }
+    }
+  }
+  const binding = findDescriptorExportLocalBindingName(program);
+  if (binding === null) {
+    return false;
+  }
+  return programDeclaresBindingName(program, binding);
 }
 
 function stringLiteralModuleSpecifier(src: Node): string | null {
@@ -263,8 +352,8 @@ function bundleConstraintViolationForNode(node: Node): string | null {
 }
 
 /**
- * Validate RFC-001 bundle rules: single-file ESM shape, default export,
- * no dynamic `import()`, static imports restricted to Node builtins.
+ * Validate RFC-001 bundle rules: single-file ESM shape, named exports `run` + `descriptor`,
+ * no default export, no dynamic `import()`, static imports restricted to Node builtins.
  */
 export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Result<void, string> {
   if (!endsWithEsmJs(input.filePath)) {
@@ -288,13 +377,20 @@ export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Re
   }
 
   const program = ast as Program;
-  if (!programHasDefaultExport(program.body)) {
-    return err("workflow bundle must have a default export");
+
+  if (programUsesDefaultExport(program)) {
+    return err('workflow bundle must not use default export; use "export const run" instead');
   }
 
-  if (!defaultExportDeclarationIsCallable(program)) {
+  if (!runExportIsCallable(program)) {
     return err(
-      "workflow bundle default export must be a function (e.g. async function*) or a call expression that returns one",
+      'workflow bundle must export run as a callable (e.g. "export const run = async function* (...)")',
+    );
+  }
+
+  if (!descriptorExportExists(program)) {
+    return err(
+      'workflow bundle must export descriptor (e.g. "export const descriptor = { description, roles }")',
     );
   }
 

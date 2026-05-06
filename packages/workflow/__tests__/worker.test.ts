@@ -7,7 +7,14 @@ import { join } from "node:path";
 
 import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
 
-const bundleSource = `export default async function* (input) {
+const bundleSource = `export const descriptor = {
+  description: "worker-test",
+  roles: {
+    planner: { description: "planner", schema: {} },
+    coder: { description: "coder", schema: {} },
+  },
+};
+export const run = async function* (input) {
   const has = (r) => input.steps.some((s) => s.role === r);
   if (!has("planner")) {
     yield { role: "planner", content: "p", meta: { plan: input.prompt } };
@@ -16,7 +23,7 @@ const bundleSource = `export default async function* (input) {
     yield { role: "coder", content: "c", meta: { diff: "y" } };
   }
   return { returnCode: 0, summary: "completed: moderator returned END" };
-}
+};
 `;
 
 async function readReadyPort(child: import("node:child_process").ChildProcess): Promise<number> {

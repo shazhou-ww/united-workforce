@@ -24,13 +24,13 @@ export type ThreadInput = {
   steps: RoleOutput[];
 };
 
-/** Options passed to a workflow bundle's default-export function (engine-provided). */
+/** Options passed to a workflow bundle's `run` export (engine-provided). */
 export type WorkflowFnOptions = {
   isDryRun: boolean;
   maxRounds: number;
 };
 
-/** Bundle contract — default export is a function returning an AsyncGenerator. */
+/** Bundle contract — named export `run` is a function returning an AsyncGenerator. */
 export type WorkflowFn = (
   input: ThreadInput,
   options: WorkflowFnOptions,

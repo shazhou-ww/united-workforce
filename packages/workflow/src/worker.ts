@@ -295,16 +295,13 @@ async function main(): Promise<void> {
   // Dynamic import required: user bundle path resolved at runtime
   const modUnknown: unknown = await import(pathToFileURL(bundlePath).href);
   const modRec = modUnknown as Record<string, unknown>;
-  const defaultExport = modRec.default;
-  if (!isWorkflowFnLike(defaultExport)) {
-    bootLog(
-      "T4BW9YJX",
-      "workflow bundle default export must be a function (AsyncGenerator workflow)",
-    );
+  const runExport = modRec.run;
+  if (!isWorkflowFnLike(runExport)) {
+    bootLog("T4BW9YJX", "workflow bundle must export run as a function (AsyncGenerator workflow)");
     process.exit(2);
     return;
   }
-  const workflowFn = defaultExport;
+  const workflowFn = runExport;
 
   const threads = new Map<string, ThreadHandle>();
   let activeThreads = 0;

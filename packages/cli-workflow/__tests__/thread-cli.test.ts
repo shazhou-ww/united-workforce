@@ -13,46 +13,64 @@ import { cmdRun } from "../src/cmd-run.js";
 import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
 import { pathExists } from "../src/fs-utils.js";
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
+import { addCliArgs } from "./bundle-fixture.js";
 
-const fastBundleSource = `export default async function* (input) {
+const threadFixtureDescriptor = `export const descriptor = {
+  description: "thread-cli",
+  roles: {
+    planner: { description: "planner", schema: {} },
+    coder: { description: "coder", schema: {} },
+    first: { description: "first", schema: {} },
+    second: { description: "second", schema: {} },
+    only: { description: "only", schema: {} },
+    noop: { description: "noop", schema: {} },
+  },
+};
+`;
+
+const fastBundleSource = `${threadFixtureDescriptor}
+export const run = async function* (input) {
   yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
-const slowPlannerBundleSource = `export default async function* (input) {
+const slowPlannerBundleSource = `${threadFixtureDescriptor}
+export const run = async function* (input) {
   await new Promise((r) => setTimeout(r, 400));
   yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
-const abortablePlannerBundleSource = `export default async function* (input) {
+const abortablePlannerBundleSource = `${threadFixtureDescriptor}
+export const run = async function* (input) {
   await new Promise((r) => setTimeout(r, 600));
   yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
-const pauseResumeBundleSource = `export default async function* (input) {
+const pauseResumeBundleSource = `${threadFixtureDescriptor}
+export const run = async function* (input) {
   yield { role: "first", content: "f", meta: {} };
   await new Promise((r) => setTimeout(r, 1500));
   yield { role: "second", content: "s", meta: {} };
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
-const delayedFirstYieldBundleSource = `export default async function* (input) {
+const delayedFirstYieldBundleSource = `${threadFixtureDescriptor}
+export const run = async function* (input) {
   await new Promise((r) => setTimeout(r, 900));
   yield { role: "only", content: "x", meta: {} };
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
 async function countDataJsonlLines(dataPath: string): Promise<number> {
@@ -113,7 +131,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, fastBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -175,7 +192,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, slowPlannerBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -206,7 +222,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, abortablePlannerBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -246,7 +261,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, pauseResumeBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -288,7 +302,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, fastBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -318,7 +331,6 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, delayedFirstYieldBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);

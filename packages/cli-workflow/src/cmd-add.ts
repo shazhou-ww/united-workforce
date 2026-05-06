@@ -2,40 +2,108 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
 import {
-  buildWorkflowFromTypeScript,
   err,
+  extractBundleExports,
   hashWorkflowBundleBytes,
   ok,
   type Result,
   readWorkflowRegistry,
   registerWorkflowVersion,
+  stringifyWorkflowDescriptor,
   validateWorkflowBundle,
   writeWorkflowRegistry,
 } from "@uncaged/workflow";
 
-import type { ParsedAddArgv } from "./add-argv.js";
 import { storeWorkflowBundleArtifacts } from "./bundle-store.js";
 import { validateCliWorkflowName } from "./workflow-name.js";
+
+export type ParsedAddArgv = {
+  name: string;
+  filePath: string;
+  /** Override path to `.d.ts` when adding a bundle. */
+  typesPath: string | null;
+};
 
 export type CmdAddSuccess = {
   hash: string;
   warnings: ReadonlyArray<string>;
 };
 
-function isTypeScriptWorkflow(path: string): boolean {
-  return path.endsWith(".ts");
-}
-
 function isEsmBundle(path: string): boolean {
   return path.endsWith(".esm.js");
 }
 
-function defaultDescriptorPath(bundlePath: string): string {
-  return bundlePath.replace(/\.esm\.js$/i, ".yaml");
-}
-
 function defaultTypesPath(bundlePath: string): string {
   return bundlePath.replace(/\.esm\.js$/i, ".d.ts");
+}
+
+type ParsedLongFlag = { advance: 2; kind: "types"; value: string };
+
+function tryParseAddLongFlag(argv: string[], index: number): Result<ParsedLongFlag | null, string> {
+  const tok = argv[index];
+  if (tok !== "--types") {
+    return ok(null);
+  }
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    return err("missing value for --types");
+  }
+  return ok({ advance: 2, kind: "types", value });
+}
+
+type PositionalSlots = {
+  name: string | undefined;
+  filePath: string | undefined;
+};
+
+function assignPositional(tok: string, slots: PositionalSlots): Result<void, string> {
+  if (slots.name === undefined) {
+    slots.name = tok;
+    return ok(undefined);
+  }
+  if (slots.filePath === undefined) {
+    slots.filePath = tok;
+    return ok(undefined);
+  }
+  return err("too many arguments");
+}
+
+export function parseAddArgv(argv: string[]): Result<ParsedAddArgv, string> {
+  const slots: PositionalSlots = { name: undefined, filePath: undefined };
+  let typesPath: string | null = null;
+
+  let i = 0;
+  while (i < argv.length) {
+    const flag = tryParseAddLongFlag(argv, i);
+    if (!flag.ok) {
+      return flag;
+    }
+    if (flag.value !== null) {
+      typesPath = flag.value.value;
+      i += flag.value.advance;
+      continue;
+    }
+
+    const tok = argv[i];
+    if (tok?.startsWith("--")) {
+      return err(`unknown add flag: ${tok}`);
+    }
+    if (tok === undefined) {
+      break;
+    }
+    const placed = assignPositional(tok, slots);
+    if (!placed.ok) {
+      return placed;
+    }
+    i += 1;
+  }
+
+  const { name, filePath } = slots;
+  if (name === undefined || name === "" || filePath === undefined || filePath === "") {
+    return err("add requires <name> <file>");
+  }
+
+  return ok({ name, filePath, typesPath });
 }
 
 async function registerHash(
@@ -56,125 +124,31 @@ async function registerHash(
   return ok(undefined);
 }
 
-async function addFromTypeScript(
-  storageRoot: string,
-  workflowName: string,
-  resolvedTsPath: string,
-): Promise<Result<CmdAddSuccess, string>> {
-  const built = await buildWorkflowFromTypeScript(resolvedTsPath);
-  if (!built.ok) {
-    return built;
-  }
-
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(built.value.esmJsSource);
-  const hash = hashWorkflowBundleBytes(bytes);
-
-  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
-    esmJs: { kind: "text", text: built.value.esmJsSource },
-    yaml: { kind: "text", text: built.value.yamlSource },
-    dts: { kind: "text", text: built.value.dtsSource },
-  });
-  if (!stored.ok) {
-    return stored;
-  }
-
-  const regResult = await registerHash(storageRoot, workflowName, hash);
-  if (!regResult.ok) {
-    return regResult;
-  }
-
-  return ok({ hash, warnings: [] });
-}
-
-async function resolveYamlAndOptionalTypes(
-  args: ParsedAddArgv,
+async function resolveOptionalTypes(
+  typesPathFlag: string | null,
   resolvedBundlePath: string,
-): Promise<Result<{ yamlText: string; dtsText: string | null; warnings: string[] }, string>> {
+): Promise<Result<{ dtsText: string | null; warnings: string[] }, string>> {
   const warnings: string[] = [];
-  const yamlResolved =
-    args.descriptorPath !== null
-      ? resolve(args.descriptorPath)
-      : defaultDescriptorPath(resolvedBundlePath);
-
-  let yamlText: string;
-  try {
-    yamlText = await readFile(yamlResolved, "utf8");
-  } catch {
-    return err(`descriptor YAML not found: ${yamlResolved}`);
-  }
-
   let dtsText: string | null = null;
-  if (args.typesPath !== null) {
-    const typesResolved = resolve(args.typesPath);
+
+  if (typesPathFlag !== null) {
+    const typesResolved = resolve(typesPathFlag);
     try {
       dtsText = await readFile(typesResolved, "utf8");
     } catch {
       return err(`types file not found: ${typesResolved}`);
     }
-  } else {
-    const typesDefault = defaultTypesPath(resolvedBundlePath);
-    try {
-      dtsText = await readFile(typesDefault, "utf8");
-    } catch {
-      warnings.push(`optional types file not found (${basename(typesDefault)}); skipped`);
-    }
+    return ok({ dtsText, warnings });
   }
 
-  return ok({ yamlText, dtsText, warnings });
-}
-
-async function addFromEsmJs(
-  storageRoot: string,
-  workflowName: string,
-  args: ParsedAddArgv,
-  resolvedBundlePath: string,
-): Promise<Result<CmdAddSuccess, string>> {
-  let source: string;
+  const typesDefault = defaultTypesPath(resolvedBundlePath);
   try {
-    source = await readFile(resolvedBundlePath, "utf8");
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return err(`failed to read bundle: ${message}`);
+    dtsText = await readFile(typesDefault, "utf8");
+  } catch {
+    warnings.push(`optional types file not found (${basename(typesDefault)}); skipped`);
   }
 
-  const validated = validateWorkflowBundle({
-    filePath: resolvedBundlePath,
-    source,
-  });
-  if (!validated.ok) {
-    return validated;
-  }
-
-  const companions = await resolveYamlAndOptionalTypes(args, resolvedBundlePath);
-  if (!companions.ok) {
-    return companions;
-  }
-
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(source);
-  const hash = hashWorkflowBundleBytes(bytes);
-
-  const dts =
-    companions.value.dtsText === null
-      ? null
-      : { kind: "text" as const, text: companions.value.dtsText };
-
-  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
-    esmJs: { kind: "text", text: source },
-    yaml: { kind: "text", text: companions.value.yamlText },
-    dts,
-  });
-  if (!stored.ok) {
-    return stored;
-  }
-
-  const regResult = await registerHash(storageRoot, workflowName, hash);
-  if (!regResult.ok) {
-    return regResult;
-  }
-
-  return ok({ hash, warnings: companions.value.warnings });
+  return ok({ dtsText, warnings });
 }
 
 export async function cmdAdd(
@@ -194,15 +168,66 @@ export async function cmdAdd(
     return err(`file not found: ${args.filePath}`);
   }
 
-  if (isTypeScriptWorkflow(resolvedPath)) {
-    return addFromTypeScript(storageRoot, args.name, resolvedPath);
+  if (resolvedPath.endsWith(".ts")) {
+    return err("build your .ts file first, then add the .esm.js");
   }
 
   if (!isEsmBundle(resolvedPath)) {
-    return err('workflow file must be ".ts" or end with ".esm.js"');
+    return err('workflow file must end with ".esm.js"');
   }
 
-  return addFromEsmJs(storageRoot, args.name, args, resolvedPath);
+  let source: string;
+  try {
+    source = await readFile(resolvedPath, "utf8");
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return err(`failed to read bundle: ${message}`);
+  }
+
+  const validated = validateWorkflowBundle({
+    filePath: resolvedPath,
+    source,
+  });
+  if (!validated.ok) {
+    return validated;
+  }
+
+  const extracted = await extractBundleExports(resolvedPath);
+  if (!extracted.ok) {
+    return extracted;
+  }
+
+  const yamlSource = stringifyWorkflowDescriptor(extracted.value.descriptor);
+
+  const companions = await resolveOptionalTypes(args.typesPath, resolvedPath);
+  if (!companions.ok) {
+    return companions;
+  }
+
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(source);
+  const hash = hashWorkflowBundleBytes(bytes);
+
+  const dts =
+    companions.value.dtsText === null
+      ? null
+      : { kind: "text" as const, text: companions.value.dtsText };
+
+  const stored = await storeWorkflowBundleArtifacts(storageRoot, hash, {
+    esmJs: { kind: "text", text: source },
+    yaml: { kind: "text", text: yamlSource },
+    dts,
+  });
+  if (!stored.ok) {
+    return stored;
+  }
+
+  const regResult = await registerHash(storageRoot, args.name, hash);
+  if (!regResult.ok) {
+    return regResult;
+  }
+
+  return ok({ hash, warnings: companions.value.warnings });
 }
 
 export function formatAddSuccess(name: string, filePath: string, hash: string): string {

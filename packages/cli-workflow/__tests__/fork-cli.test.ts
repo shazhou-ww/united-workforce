@@ -6,10 +6,18 @@ import { cmdAdd } from "../src/cmd-add.js";
 import { cmdFork } from "../src/cmd-fork.js";
 import { cmdRun } from "../src/cmd-run.js";
 import { pathExists } from "../src/fs-utils.js";
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
+import { addCliArgs } from "./bundle-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
-const threeRoleBundleSource = `export default async function* (input) {
+const threeRoleBundleSource = `export const descriptor = {
+  description: "fork-cli",
+  roles: {
+    planner: { description: "planner", schema: {} },
+    coder: { description: "coder", schema: {} },
+    reviewer: { description: "reviewer", schema: {} },
+  },
+};
+export const run = async function* (input) {
   const has = (r) => input.steps.some((s) => s.role === r);
   if (!has("planner")) {
     yield { role: "planner", content: "p1", meta: { k: "planner" } };
@@ -25,7 +33,7 @@ const threeRoleBundleSource = `export default async function* (input) {
     };
   }
   return { returnCode: 0, summary: "done" };
-}
+};
 `;
 
 async function countDataJsonlLines(dataPath: string): Promise<number> {
@@ -82,7 +90,6 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -133,7 +140,6 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -185,7 +191,6 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);

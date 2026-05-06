@@ -23,7 +23,7 @@ const greeter: Role<Roles["greeter"]> = async (ctx) => ({
   meta: { greeting: "Hello!" },
 });
 
-export default createRoleModerator<Roles>({
+export const run = createRoleModerator<Roles>({
   roles: { greeter },
   moderator(ctx) {
     return ctx.steps.length === 0 ? "greeter" : END;

@@ -8,7 +8,7 @@
 
 | Concept | What it is |
 |---------|-----------|
-| **Workflow** | A single-file ESM module that default-exports a workflow function. Identified by its XXH64 hash (Crockford Base32). |
+| **Workflow** | A single-file ESM module that exports `run` (workflow function) and `descriptor` (metadata). Identified by its XXH64 hash (Crockford Base32). |
 | **Bundle** | The physical `.esm.js` file stored in `~/.uncaged/workflow/bundles/`. |
 | **Thread** | A single execution of a workflow, identified by a ULID. Persisted as `.data.jsonl` + `.info.jsonl`. |
 | **Role** | A named actor within a workflow. Each role produces output with typed `meta`. |
@@ -95,7 +95,7 @@ type WorkflowEntry = {
 - Always named exports, never default exports
 - One module = one responsibility, filename = purpose
 
-**Exception**: Workflow bundle files (`.esm.js`) use default export by design — this is the user-authored extension point.
+Workflow bundles (`.esm.js`) follow the same rule: export `const run` and `const descriptor`, not `export default`.
 
 ## Naming
 
@@ -177,7 +177,7 @@ console.log(result);
 
 Do NOT use `await import()` in production code. Always use static top-level `import`.
 
-**Exception**: The bundle loader must dynamically import user workflow files at runtime.
+**Exception**: The bundle loader and `extractBundleExports` dynamically import user workflow files at runtime.
 
 ```ts
 // Dynamic import required: user bundle path resolved at runtime

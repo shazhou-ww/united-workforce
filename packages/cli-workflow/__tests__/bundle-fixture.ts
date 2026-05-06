@@ -1,9 +1,5 @@
-import type { ParsedAddArgv } from "../src/add-argv.js";
-
-export const MINIMAL_DESCRIPTOR_YAML = `description: "fixture"
-roles: {}
-`;
+import type { ParsedAddArgv } from "../src/cmd-add.js";
 
 export function addCliArgs(name: string, filePath: string): ParsedAddArgv {
-  return { name, filePath, descriptorPath: null, typesPath: null };
+  return { name, filePath, typesPath: null };
 }

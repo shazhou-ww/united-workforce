@@ -20,7 +20,7 @@ function isRoleNext<M extends RoleMeta>(
 
 /**
  * Role + Moderator pattern as an optional helper: returns a {@link WorkflowFn} that runs the
- * moderator loop and yields each {@link RoleOutput}.
+ * moderator loop and yields each {@link RoleOutput}. Assign with `export const run = createRoleModerator(...)`.
  */
 export function createRoleModerator<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,

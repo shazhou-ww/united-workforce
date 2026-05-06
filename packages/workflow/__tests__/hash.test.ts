@@ -17,7 +17,9 @@ describe("hashWorkflowBundleBytes", () => {
   test("stable for identical content", () => {
     const encoder = new TextEncoder();
     const data = encoder.encode(
-      "export default async function* (input) { return { returnCode: 0, summary: input.prompt }; }\n",
+      `export const descriptor = { description: "x", roles: {} };
+export const run = async function* (input) { return { returnCode: 0, summary: input.prompt }; }
+`,
     );
     expect(hashWorkflowBundleBytes(data)).toBe(hashWorkflowBundleBytes(data));
   });

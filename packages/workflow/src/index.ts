@@ -5,10 +5,6 @@ export {
   encodeCrockfordBase32Bits,
   encodeUint64AsCrockford,
 } from "./base32.js";
-export {
-  type BuildPipelineResult,
-  buildWorkflowFromTypeScript,
-} from "./build-pipeline.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
 export { createRoleModerator } from "./create-role-moderator.js";
 export {
@@ -17,6 +13,7 @@ export {
   executeThread,
   type PrefilledDiskStep,
 } from "./engine.js";
+export { type ExtractedBundleExports, extractBundleExports } from "./extract-bundle-exports.js";
 export {
   buildForkPlan,
   type ForkHistoricalStep,
@@ -26,9 +23,7 @@ export {
   selectForkHistoricalSteps,
 } from "./fork-thread.js";
 export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
-export { generateWorkflowBundleTypes } from "./generate-types.js";
 export { hashWorkflowBundleBytes } from "./hash.js";
-export { jsonSchemaToTypeString } from "./json-schema-to-ts.js";
 export {
   type CreateLoggerOptions,
   createLogger,

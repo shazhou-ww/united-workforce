@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
 import { cmdAdd } from "../src/cmd-add.js";
@@ -11,7 +10,10 @@ import { cmdList, formatListLines } from "../src/cmd-list.js";
 import { cmdRemove } from "../src/cmd-remove.js";
 import { cmdRollback } from "../src/cmd-rollback.js";
 import { cmdShow } from "../src/cmd-show.js";
-import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
+import { addCliArgs } from "./bundle-fixture.js";
+
+const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };
+`;
 
 describe("cli workflow commands", () => {
   let prevEnv: string | undefined;
@@ -38,9 +40,9 @@ describe("cli workflow commands", () => {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `import fs from "node:fs";
+      `${fixtureDescriptor}import fs from "node:fs";
 
-export default async function* (input) {
+export const run = async function* (input) {
   fs.existsSync(".");
   yield { role: "noop", content: input.prompt, meta: { done: true } };
   return { returnCode: 0, summary: "done" };
@@ -48,7 +50,6 @@ export default async function* (input) {
 `,
       "utf8",
     );
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -87,18 +88,30 @@ export default async function* (input) {
     const bundlePath = join(storageRoot, "bad.esm.js");
     await writeFile(
       bundlePath,
-      'import x from "./local";\nexport default async function* (input) { return { returnCode: 0, summary: input.prompt }; }\n',
+      `${fixtureDescriptor}import x from "./local";
+export const run = async function* (input) { return { returnCode: 0, summary: input.prompt }; }
+`,
       "utf8",
     );
     const r = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(r.ok).toBe(false);
   });
 
-  test("add rejects .esm.js without companion YAML", async () => {
+  test("add rejects .ts sources", async () => {
+    const tsPath = join(storageRoot, "solo.ts");
+    await writeFile(tsPath, "export const x = 1;\n", "utf8");
+    const r = await cmdAdd(storageRoot, addCliArgs("solo", tsPath));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("build your .ts file first");
+    }
+  });
+
+  test("add rejects bundle without descriptor export", async () => {
     const bundlePath = join(storageRoot, "solo.esm.js");
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `export const run = async function* (input) {
   yield { role: "x", content: input.prompt, meta: {} };
   return { returnCode: 0, summary: "ok" };
 }
@@ -107,15 +120,34 @@ export default async function* (input) {
     );
     const r = await cmdAdd(storageRoot, addCliArgs("solo", bundlePath));
     expect(r.ok).toBe(false);
-    if (r.ok) {
-      return;
+    if (!r.ok) {
+      expect(r.error).toContain("descriptor");
     }
-    expect(r.error).toContain("descriptor YAML not found");
   });
 
-  test("add from .ts builds bundle + yaml + d.ts and registers hash", async () => {
-    const helloTs = fileURLToPath(new URL("../../../examples/hello-world.ts", import.meta.url));
-    const added = await cmdAdd(storageRoot, addCliArgs("hello", helloTs));
+  test("add from .esm.js writes yaml from descriptor export", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "hello.esm.js");
+    await writeFile(
+      bundlePath,
+      `export const descriptor = {
+  description: "hello world fixture",
+  roles: {
+    greeter: {
+      description: "greet",
+      schema: { type: "object", properties: { greeting: { type: "string" } } },
+    },
+  },
+};
+export const run = async function* (input) {
+  yield { role: "greeter", content: input.prompt, meta: { greeting: "hi" } };
+  return { returnCode: 0, summary: "ok" };
+};
+`,
+      "utf8",
+    );
+    const added = await cmdAdd(storageRoot, addCliArgs("hello", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -125,10 +157,8 @@ export default async function* (input) {
     const esm = await readFile(join(bundles, `${hash}.esm.js`), "utf8");
     expect(esm.length).toBeGreaterThan(100);
     const yaml = await readFile(join(bundles, `${hash}.yaml`), "utf8");
-    expect(yaml).toContain("hello world");
-    const dts = await readFile(join(bundles, `${hash}.d.ts`), "utf8");
-    expect(dts).toContain("export type Roles");
-    expect(dts).toContain("WorkflowFn");
+    expect(yaml).toContain("hello world fixture");
+    expect(yaml).toContain("greeter");
 
     const reg = await readWorkflowRegistry(storageRoot);
     expect(reg.ok).toBe(true);
@@ -143,37 +173,64 @@ export default async function* (input) {
     expect(entry.hash).toBe(hash);
   });
 
-  test("add from .esm.js with --descriptor uses explicit YAML path", async () => {
-    const bundleDir = join(storageRoot, "w");
+  test("add from .esm.js copies optional sidecar .d.ts", async () => {
+    const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
-    const bundlePath = join(bundleDir, "app.esm.js");
-    const yamlPath = join(bundleDir, "desc.yaml");
+    const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "x", meta: {} };
   return { returnCode: 0, summary: "x" };
 }
 `,
       "utf8",
     );
-    await writeFile(yamlPath, MINIMAL_DESCRIPTOR_YAML, "utf8");
+    await writeFile(
+      join(bundleDir, "demo.d.ts"),
+      "export type DemoHint = { hint: string };\n",
+      "utf8",
+    );
+
+    const added = await cmdAdd(storageRoot, addCliArgs("typed-demo", bundlePath));
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+    const dts = await readFile(join(storageRoot, "bundles", `${added.value.hash}.d.ts`), "utf8");
+    expect(dts).toContain("DemoHint");
+  });
+
+  test("add from .esm.js with --types uses explicit d.ts path", async () => {
+    const bundleDir = join(storageRoot, "w");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "app.esm.js");
+    const dtsPath = join(bundleDir, "types.d.ts");
+    await writeFile(
+      bundlePath,
+      `${fixtureDescriptor}export const run = async function* (input) {
+  yield { role: "a", content: "x", meta: {} };
+  return { returnCode: 0, summary: "x" };
+}
+`,
+      "utf8",
+    );
+    await writeFile(dtsPath, "export type App = 1;\n", "utf8");
 
     const added = await cmdAdd(storageRoot, {
       name: "app",
       filePath: bundlePath,
-      descriptorPath: yamlPath,
-      typesPath: null,
+      typesPath: dtsPath,
     });
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
     }
-    const yamlStored = await readFile(
-      join(storageRoot, "bundles", `${added.value.hash}.yaml`),
+    const dtsStored = await readFile(
+      join(storageRoot, "bundles", `${added.value.hash}.d.ts`),
       "utf8",
     );
-    expect(yamlStored).toContain("fixture");
+    expect(dtsStored).toContain("App");
   });
 
   test("add from .esm.js warns when optional .d.ts is missing", async () => {
@@ -182,14 +239,13 @@ export default async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "x", meta: {} };
   return { returnCode: 0, summary: "x" };
 }
 `,
       "utf8",
     );
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
@@ -204,18 +260,17 @@ export default async function* (input) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `export default async function* (input) {
+    const v1 = `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "v1", meta: {} };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `export default async function* (input) {
+    const v2 = `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "v2", meta: {} };
   return { returnCode: 0, summary: "v2" };
 }
 `;
     await writeFile(bundlePath, v1, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
     const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     await new Promise((r) => setTimeout(r, 15));
@@ -243,18 +298,17 @@ export default async function* (input) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `export default async function* (input) {
+    const v1 = `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "v1", meta: {} };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `export default async function* (input) {
+    const v2 = `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "v2", meta: {} };
   return { returnCode: 0, summary: "v2" };
 }
 `;
     await writeFile(bundlePath, v1, "utf8");
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
     const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     if (!add1.ok) {
@@ -292,19 +346,18 @@ export default async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "x", meta: {} };
   return { returnCode: 0, summary: "x" };
 }
 `,
       "utf8",
     );
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
     const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "y", meta: {} };
   return { returnCode: 0, summary: "y" };
 }
@@ -324,14 +377,13 @@ export default async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "x", meta: {} };
   return { returnCode: 0, summary: "x" };
 }
 `,
       "utf8",
     );
-    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
     const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     if (!add1.ok) {
@@ -340,7 +392,7 @@ export default async function* (input) {
     const hash1 = add1.value.hash;
     await writeFile(
       bundlePath,
-      `export default async function* (input) {
+      `${fixtureDescriptor}export const run = async function* (input) {
   yield { role: "a", content: "y", meta: {} };
   return { returnCode: 0, summary: "y" };
 }
