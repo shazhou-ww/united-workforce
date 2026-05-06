@@ -1,0 +1,7 @@
+---
+description: Workflow project coding conventions — style, patterns, and toolchain
+globs: packages/*/src/**/*.ts
+alwaysApply: true
+---
+
+@CLAUDE.md
