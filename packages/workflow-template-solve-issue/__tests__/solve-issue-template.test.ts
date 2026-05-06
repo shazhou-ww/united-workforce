@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  type AgentFn,
   END,
   type RoleStep,
   START,
@@ -9,7 +10,11 @@ import {
 
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import { solveIssueModerator } from "../src/moderator.js";
-import { createSolveIssueRoles, type SolveIssueMeta } from "../src/roles.js";
+import { createSolveIssueRoles, type PlannerMeta, type SolveIssueMeta } from "../src/roles.js";
+
+const DEFAULT_PHASES: PlannerMeta["phases"] = [
+  { name: "phase-a", description: "Do the work", acceptance: "Done" },
+];
 
 function makeStart(maxRounds: number): ThreadContext<SolveIssueMeta>["start"] {
   return {
@@ -31,20 +36,20 @@ function makeCtx(
   };
 }
 
-function plannerStep(): RoleStep<SolveIssueMeta> {
+function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<SolveIssueMeta> {
   return {
     role: "planner",
     content: "plan",
-    meta: { plan: "do work", files: ["a.ts"], approach: "minimal fix" },
+    meta: { phases },
     timestamp: 1,
   };
 }
 
-function coderStep(): RoleStep<SolveIssueMeta> {
+function coderStep(completedPhase = "phase-a"): RoleStep<SolveIssueMeta> {
   return {
     role: "coder",
     content: "code",
-    meta: { filesChanged: ["a.ts"], summary: "fixed" },
+    meta: { completedPhase, filesChanged: ["a.ts"], summary: "fixed" },
     timestamp: 2,
   };
 }
@@ -101,11 +106,32 @@ describe("solveIssueModerator", () => {
     ];
     expect(solveIssueModerator(makeCtx(4, steps))).toBe(END);
   });
+
+  test("multiple planner phases → coder until all complete, then reviewer", () => {
+    const phases: PlannerMeta["phases"] = [
+      { name: "p1", description: "first", acceptance: "a1" },
+      { name: "p2", description: "second", acceptance: "a2" },
+    ];
+    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases)]))).toBe("coder");
+    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("p1")]))).toBe("coder");
+    expect(
+      solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("p1"), coderStep("p2")])),
+    ).toBe("reviewer");
+  });
+
+  test("incomplete phases → END when max rounds exhausted", () => {
+    const phases: PlannerMeta["phases"] = [
+      { name: "p1", description: "first", acceptance: "a1" },
+      { name: "p2", description: "second", acceptance: "a2" },
+    ];
+    const steps: ThreadContext<SolveIssueMeta>["steps"] = [plannerStep(phases), coderStep("p1")];
+    expect(solveIssueModerator(makeCtx(3, steps))).toBe(END);
+  });
 });
 
 describe("createSolveIssueRoles", () => {
   test("returns all four role callables", async () => {
-    const agent = async () => '{"plan":"x","files":[],"approach":"y"}';
+    const agent = async () => '{"phases":[{"name":"x","description":"d","acceptance":"a"}]}';
     const roles = createSolveIssueRoles({
       agent,
       workdir: "/tmp/repo",
@@ -119,8 +145,41 @@ describe("createSolveIssueRoles", () => {
 
     const ctx = makeCtx(10, []);
     const plannerOut = await roles.planner.run(ctx as unknown as ThreadContext);
-    expect(plannerOut.meta.plan).toBe("");
-    expect(Array.isArray(plannerOut.meta.files)).toBe(true);
+    expect(plannerOut.meta.phases).toEqual([
+      { name: "phase-1", description: "placeholder", acceptance: "placeholder" },
+    ]);
+  });
+
+  test("per-role agents override default agent", async () => {
+    const calls: string[] = [];
+    const tag =
+      (label: string): AgentFn =>
+      async () => {
+        calls.push(label);
+        return "";
+      };
+
+    const roles = createSolveIssueRoles({
+      agent: tag("default"),
+      agents: {
+        planner: tag("planner"),
+        coder: tag("coder"),
+      },
+      workdir: "/tmp/repo",
+      extract: null,
+    });
+
+    const ctx = makeCtx(10, []);
+    await roles.planner.run(ctx as unknown as ThreadContext);
+    expect(calls).toEqual(["planner"]);
+
+    calls.length = 0;
+    await roles.coder.run(ctx as unknown as ThreadContext);
+    expect(calls).toEqual(["coder"]);
+
+    calls.length = 0;
+    await roles.reviewer.run(ctx as unknown as ThreadContext);
+    expect(calls).toEqual(["default"]);
   });
 });
 

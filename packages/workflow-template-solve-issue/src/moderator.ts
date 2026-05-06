@@ -1,7 +1,29 @@
-import type { Moderator } from "@uncaged/workflow";
+import type { Moderator, ThreadContext } from "@uncaged/workflow";
 import { END } from "@uncaged/workflow";
 
 import type { SolveIssueMeta } from "./roles.js";
+
+function nextAfterCoder(
+  ctx: ThreadContext<SolveIssueMeta>,
+  maxRounds: number,
+): (keyof SolveIssueMeta & string) | typeof END {
+  const plannerStep = ctx.steps.find((s) => s.role === "planner");
+  if (plannerStep === undefined) {
+    return "reviewer";
+  }
+  const phases = plannerStep.meta.phases;
+  const completedPhases = new Set(
+    ctx.steps.filter((s) => s.role === "coder").map((s) => s.meta.completedPhase),
+  );
+  const allDone = phases.every((p) => completedPhases.has(p.name));
+  if (allDone) {
+    return "reviewer";
+  }
+  if (ctx.steps.length < maxRounds - 1) {
+    return "coder";
+  }
+  return END;
+}
 
 export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
   const maxRounds = ctx.start.meta.maxRounds;
@@ -17,7 +39,7 @@ export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
   }
 
   if (last.role === "coder") {
-    return "reviewer";
+    return nextAfterCoder(ctx, maxRounds);
   }
 
   if (last.role === "reviewer") {

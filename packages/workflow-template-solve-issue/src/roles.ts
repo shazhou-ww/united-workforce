@@ -19,24 +19,33 @@ const DRY_RUN_PROVIDER: LlmProvider = {
   model: "template-dry-run",
 };
 
-const PLANNER_SYSTEM = `You are a **planner** for a software task. Analyze the issue, list relevant files, and produce a clear step-by-step approach.
+const PLANNER_SYSTEM = `You are a **planner** for a software task. Break the work into **sequential phases** the coder will execute one at a time.
 
-Focus on: root cause, edge cases, and how the implementation will be verified. Output enough detail for a coding agent to implement without guessing.`;
+Each phase must have: a short **name** (stable identifier), a **description** of what to do in that phase, and **acceptance** criteria for when that phase is done.
 
-const CODER_SYSTEM = `You are a **coder**. The previous step produced a plan: read the thread and implement that plan in the repository.
+Order phases so earlier steps unblock later ones. Cover root cause, edge cases, and verification across the phases. Do not emit separate file lists or a free-form "approach" field — put that detail inside phase descriptions.`;
 
-Make focused changes, follow project conventions, and explain what you changed.`;
+const CODER_SYSTEM = `You are a **coder**. Read the thread: the planner produced ordered **phases**. Identify the **next** phase that is not yet completed according to prior coder steps (each coder step reports a completedPhase).
+
+Implement **only that phase** — do not tackle multiple phases in one turn unless the planner defined a single phase. Follow project conventions; summarize what changed and list touched files.
+
+When done with the phase you worked on, set **completedPhase** to that phase's **name** exactly as given by the planner.`;
 
 export const SOLVE_ISSUE_WORKFLOW_DESCRIPTION =
-  "Plan, implement, review, and commit changes to resolve an issue end-to-end (planner → coder → reviewer → committer).";
+  "Phased plan, incremental implementation per phase, review, and commit to resolve an issue end-to-end (planner → coder [repeat per phase] → reviewer → committer).";
+
+export const phaseSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  acceptance: z.string(),
+});
 
 export const plannerMetaSchema = z.object({
-  plan: z.string(),
-  files: z.array(z.string()),
-  approach: z.string(),
+  phases: z.array(phaseSchema),
 });
 
 export const coderMetaSchema = z.object({
+  completedPhase: z.string(),
   filesChanged: z.array(z.string()),
   summary: z.string(),
 });
@@ -46,12 +55,17 @@ export type PlannerMeta = z.infer<typeof plannerMetaSchema>;
 export type CoderMeta = z.infer<typeof coderMetaSchema>;
 
 const PLANNER_DRY_RUN_META: PlannerMeta = {
-  plan: "",
-  files: [],
-  approach: "",
+  phases: [
+    {
+      name: "phase-1",
+      description: "placeholder",
+      acceptance: "placeholder",
+    },
+  ],
 };
 
 const CODER_DRY_RUN_META: CoderMeta = {
+  completedPhase: "phase-1",
   filesChanged: [],
   summary: "",
 };
@@ -76,9 +90,22 @@ export type SolveIssueMeta = {
 /** Wiring for workflow-role LLM structured extraction. Use `null` for stub extract (dry-run meta from built-in placeholders). */
 export type SolveIssueRolesConfig = {
   agent: AgentFn;
+  agents?: Partial<{
+    planner: AgentFn;
+    coder: AgentFn;
+    reviewer: AgentFn;
+    committer: AgentFn;
+  }>;
   workdir: string;
   extract: { provider: LlmProvider; dryRun: boolean | null } | null;
 };
+
+function resolveRoleAgent(
+  config: SolveIssueRolesConfig,
+  role: keyof NonNullable<SolveIssueRolesConfig["agents"]>,
+): AgentFn {
+  return config.agents?.[role] ?? config.agent;
+}
 
 function resolveExtract(config: SolveIssueRolesConfig): {
   provider: LlmProvider;
@@ -106,11 +133,16 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     cwd: config.workdir,
   };
 
+  const plannerAgent = resolveRoleAgent(config, "planner");
+  const coderAgent = resolveRoleAgent(config, "coder");
+  const reviewerAgent = resolveRoleAgent(config, "reviewer");
+  const committerAgent = resolveRoleAgent(config, "committer");
+
   const plannerRun = createRole({
     name: "planner",
     schema: plannerMetaSchema,
     systemPrompt: PLANNER_SYSTEM,
-    agent: config.agent,
+    agent: plannerAgent,
     extract: {
       provider: extract.provider,
       dryRun: extract.dryRun,
@@ -122,7 +154,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     name: "coder",
     schema: coderMetaSchema,
     systemPrompt: CODER_SYSTEM,
-    agent: config.agent,
+    agent: coderAgent,
     extract: {
       provider: extract.provider,
       dryRun: extract.dryRun,
@@ -131,7 +163,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
   });
 
   const reviewerRun = createReviewerRole(
-    config.agent,
+    reviewerAgent,
     {
       provider: extract.provider,
       dryRun: extract.dryRun,
@@ -141,7 +173,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
   );
 
   const committerRun = createCommitterRole(
-    config.agent,
+    committerAgent,
     {
       provider: extract.provider,
       dryRun: extract.dryRun,
@@ -152,12 +184,12 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
 
   return {
     planner: {
-      description: "Analyzes the issue and proposes plan, files, and approach.",
+      description: "Analyzes the issue and emits ordered implementation phases.",
       run: plannerRun,
       schema: plannerMetaSchema,
     },
     coder: {
-      description: "Implements the planner output and summarizes touched files.",
+      description: "Implements the next incomplete phase and reports completedPhase.",
       run: coderRun,
       schema: coderMetaSchema,
     },

@@ -16,6 +16,7 @@ export {
   coderMetaSchema,
   createSolveIssueRoles,
   type PlannerMeta,
+  phaseSchema,
   plannerMetaSchema,
   SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
   type SolveIssueMeta,
