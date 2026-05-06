@@ -1,5 +1,7 @@
 export {
   buildDescriptorFromRoles,
+  type CreateRoleArgs,
+  createRole,
   decorateRole,
   extractMetaOrThrow,
   type LlmError,
@@ -18,4 +20,3 @@ export {
   withDryRun,
 } from "@uncaged/workflow-util-role";
 export { chatCompletionText, createLlmAdapter, type LlmChatError } from "./create-llm-adapter.js";
-export { type CreateRoleArgs, createRole } from "./create-role.js";
