@@ -7,18 +7,11 @@ import { join } from "node:path";
 
 import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
 
-const bundleSource = `export default {
-  name: "demo-flow",
-  roles: {
-    planner: async () => ({ content: "p", meta: { plan: "x" } }),
-    coder: async () => ({ content: "c", meta: { diff: "y" } }),
-  },
-  moderator(ctx) {
-    if (ctx.steps.length === 0) return "planner";
-    if (ctx.steps.length === 1) return "coder";
-    return "__end__";
-  },
-};
+const bundleSource = `export default async function* () {
+  yield { role: "planner", content: "p", meta: { plan: "x" } };
+  yield { role: "coder", content: "c", meta: { diff: "y" } };
+  return { returnCode: 0, summary: "completed: moderator returned END" };
+}
 `;
 
 async function readReadyPort(child: import("node:child_process").ChildProcess): Promise<number> {
@@ -95,6 +88,7 @@ describe("worker process", () => {
       await sendJson(port, {
         type: "run",
         threadId,
+        workflowName: "demo-flow",
         prompt: "hello",
         options: { isDryRun: false, maxRounds: 5 },
       });

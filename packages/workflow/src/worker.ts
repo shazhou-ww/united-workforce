@@ -5,13 +5,14 @@ import { pathToFileURL } from "node:url";
 
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { createLogger } from "./logger.js";
-import type { RoleMeta, WorkflowDefinition } from "./types.js";
+import type { WorkflowFn } from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
 
 type RunCommand = {
   type: "run";
   threadId: string;
+  workflowName: string;
   prompt: string;
   options: { isDryRun: boolean; maxRounds: number };
 };
@@ -38,9 +39,14 @@ function parseControlPayload(payload: unknown): ControlCommand | null {
   }
   if (type === "run") {
     const threadId = rec.threadId;
+    const workflowName = rec.workflowName;
     const prompt = rec.prompt;
     const options = rec.options;
-    if (typeof threadId !== "string" || typeof prompt !== "string") {
+    if (
+      typeof threadId !== "string" ||
+      typeof workflowName !== "string" ||
+      typeof prompt !== "string"
+    ) {
       return null;
     }
     if (options === null || typeof options !== "object") {
@@ -55,6 +61,7 @@ function parseControlPayload(payload: unknown): ControlCommand | null {
     return {
       type: "run",
       threadId,
+      workflowName,
       prompt,
       options: { isDryRun, maxRounds },
     };
@@ -77,21 +84,8 @@ function parseCommandLine(line: string): ControlCommand | null {
   return parseControlPayload(parsed);
 }
 
-function isWorkflowDefinitionLike(value: unknown): value is WorkflowDefinition<RoleMeta> {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-  const rec = value as Record<string, unknown>;
-  if (typeof rec.name !== "string") {
-    return false;
-  }
-  if (rec.roles === null || typeof rec.roles !== "object") {
-    return false;
-  }
-  if (typeof rec.moderator !== "function") {
-    return false;
-  }
-  return true;
+function isWorkflowFnLike(value: unknown): value is WorkflowFn {
+  return typeof value === "function";
 }
 
 async function readLineFromSocket(socket: Socket): Promise<string | null> {
@@ -146,15 +140,15 @@ async function main(): Promise<void> {
   const modUnknown: unknown = await import(pathToFileURL(bundlePath).href);
   const modRec = modUnknown as Record<string, unknown>;
   const defaultExport = modRec.default;
-  if (!isWorkflowDefinitionLike(defaultExport)) {
+  if (!isWorkflowFnLike(defaultExport)) {
     bootLog(
       "T4BW9YJX",
-      "workflow bundle default export must be a WorkflowDefinition { name, roles, moderator }",
+      "workflow bundle default export must be a function (AsyncGenerator workflow)",
     );
     process.exit(2);
     return;
   }
-  const def = defaultExport;
+  const workflowFn = defaultExport;
 
   const controllers = new Map<string, AbortController>();
   let activeThreads = 0;
@@ -231,7 +225,14 @@ async function main(): Promise<void> {
 
       const logger = createLogger({ sink: { kind: "file", path: infoJsonlPath } });
 
-      await executeThread(def, cmd.prompt, { ...cmd.options, signal: ac.signal }, io, logger);
+      await executeThread(
+        workflowFn,
+        cmd.workflowName,
+        cmd.prompt,
+        { ...cmd.options, signal: ac.signal },
+        io,
+        logger,
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);

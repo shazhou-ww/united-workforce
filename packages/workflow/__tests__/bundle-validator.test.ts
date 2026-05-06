@@ -6,7 +6,7 @@ describe("validateWorkflowBundle", () => {
   test("accepts minimal valid builtin-only bundle", () => {
     const source = `import fs from "node:fs";
 
-export default async function run() {
+export default async function* run() {
   fs.existsSync(".");
   return { returnCode: 0, summary: "ok" };
 }
@@ -18,9 +18,20 @@ export default async function run() {
   test("rejects wrong filename suffix", () => {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.js",
-      source: "export default async function run() { return { returnCode: 0, summary: '' }; }\n",
+      source: "export default async function* run() { return { returnCode: 0, summary: '' }; }\n",
     });
     expect(r.ok).toBe(false);
+  });
+
+  test("rejects default export that is not a callable bundle shape", () => {
+    const r = validateWorkflowBundle({
+      filePath: "/tmp/w.esm.js",
+      source: 'export default { name: "x", roles: {}, moderator() { return "__end__"; } };\n',
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("default export must be a function");
+    }
   });
 
   test("rejects missing default export", () => {
@@ -38,7 +49,7 @@ export default async function run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'import x from "some-package";\nexport default async function run() { return { returnCode: 0, summary: "" }; }\n',
+        'import x from "some-package";\nexport default async function* run() { return { returnCode: 0, summary: "" }; }\n',
     });
     expect(r.ok).toBe(false);
   });
@@ -47,7 +58,7 @@ export default async function run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'export default async function run() { await import("fs"); return { returnCode: 0, summary: "" }; }\n',
+        'export default async function* run() { await import("fs"); return { returnCode: 0, summary: "" }; }\n',
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
@@ -59,7 +70,7 @@ export default async function run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'export default async function run() { require("fs"); return { returnCode: 0, summary: "" }; }\n',
+        'export default async function* run() { require("fs"); return { returnCode: 0, summary: "" }; }\n',
     });
     expect(r.ok).toBe(false);
   });

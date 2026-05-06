@@ -43,6 +43,7 @@ export async function cmdRun(
   const sent = await sendWorkerTcpCommand(worker.value.port, {
     type: "run",
     threadId,
+    workflowName: name,
     prompt,
     options: { isDryRun, maxRounds },
   });

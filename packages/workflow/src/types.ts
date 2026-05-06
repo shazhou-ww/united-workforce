@@ -5,6 +5,32 @@ export const END = "__end__" as const;
 /** Maps role names → their meta types. Single generic drives all inference. */
 export type RoleMeta = Record<string, Record<string, unknown>>;
 
+/** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
+export type RoleOutput = {
+  role: string;
+  content: string;
+  meta: Record<string, unknown>;
+};
+
+/** What the workflow AsyncGenerator returns when done. */
+export type WorkflowResult = {
+  returnCode: number;
+  summary: string;
+};
+
+/** Options passed to a workflow bundle's default-export function (engine-provided). */
+export type WorkflowFnOptions = {
+  isDryRun: boolean;
+  maxRounds: number;
+  threadId: string;
+};
+
+/** Bundle contract — default export is a function returning an AsyncGenerator. */
+export type WorkflowFn = (
+  prompt: string,
+  options: WorkflowFnOptions,
+) => AsyncGenerator<RoleOutput, WorkflowResult>;
+
 /** Typed output of a Role execution. */
 export type RoleResult<Meta extends Record<string, unknown>> = {
   content: string;

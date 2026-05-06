@@ -2,6 +2,7 @@ import { isBuiltin } from "node:module";
 import type {
   CallExpression,
   ExportAllDeclaration,
+  ExportDefaultDeclaration,
   ExportNamedDeclaration,
   ImportDeclaration,
   Node,
@@ -70,6 +71,27 @@ function programHasDefaultExport(body: readonly Node[]): boolean {
     if (stmt.type === "ExportDefaultDeclaration") {
       return true;
     }
+  }
+  return false;
+}
+
+function defaultExportDeclarationIsCallable(program: Program): boolean {
+  for (const stmt of program.body) {
+    if (stmt.type !== "ExportDefaultDeclaration") {
+      continue;
+    }
+    const decl = (stmt as ExportDefaultDeclaration).declaration;
+    if (
+      decl.type === "FunctionDeclaration" ||
+      decl.type === "FunctionExpression" ||
+      decl.type === "ArrowFunctionExpression"
+    ) {
+      return true;
+    }
+    if (decl.type === "CallExpression") {
+      return true;
+    }
+    return false;
   }
   return false;
 }
@@ -181,6 +203,12 @@ export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Re
   const program = ast as Program;
   if (!programHasDefaultExport(program.body)) {
     return err("workflow bundle must have a default export");
+  }
+
+  if (!defaultExportDeclarationIsCallable(program)) {
+    return err(
+      "workflow bundle default export must be a function (e.g. async function*) or a call expression that returns one",
+    );
   }
 
   let violation: string | null = null;

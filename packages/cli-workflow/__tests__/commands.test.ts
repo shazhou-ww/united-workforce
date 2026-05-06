@@ -35,21 +35,11 @@ describe("cli workflow commands", () => {
       bundlePath,
       `import fs from "node:fs";
 
-export default {
-  name: "solve-issue",
-  roles: {
-    noop: async () => {
-      fs.existsSync(".");
-      return { content: "ok", meta: { done: true } };
-    },
-  },
-  moderator(ctx) {
-    if (ctx.steps.length === 0) {
-      return "noop";
-    }
-    return "__end__";
-  },
-};
+export default async function* () {
+  fs.existsSync(".");
+  yield { role: "noop", content: "ok", meta: { done: true } };
+  return { returnCode: 0, summary: "done" };
+}
 `,
       "utf8",
     );
@@ -91,7 +81,7 @@ export default {
     const bundlePath = join(storageRoot, "bad.esm.js");
     await writeFile(
       bundlePath,
-      'import x from "./local";\nexport default async function run() { return { returnCode: 0, summary: "" }; }\n',
+      'import x from "./local";\nexport default async function* run() { return { returnCode: 0, summary: "" }; }\n',
       "utf8",
     );
     const r = await cmdAdd(storageRoot, "solve-issue", bundlePath);

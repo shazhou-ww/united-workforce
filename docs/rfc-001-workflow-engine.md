@@ -35,9 +35,15 @@ type WorkflowResult = {
   summary: string;
 };
 
+/** Input to a workflow — prompt + optional historical steps for fork/resume. */
+type ThreadInput = {
+  prompt: string;
+  steps: RoleOutput[];   // [] for new thread, pre-filled for fork/resume
+};
+
 /** The bundle contract — an AsyncGenerator, not a Promise. */
 type WorkflowFn = (
-  prompt: string,
+  input: ThreadInput,
   options: { isDryRun: boolean; maxRounds: number }
 ) => AsyncGenerator<RoleOutput, WorkflowResult>;
 ```
@@ -49,8 +55,8 @@ exporting a framework-specific shape:
 
 ```typescript
 // Example bundle — zero framework dependency
-export default async function* (prompt, options) {
-  const plan = await callLLM("plan: " + prompt);
+export default async function* (input, options) {
+  const plan = await callLLM("plan: " + input.prompt);
   yield { role: "planner", content: plan, meta: { files: ["src/auth.ts"] } };
 
   const code = await callLLM("implement: " + plan);
@@ -63,8 +69,26 @@ export default async function* (prompt, options) {
 **Engine controls the loop**, not the bundle:
 - Each `yield` → engine writes to `.data.jsonl`, checks `AbortSignal`, handles pause/resume
 - `return` → engine writes the final result, marks thread complete
-- **Fork** = replay the first N yields from persisted `.data.jsonl`, then resume iteration
+- **Fork** = read historical steps from `.data.jsonl`, pass as `input.steps` to a new generator
 - **Zero injection** — the bundle doesn't import or receive anything from the engine
+
+### Fork/Resume via ThreadInput
+
+When using the `createRoleModerator` helper, fork is **naturally handled**:
+
+```typescript
+// The moderator receives ThreadContext with historical steps
+// It sees planner already ran → routes to coder automatically
+const gen = workflow(
+  { prompt: "fix bug #3", steps: [{ role: "planner", content: "...", meta: {} }] },
+  { isDryRun: false, maxRounds: 10 }
+);
+// First yield will be coder's output, not planner's
+```
+
+No special replay logic needed — the moderator/role pattern inherently supports
+resuming from any snapshot, because moderator routing is a pure function of the
+accumulated steps.
 
 This follows the **Dependency Inversion Principle**: the engine depends on the
 generator protocol (a language primitive), not on a framework-specific `WorkflowDefinition`.
@@ -262,7 +286,7 @@ routing function. It lives in `@uncaged/workflow` as an optional utility.
 ```typescript
 function createRoleModerator<M extends RoleMeta>(
   def: { roles: { [K in keyof M & string]: Role<M[K]> }; moderator: Moderator<M> }
-): (prompt: string, options: { isDryRun: boolean; maxRounds: number }) => AsyncGenerator<RoleOutput, WorkflowResult>;
+): WorkflowFn;  // returns (input: ThreadInput, options) => AsyncGenerator
 ```
 
 Usage in a bundle:
@@ -274,6 +298,7 @@ export default createRoleModerator({
   roles: { planner, coder },
   moderator(ctx) { return ctx.steps.length === 0 ? "planner" : END; },
 });
+// Accepts ThreadInput — fork with pre-filled steps works automatically
 ```
 
 ### Supporting Types

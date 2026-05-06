@@ -3,17 +3,17 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createRoleModerator } from "../src/create-role-moderator.js";
 import { executeThread } from "../src/engine.js";
 import { createLogger } from "../src/logger.js";
-import { END, type WorkflowDefinition } from "../src/types.js";
+import { END } from "../src/types.js";
 
 type DemoMeta = {
   planner: Record<string, unknown>;
   coder: Record<string, unknown>;
 };
 
-const demoWorkflow: WorkflowDefinition<DemoMeta> = {
-  name: "demo-flow",
+const demoWorkflow = createRoleModerator<DemoMeta>({
   roles: {
     planner: async () => ({
       content: "plan-body",
@@ -33,7 +33,7 @@ const demoWorkflow: WorkflowDefinition<DemoMeta> = {
     }
     return END;
   },
-};
+});
 
 describe("executeThread", () => {
   test("writes RFC-001 `.data.jsonl` start + role records and `.info.jsonl` logs", async () => {
@@ -50,6 +50,7 @@ describe("executeThread", () => {
 
       const result = await executeThread(
         demoWorkflow,
+        "demo-flow",
         "Fix the login redirect bug in #3",
         { isDryRun: false, maxRounds: 5, signal: ac.signal },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
@@ -116,6 +117,7 @@ describe("executeThread", () => {
 
       const result = await executeThread(
         demoWorkflow,
+        "demo-flow",
         "hello",
         { isDryRun: false, maxRounds: 0, signal: ac.signal },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },

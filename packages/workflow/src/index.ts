@@ -6,6 +6,7 @@ export {
   encodeUint64AsCrockford,
 } from "./base32.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
+export { createRoleModerator } from "./create-role-moderator.js";
 export {
   type ExecuteThreadIo,
   type ExecuteThreadOptions,
@@ -40,12 +41,16 @@ export {
   type Moderator,
   type Role,
   type RoleMeta,
+  type RoleOutput,
   type RoleResult,
   type RoleStep,
   START,
   type StartStep,
   type ThreadContext,
   type WorkflowDefinition,
+  type WorkflowFn,
+  type WorkflowFnOptions,
+  type WorkflowResult,
 } from "./types.js";
 export { generateUlid } from "./ulid.js";
 export { getWorkerHostScriptPath } from "./worker-entry-path.js";

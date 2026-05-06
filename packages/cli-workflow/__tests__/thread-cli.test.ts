@@ -13,54 +13,29 @@ import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
 import { pathExists } from "../src/fs-utils.js";
 
-const fastBundleSource = `export default {
-  name: "solve-issue",
-  roles: {
-    planner: async () => ({ content: "plan", meta: { plan: "x" } }),
-    coder: async () => ({ content: "code", meta: { diff: "y" } }),
-  },
-  moderator(ctx) {
-    if (ctx.steps.length === 0) return "planner";
-    if (ctx.steps.length === 1) return "coder";
-    return "__end__";
-  },
-};
+const fastBundleSource = `export default async function* () {
+  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+  yield { role: "coder", content: "code", meta: { diff: "y" } };
+  return { returnCode: 0, summary: "done" };
+}
 `;
 
-const slowPlannerBundleSource = `export default {
-  name: "solve-issue",
-  roles: {
-    planner: async () => {
-      await new Promise((r) => setTimeout(r, 400));
-      return { content: "plan", meta: { plan: "x" } };
-    },
-    coder: async () => ({ content: "code", meta: { diff: "y" } }),
-  },
-  moderator(ctx) {
-    if (ctx.steps.length === 0) return "planner";
-    if (ctx.steps.length === 1) return "coder";
-    return "__end__";
-  },
-};
+const slowPlannerBundleSource = `export default async function* () {
+  await new Promise((r) => setTimeout(r, 400));
+  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+  yield { role: "coder", content: "code", meta: { diff: "y" } };
+  return { returnCode: 0, summary: "done" };
+}
 `;
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
-const abortablePlannerBundleSource = `export default {
-  name: "solve-issue",
-  roles: {
-    planner: async () => {
-      await new Promise((r) => setTimeout(r, 600));
-      return { content: "plan", meta: { plan: "x" } };
-    },
-    coder: async () => ({ content: "code", meta: { diff: "y" } }),
-  },
-  moderator(ctx) {
-    if (ctx.steps.length === 0) return "planner";
-    if (ctx.steps.length === 1) return "coder";
-    return "__end__";
-  },
-};
+const abortablePlannerBundleSource = `export default async function* () {
+  await new Promise((r) => setTimeout(r, 600));
+  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+  yield { role: "coder", content: "code", meta: { diff: "y" } };
+  return { returnCode: 0, summary: "done" };
+}
 `;
 
 describe("cli thread commands", () => {
