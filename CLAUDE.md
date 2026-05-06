@@ -133,6 +133,46 @@ type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 - Always `async/await`, never `.then()` chains
 
+## Logging
+
+Never use `console.log/warn/error` directly — Biome's `noConsole` rule enforces this.
+
+All logging goes through the structured logger from `@uncaged/workflow`:
+
+```typescript
+import { createLogger } from "@uncaged/workflow";
+
+const log = createLogger();
+
+// Each call site has a fixed 8-char Crockford Base32 tag
+log("4KNMR2PX", "Loading workflow bundle...");
+log("7BQST3VW", `Role ${role} started`);
+```
+
+### Rules
+
+| Rule | Description |
+|------|-------------|
+| One tag per call site | Tag is a hand-written constant, not generated at runtime |
+| Tags are unique | No two `log()` calls in the codebase share the same tag |
+| 8-char Crockford Base32 | 40-bit random, generated once when writing the code |
+| `console.*` is banned | Biome `noConsole` rule — use `log()` instead |
+
+### Why fixed tags?
+
+- `grep "4KNMR2PX"` in `.info.jsonl` → instant code location
+- No need for file/line info in the log — tag is the locator
+- Survives refactoring (tag stays the same when code moves)
+
+### CLI entry point exception
+
+The CLI package (`@uncaged/cli-workflow`) may use `console.log` for user-facing output only. Suppress with:
+
+```typescript
+// biome-ignore lint/nursery/noConsole: CLI user-facing output
+console.log(result);
+```
+
 ## No Dynamic Import
 
 Do NOT use `await import()` in production code. Always use static top-level `import`.
