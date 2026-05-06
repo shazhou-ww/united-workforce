@@ -22,6 +22,7 @@
     { "path": "packages/workflow-role-reviewer" },
     { "path": "packages/workflow-agent-cursor" },
     { "path": "packages/workflow-agent-hermes" },
-    { "path": "packages/cli-workflow" }
+    { "path": "packages/cli-workflow" },
+    { "path": "packages/workflow-template-solve-issue" }
   ]
 }

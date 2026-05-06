@@ -1,0 +1,19 @@
+{
+  "name": "@uncaged/workflow-template-solve-issue",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-agent-cursor": "workspace:*",
+    "@uncaged/workflow-role-committer": "workspace:*",
+    "@uncaged/workflow-role-llm": "workspace:*",
+    "@uncaged/workflow-role-reviewer": "workspace:*",
+    "zod": "^4.0.0"
+  }
+}
