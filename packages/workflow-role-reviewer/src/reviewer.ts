@@ -37,14 +37,7 @@ Review the current git diff in \`${cwd}\`. Give a clear **approve** or **reject*
 
 Only reject for **blocking issues** — things that must be fixed before merge. Do not mention minor style preferences or non-blocking suggestions; they will be ignored.
 
-End with your verdict:
-\`\`\`json
-{ "status": "approved" }
-\`\`\`
-or
-\`\`\`json
-{ "status": "rejected", "issues": ["issue 1", "issue 2"] }
-\`\`\``;
+End with your verdict — clearly state whether the code is approved or rejected, and if rejected, list the blocking issues.`;
 }
 
 /**
