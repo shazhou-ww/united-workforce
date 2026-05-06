@@ -1,0 +1,15 @@
+{
+  "name": "@uncaged/cli-workflow",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "uncaged-workflow": "src/cli.ts"
+  },
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*"
+  },
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "bun test"
+  }
+}
