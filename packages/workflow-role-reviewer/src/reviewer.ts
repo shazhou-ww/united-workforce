@@ -1,5 +1,6 @@
 import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
-import { createRole, type LlmProvider } from "@uncaged/workflow-role-llm";
+import { createRole } from "@uncaged/workflow-role-llm";
+import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
 export const reviewerMetaSchema = z.object({

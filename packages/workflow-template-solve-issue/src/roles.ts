@@ -4,8 +4,9 @@ import {
   type CommitterPlanMeta,
   createCommitterRole,
 } from "@uncaged/workflow-role-committer";
-import { createRole, type LlmProvider } from "@uncaged/workflow-role-llm";
+import { createRole } from "@uncaged/workflow-role-llm";
 import { createReviewerRole, type ReviewerMeta } from "@uncaged/workflow-role-reviewer";
+import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
 const DRY_RUN_PROVIDER: LlmProvider = {

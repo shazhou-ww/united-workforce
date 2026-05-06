@@ -1,6 +1,6 @@
 import { type AgentFn, err, ok, type Result, type ThreadContext } from "@uncaged/workflow";
 
-import type { LlmMessage, LlmProvider } from "./types.js";
+import type { LlmMessage, LlmProvider } from "@uncaged/workflow-util-role";
 
 export type LlmChatError =
   | { kind: "http_error"; status: number; body: string }

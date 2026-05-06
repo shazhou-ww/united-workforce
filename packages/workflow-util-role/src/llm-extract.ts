@@ -2,8 +2,6 @@ import { err, ok, type Result } from "@uncaged/workflow";
 import * as z from "zod/v4";
 import type { LlmProvider } from "./types.js";
 
-export type { LlmProvider } from "./types.js";
-
 export type LlmExtractArgs<T> = {
   text: string;
   schema: z.ZodType<T>;

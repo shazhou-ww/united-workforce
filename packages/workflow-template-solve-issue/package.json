@@ -14,6 +14,7 @@
     "@uncaged/workflow-role-committer": "workspace:*",
     "@uncaged/workflow-role-llm": "workspace:*",
     "@uncaged/workflow-role-reviewer": "workspace:*",
+    "@uncaged/workflow-util-role": "workspace:*",
     "zod": "^4.0.0"
   }
 }

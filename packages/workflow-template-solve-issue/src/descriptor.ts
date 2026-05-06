@@ -1,6 +1,6 @@
 import { committerMetaSchema } from "@uncaged/workflow-role-committer";
-import { buildDescriptorFromRoles } from "@uncaged/workflow-role-llm";
 import { reviewerMetaSchema } from "@uncaged/workflow-role-reviewer";
+import { buildDescriptorFromRoles } from "@uncaged/workflow-util-role";
 
 import { coderMetaSchema, plannerMetaSchema } from "./roles.js";
 

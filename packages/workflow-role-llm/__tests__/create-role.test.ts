@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { AgentFn, ThreadContext } from "@uncaged/workflow";
 import { START } from "@uncaged/workflow";
-import * as extractMetaModule from "@uncaged/workflow-role-llm";
+import * as extractMetaModule from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
 import { createRole } from "../src/create-role.js";
