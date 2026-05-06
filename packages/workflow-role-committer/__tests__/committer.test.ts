@@ -8,6 +8,7 @@ import { createCommitterRole } from "../src/committer.js";
 
 function makeCtx(): ThreadContext {
   return {
+    threadId: "01TEST00000000000000000000",
     start: {
       role: START,
       content: "do thing",

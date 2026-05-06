@@ -91,10 +91,8 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
   const reviewerConfig = {
     cwd: config.workdir,
   };
-  const committerGit = {
+  const committerConfig = {
     cwd: config.workdir,
-    remote: "origin",
-    threadId: null,
   };
 
   const planner: Role<PlannerMeta> = createRole({
@@ -138,7 +136,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
       dryRun: extract.dryRun,
       dryRunMeta: COMMITTER_DRY_RUN_META,
     },
-    committerGit,
+    committerConfig,
   );
 
   return { planner, coder, reviewer, committer };

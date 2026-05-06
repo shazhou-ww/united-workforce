@@ -1,7 +1,7 @@
 export {
-  type CommitterGitConfig,
+  type CommitterConfig,
   type CommitterMeta,
   committerMetaSchema,
   createCommitterRole,
-  DEFAULT_COMMITTER_GIT_CONFIG,
+  DEFAULT_COMMITTER_CONFIG,
 } from "./committer.js";
