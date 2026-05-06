@@ -1,5 +1,5 @@
 import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
-import { createRole } from "@uncaged/workflow-role-llm";
+import { createRole } from "@uncaged/workflow-agent-llm";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 

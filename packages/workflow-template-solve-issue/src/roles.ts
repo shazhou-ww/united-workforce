@@ -1,6 +1,6 @@
 import type { AgentFn, Role } from "@uncaged/workflow";
+import { createRole } from "@uncaged/workflow-agent-llm";
 import { type CommitterMeta, createCommitterRole } from "@uncaged/workflow-role-committer";
-import { createRole } from "@uncaged/workflow-role-llm";
 import { createReviewerRole, type ReviewerMeta } from "@uncaged/workflow-role-reviewer";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";

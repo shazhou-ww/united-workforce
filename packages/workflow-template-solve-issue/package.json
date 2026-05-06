@@ -12,7 +12,7 @@
     "@uncaged/workflow": "workspace:*",
     "@uncaged/workflow-agent-cursor": "workspace:*",
     "@uncaged/workflow-role-committer": "workspace:*",
-    "@uncaged/workflow-role-llm": "workspace:*",
+    "@uncaged/workflow-agent-llm": "workspace:*",
     "@uncaged/workflow-role-reviewer": "workspace:*",
     "@uncaged/workflow-util-role": "workspace:*",
     "zod": "^4.0.0"

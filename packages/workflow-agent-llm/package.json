@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-role-llm",
+  "name": "@uncaged/workflow-agent-llm",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",

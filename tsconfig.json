@@ -19,7 +19,7 @@
   "references": [
     { "path": "packages/workflow" },
     { "path": "packages/workflow-util-role" },
-    { "path": "packages/workflow-role-llm" },
+    { "path": "packages/workflow-agent-llm" },
     { "path": "packages/workflow-role-committer" },
     { "path": "packages/workflow-role-reviewer" },
     { "path": "packages/workflow-agent-cursor" },
