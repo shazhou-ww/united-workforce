@@ -13,7 +13,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "composite": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "types": ["bun-types"]
   },
   "references": [
     { "path": "packages/workflow" },

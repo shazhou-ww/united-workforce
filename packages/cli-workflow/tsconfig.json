@@ -14,7 +14,8 @@
     "sourceMap": true,
     "composite": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["bun-types"]
   },
   "references": [{ "path": "../workflow" }],
   "include": ["src/**/*.ts"]

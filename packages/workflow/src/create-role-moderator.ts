@@ -69,7 +69,7 @@ export function createRoleModerator<M extends RoleMeta>(
         return { returnCode: 1, summary: `unknown role: ${next}` };
       }
 
-      const result = await roleFn(ctx);
+      const result = await roleFn(ctx as unknown as ThreadContext);
       const ts = Date.now();
       const step = {
         role: next,

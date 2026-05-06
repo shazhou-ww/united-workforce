@@ -10,6 +10,17 @@ import type {
   Program,
   VariableDeclaration,
 } from "acorn";
+
+/** Acorn Node with index-access for property traversal. */
+type AcornNode = Node & { [key: string]: unknown };
+
+/**
+ * Narrow an Acorn Node to a specific AST subtype after a `.type` guard.
+ * Avoids double-cast (`as unknown as T`) by going through AcornNode.
+ */
+function narrowNode<T extends Node>(node: Node): T {
+  return node as unknown as T;
+}
 import * as acorn from "acorn";
 
 import { err, ok, type Result } from "./result.js";
@@ -55,7 +66,7 @@ function pushNestedAstNodes(value: unknown, out: Node[]): void {
 function collectChildNodes(node: Node): Node[] {
   const children: Node[] = [];
   for (const key of Object.keys(node)) {
-    const val = (node as Record<string, unknown>)[key];
+    const val = (node as AcornNode)[key];
     pushNestedAstNodes(val, children);
   }
   return children;
@@ -273,10 +284,10 @@ function descriptorExportExists(program: Program): boolean {
 }
 
 function stringLiteralModuleSpecifier(src: Node): string | null {
-  if (src.type !== "Literal" || typeof src.value !== "string") {
+  if (src.type !== "Literal" || typeof (src as AcornNode).value !== "string") {
     return null;
   }
-  return src.value;
+  return (src as AcornNode).value as string;
 }
 
 function validateImportDeclaration(node: ImportDeclaration): string | null {
@@ -337,16 +348,16 @@ function bundleConstraintViolationForNode(node: Node): string | null {
     return "dynamic import() is not allowed in workflow bundles";
   }
   if (node.type === "ImportDeclaration") {
-    return validateImportDeclaration(node);
+    return validateImportDeclaration(narrowNode<ImportDeclaration>(node));
   }
   if (node.type === "ExportNamedDeclaration") {
-    return validateExportNamedDeclaration(node);
+    return validateExportNamedDeclaration(narrowNode<ExportNamedDeclaration>(node));
   }
   if (node.type === "ExportAllDeclaration") {
-    return validateExportAllDeclaration(node);
+    return validateExportAllDeclaration(narrowNode<ExportAllDeclaration>(node));
   }
   if (node.type === "CallExpression") {
-    return validateRequireCall(node);
+    return validateRequireCall(narrowNode<CallExpression>(node));
   }
   return null;
 }
