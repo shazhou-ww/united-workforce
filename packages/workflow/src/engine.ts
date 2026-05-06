@@ -167,6 +167,7 @@ export async function executeThread(
   }
 
   const bundleOptions: WorkflowFnOptions = {
+    threadId: io.threadId,
     isDryRun: options.isDryRun,
     maxRounds: options.maxRounds,
   };

@@ -17,6 +17,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("fix the bug"),
       steps: [],
+      threadId: "01TEST000000000000000000TR",
     };
     const text = buildAgentPrompt("You are an agent.", ctx);
     expect(text).toContain("You are an agent.");
@@ -28,6 +29,7 @@ describe("buildAgentPrompt", () => {
   test("single step shows full content and meta, and includes tools", () => {
     const ctx: ThreadContext = {
       start: startTask("user task"),
+      threadId: "01TEST000000000000000000TR",
       steps: [
         {
           role: "coder",
@@ -50,6 +52,7 @@ describe("buildAgentPrompt", () => {
   test("two or more steps: previous steps are meta-only; latest step is full", () => {
     const ctx: ThreadContext = {
       start: startTask("first message full: task content here"),
+      threadId: "01TEST000000000000000000TR",
       steps: [
         {
           role: "planner",
@@ -80,6 +83,7 @@ describe("buildAgentPrompt", () => {
   test("middle steps show meta summary only, not full content", () => {
     const ctx: ThreadContext = {
       start: startTask("start"),
+      threadId: "01TEST000000000000000000TR",
       steps: [
         {
           role: "a",

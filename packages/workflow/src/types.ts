@@ -89,7 +89,6 @@ export type Moderator<M extends RoleMeta> = (
 
 /** Complete workflow definition as authored by users. */
 export type WorkflowDefinition<M extends RoleMeta> = {
-  name: string;
   roles: { [K in keyof M & string]: Role<M[K]> };
   moderator: Moderator<M>;
 };

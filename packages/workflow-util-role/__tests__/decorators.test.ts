@@ -16,7 +16,8 @@ function fakeCtx(): ThreadContext {
       },
       timestamp: Date.now(),
     },
-    steps: [],
+      steps: [],
+      threadId: "01TEST000000000000000000TR",
   };
 }
 

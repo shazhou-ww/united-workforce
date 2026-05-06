@@ -136,7 +136,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     threadId,
     workflowName,
     prompt,
-    options: { threadId, isDryRun, maxRounds },
+    options: { isDryRun, maxRounds },
     steps: parsedSteps.steps,
     stepTimestamps: parsedSteps.stepTimestamps,
     forkSourceThreadId,
