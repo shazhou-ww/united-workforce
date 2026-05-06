@@ -2,7 +2,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { LogFn } from "./logger.js";
-import type { WorkflowFn, WorkflowResult } from "./types.js";
+import type { ThreadInput, WorkflowFn, WorkflowResult } from "./types.js";
 
 export type ExecuteThreadIo = {
   threadId: string;
@@ -29,7 +29,7 @@ async function appendDataLine(path: string, record: unknown): Promise<void> {
 export async function executeThread(
   fn: WorkflowFn,
   workflowName: string,
-  prompt: string,
+  input: ThreadInput,
   options: ExecuteThreadOptions,
   io: ExecuteThreadIo,
   logger: LogFn,
@@ -43,7 +43,7 @@ export async function executeThread(
     hash: io.hash,
     threadId: io.threadId,
     parameters: {
-      prompt,
+      prompt: input.prompt,
       options: {
         isDryRun: options.isDryRun,
         maxRounds: options.maxRounds,
@@ -64,10 +64,9 @@ export async function executeThread(
     };
   }
 
-  const gen = fn(prompt, {
+  const gen = fn(input, {
     isDryRun: options.isDryRun,
     maxRounds: options.maxRounds,
-    threadId: io.threadId,
   });
 
   let written = 0;

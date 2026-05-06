@@ -6,9 +6,9 @@ describe("validateWorkflowBundle", () => {
   test("accepts minimal valid builtin-only bundle", () => {
     const source = `import fs from "node:fs";
 
-export default async function* run() {
+export default async function* (input) {
   fs.existsSync(".");
-  return { returnCode: 0, summary: "ok" };
+  return { returnCode: 0, summary: input.prompt };
 }
 `;
     const r = validateWorkflowBundle({ filePath: "/tmp/w.esm.js", source });
@@ -18,7 +18,8 @@ export default async function* run() {
   test("rejects wrong filename suffix", () => {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.js",
-      source: "export default async function* run() { return { returnCode: 0, summary: '' }; }\n",
+      source:
+        "export default async function* (input) { return { returnCode: 0, summary: input.prompt }; }\n",
     });
     expect(r.ok).toBe(false);
   });
@@ -49,7 +50,7 @@ export default async function* run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'import x from "some-package";\nexport default async function* run() { return { returnCode: 0, summary: "" }; }\n',
+        'import x from "some-package";\nexport default async function* (input) { return { returnCode: 0, summary: input.prompt }; }\n',
     });
     expect(r.ok).toBe(false);
   });
@@ -58,7 +59,7 @@ export default async function* run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'export default async function* run() { await import("fs"); return { returnCode: 0, summary: "" }; }\n',
+        'export default async function* (input) { await import("fs"); return { returnCode: 0, summary: input.prompt }; }\n',
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
@@ -70,7 +71,7 @@ export default async function* run() {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.esm.js",
       source:
-        'export default async function* run() { require("fs"); return { returnCode: 0, summary: "" }; }\n',
+        'export default async function* (input) { require("fs"); return { returnCode: 0, summary: input.prompt }; }\n',
     });
     expect(r.ok).toBe(false);
   });

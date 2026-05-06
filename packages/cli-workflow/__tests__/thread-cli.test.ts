@@ -13,16 +13,16 @@ import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
 import { pathExists } from "../src/fs-utils.js";
 
-const fastBundleSource = `export default async function* () {
-  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+const fastBundleSource = `export default async function* (input) {
+  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
 }
 `;
 
-const slowPlannerBundleSource = `export default async function* () {
+const slowPlannerBundleSource = `export default async function* (input) {
   await new Promise((r) => setTimeout(r, 400));
-  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
 }
@@ -30,9 +30,9 @@ const slowPlannerBundleSource = `export default async function* () {
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
-const abortablePlannerBundleSource = `export default async function* () {
+const abortablePlannerBundleSource = `export default async function* (input) {
   await new Promise((r) => setTimeout(r, 600));
-  yield { role: "planner", content: "plan", meta: { plan: "x" } };
+  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
   yield { role: "coder", content: "code", meta: { diff: "y" } };
   return { returnCode: 0, summary: "done" };
 }

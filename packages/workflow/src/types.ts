@@ -18,16 +18,21 @@ export type WorkflowResult = {
   summary: string;
 };
 
+/** Input to a workflow — prompt plus optional historical steps for fork/resume. */
+export type ThreadInput = {
+  prompt: string;
+  steps: RoleOutput[];
+};
+
 /** Options passed to a workflow bundle's default-export function (engine-provided). */
 export type WorkflowFnOptions = {
   isDryRun: boolean;
   maxRounds: number;
-  threadId: string;
 };
 
 /** Bundle contract — default export is a function returning an AsyncGenerator. */
 export type WorkflowFn = (
-  prompt: string,
+  input: ThreadInput,
   options: WorkflowFnOptions,
 ) => AsyncGenerator<RoleOutput, WorkflowResult>;
 
@@ -41,7 +46,7 @@ export type RoleResult<Meta extends Record<string, unknown>> = {
 export type StartStep = {
   role: typeof START;
   content: string;
-  meta: { maxRounds: number; threadId: string };
+  meta: { maxRounds: number };
   timestamp: number;
 };
 
@@ -52,7 +57,6 @@ export type RoleStep<M extends RoleMeta> = {
 
 /** Thread-scoped context passed to roles and moderator. */
 export type ThreadContext<M extends RoleMeta = RoleMeta> = {
-  threadId: string;
   start: StartStep;
   steps: RoleStep<M>[];
 };

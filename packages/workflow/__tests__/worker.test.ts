@@ -7,8 +7,8 @@ import { join } from "node:path";
 
 import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
 
-const bundleSource = `export default async function* () {
-  yield { role: "planner", content: "p", meta: { plan: "x" } };
+const bundleSource = `export default async function* (input) {
+  yield { role: "planner", content: "p", meta: { plan: input.prompt } };
   yield { role: "coder", content: "c", meta: { diff: "y" } };
   return { returnCode: 0, summary: "completed: moderator returned END" };
 }

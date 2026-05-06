@@ -228,7 +228,7 @@ async function main(): Promise<void> {
       await executeThread(
         workflowFn,
         cmd.workflowName,
-        cmd.prompt,
+        { prompt: cmd.prompt, steps: [] },
         { ...cmd.options, signal: ac.signal },
         io,
         logger,

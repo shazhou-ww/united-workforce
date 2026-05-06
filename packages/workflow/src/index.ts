@@ -47,6 +47,7 @@ export {
   START,
   type StartStep,
   type ThreadContext,
+  type ThreadInput,
   type WorkflowDefinition,
   type WorkflowFn,
   type WorkflowFnOptions,

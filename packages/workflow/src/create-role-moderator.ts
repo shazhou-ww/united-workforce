@@ -1,9 +1,11 @@
 import {
   END,
   type RoleMeta,
+  type RoleOutput,
   type RoleStep,
   START,
   type ThreadContext,
+  type ThreadInput,
   type WorkflowDefinition,
   type WorkflowFn,
   type WorkflowFnOptions,
@@ -24,18 +26,24 @@ export function createRoleModerator<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
 ): WorkflowFn {
   return async function* roleModeratorWorkflow(
-    prompt: string,
+    input: ThreadInput,
     options: WorkflowFnOptions,
   ): AsyncGenerator<RoleOutput, WorkflowResult> {
     const nowMs = Date.now();
     const start: ThreadContext<M>["start"] = {
       role: START,
-      content: prompt,
-      meta: { maxRounds: options.maxRounds, threadId: options.threadId },
+      content: input.prompt,
+      meta: { maxRounds: options.maxRounds },
       timestamp: nowMs,
     };
 
-    let steps: RoleStep<M>[] = [];
+    const baseTs = Date.now();
+    let steps: RoleStep<M>[] = input.steps.map((out, i) => ({
+      role: out.role,
+      content: out.content,
+      meta: out.meta,
+      timestamp: baseTs + i,
+    })) as RoleStep<M>[];
 
     while (true) {
       if (steps.length >= options.maxRounds) {
@@ -46,7 +54,6 @@ export function createRoleModerator<M extends RoleMeta>(
       }
 
       const ctx: ThreadContext<M> = {
-        threadId: options.threadId,
         start,
         steps,
       };

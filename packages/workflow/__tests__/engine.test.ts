@@ -51,7 +51,7 @@ describe("executeThread", () => {
       const result = await executeThread(
         demoWorkflow,
         "demo-flow",
-        "Fix the login redirect bug in #3",
+        { prompt: "Fix the login redirect bug in #3", steps: [] },
         { isDryRun: false, maxRounds: 5, signal: ac.signal },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
@@ -103,6 +103,53 @@ describe("executeThread", () => {
     }
   });
 
+  test("pre-filled ThreadInput.steps skips roles already present", async () => {
+    const root = await mkdtemp(join(tmpdir(), "wf-engine-fork-"));
+    try {
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const hash = "C9NMV6V2TQT81";
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
+      await mkdir(join(root, "logs", hash), { recursive: true });
+
+      const logger = createLogger({ sink: { kind: "file", path: infoPath } });
+      const ac = new AbortController();
+
+      const result = await executeThread(
+        demoWorkflow,
+        "demo-flow",
+        {
+          prompt: "continue from planner",
+          steps: [
+            {
+              role: "planner",
+              content: "plan-body",
+              meta: { plan: "do-it", files: ["a.ts"] },
+            },
+          ],
+        },
+        { isDryRun: false, maxRounds: 5, signal: ac.signal },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        logger,
+      );
+
+      expect(result.returnCode).toBe(0);
+
+      const dataText = await readFile(dataPath, "utf8");
+      const lines = dataText
+        .trim()
+        .split("\n")
+        .filter((l) => l !== "");
+      expect(lines.length).toBe(2);
+
+      const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      expect(role1.role).toBe("coder");
+      expect(role1.content).toBe("code-body");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("respects maxRounds=0 (start record only)", async () => {
     const root = await mkdtemp(join(tmpdir(), "wf-engine-max0-"));
     try {
@@ -118,7 +165,7 @@ describe("executeThread", () => {
       const result = await executeThread(
         demoWorkflow,
         "demo-flow",
-        "hello",
+        { prompt: "hello", steps: [] },
         { isDryRun: false, maxRounds: 0, signal: ac.signal },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
