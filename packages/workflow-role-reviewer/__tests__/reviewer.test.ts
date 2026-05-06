@@ -29,6 +29,7 @@ function toolCallResponse(argsJson: string): Response {
 
 function makeCtx(): ThreadContext {
   return {
+    threadId: "01TEST00000000000000000000",
     start: {
       role: START,
       content: "task",
@@ -49,14 +50,14 @@ describe("createReviewerRole", () => {
     mock.restore();
   });
 
-  test("runs reviewer extract", async () => {
+  test("approved verdict", async () => {
     globalThis.fetch = (() =>
       Promise.resolve(
-        toolCallResponse(JSON.stringify({ approved: true })),
+        toolCallResponse(JSON.stringify({ status: "approved" })),
       )) as unknown as typeof fetch;
 
     const agent: AgentFn = async (_ctx, prompt) => {
-      expect(prompt).toContain("git diff");
+      expect(prompt).toContain("code reviewer");
       expect(prompt).toContain(DEFAULT_REVIEWER_CONFIG.cwd);
       return "review done";
     };
@@ -64,16 +65,33 @@ describe("createReviewerRole", () => {
     const role = createReviewerRole(agent, {
       provider,
       dryRun: null,
-      dryRunMeta: { approved: true },
+      dryRunMeta: { status: "approved" },
     });
     const out = await role(makeCtx());
-    expect(out.meta).toEqual({ approved: true });
+    expect(out.meta).toEqual({ status: "approved" });
   });
 
-  test("includes uncaged-workflow thread hint when threadId set", async () => {
+  test("rejected verdict with issues", async () => {
     globalThis.fetch = (() =>
       Promise.resolve(
-        toolCallResponse(JSON.stringify({ approved: false })),
+        toolCallResponse(JSON.stringify({ status: "rejected", issues: ["secrets in code"] })),
+      )) as unknown as typeof fetch;
+
+    const agent: AgentFn = async () => "found problems";
+
+    const role = createReviewerRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta: { status: "approved" },
+    });
+    const out = await role(makeCtx());
+    expect(out.meta).toEqual({ status: "rejected", issues: ["secrets in code"] });
+  });
+
+  test("prompt includes threadId from context", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        toolCallResponse(JSON.stringify({ status: "approved" })),
       )) as unknown as typeof fetch;
 
     let seen = "";
@@ -84,15 +102,10 @@ describe("createReviewerRole", () => {
 
     const role = createReviewerRole(
       agent,
-      { provider, dryRun: null, dryRunMeta: { approved: false } },
-      {
-        cwd: "/proj",
-        conventionsPath: null,
-        extraChecks: [],
-        threadId: "01ABCDEF234567890ABCDEFGH",
-      },
+      { provider, dryRun: null, dryRunMeta: { status: "approved" } },
+      { cwd: "/proj" },
     );
     await role(makeCtx());
-    expect(seen).toContain("uncaged-workflow thread 01ABCDEF234567890ABCDEFGH");
+    expect(seen).toContain("uncaged-workflow thread 01TEST00000000000000000000");
   });
 });

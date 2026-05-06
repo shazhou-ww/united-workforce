@@ -25,6 +25,7 @@ function makeCtx(
   steps: ThreadContext<SolveIssueMeta>["steps"],
 ): ThreadContext<SolveIssueMeta> {
   return {
+    threadId: "01TEST00000000000000000000",
     start: makeStart(maxRounds),
     steps,
   };
@@ -52,7 +53,9 @@ function reviewerStep(approved: boolean): RoleStep<SolveIssueMeta> {
   return {
     role: "reviewer",
     content: "rev",
-    meta: { approved },
+    meta: approved
+      ? { status: "approved" as const }
+      : { status: "rejected" as const, issues: ["needs fix"] },
     timestamp: 3,
   };
 }

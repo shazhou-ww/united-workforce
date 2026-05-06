@@ -3,91 +3,52 @@ import { createRole } from "@uncaged/workflow-agent-llm";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
-export const reviewerMetaSchema = z.object({
-  approved: z.boolean().describe("true if the diff is clean and ready to merge"),
-});
+export const reviewerMetaSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("approved"),
+  }),
+  z.object({
+    status: z.literal("rejected"),
+    issues: z.array(z.string()).describe("blocking issues that must be fixed"),
+  }),
+]);
 export type ReviewerMeta = z.infer<typeof reviewerMetaSchema>;
 
 export type ReviewerConfig = {
   cwd: string;
-  conventionsPath: string | null;
-  extraChecks: ReadonlyArray<string>;
-  /** When non-null, prompts reference `uncaged-workflow thread <id>`. */
-  threadId: string | null;
 };
 
 export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
   cwd: ".",
-  conventionsPath: "CONVENTIONS.md",
-  extraChecks: [],
-  threadId: null,
 };
 
-function summarizeThreadContext(ctx: ThreadContext): string {
-  const lines: string[] = [`Initial prompt:\n${ctx.start.content}`];
-  for (const step of ctx.steps) {
-    const snippet = step.content.length > 600 ? `${step.content.slice(0, 600)}…` : step.content;
-    lines.push(`\n### ${step.role}\n${snippet}`);
-  }
-  return lines.join("\n");
-}
-
 function reviewerPrompt(config: ReviewerConfig, ctx: ThreadContext): string {
-  const { cwd, conventionsPath, extraChecks, threadId } = config;
+  const { cwd } = config;
 
-  const conventionsBlock =
-    conventionsPath !== null ? `Read project conventions: \`cat ${cwd}/${conventionsPath}\`\n` : "";
+  return `You are a code reviewer. The project is at \`${cwd}\`.
 
-  const threadBlock =
-    threadId !== null
-      ? `Read the workflow thread for context: \`uncaged-workflow thread ${threadId}\`\n`
-      : `## Thread context (no thread id)\n\n${summarizeThreadContext(ctx)}\n`;
+## Context
 
-  const extraBlock =
-    extraChecks.length > 0
-      ? `\n### Project-specific checks\n${extraChecks.map((c) => `- ${c}`).join("\n")}\n`
-      : "";
+Use \`uncaged-workflow thread ${ctx.threadId}\` to read the full workflow thread for context on what was done and why.
 
-  return `You are a **code reviewer**. You run after the coder and before the tester.
+## Task
 
-**IMPORTANT: The project is at \`${cwd}\`. Always \`cd ${cwd}\` first.**
+Review the current git diff in \`${cwd}\`. Give a clear **approve** or **reject** verdict.
 
-${threadBlock}
-${conventionsBlock}
-## Your job — static analysis of the git diff
+Only reject for **blocking issues** — things that must be fixed before merge. Do not mention minor style preferences or non-blocking suggestions; they will be ignored.
 
-Run these commands and analyze the output:
-
-1. **\`cd ${cwd} && git diff --stat\`** — see what files changed
-2. **\`cd ${cwd} && git diff\`** — read the actual diff
-3. **\`cd ${cwd} && git status --short\`** — check for untracked files
-
-## Checklist
-
-### Reject (approved: false) — tell coder exactly what to fix
-- **Garbage files**: build artifacts, lockfiles, IDE config that should not be committed
-- **Secrets/credentials**: API keys, tokens, passwords hardcoded in the diff
-- **Unrelated changes**: files modified outside the scope of the task
-${
-  conventionsPath !== null
-    ? `- **Convention violations**: patterns that contradict ${conventionsPath}\n`
-    : ""
-}${extraBlock}
-### Approve (approved: true) — no comment needed
-- Diff is clean, focused, follows project standards
-
-End with:
+End with your verdict:
 \`\`\`json
-{ "approved": true }
+{ "status": "approved" }
 \`\`\`
 or
 \`\`\`json
-{ "approved": false }
+{ "status": "rejected", "issues": ["issue 1", "issue 2"] }
 \`\`\``;
 }
 
 /**
- * Code review role: agent inspects git diffs; structured extract yields `approved`.
+ * Code review role: agent inspects git diffs; structured extract yields approve/reject verdict.
  */
 export function createReviewerRole(
   adapter: AgentFn,

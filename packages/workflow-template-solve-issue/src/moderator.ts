@@ -21,7 +21,7 @@ export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
   }
 
   if (last.role === "reviewer") {
-    if (last.meta.approved === true) {
+    if (last.meta.status === "approved") {
       return "committer";
     }
     if (ctx.steps.length < maxRounds - 1) {

@@ -46,7 +46,7 @@ const CODER_DRY_RUN_META: CoderMeta = {
 };
 
 const REVIEWER_DRY_RUN_META: ReviewerMeta = {
-  approved: true,
+  status: "approved",
 };
 
 const COMMITTER_DRY_RUN_META: CommitterMeta = {
@@ -88,11 +88,8 @@ export type SolveIssueRoles = {
 
 export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssueRoles {
   const extract = resolveExtract(config);
-  const reviewerGit = {
+  const reviewerConfig = {
     cwd: config.workdir,
-    conventionsPath: null,
-    extraChecks: [],
-    threadId: null,
   };
   const committerGit = {
     cwd: config.workdir,
@@ -131,7 +128,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
       dryRun: extract.dryRun,
       dryRunMeta: REVIEWER_DRY_RUN_META,
     },
-    reviewerGit,
+    reviewerConfig,
   );
 
   const committer: Role<CommitterMeta> = createCommitterRole(
