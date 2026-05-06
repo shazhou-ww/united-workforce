@@ -1,26 +1,20 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { spawnCli } from "@uncaged/workflow-util-agent";
 
 /** Runs `git` with args in `cwd`; throws if git exits non-zero. */
 export async function gitExec(cwd: string, args: readonly string[]): Promise<string> {
-  try {
-    const r = await execFileAsync("git", [...args], {
-      cwd,
-      encoding: "utf8",
-      maxBuffer: 10 * 1024 * 1024,
-    });
-    return r.stdout;
-  } catch (e) {
-    const stderr =
-      typeof e === "object" &&
-      e !== null &&
-      "stderr" in e &&
-      typeof (e as { stderr: unknown }).stderr === "string"
-        ? (e as { stderr: string }).stderr
-        : "";
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`git ${args.join(" ")} failed: ${msg}${stderr ? ` (${stderr.trim()})` : ""}`);
+  const result = await spawnCli("git", [...args], { cwd, timeoutMs: null });
+  if (result.ok) {
+    return result.value;
+  }
+  const error = result.error;
+  switch (error.kind) {
+    case "non_zero_exit":
+      throw new Error(
+        `git ${args.join(" ")} failed (exit ${error.exitCode}): ${error.stderr.trim() || error.stdout.trim()}`,
+      );
+    case "timeout":
+      throw new Error(`git ${args.join(" ")} timed out`);
+    case "spawn_failed":
+      throw new Error(`git ${args.join(" ")} spawn failed: ${error.message}`);
   }
 }

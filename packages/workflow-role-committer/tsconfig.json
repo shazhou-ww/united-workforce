@@ -7,5 +7,9 @@
     "types": ["bun-types"]
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../workflow" }, { "path": "../workflow-util-role" }]
+  "references": [
+    { "path": "../workflow" },
+    { "path": "../workflow-util-agent" },
+    { "path": "../workflow-util-role" }
+  ]
 }

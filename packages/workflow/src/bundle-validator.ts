@@ -21,6 +21,7 @@ type AcornNode = Node & { [key: string]: unknown };
 function narrowNode<T extends Node>(node: Node): T {
   return node as unknown as T;
 }
+
 import * as acorn from "acorn";
 
 import { err, ok, type Result } from "./result.js";
