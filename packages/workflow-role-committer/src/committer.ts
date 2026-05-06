@@ -1,28 +1,27 @@
-import type { AgentFn, Role, RoleResult, ThreadContext } from "@uncaged/workflow";
+import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
 import {
+  createRole,
   decorateRole,
-  extractMetaOrThrow,
   type LlmProvider,
   onFail,
   withDryRun,
 } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
-import { gitExec } from "./git-exec.js";
+export const committerMetaSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("committed"),
+    branch: z.string(),
+    commitSha: z.string(),
+  }),
+  z.object({
+    status: z.literal("failed"),
+    error: z.string(),
+    logRef: z.string().nullable(),
+  }),
+]);
 
-export const committerMetaSchema = z.object({
-  committed: z
-    .boolean()
-    .describe("true if branch created, changes committed, and pushed successfully"),
-});
 export type CommitterMeta = z.infer<typeof committerMetaSchema>;
-
-const committerPlanSchema = z.object({
-  branch: z.string().describe("Feature branch name, e.g. feat/slug or fix/slug"),
-  message: z.string().describe("Single-line conventional commit subject"),
-});
-
-export type CommitterPlanMeta = z.infer<typeof committerPlanSchema>;
 
 export type CommitterGitConfig = {
   cwd: string;
@@ -35,6 +34,12 @@ export const DEFAULT_COMMITTER_GIT_CONFIG: CommitterGitConfig = {
   cwd: ".",
   remote: "origin",
   threadId: null,
+};
+
+const DRY_RUN_COMMITTED_META: CommitterMeta = {
+  status: "committed",
+  branch: "dry-run/placeholder",
+  commitSha: "0000000",
 };
 
 function resolveExtractDryRun(extractDryRun: boolean | null): boolean {
@@ -50,37 +55,18 @@ function summarizeThreadContext(ctx: ThreadContext): string {
   return lines.join("\n");
 }
 
-function sanitizeBranch(branch: string): string {
-  const t = branch.trim();
-  if (
-    t === "" ||
-    t.includes("..") ||
-    t.includes(" ") ||
-    t.startsWith("-") ||
-    t.includes("\n") ||
-    t.includes("\t")
-  ) {
-    throw new Error(`invalid branch name: ${branch}`);
-  }
-  return t;
-}
-
-function sanitizeCommitMessage(message: string): string {
-  const line = message.trim().split(/\r?\n/)[0] ?? "";
-  if (line === "") {
-    throw new Error("commit message is empty");
-  }
-  return line;
-}
-
-function committerPlanPrompt(ctx: ThreadContext, gitConfig: CommitterGitConfig): string {
+function committerSystemPrompt(ctx: ThreadContext, gitConfig: CommitterGitConfig): string {
   const threadLine =
     gitConfig.threadId !== null
       ? `Optional CLI context: run \`uncaged-workflow thread ${gitConfig.threadId}\` if available.\n`
       : "";
 
-  return `You plan a git branch and a single-line conventional commit message for the following workflow thread.
+  return `You are the **git committer** for this workflow. Prior roles planned, implemented, and reviewed the change; your job is to perform git operations in the repository and report the outcome.
 
+## Repository context
+
+- Working directory (run git commands here): \`${gitConfig.cwd}\`
+- Remote name for push: \`${gitConfig.remote}\`
 ${threadLine}
 ## Thread context
 
@@ -88,66 +74,44 @@ ${summarizeThreadContext(ctx)}
 
 ## Your task
 
-Infer a good branch name (\`feat/<slug>\` or \`fix/<slug>\`) and a conventional commit **subject** (one line, no body).
+1. Inspect the working tree (e.g. \`git status\`). If there is nothing to commit, stop and explain why in your reply.
+2. Create a new branch using **conventional** naming (\`feat/<slug>\`, \`fix/<slug>\`, or \`chore/<slug>\` as appropriate).
+3. Stage all intended changes, commit with a **single-line conventional commit subject**, and push the branch to \`${gitConfig.remote}\` (e.g. \`git push -u ${gitConfig.remote} <branch>\`).
+4. In your reply, state clearly whether the push succeeded, the **exact branch name** used, and the **full commit SHA** from \`git rev-parse HEAD\` (or explain the failure).
 
-Reply with enough detail that a maintainer understands the change; structured extraction will read \`branch\` and \`message\` from your answer.`;
-}
-
-async function runCommitterPipeline(
-  ctx: ThreadContext,
-  agent: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: CommitterPlanMeta },
-  gitConfig: CommitterGitConfig,
-): Promise<RoleResult<CommitterMeta>> {
-  const cwd = gitConfig.cwd;
-  const porcelain = await gitExec(cwd, ["status", "--porcelain"]);
-  if (porcelain.trim() === "") {
-    return {
-      content: "Working tree clean; nothing to commit.",
-      meta: { committed: false },
-    };
-  }
-
-  const prompt = committerPlanPrompt(ctx, gitConfig);
-  const raw = await agent(ctx, prompt);
-  const plan = await extractMetaOrThrow("committer-plan", raw, committerPlanSchema, {
-    provider: extract.provider,
-    dryRun: resolveExtractDryRun(extract.dryRun),
-    dryRunMeta: extract.dryRunMeta,
-  });
-
-  const branch = sanitizeBranch(plan.branch);
-  const message = sanitizeCommitMessage(plan.message);
-
-  await gitExec(cwd, ["checkout", "-b", branch]);
-  await gitExec(cwd, ["add", "-A"]);
-  await gitExec(cwd, ["commit", "-m", message]);
-  await gitExec(cwd, ["push", "-u", gitConfig.remote, branch]);
-
-  return {
-    content: raw,
-    meta: { committed: true },
-  };
+Structured extraction will read \`status\`, branch, commit SHA, or error details from your answer.`;
 }
 
 /**
- * Git committer role: LLM proposes branch + message; this package runs git via `child_process`.
- * Decorators match nerve semantics: dry-run skips work with `committed: true`; failures yield `committed: false`.
+ * Git committer role: the agent runs git (branch, commit, push); structured extraction yields {@link CommitterMeta}.
+ * Dry-run skips the agent and returns a stable committed placeholder; unexpected throws yield \`status: "failed"\`.
  */
 export function createCommitterRole(
   adapter: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: CommitterPlanMeta },
+  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: CommitterMeta },
   gitConfig: CommitterGitConfig = DEFAULT_COMMITTER_GIT_CONFIG,
 ): Role<CommitterMeta> {
-  const inner: Role<CommitterMeta> = async (ctx) =>
-    runCommitterPipeline(ctx, adapter, extract, gitConfig);
+  const inner: Role<CommitterMeta> = createRole({
+    name: "committer",
+    schema: committerMetaSchema,
+    systemPrompt: async (ctx) => committerSystemPrompt(ctx, gitConfig),
+    agent: adapter,
+    extract,
+  });
 
   return decorateRole(inner, [
     withDryRun<CommitterMeta>({
       label: "committer",
-      meta: { committed: true },
+      meta: DRY_RUN_COMMITTED_META,
       dryRun: resolveExtractDryRun(extract.dryRun),
     }),
-    onFail<CommitterMeta>({ label: "committer", meta: { committed: false } }),
+    onFail<CommitterMeta>({
+      label: "committer",
+      meta: {
+        status: "failed",
+        error: "committer role threw before structured result",
+        logRef: null,
+      },
+    }),
   ]);
 }

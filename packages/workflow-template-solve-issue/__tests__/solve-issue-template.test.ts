@@ -61,7 +61,7 @@ function committerStep(): RoleStep<SolveIssueMeta> {
   return {
     role: "committer",
     content: "commit",
-    meta: { committed: true },
+    meta: { status: "committed", branch: "feat/issue-1", commitSha: "abc1234" },
     timestamp: 4,
   };
 }

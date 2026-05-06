@@ -1,9 +1,5 @@
 import type { AgentFn, Role } from "@uncaged/workflow";
-import {
-  type CommitterMeta,
-  type CommitterPlanMeta,
-  createCommitterRole,
-} from "@uncaged/workflow-role-committer";
+import { type CommitterMeta, createCommitterRole } from "@uncaged/workflow-role-committer";
 import { createRole } from "@uncaged/workflow-role-llm";
 import { createReviewerRole, type ReviewerMeta } from "@uncaged/workflow-role-reviewer";
 import type { LlmProvider } from "@uncaged/workflow-util-role";
@@ -53,9 +49,10 @@ const REVIEWER_DRY_RUN_META: ReviewerMeta = {
   approved: true,
 };
 
-const COMMITTER_PLAN_DRY_RUN_META: CommitterPlanMeta = {
-  branch: "dry-run",
-  message: "chore: dry run",
+const COMMITTER_DRY_RUN_META: CommitterMeta = {
+  status: "committed",
+  branch: "dry-run/placeholder",
+  commitSha: "0000000",
 };
 
 export type SolveIssueMeta = {
@@ -142,7 +139,7 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     {
       provider: extract.provider,
       dryRun: extract.dryRun,
-      dryRunMeta: COMMITTER_PLAN_DRY_RUN_META,
+      dryRunMeta: COMMITTER_DRY_RUN_META,
     },
     committerGit,
   );

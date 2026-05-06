@@ -1,40 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { execFile } from "node:child_process";
-import { appendFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { promisify } from "node:util";
 
 import type { AgentFn, ThreadContext } from "@uncaged/workflow";
 import { START } from "@uncaged/workflow";
 import * as utilRole from "@uncaged/workflow-util-role";
 
 import { createCommitterRole } from "../src/committer.js";
-import { gitExec } from "../src/git-exec.js";
-
-const execFileAsync = promisify(execFile);
-
-async function git(repo: string, args: string[]): Promise<void> {
-  await gitExec(repo, args);
-}
-
-async function setupRepoWithRemote(): Promise<{ repo: string }> {
-  const base = await mkdtemp(join(tmpdir(), "wf-committer-"));
-  const bare = join(base, "origin.git");
-  const repo = join(base, "work");
-  await mkdir(repo, { recursive: true });
-  await mkdir(bare, { recursive: true });
-  await execFileAsync("git", ["init"], { cwd: repo, encoding: "utf8" });
-  await git(repo, ["config", "user.email", "t@t"]);
-  await git(repo, ["config", "user.name", "t"]);
-  await writeFile(join(repo, "README.md"), "# hi\n", "utf8");
-  await git(repo, ["add", "README.md"]);
-  await git(repo, ["commit", "-m", "init"]);
-  await execFileAsync("git", ["init", "--bare"], { cwd: bare, encoding: "utf8" });
-  await git(repo, ["remote", "add", "origin", bare]);
-  await git(repo, ["push", "-u", "origin", "HEAD"]);
-  return { repo };
-}
 
 function makeCtx(): ThreadContext {
   return {
@@ -50,21 +20,13 @@ function makeCtx(): ThreadContext {
 
 const provider = { baseUrl: "https://example.com/v1", apiKey: "k", model: "m" };
 
-describe("createCommitterRole", () => {
-  test("returns committed false when working tree clean", async () => {
-    const { repo } = await setupRepoWithRemote();
-    const agent: AgentFn = async () => {
-      throw new Error("agent should not run");
-    };
-    const role = createCommitterRole(
-      agent,
-      { provider, dryRun: null, dryRunMeta: { branch: "dry-run", message: "chore: dry run" } },
-      { cwd: repo, remote: "origin", threadId: null },
-    );
-    const out = await role(makeCtx());
-    expect(out.meta.committed).toBe(false);
-  });
+const dryRunMeta = {
+  status: "committed" as const,
+  branch: "dry-run/placeholder",
+  commitSha: "0000000",
+};
 
+describe("createCommitterRole", () => {
   test("dry-run skips pipeline", async () => {
     const agent: AgentFn = async () => {
       throw new Error("agent should not run");
@@ -72,39 +34,101 @@ describe("createCommitterRole", () => {
     const role = createCommitterRole(agent, {
       provider,
       dryRun: true,
-      dryRunMeta: { branch: "dry-run", message: "chore: dry run" },
+      dryRunMeta,
     });
     const out = await role(makeCtx());
     expect(out.content).toBe("[dry-run] committer skipped");
-    expect(out.meta).toEqual({ committed: true });
+    expect(out.meta).toEqual(dryRunMeta);
   });
 
-  test("commits and pushes when changes exist", async () => {
-    const { repo } = await setupRepoWithRemote();
-    await appendFile(join(repo, "README.md"), "\nmore\n", "utf8");
+  test("returns committed meta when extraction succeeds", async () => {
+    const committed = {
+      status: "committed" as const,
+      branch: "feat/widget",
+      commitSha: "deadbeef".repeat(5).slice(0, 40),
+    };
 
-    const spy = spyOn(utilRole, "extractMetaOrThrow").mockResolvedValue({
-      branch: "feat/test-commit",
-      message: "feat: add more",
+    const spy = spyOn(utilRole, "extractMetaOrThrow").mockResolvedValue(committed);
+
+    const agent: AgentFn = async (_ctx, prompt) =>
+      `Created branch ${committed.branch}, pushed. SHA ${committed.commitSha}.\n${prompt.slice(0, 80)}…`;
+
+    const role = createCommitterRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta,
     });
 
-    const agent: AgentFn = async () => "plan text";
-    const role = createCommitterRole(
-      agent,
-      { provider, dryRun: null, dryRunMeta: { branch: "dry-run", message: "chore: dry run" } },
-      { cwd: repo, remote: "origin", threadId: null },
-    );
+    const out = await role(makeCtx());
+    expect(out.meta).toEqual(committed);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test("returns failed meta when extraction reports failure", async () => {
+    const failed = {
+      status: "failed" as const,
+      error: "working tree clean; nothing to commit",
+      logRef: null as string | null,
+    };
+
+    const spy = spyOn(utilRole, "extractMetaOrThrow").mockResolvedValue(failed);
+
+    const agent: AgentFn = async () => "git status shows no changes; skipping branch and commit.";
+
+    const role = createCommitterRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta,
+    });
 
     const out = await role(makeCtx());
-    expect(out.meta.committed).toBe(true);
+    expect(out.meta).toEqual(failed);
     expect(spy).toHaveBeenCalled();
-
-    const branches = await gitExec(repo, ["branch", "--list", "feat/test-commit"]);
-    expect(branches).toContain("feat/test-commit");
-
-    const remoteRefs = await gitExec(repo, ["ls-remote", "--heads", "origin", "feat/test-commit"]);
-    expect(remoteRefs.trim().length).toBeGreaterThan(0);
-
     spy.mockRestore();
+  });
+
+  test("returns failed meta with logRef when extraction includes it", async () => {
+    const failed = {
+      status: "failed" as const,
+      error: "push rejected",
+      logRef: "LOGREF01",
+    };
+
+    spyOn(utilRole, "extractMetaOrThrow").mockResolvedValue(failed);
+
+    const agent: AgentFn = async () => "Remote rejected non-fast-forward.";
+
+    const role = createCommitterRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta,
+    });
+
+    const out = await role(makeCtx());
+    expect(out.meta).toEqual(failed);
+  });
+
+  test("onFail wraps extraction errors", async () => {
+    spyOn(utilRole, "extractMetaOrThrow").mockRejectedValue(
+      new Error("structured extraction failed"),
+    );
+
+    const agent: AgentFn = async () => "opaque agent output";
+
+    const role = createCommitterRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta,
+    });
+
+    const out = await role(makeCtx());
+    expect(out.meta).toEqual({
+      status: "failed",
+      error: "committer role threw before structured result",
+      logRef: null,
+    });
+    expect(out.content).toContain("committer failed:");
+    expect(out.content).toContain("structured extraction failed");
   });
 });
