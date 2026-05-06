@@ -10,8 +10,9 @@ export type CreateRoleArgs<M extends Record<string, unknown>> = {
   agent: AgentFn;
   extract: {
     provider: LlmProvider;
-    /** When `true`, structured extract returns schema-shaped defaults. When `null`, live API extract. */
+    /** When `true`, structured extract returns `dryRunMeta`. When `null`, live API extract. */
     dryRun: boolean | null;
+    dryRunMeta: M;
   };
 };
 
@@ -28,6 +29,7 @@ export function createRole<M extends Record<string, unknown>>(args: CreateRoleAr
     const meta = await extractMetaOrThrow(args.name, raw, args.schema, {
       provider: args.extract.provider,
       dryRun: resolveExtractDryRun(args.extract.dryRun),
+      dryRunMeta: args.extract.dryRunMeta,
     });
     return { content: raw, meta };
   };

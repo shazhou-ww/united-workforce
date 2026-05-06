@@ -1,5 +1,9 @@
 import type { AgentFn, Role } from "@uncaged/workflow";
-import { type CommitterMeta, createCommitterRole } from "@uncaged/workflow-role-committer";
+import {
+  type CommitterMeta,
+  type CommitterPlanMeta,
+  createCommitterRole,
+} from "@uncaged/workflow-role-committer";
 import { createRole, type LlmProvider } from "@uncaged/workflow-role-llm";
 import { createReviewerRole, type ReviewerMeta } from "@uncaged/workflow-role-reviewer";
 import * as z from "zod/v4";
@@ -33,6 +37,26 @@ export type PlannerMeta = z.infer<typeof plannerMetaSchema>;
 
 export type CoderMeta = z.infer<typeof coderMetaSchema>;
 
+const PLANNER_DRY_RUN_META: PlannerMeta = {
+  plan: "",
+  files: [],
+  approach: "",
+};
+
+const CODER_DRY_RUN_META: CoderMeta = {
+  filesChanged: [],
+  summary: "",
+};
+
+const REVIEWER_DRY_RUN_META: ReviewerMeta = {
+  approved: true,
+};
+
+const COMMITTER_PLAN_DRY_RUN_META: CommitterPlanMeta = {
+  branch: "dry-run",
+  message: "chore: dry run",
+};
+
 export type SolveIssueMeta = {
   planner: PlannerMeta;
   coder: CoderMeta;
@@ -40,7 +64,7 @@ export type SolveIssueMeta = {
   committer: CommitterMeta;
 };
 
-/** Wiring for workflow-role LLM structured extraction. Use null for schema-default dry runs (tests / stubs). */
+/** Wiring for workflow-role LLM structured extraction. Use `null` for stub extract (dry-run meta from built-in placeholders). */
 export type SolveIssueRolesConfig = {
   agent: AgentFn;
   workdir: string;
@@ -83,7 +107,11 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     schema: plannerMetaSchema,
     systemPrompt: PLANNER_SYSTEM,
     agent: config.agent,
-    extract: { provider: extract.provider, dryRun: extract.dryRun },
+    extract: {
+      provider: extract.provider,
+      dryRun: extract.dryRun,
+      dryRunMeta: PLANNER_DRY_RUN_META,
+    },
   });
 
   const coder: Role<CoderMeta> = createRole({
@@ -91,18 +119,30 @@ export function createSolveIssueRoles(config: SolveIssueRolesConfig): SolveIssue
     schema: coderMetaSchema,
     systemPrompt: CODER_SYSTEM,
     agent: config.agent,
-    extract: { provider: extract.provider, dryRun: extract.dryRun },
+    extract: {
+      provider: extract.provider,
+      dryRun: extract.dryRun,
+      dryRunMeta: CODER_DRY_RUN_META,
+    },
   });
 
   const reviewer: Role<ReviewerMeta> = createReviewerRole(
     config.agent,
-    { provider: extract.provider, dryRun: extract.dryRun },
+    {
+      provider: extract.provider,
+      dryRun: extract.dryRun,
+      dryRunMeta: REVIEWER_DRY_RUN_META,
+    },
     reviewerGit,
   );
 
   const committer: Role<CommitterMeta> = createCommitterRole(
     config.agent,
-    { provider: extract.provider, dryRun: extract.dryRun },
+    {
+      provider: extract.provider,
+      dryRun: extract.dryRun,
+      dryRunMeta: COMMITTER_PLAN_DRY_RUN_META,
+    },
     committerGit,
   );
 

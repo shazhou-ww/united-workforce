@@ -58,7 +58,7 @@ describe("createCommitterRole", () => {
     };
     const role = createCommitterRole(
       agent,
-      { provider, dryRun: null },
+      { provider, dryRun: null, dryRunMeta: { branch: "dry-run", message: "chore: dry run" } },
       { cwd: repo, remote: "origin", threadId: null },
     );
     const out = await role(makeCtx());
@@ -69,7 +69,11 @@ describe("createCommitterRole", () => {
     const agent: AgentFn = async () => {
       throw new Error("agent should not run");
     };
-    const role = createCommitterRole(agent, { provider, dryRun: true });
+    const role = createCommitterRole(agent, {
+      provider,
+      dryRun: true,
+      dryRunMeta: { branch: "dry-run", message: "chore: dry run" },
+    });
     const out = await role(makeCtx());
     expect(out.content).toBe("[dry-run] committer skipped");
     expect(out.meta).toEqual({ committed: true });
@@ -87,7 +91,7 @@ describe("createCommitterRole", () => {
     const agent: AgentFn = async () => "plan text";
     const role = createCommitterRole(
       agent,
-      { provider, dryRun: null },
+      { provider, dryRun: null, dryRunMeta: { branch: "dry-run", message: "chore: dry run" } },
       { cwd: repo, remote: "origin", threadId: null },
     );
 

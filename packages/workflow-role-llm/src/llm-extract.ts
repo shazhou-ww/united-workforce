@@ -1,5 +1,4 @@
 import { err, ok, type Result } from "@uncaged/workflow";
-import { schemaDefaults } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 import type { LlmProvider } from "./types.js";
 
@@ -10,6 +9,8 @@ export type LlmExtractArgs<T> = {
   schema: z.ZodType<T>;
   provider: LlmProvider;
   dryRun: boolean;
+  /** Returned when `dryRun` is true (ignored for live extract). */
+  dryRunMeta: T;
 };
 
 export type LlmError =
@@ -128,7 +129,7 @@ async function performLlmExtract<T>(
   options: LlmExtractArgs<T> & { userContent: string },
 ): Promise<Result<T, LlmError>> {
   if (options.dryRun) {
-    return ok(schemaDefaults(options.schema) as T);
+    return ok(options.dryRunMeta);
   }
 
   const rawJsonSchema = z.toJSONSchema(options.schema) as Record<string, unknown>;

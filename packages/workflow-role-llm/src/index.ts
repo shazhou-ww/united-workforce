@@ -3,7 +3,6 @@ export {
   type OnFailOptions,
   onFail,
   type RoleDecorator,
-  schemaDefaults,
   type WithDryRunOptions,
   withDryRun,
 } from "@uncaged/workflow-util-role";

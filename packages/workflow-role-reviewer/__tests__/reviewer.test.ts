@@ -58,7 +58,11 @@ describe("createReviewerRole", () => {
       return "review done";
     };
 
-    const role = createReviewerRole(agent, { provider, dryRun: null });
+    const role = createReviewerRole(agent, {
+      provider,
+      dryRun: null,
+      dryRunMeta: { approved: true },
+    });
     const out = await role(makeCtx());
     expect(out.meta).toEqual({ approved: true });
   });
@@ -74,7 +78,7 @@ describe("createReviewerRole", () => {
 
     const role = createReviewerRole(
       agent,
-      { provider, dryRun: null },
+      { provider, dryRun: null, dryRunMeta: { approved: false } },
       {
         cwd: "/proj",
         conventionsPath: null,

@@ -6,13 +6,14 @@ export async function extractMetaOrThrow<T extends Record<string, unknown>>(
   roleName: string,
   raw: string,
   schema: z.ZodType<T>,
-  options: { provider: LlmProvider; dryRun: boolean },
+  options: { provider: LlmProvider; dryRun: boolean; dryRunMeta: T },
 ): Promise<T> {
   const result = await llmExtractWithRetry({
     text: raw,
     schema,
     provider: options.provider,
     dryRun: options.dryRun,
+    dryRunMeta: options.dryRunMeta,
   });
   if (!result.ok) {
     throw new Error(

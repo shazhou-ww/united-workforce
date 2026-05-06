@@ -6,4 +6,3 @@ export {
   type WithDryRunOptions,
   withDryRun,
 } from "./decorators.js";
-export { schemaDefaults } from "./schema-defaults.js";

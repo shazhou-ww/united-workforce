@@ -90,7 +90,7 @@ or
  */
 export function createReviewerRole(
   adapter: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null },
+  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: ReviewerMeta },
   config: ReviewerConfig = DEFAULT_REVIEWER_CONFIG,
 ): Role<ReviewerMeta> {
   return createRole({
@@ -98,6 +98,10 @@ export function createReviewerRole(
     schema: reviewerMetaSchema,
     systemPrompt: async (ctx) => reviewerPrompt(config, ctx),
     agent: adapter,
-    extract: { provider: extract.provider, dryRun: extract.dryRun },
+    extract: {
+      provider: extract.provider,
+      dryRun: extract.dryRun,
+      dryRunMeta: extract.dryRunMeta,
+    },
   });
 }

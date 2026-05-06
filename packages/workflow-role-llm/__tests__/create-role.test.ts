@@ -64,7 +64,7 @@ describe("createRole", () => {
       schema,
       systemPrompt: "hello",
       agent,
-      extract: { provider, dryRun: null },
+      extract: { provider, dryRun: null, dryRunMeta: { n: 0 } },
     });
 
     const out = await role(makeCtx());
@@ -85,7 +85,7 @@ describe("createRole", () => {
       schema: z.object({ n: z.number() }),
       systemPrompt: "p",
       agent,
-      extract: { provider, dryRun: null },
+      extract: { provider, dryRun: null, dryRunMeta: { n: 0 } },
     });
     await role(makeCtx());
 
@@ -103,7 +103,7 @@ describe("createRole", () => {
       schema,
       systemPrompt: async (ctx) => `rounds=${ctx.steps.length}`,
       agent,
-      extract: { provider, dryRun: null },
+      extract: { provider, dryRun: null, dryRunMeta: { n: 0 } },
     });
 
     const ctx = makeCtx();
@@ -121,7 +121,7 @@ describe("createRole", () => {
       schema: z.object({ n: z.number() }),
       systemPrompt: "p",
       agent,
-      extract: { provider, dryRun: null },
+      extract: { provider, dryRun: null, dryRunMeta: { n: 0 } },
     });
     await role(makeCtx());
 
@@ -129,7 +129,7 @@ describe("createRole", () => {
       "r1",
       "raw",
       expect.anything(),
-      expect.objectContaining({ provider, dryRun: false }),
+      expect.objectContaining({ provider, dryRun: false, dryRunMeta: { n: 0 } }),
     );
   });
 
@@ -142,7 +142,7 @@ describe("createRole", () => {
       schema: z.object({ n: z.number() }),
       systemPrompt: "p",
       agent,
-      extract: { provider, dryRun: true },
+      extract: { provider, dryRun: true, dryRunMeta: { n: 0 } },
     });
     await role(makeCtx());
 
@@ -150,7 +150,7 @@ describe("createRole", () => {
       "r2",
       "raw",
       expect.anything(),
-      expect.objectContaining({ dryRun: true }),
+      expect.objectContaining({ dryRun: true, dryRunMeta: { n: 0 } }),
     );
   });
 });

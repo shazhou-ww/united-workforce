@@ -18,6 +18,8 @@ const committerPlanSchema = z.object({
   message: z.string().describe("Single-line conventional commit subject"),
 });
 
+export type CommitterPlanMeta = z.infer<typeof committerPlanSchema>;
+
 export type CommitterGitConfig = {
   cwd: string;
   remote: string;
@@ -90,7 +92,7 @@ Reply with enough detail that a maintainer understands the change; structured ex
 async function runCommitterPipeline(
   ctx: ThreadContext,
   agent: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null },
+  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: CommitterPlanMeta },
   gitConfig: CommitterGitConfig,
 ): Promise<RoleResult<CommitterMeta>> {
   const cwd = gitConfig.cwd;
@@ -107,6 +109,7 @@ async function runCommitterPipeline(
   const plan = await extractMetaOrThrow("committer-plan", raw, committerPlanSchema, {
     provider: extract.provider,
     dryRun: resolveExtractDryRun(extract.dryRun),
+    dryRunMeta: extract.dryRunMeta,
   });
 
   const branch = sanitizeBranch(plan.branch);
@@ -129,7 +132,7 @@ async function runCommitterPipeline(
  */
 export function createCommitterRole(
   adapter: AgentFn,
-  extract: { provider: LlmProvider; dryRun: boolean | null },
+  extract: { provider: LlmProvider; dryRun: boolean | null; dryRunMeta: CommitterPlanMeta },
   gitConfig: CommitterGitConfig = DEFAULT_COMMITTER_GIT_CONFIG,
 ): Role<CommitterMeta> {
   const inner: Role<CommitterMeta> = async (ctx) =>

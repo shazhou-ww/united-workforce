@@ -55,6 +55,7 @@ describe("llmExtract", () => {
         model: "m",
       },
       dryRun: false,
+      dryRunMeta: { name: "", description: "" },
     });
 
     globalThis.fetch = originalFetch;
@@ -105,6 +106,7 @@ describe("llmExtract", () => {
       schema,
       provider: { baseUrl: "https://example.com", apiKey: "k", model: "m" },
       dryRun: false,
+      dryRunMeta: { n: 0 },
     });
 
     globalThis.fetch = originalFetch;
@@ -116,7 +118,7 @@ describe("llmExtract", () => {
     expect(result.error.kind).toBe("schema_validation_failed");
   });
 
-  test("dryRun skips fetch and returns schema-shaped stub values", async () => {
+  test("dryRun skips fetch and returns dryRunMeta", async () => {
     let calls = 0;
     globalThis.fetch = () => {
       calls += 1;
@@ -129,6 +131,7 @@ describe("llmExtract", () => {
       schema,
       provider: { baseUrl: "https://example.com", apiKey: "k", model: "m" },
       dryRun: true,
+      dryRunMeta: { n: 42 },
     });
 
     globalThis.fetch = originalFetch;
@@ -138,6 +141,6 @@ describe("llmExtract", () => {
     if (!result.ok) {
       return;
     }
-    expect(result.value).toEqual({ n: 0 });
+    expect(result.value).toEqual({ n: 42 });
   });
 });

@@ -12,7 +12,7 @@ const provider = {
 describe("extractMetaOrThrow", () => {
   const originalFetch = globalThis.fetch;
 
-  test("dryRun returns schema-shaped defaults without calling fetch", async () => {
+  test("dryRun returns dryRunMeta without calling fetch", async () => {
     let calls = 0;
     globalThis.fetch = () => {
       calls += 1;
@@ -23,12 +23,13 @@ describe("extractMetaOrThrow", () => {
     const out = await extractMetaOrThrow("r", "raw", schema, {
       provider,
       dryRun: true,
+      dryRunMeta: { n: 7 },
     });
 
     globalThis.fetch = originalFetch;
 
     expect(calls).toBe(0);
-    expect(out).toEqual({ n: 0 });
+    expect(out).toEqual({ n: 7 });
   });
 
   test("throws when extraction fails after retry", async () => {
@@ -53,7 +54,7 @@ describe("extractMetaOrThrow", () => {
     const schema = z.object({ n: z.number() });
 
     await expect(
-      extractMetaOrThrow("plan", "text", schema, { provider, dryRun: false }),
+      extractMetaOrThrow("plan", "text", schema, { provider, dryRun: false, dryRunMeta: { n: 0 } }),
     ).rejects.toThrow(/structured extraction failed after retry/);
 
     globalThis.fetch = originalFetch;
@@ -91,6 +92,7 @@ describe("extractMetaOrThrow", () => {
     const out = await extractMetaOrThrow("committer-plan", "plan text", schema, {
       provider,
       dryRun: false,
+      dryRunMeta: { branch: "", message: "" },
     });
 
     globalThis.fetch = originalFetch;

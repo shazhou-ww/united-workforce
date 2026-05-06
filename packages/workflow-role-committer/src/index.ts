@@ -1,6 +1,7 @@
 export {
   type CommitterGitConfig,
   type CommitterMeta,
+  type CommitterPlanMeta,
   committerMetaSchema,
   createCommitterRole,
   DEFAULT_COMMITTER_GIT_CONFIG,
