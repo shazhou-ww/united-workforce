@@ -20,7 +20,6 @@ export type PrefilledDiskStep = {
 };
 
 export type ExecuteThreadOptions = {
-  isDryRun: boolean;
   maxRounds: number;
   signal: AbortSignal;
   /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */
@@ -133,7 +132,6 @@ export async function executeThread(
     parameters: {
       prompt: input.prompt,
       options: {
-        isDryRun: options.isDryRun,
         maxRounds: options.maxRounds,
       },
     },
@@ -168,7 +166,6 @@ export async function executeThread(
 
   const bundleOptions: WorkflowFnOptions = {
     threadId: io.threadId,
-    isDryRun: options.isDryRun,
     maxRounds: options.maxRounds,
   };
 

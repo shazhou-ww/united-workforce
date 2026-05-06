@@ -27,12 +27,10 @@ const greeter: RoleDefinition<Roles["greeter"]> = {
   description: "Generates a greeting",
   systemPrompt: "You greet the user briefly.",
   schema: greeterMetaSchema,
-  dryRunMeta: { greeting: "Hello!" },
 };
 
 const extract = {
   provider: { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "" },
-  dryRun: true,
 } as const;
 
 export const run = createWorkflow<Roles>(

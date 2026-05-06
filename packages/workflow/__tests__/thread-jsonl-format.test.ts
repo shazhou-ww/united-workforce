@@ -9,7 +9,6 @@ describe("RFC-001 thread JSONL shapes", () => {
       parameters: {
         prompt: "Fix the login redirect bug in #3",
         options: {
-          isDryRun: false,
           maxRounds: 5,
         },
       },

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,9 +23,59 @@ type DemoMeta = {
   coder: z.infer<typeof coderMetaSchema>;
 };
 
+function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
+  const origFetch = globalThis.fetch;
+  let i = 0;
+  const mockFetch = async (
+    input: Parameters<typeof fetch>[0],
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const args = sequence[i] ?? sequence[sequence.length - 1];
+    if (args === undefined) {
+      throw new Error("installMockChatCompletions: empty sequence");
+    }
+    i += 1;
+    void input;
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+    const tools = body.tools;
+    const firstTool =
+      Array.isArray(tools) && tools.length > 0 && tools[0] !== null && typeof tools[0] === "object"
+        ? (tools[0] as Record<string, unknown>)
+        : null;
+    const fn =
+      firstTool !== null ? (firstTool.function as Record<string, unknown> | undefined) : undefined;
+    const toolName = typeof fn?.name === "string" ? fn.name : "extract";
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  type: "function",
+                  function: {
+                    name: toolName,
+                    arguments: JSON.stringify(args),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: origFetch.preconnect.bind(origFetch),
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
+
 const demoExtract = {
   provider: { baseUrl: "http://127.0.0.1:9", apiKey: "test", model: "test" },
-  dryRun: true,
 } as const;
 
 const demoWorkflow = createWorkflow<DemoMeta>(
@@ -35,13 +85,11 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         description: "Demo planner",
         systemPrompt: "You are a planner.",
         schema: plannerMetaSchema,
-        dryRunMeta: { plan: "do-it", files: ["a.ts"] },
       },
       coder: {
         description: "Demo coder",
         systemPrompt: "You are a coder.",
         schema: coderMetaSchema,
-        dryRunMeta: { diff: "+ok" },
       },
     },
     moderator: (ctx) => {
@@ -65,7 +113,19 @@ const demoWorkflow = createWorkflow<DemoMeta>(
 );
 
 describe("executeThread", () => {
+  let restoreFetch: (() => void) | null = null;
+
+  afterEach(() => {
+    restoreFetch?.();
+    restoreFetch = null;
+  });
+
   test("writes RFC-001 `.data.jsonl` start + role records and `.info.jsonl` logs", async () => {
+    restoreFetch = installMockChatCompletions([
+      { plan: "do-it", files: ["a.ts"] },
+      { diff: "+ok" },
+    ]);
+
     const root = await mkdtemp(join(tmpdir(), "wf-engine-"));
     try {
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
@@ -82,7 +142,6 @@ describe("executeThread", () => {
         "demo-flow",
         { prompt: "Fix the login redirect bug in #3", steps: [] },
         {
-          isDryRun: false,
           maxRounds: 5,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
@@ -111,8 +170,8 @@ describe("executeThread", () => {
       const params = start.parameters as Record<string, unknown>;
       expect(params.prompt).toBe("Fix the login redirect bug in #3");
       const opts = params.options as Record<string, unknown>;
-      expect(opts.isDryRun).toBe(false);
       expect(opts.maxRounds).toBe(5);
+      expect(Object.keys(opts).sort()).toEqual(["maxRounds"]);
 
       const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("planner");
@@ -140,6 +199,8 @@ describe("executeThread", () => {
   });
 
   test("pre-filled ThreadInput.steps skips roles already present", async () => {
+    restoreFetch = installMockChatCompletions([{ diff: "+ok" }]);
+
     const root = await mkdtemp(join(tmpdir(), "wf-engine-fork-"));
     try {
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
@@ -166,7 +227,6 @@ describe("executeThread", () => {
           ],
         },
         {
-          isDryRun: false,
           maxRounds: 5,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
@@ -225,7 +285,6 @@ describe("executeThread", () => {
         "demo-flow",
         { prompt: "hello", steps: [] },
         {
-          isDryRun: false,
           maxRounds: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},

@@ -6,7 +6,7 @@ import {
   selectForkHistoricalSteps,
 } from "../src/fork-thread.js";
 
-const sampleDataJsonl = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"isDryRun":false,"maxRounds":5}},"timestamp":100}
+const sampleDataJsonl = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"maxRounds":5}},"timestamp":100}
 {"role":"planner","content":"p","meta":{},"timestamp":101}
 {"role":"coder","content":"c","meta":{},"timestamp":102}
 {"role":"reviewer","content":"r","meta":{},"timestamp":103}
@@ -23,6 +23,7 @@ describe("fork-thread", () => {
     expect(r.value.start.hash).toBe("C9NMV6V2TQT81");
     expect(r.value.start.threadId).toBe("01AAA1111111111111111111");
     expect(r.value.start.prompt).toBe("hi");
+    expect(r.value.start.maxRounds).toBe(5);
     expect(r.value.roleSteps.length).toBe(3);
     expect(r.value.roleSteps[0]?.role).toBe("planner");
   });
@@ -82,5 +83,6 @@ describe("fork-thread", () => {
     expect(r.value.workflowName).toBe("demo");
     expect(r.value.historicalSteps.length).toBe(1);
     expect(r.value.historicalSteps[0]?.timestamp).toBe(101);
+    expect(r.value.runOptions).toEqual({ maxRounds: 5 });
   });
 });

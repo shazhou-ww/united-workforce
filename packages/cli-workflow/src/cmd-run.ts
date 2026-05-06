@@ -15,7 +15,6 @@ export async function cmdRun(
   storageRoot: string,
   name: string,
   prompt: string,
-  isDryRun: boolean,
   maxRounds: number,
 ): Promise<Result<{ threadId: string }, string>> {
   const nameOk = validateCliWorkflowName(name);
@@ -47,7 +46,7 @@ export async function cmdRun(
       threadId,
       workflowName: name,
       prompt,
-      options: { isDryRun, maxRounds },
+      options: { maxRounds },
     },
     { awaitResponseLine: false },
   );

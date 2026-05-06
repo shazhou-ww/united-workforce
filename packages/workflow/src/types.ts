@@ -36,7 +36,6 @@ export type ThreadInput = {
 /** Options passed to a workflow bundle's `run` export (engine-provided). */
 export type WorkflowFnOptions = {
   threadId: string;
-  isDryRun: boolean;
   maxRounds: number;
 };
 
@@ -82,15 +81,13 @@ export type AgentBinding = {
 /** Structured extraction settings for the workflow engine. */
 export type ExtractConfig = {
   provider: LlmProvider;
-  dryRun: boolean;
 };
 
-/** Role wiring: prompts, schema, dry-run meta, and human-readable description. */
+/** Role wiring: prompts, schema, and human-readable description. */
 export type RoleDefinition<Meta extends Record<string, unknown>> = {
   description: string;
   systemPrompt: string;
   schema: z.ZodType<Meta>;
-  dryRunMeta: Meta;
 };
 
 /**

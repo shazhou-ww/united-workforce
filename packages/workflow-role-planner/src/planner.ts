@@ -23,7 +23,4 @@ export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
   schema: plannerMetaSchema,
-  dryRunMeta: {
-    phases: [{ name: "phase-1", description: "placeholder", acceptance: "placeholder" }],
-  },
 };

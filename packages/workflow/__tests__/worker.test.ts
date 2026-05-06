@@ -102,7 +102,7 @@ describe("worker process", () => {
         threadId,
         workflowName: "demo-flow",
         prompt: "hello",
-        options: { isDryRun: false, maxRounds: 5 },
+        options: { maxRounds: 5 },
       });
 
       const exitCode: number = await new Promise((resolve) => {
@@ -150,7 +150,7 @@ describe("worker process", () => {
         threadId,
         workflowName: "demo-flow",
         prompt: "hello",
-        options: { isDryRun: false, maxRounds: 5 },
+        options: { maxRounds: 5 },
         steps: [
           {
             role: "planner",

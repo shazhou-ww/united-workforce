@@ -44,7 +44,7 @@ type ThreadInput = {
 /** The bundle contract — an AsyncGenerator, not a Promise. */
 type WorkflowFn = (
   input: ThreadInput,
-  options: { isDryRun: boolean; maxRounds: number }
+  options: { threadId: string; maxRounds: number }
 ) => AsyncGenerator<RoleOutput, WorkflowResult>;
 ```
 
@@ -95,7 +95,7 @@ When using the `createRoleModerator` helper, fork is **naturally handled**:
 // It sees planner already ran → routes to coder automatically
 const gen = workflow(
   { prompt: "fix bug #3", steps: [{ role: "planner", content: "...", meta: {} }] },
-  { isDryRun: false, maxRounds: 10 }
+  { threadId: "01KQXKW18CT8G75T53R8F4G7YG", maxRounds: 10 }
 );
 // First yield will be coder's output, not planner's
 ```
@@ -225,7 +225,6 @@ No concurrency control or timeout settings in the registry — those belong to e
   "parameters": {
     "prompt": "Fix the login redirect bug in #3",
     "options": {
-      "isDryRun": false,
       "maxRounds": 5
     }
   },
@@ -271,7 +270,7 @@ No concurrency control or timeout settings in the registry — those belong to e
 | `uncaged-workflow list` | List registered workflows |
 | `uncaged-workflow show <name>` | Show workflow details |
 | `uncaged-workflow remove <name>` | Remove a workflow |
-| `uncaged-workflow run <name> [--prompt] [--dry-run] [--max-rounds]` | Start a thread |
+| `uncaged-workflow run <name> [--prompt] [--max-rounds]` | Start a thread |
 | `uncaged-workflow threads [name]` | List threads (optionally filter by workflow) |
 | `uncaged-workflow thread <id>` | Show thread state |
 | `uncaged-workflow thread rm <id>` | Delete a thread |

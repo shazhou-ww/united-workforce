@@ -22,7 +22,7 @@ function usage(): string {
     "  uncaged-workflow list",
     "  uncaged-workflow show <name>",
     "  uncaged-workflow remove <name>",
-    "  uncaged-workflow run <name> [--prompt <text>] [--dry-run] [--max-rounds N]",
+    "  uncaged-workflow run <name> [--prompt <text>] [--max-rounds N]",
     "  uncaged-workflow ps",
     "  uncaged-workflow kill <thread-id>",
     "  uncaged-workflow history <name>",
@@ -111,7 +111,6 @@ async function dispatchRun(storageRoot: string, argv: string[]): Promise<number>
     storageRoot,
     parsed.value.name,
     parsed.value.prompt,
-    parsed.value.dryRun,
     parsed.value.maxRounds,
   );
   if (!result.ok) {

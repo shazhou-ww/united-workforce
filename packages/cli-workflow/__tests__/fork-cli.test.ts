@@ -98,7 +98,7 @@ describe("cli fork", () => {
     }
     const hash = added.value.hash;
 
-    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", 5);
     expect(ran.ok).toBe(true);
     if (!ran.ok) {
       return;
@@ -148,7 +148,7 @@ describe("cli fork", () => {
     }
     const hash = added.value.hash;
 
-    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", 5);
     expect(ran.ok).toBe(true);
     if (!ran.ok) {
       return;
@@ -198,7 +198,7 @@ describe("cli fork", () => {
       return;
     }
 
-    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", 5);
     expect(ran.ok).toBe(true);
     if (!ran.ok) {
       return;

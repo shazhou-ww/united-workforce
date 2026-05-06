@@ -3,20 +3,13 @@ import { err, ok, type Result } from "@uncaged/workflow";
 export type ParsedRunArgv = {
   name: string;
   prompt: string;
-  dryRun: boolean;
   maxRounds: number;
 };
 
-type FlagOk =
-  | { kind: "dry-run" }
-  | { kind: "prompt"; value: string }
-  | { kind: "max-rounds"; value: number };
+type FlagOk = { kind: "prompt"; value: string } | { kind: "max-rounds"; value: number };
 
 function parseFlagAt(argv: string[], index: number): Result<FlagOk, string> | null {
   const flag = argv[index];
-  if (flag === "--dry-run") {
-    return ok({ kind: "dry-run" });
-  }
   if (flag === "--prompt") {
     const value = argv[index + 1];
     if (value === undefined) {
@@ -41,7 +34,6 @@ function parseFlagAt(argv: string[], index: number): Result<FlagOk, string> | nu
 export function parseRunArgv(argv: string[]): Result<ParsedRunArgv, string> {
   let name: string | undefined;
   let prompt = "";
-  let dryRun = false;
   let maxRounds = 5;
 
   let i = 0;
@@ -62,11 +54,6 @@ export function parseRunArgv(argv: string[]): Result<ParsedRunArgv, string> {
     }
 
     const flag = parsed.value;
-    if (flag.kind === "dry-run") {
-      dryRun = true;
-      i += 1;
-      continue;
-    }
     if (flag.kind === "prompt") {
       prompt = flag.value;
       i += 2;
@@ -80,5 +67,5 @@ export function parseRunArgv(argv: string[]): Result<ParsedRunArgv, string> {
     return err("run requires <name>");
   }
 
-  return ok({ name, prompt, dryRun, maxRounds });
+  return ok({ name, prompt, maxRounds });
 }

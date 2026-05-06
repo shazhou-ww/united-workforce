@@ -9,7 +9,6 @@ export type ParsedThreadStartRecord = {
   hash: string;
   threadId: string;
   prompt: string;
-  isDryRun: boolean;
   maxRounds: number;
 };
 
@@ -72,10 +71,9 @@ function parseStartRecordLine(firstLine: string): Result<ParsedThreadStartRecord
     return err("start record missing parameters.options");
   }
   const optRec = options as Record<string, unknown>;
-  const isDryRun = optRec.isDryRun;
   const maxRounds = optRec.maxRounds;
-  if (typeof isDryRun !== "boolean" || typeof maxRounds !== "number") {
-    return err("start record missing parameters.options.isDryRun or maxRounds");
+  if (typeof maxRounds !== "number") {
+    return err("start record missing parameters.options.maxRounds");
   }
 
   return ok({
@@ -83,7 +81,6 @@ function parseStartRecordLine(firstLine: string): Result<ParsedThreadStartRecord
     hash,
     threadId,
     prompt,
-    isDryRun,
     maxRounds,
   });
 }
@@ -197,7 +194,7 @@ export type ForkPlan = {
   hash: string;
   sourceThreadId: string;
   prompt: string;
-  runOptions: { isDryRun: boolean; maxRounds: number };
+  runOptions: { maxRounds: number };
   historicalSteps: ForkHistoricalStep[];
 };
 
@@ -222,7 +219,7 @@ export function buildForkPlan(
     hash: start.hash,
     sourceThreadId: start.threadId,
     prompt: start.prompt,
-    runOptions: { isDryRun: start.isDryRun, maxRounds: start.maxRounds },
+    runOptions: { maxRounds: start.maxRounds },
     historicalSteps: selected.value,
   });
 }

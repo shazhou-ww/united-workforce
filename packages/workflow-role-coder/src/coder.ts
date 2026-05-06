@@ -17,9 +17,4 @@ export const coderRole: RoleDefinition<CoderMeta> = {
     "Implements the next incomplete planner phase and reports structured completion metadata.",
   systemPrompt: CODER_SYSTEM,
   schema: coderMetaSchema,
-  dryRunMeta: {
-    completedPhase: "phase-1",
-    filesChanged: [],
-    summary: "",
-  },
 };

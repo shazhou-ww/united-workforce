@@ -3,8 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { reviewerMetaSchema, reviewerRole } from "../src/reviewer.js";
 
 describe("reviewerRole", () => {
-  test("dryRunMeta validates against schema", () => {
-    const parsed = reviewerMetaSchema.safeParse(reviewerRole.dryRunMeta);
+  test("approved sample validates against schema", () => {
+    const parsed = reviewerMetaSchema.safeParse({ status: "approved" as const });
     expect(parsed.success).toBe(true);
   });
 

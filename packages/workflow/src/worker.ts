@@ -16,7 +16,7 @@ type RunCommand = {
   threadId: string;
   workflowName: string;
   prompt: string;
-  options: { isDryRun: boolean; maxRounds: number };
+  options: { maxRounds: number };
   steps: RoleOutput[];
   /** Timestamps aligned with `steps` for `.data.jsonl` replay; length must match `steps` when non-null. */
   stepTimestamps: number[] | null;
@@ -114,9 +114,8 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     return null;
   }
   const optRec = options as Record<string, unknown>;
-  const isDryRun = optRec.isDryRun;
   const maxRounds = optRec.maxRounds;
-  if (typeof isDryRun !== "boolean" || typeof maxRounds !== "number") {
+  if (typeof maxRounds !== "number") {
     return null;
   }
   const parsedSteps = parseRunStepsPayload(rec);
@@ -136,7 +135,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     threadId,
     workflowName,
     prompt,
-    options: { isDryRun, maxRounds },
+    options: { maxRounds },
     steps: parsedSteps.steps,
     stepTimestamps: parsedSteps.stepTimestamps,
     forkSourceThreadId,

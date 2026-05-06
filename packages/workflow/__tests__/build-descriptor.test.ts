@@ -21,7 +21,6 @@ describe("buildDescriptor", () => {
           description: "Analyzes input",
           systemPrompt: "You are an analyst.",
           schema,
-          dryRunMeta: { title: "", count: 0 },
         },
       },
       moderator: () => END,

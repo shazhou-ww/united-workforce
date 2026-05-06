@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   END,
   type RoleStep,
@@ -7,15 +7,77 @@ import {
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
 
+import type { CoderMeta } from "@uncaged/workflow-role-coder";
 import type { PlannerMeta } from "@uncaged/workflow-role-planner";
 
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
-import { createSolveIssueRun, plannerRole, solveIssueModerator } from "../src/index.js";
+import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
 const DEFAULT_PHASES: PlannerMeta["phases"] = [
   { name: "phase-a", description: "Do the work", acceptance: "Done" },
 ];
+
+const EXPECT_PLANNER_META: PlannerMeta = {
+  phases: [{ name: "phase-1", description: "placeholder", acceptance: "placeholder" }],
+};
+
+const EXPECT_CODER_META: CoderMeta = {
+  completedPhase: "phase-1",
+  filesChanged: [],
+  summary: "",
+};
+
+function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
+  const origFetch = globalThis.fetch;
+  let i = 0;
+  const mockFetch = async (
+    input: Parameters<typeof fetch>[0],
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const args = sequence[i] ?? sequence[sequence.length - 1];
+    if (args === undefined) {
+      throw new Error("installMockChatCompletions: empty sequence");
+    }
+    i += 1;
+    void input;
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+    const tools = body.tools;
+    const firstTool =
+      Array.isArray(tools) && tools.length > 0 && tools[0] !== null && typeof tools[0] === "object"
+        ? (tools[0] as Record<string, unknown>)
+        : null;
+    const fn =
+      firstTool !== null ? (firstTool.function as Record<string, unknown> | undefined) : undefined;
+    const toolName = typeof fn?.name === "string" ? fn.name : "extract";
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  type: "function",
+                  function: {
+                    name: toolName,
+                    arguments: JSON.stringify(args),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: origFetch.preconnect.bind(origFetch),
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
 
 function makeStart(maxRounds: number): ThreadContext<SolveIssueMeta>["start"] {
   return {
@@ -78,7 +140,6 @@ function committerStep(): RoleStep<SolveIssueMeta> {
 
 const stubExtract = {
   provider: { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
-  dryRun: true,
 } as const;
 
 describe("solveIssueModerator", () => {
@@ -137,11 +198,20 @@ describe("solveIssueModerator", () => {
 });
 
 describe("createSolveIssueRun", () => {
-  test("dry-run extraction yields role dryRunMeta for planner", async () => {
+  let restoreFetch: (() => void) | null = null;
+
+  afterEach(() => {
+    restoreFetch?.();
+    restoreFetch = null;
+  });
+
+  test("structured extraction yields planner meta from mocked chat completions", async () => {
+    restoreFetch = installMockChatCompletions([EXPECT_PLANNER_META]);
+
     const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", isDryRun: true, maxRounds: 20 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20 },
     );
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -149,10 +219,12 @@ describe("createSolveIssueRun", () => {
       throw new Error("expected yield");
     }
     expect(first.value.role).toBe("planner");
-    expect(first.value.meta).toEqual(plannerRole.dryRunMeta);
+    expect(first.value.meta).toEqual(EXPECT_PLANNER_META);
   });
 
   test("per-role agent overrides default", async () => {
+    restoreFetch = installMockChatCompletions([EXPECT_PLANNER_META, EXPECT_CODER_META]);
+
     const calls: string[] = [];
     const run = createSolveIssueRun(
       {
@@ -175,7 +247,7 @@ describe("createSolveIssueRun", () => {
     );
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", isDryRun: true, maxRounds: 20 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20 },
     );
     await gen.next();
     expect(calls).toEqual(["planner"]);

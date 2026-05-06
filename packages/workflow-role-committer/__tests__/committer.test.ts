@@ -3,8 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { committerMetaSchema, committerRole } from "../src/committer.js";
 
 describe("committerRole", () => {
-  test("dryRunMeta validates against schema", () => {
-    const parsed = committerMetaSchema.safeParse(committerRole.dryRunMeta);
+  test("committed sample validates against schema", () => {
+    const parsed = committerMetaSchema.safeParse({
+      status: "committed" as const,
+      branch: "feat/example",
+      commitSha: "abc1234",
+    });
     expect(parsed.success).toBe(true);
   });
 

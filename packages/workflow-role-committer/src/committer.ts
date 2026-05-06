@@ -29,9 +29,4 @@ export const committerRole: RoleDefinition<CommitterMeta> = {
   description: "Creates branch, commits, and pushes when review passes.",
   systemPrompt: COMMITTER_SYSTEM,
   schema: committerMetaSchema,
-  dryRunMeta: {
-    status: "committed",
-    branch: "dry-run/placeholder",
-    commitSha: "0000000",
-  },
 };

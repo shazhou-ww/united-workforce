@@ -116,8 +116,6 @@ export function createWorkflow<M extends RoleMeta>(
 
       const meta = await extractMetaOrThrow(next, raw, roleDef.schema, {
         provider: extract.provider,
-        dryRun: extract.dryRun,
-        dryRunMeta: roleDef.dryRunMeta,
       });
 
       const ts = Date.now();
