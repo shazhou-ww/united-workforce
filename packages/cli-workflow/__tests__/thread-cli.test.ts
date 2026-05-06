@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdKill } from "../src/cmd-kill.js";
+import { cmdPause } from "../src/cmd-pause.js";
 import { cmdPs } from "../src/cmd-ps.js";
+import { cmdResume } from "../src/cmd-resume.js";
 import { cmdRun } from "../src/cmd-run.js";
 import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
@@ -37,6 +39,55 @@ const abortablePlannerBundleSource = `export default async function* (input) {
   return { returnCode: 0, summary: "done" };
 }
 `;
+
+const pauseResumeBundleSource = `export default async function* (input) {
+  yield { role: "first", content: "f", meta: {} };
+  await new Promise((r) => setTimeout(r, 1500));
+  yield { role: "second", content: "s", meta: {} };
+  return { returnCode: 0, summary: "done" };
+}
+`;
+
+const delayedFirstYieldBundleSource = `export default async function* (input) {
+  await new Promise((r) => setTimeout(r, 900));
+  yield { role: "only", content: "x", meta: {} };
+  return { returnCode: 0, summary: "done" };
+}
+`;
+
+async function countDataJsonlLines(dataPath: string): Promise<number> {
+  try {
+    const text = await readFile(dataPath, "utf8");
+    return text
+      .trim()
+      .split("\n")
+      .filter((l) => l !== "").length;
+  } catch {
+    return 0;
+  }
+}
+
+async function waitUntilMinDataLines(
+  dataPath: string,
+  minLines: number,
+  maxAttempts: number,
+): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if ((await countDataJsonlLines(dataPath)) >= minLines) {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+async function waitUntilRunningFileAbsent(runningPath: string, maxAttempts: number): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (!(await pathExists(runningPath))) {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
 
 describe("cli thread commands", () => {
   let prevEnv: string | undefined;
@@ -185,5 +236,100 @@ describe("cli thread commands", () => {
 
     const runningPath = join(dirname(dataPath), `${threadId}.running`);
     expect(await pathExists(runningPath)).toBe(false);
+  });
+
+  test("pause stops between yields and resume completes thread", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(bundlePath, pauseResumeBundleSource, "utf8");
+
+    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    expect(ran.ok).toBe(true);
+    if (!ran.ok) {
+      return;
+    }
+
+    const threadId = ran.value.threadId;
+    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
+
+    await waitUntilMinDataLines(dataPath, 2, 80);
+    expect(await countDataJsonlLines(dataPath)).toBe(2);
+
+    const paused = await cmdPause(storageRoot, threadId);
+    expect(paused.ok).toBe(true);
+
+    await new Promise((r) => setTimeout(r, 400));
+    expect(await countDataJsonlLines(dataPath)).toBe(2);
+
+    const resumed = await cmdResume(storageRoot, threadId);
+    expect(resumed.ok).toBe(true);
+
+    await waitUntilMinDataLines(dataPath, 3, 120);
+    expect(await countDataJsonlLines(dataPath)).toBe(3);
+
+    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    await waitUntilRunningFileAbsent(runningPath, 100);
+    expect(await pathExists(runningPath)).toBe(false);
+  });
+
+  test("pause on completed thread errors", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(bundlePath, fastBundleSource, "utf8");
+
+    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    expect(ran.ok).toBe(true);
+    if (!ran.ok) {
+      return;
+    }
+
+    const threadId = ran.value.threadId;
+    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
+    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+
+    await waitUntilRunningFileAbsent(runningPath, 100);
+    expect(await pathExists(runningPath)).toBe(false);
+
+    const paused = await cmdPause(storageRoot, threadId);
+    expect(paused.ok).toBe(false);
+  });
+
+  test("resume while thread is running but not paused errors", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(bundlePath, delayedFirstYieldBundleSource, "utf8");
+
+    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", false, 5);
+    expect(ran.ok).toBe(true);
+    if (!ran.ok) {
+      return;
+    }
+
+    const threadId = ran.value.threadId;
+    await new Promise((r) => setTimeout(r, 40));
+
+    const resumed = await cmdResume(storageRoot, threadId);
+    expect(resumed.ok).toBe(false);
   });
 });

@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
+
 import { cmdAdd } from "../src/cmd-add.js";
+import { cmdHistory } from "../src/cmd-history.js";
 import { cmdList, formatListLines } from "../src/cmd-list.js";
 import { cmdRemove } from "../src/cmd-remove.js";
+import { cmdRollback } from "../src/cmd-rollback.js";
 import { cmdShow } from "../src/cmd-show.js";
 
 describe("cli workflow commands", () => {
@@ -86,5 +90,160 @@ export default async function* (input) {
     );
     const r = await cmdAdd(storageRoot, "solve-issue", bundlePath);
     expect(r.ok).toBe(false);
+  });
+
+  test("history lists current + prior versions sorted by time descending", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    const v1 = `export default async function* (input) {
+  yield { role: "a", content: "v1", meta: {} };
+  return { returnCode: 0, summary: "v1" };
+}
+`;
+    const v2 = `export default async function* (input) {
+  yield { role: "a", content: "v2", meta: {} };
+  return { returnCode: 0, summary: "v2" };
+}
+`;
+    await writeFile(bundlePath, v1, "utf8");
+    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add1.ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 15));
+    await writeFile(bundlePath, v2, "utf8");
+    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add2.ok).toBe(true);
+
+    const hist = await cmdHistory(storageRoot, "solve-issue");
+    expect(hist.ok).toBe(true);
+    if (!hist.ok) {
+      return;
+    }
+    expect(hist.value.length).toBe(2);
+    const dates = hist.value.map((line) => {
+      const parts = line.split("\t");
+      return Date.parse(parts[1] ?? "");
+    });
+    expect(Number.isFinite(dates[0])).toBe(true);
+    expect(Number.isFinite(dates[1])).toBe(true);
+    expect(dates[0] >= dates[1]).toBe(true);
+    expect(hist.value.some((l) => l.endsWith("(current)"))).toBe(true);
+  });
+
+  test("rollback swaps registry head with a history hash", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    const v1 = `export default async function* (input) {
+  yield { role: "a", content: "v1", meta: {} };
+  return { returnCode: 0, summary: "v1" };
+}
+`;
+    const v2 = `export default async function* (input) {
+  yield { role: "a", content: "v2", meta: {} };
+  return { returnCode: 0, summary: "v2" };
+}
+`;
+    await writeFile(bundlePath, v1, "utf8");
+    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add1.ok).toBe(true);
+    if (!add1.ok) {
+      return;
+    }
+    const hash1 = add1.value.hash;
+    await writeFile(bundlePath, v2, "utf8");
+    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add2.ok).toBe(true);
+    if (!add2.ok) {
+      return;
+    }
+    const hash2 = add2.value.hash;
+
+    const rb = await cmdRollback(storageRoot, "solve-issue", null);
+    expect(rb.ok).toBe(true);
+
+    const reg = await readWorkflowRegistry(storageRoot);
+    expect(reg.ok).toBe(true);
+    if (!reg.ok) {
+      return;
+    }
+    const entry = getRegisteredWorkflow(reg.value, "solve-issue");
+    expect(entry).not.toBeNull();
+    if (entry === null) {
+      return;
+    }
+    expect(entry.hash).toBe(hash1);
+    expect(entry.history.some((h) => h.hash === hash2)).toBe(true);
+  });
+
+  test("rollback rejects a hash that is not in history", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "x", meta: {} };
+  return { returnCode: 0, summary: "x" };
+}
+`,
+      "utf8",
+    );
+    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add1.ok).toBe(true);
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "y", meta: {} };
+  return { returnCode: 0, summary: "y" };
+}
+`,
+      "utf8",
+    );
+    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add2.ok).toBe(true);
+
+    const bad = await cmdRollback(storageRoot, "solve-issue", "0000000000000");
+    expect(bad.ok).toBe(false);
+  });
+
+  test("rollback rejects missing bundle file for target hash", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "x", meta: {} };
+  return { returnCode: 0, summary: "x" };
+}
+`,
+      "utf8",
+    );
+    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add1.ok).toBe(true);
+    if (!add1.ok) {
+      return;
+    }
+    const hash1 = add1.value.hash;
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "y", meta: {} };
+  return { returnCode: 0, summary: "y" };
+}
+`,
+      "utf8",
+    );
+    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    expect(add2.ok).toBe(true);
+    if (!add2.ok) {
+      return;
+    }
+
+    await unlink(join(storageRoot, "bundles", `${hash1}.esm.js`));
+
+    const rb = await cmdRollback(storageRoot, "solve-issue", hash1);
+    expect(rb.ok).toBe(false);
   });
 });

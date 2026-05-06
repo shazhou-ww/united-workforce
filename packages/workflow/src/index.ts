@@ -25,6 +25,7 @@ export {
   parseWorkflowRegistryYaml,
   readWorkflowRegistry,
   registerWorkflowVersion,
+  rollbackWorkflowToHistoryHash,
   stringifyWorkflowRegistryYaml,
   unregisterWorkflow,
   type WorkflowHistoryEntry,
@@ -35,6 +36,7 @@ export {
 } from "./registry.js";
 export { err, ok, type Result } from "./result.js";
 export { getDefaultWorkflowStorageRoot } from "./storage-root.js";
+export { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 export {
   type AgentFn,
   END,

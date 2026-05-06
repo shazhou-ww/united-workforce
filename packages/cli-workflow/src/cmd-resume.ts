@@ -9,7 +9,7 @@ import {
   type WorkerCtl,
 } from "./worker-spawn.js";
 
-export async function cmdKill(
+export async function cmdResume(
   storageRoot: string,
   threadId: string,
 ): Promise<Result<void, string>> {
@@ -37,7 +37,7 @@ export async function cmdKill(
 
   return await sendWorkerTcpCommand(
     ctl.port,
-    { type: "kill", threadId },
+    { type: "resume", threadId },
     { awaitResponseLine: true },
   );
 }

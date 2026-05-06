@@ -107,6 +107,41 @@ export function registerWorkflowVersion(
   };
 }
 
+/**
+ * Roll back `entry` to a hash listed in `entry.history`.
+ * When `targetHash` is null, uses the most recent history entry (`history[0]`).
+ * Current head is prepended to history; the selected entry becomes the new head.
+ */
+export function rollbackWorkflowToHistoryHash(
+  entry: WorkflowRegistryEntry,
+  targetHash: string | null,
+): Result<WorkflowRegistryEntry, Error> {
+  const resolved =
+    targetHash !== null && targetHash !== ""
+      ? targetHash
+      : entry.history[0] !== undefined
+        ? entry.history[0].hash
+        : null;
+  if (resolved === null) {
+    return err(new Error("no history entry to rollback to"));
+  }
+  const idx = entry.history.findIndex((h) => h.hash === resolved);
+  if (idx < 0) {
+    return err(new Error(`hash not found in history: ${resolved}`));
+  }
+  const selected = entry.history[idx];
+  const newHistory: WorkflowHistoryEntry[] = [
+    { hash: entry.hash, timestamp: entry.timestamp },
+    ...entry.history.slice(0, idx),
+    ...entry.history.slice(idx + 1),
+  ];
+  return ok({
+    hash: selected.hash,
+    timestamp: selected.timestamp,
+    history: newHistory,
+  });
+}
+
 export function unregisterWorkflow(
   registry: WorkflowRegistryFile,
   name: string,

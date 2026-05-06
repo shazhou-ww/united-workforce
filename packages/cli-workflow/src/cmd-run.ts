@@ -40,13 +40,17 @@ export async function cmdRun(
   }
 
   const threadId = generateUlid(Date.now());
-  const sent = await sendWorkerTcpCommand(worker.value.port, {
-    type: "run",
-    threadId,
-    workflowName: name,
-    prompt,
-    options: { isDryRun, maxRounds },
-  });
+  const sent = await sendWorkerTcpCommand(
+    worker.value.port,
+    {
+      type: "run",
+      threadId,
+      workflowName: name,
+      prompt,
+      options: { isDryRun, maxRounds },
+    },
+    { awaitResponseLine: false },
+  );
   if (!sent.ok) {
     return sent;
   }

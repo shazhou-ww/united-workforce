@@ -15,6 +15,8 @@ export type ExecuteThreadOptions = {
   isDryRun: boolean;
   maxRounds: number;
   signal: AbortSignal;
+  /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */
+  awaitAfterEachYield: () => Promise<void>;
 };
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
@@ -103,6 +105,17 @@ export async function executeThread(
     });
 
     logger("N7BW4YHQ", `thread ${io.threadId} wrote role ${step.role}`);
+
+    await Promise.race([
+      options.awaitAfterEachYield(),
+      new Promise<void>((resolve) => {
+        if (options.signal.aborted) {
+          resolve();
+          return;
+        }
+        options.signal.addEventListener("abort", () => resolve(), { once: true });
+      }),
+    ]);
 
     if (options.signal.aborted) {
       logger("V8JX4NP4", `thread ${io.threadId} aborted`);

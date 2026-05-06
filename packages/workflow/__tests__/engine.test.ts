@@ -52,7 +52,7 @@ describe("executeThread", () => {
         demoWorkflow,
         "demo-flow",
         { prompt: "Fix the login redirect bug in #3", steps: [] },
-        { isDryRun: false, maxRounds: 5, signal: ac.signal },
+        { isDryRun: false, maxRounds: 5, signal: ac.signal, awaitAfterEachYield: async () => {} },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
       );
@@ -128,7 +128,7 @@ describe("executeThread", () => {
             },
           ],
         },
-        { isDryRun: false, maxRounds: 5, signal: ac.signal },
+        { isDryRun: false, maxRounds: 5, signal: ac.signal, awaitAfterEachYield: async () => {} },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
       );
@@ -166,7 +166,12 @@ describe("executeThread", () => {
         demoWorkflow,
         "demo-flow",
         { prompt: "hello", steps: [] },
-        { isDryRun: false, maxRounds: 0, signal: ac.signal },
+        {
+          isDryRun: false,
+          maxRounds: 0,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+        },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
         logger,
       );

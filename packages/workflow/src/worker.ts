@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { createLogger } from "./logger.js";
+import { err, ok, type Result } from "./result.js";
+import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 import type { WorkflowFn } from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
@@ -22,49 +24,84 @@ type KillCommand = {
   threadId: string;
 };
 
-type ControlCommand = RunCommand | KillCommand;
+type PauseCommand = {
+  type: "pause";
+  threadId: string;
+};
+
+type ResumeCommand = {
+  type: "resume";
+  threadId: string;
+};
+
+type ControlCommand = RunCommand | KillCommand | PauseCommand | ResumeCommand;
+
+type ThreadHandle = {
+  abortController: AbortController;
+  pauseGate: ThreadPauseGate;
+};
+
+function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null {
+  const threadId = rec.threadId;
+  const workflowName = rec.workflowName;
+  const prompt = rec.prompt;
+  const options = rec.options;
+  if (
+    typeof threadId !== "string" ||
+    typeof workflowName !== "string" ||
+    typeof prompt !== "string"
+  ) {
+    return null;
+  }
+  if (options === null || typeof options !== "object") {
+    return null;
+  }
+  const optRec = options as Record<string, unknown>;
+  const isDryRun = optRec.isDryRun;
+  const maxRounds = optRec.maxRounds;
+  if (typeof isDryRun !== "boolean" || typeof maxRounds !== "number") {
+    return null;
+  }
+  return {
+    type: "run",
+    threadId,
+    workflowName,
+    prompt,
+    options: { isDryRun, maxRounds },
+  };
+}
+
+function parseLifecycleThreadPayload(
+  rec: Record<string, unknown>,
+): KillCommand | PauseCommand | ResumeCommand | null {
+  const type = rec.type;
+  const threadId = rec.threadId;
+  if (typeof threadId !== "string") {
+    return null;
+  }
+  if (type === "kill") {
+    return { type: "kill", threadId };
+  }
+  if (type === "pause") {
+    return { type: "pause", threadId };
+  }
+  if (type === "resume") {
+    return { type: "resume", threadId };
+  }
+  return null;
+}
 
 function parseControlPayload(payload: unknown): ControlCommand | null {
   if (payload === null || typeof payload !== "object") {
     return null;
   }
   const rec = payload as Record<string, unknown>;
-  const type = rec.type;
-  if (type === "kill") {
-    const threadId = rec.threadId;
-    if (typeof threadId !== "string") {
-      return null;
-    }
-    return { type: "kill", threadId };
+  const lifecycle = parseLifecycleThreadPayload(rec);
+  if (lifecycle !== null) {
+    return lifecycle;
   }
-  if (type === "run") {
-    const threadId = rec.threadId;
-    const workflowName = rec.workflowName;
-    const prompt = rec.prompt;
-    const options = rec.options;
-    if (
-      typeof threadId !== "string" ||
-      typeof workflowName !== "string" ||
-      typeof prompt !== "string"
-    ) {
-      return null;
-    }
-    if (options === null || typeof options !== "object") {
-      return null;
-    }
-    const optRec = options as Record<string, unknown>;
-    const isDryRun = optRec.isDryRun;
-    const maxRounds = optRec.maxRounds;
-    if (typeof isDryRun !== "boolean" || typeof maxRounds !== "number") {
-      return null;
-    }
-    return {
-      type: "run",
-      threadId,
-      workflowName,
-      prompt,
-      options: { isDryRun, maxRounds },
-    };
+  if (rec.type === "run") {
+    return parseRunControlPayload(rec);
   }
   return null;
 }
@@ -86,6 +123,53 @@ function parseCommandLine(line: string): ControlCommand | null {
 
 function isWorkflowFnLike(value: unknown): value is WorkflowFn {
   return typeof value === "function";
+}
+
+function writeTcpResponse(socket: Socket | null, result: Result<void, string>): void {
+  if (socket === null) {
+    return;
+  }
+  const body = result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
+  socket.end(`${JSON.stringify(body)}\n`);
+}
+
+function dispatchThreadLifecycleCommand(
+  threads: Map<string, ThreadHandle>,
+  socket: Socket | null,
+  cmd: KillCommand | PauseCommand | ResumeCommand,
+): void {
+  const handle = threads.get(cmd.threadId);
+  if (handle === undefined) {
+    writeTcpResponse(socket, err(`thread not found: ${cmd.threadId}`));
+    return;
+  }
+  switch (cmd.type) {
+    case "kill":
+      handle.abortController.abort();
+      bootLog("P9XK2WNQ", `kill requested for thread ${cmd.threadId}`);
+      writeTcpResponse(socket, ok(undefined));
+      return;
+    case "pause": {
+      const paused = handle.pauseGate.pause();
+      if (!paused.ok) {
+        writeTcpResponse(socket, paused);
+        return;
+      }
+      bootLog("K7WQ2NXP", `pause requested for thread ${cmd.threadId}`);
+      writeTcpResponse(socket, ok(undefined));
+      return;
+    }
+    case "resume": {
+      const resumed = handle.pauseGate.resume();
+      if (!resumed.ok) {
+        writeTcpResponse(socket, resumed);
+        return;
+      }
+      bootLog("M4YT8HKR", `resume requested for thread ${cmd.threadId}`);
+      writeTcpResponse(socket, ok(undefined));
+      return;
+    }
+  }
 }
 
 async function readLineFromSocket(socket: Socket): Promise<string | null> {
@@ -150,7 +234,7 @@ async function main(): Promise<void> {
   }
   const workflowFn = defaultExport;
 
-  const controllers = new Map<string, AbortController>();
+  const threads = new Map<string, ThreadHandle>();
   let activeThreads = 0;
   let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -185,13 +269,8 @@ async function main(): Promise<void> {
   }
 
   async function dispatchCommand(cmd: ControlCommand, socket: Socket | null): Promise<void> {
-    if (cmd.type === "kill") {
-      const ac = controllers.get(cmd.threadId);
-      if (ac !== undefined) {
-        ac.abort();
-        bootLog("P9XK2WNQ", `kill requested for thread ${cmd.threadId}`);
-      }
-      socket?.end();
+    if (cmd.type !== "run") {
+      dispatchThreadLifecycleCommand(threads, socket, cmd);
       return;
     }
 
@@ -209,14 +288,15 @@ async function main(): Promise<void> {
       infoJsonlPath,
     };
 
-    const existing = controllers.get(threadId);
+    const existing = threads.get(threadId);
     if (existing !== undefined) {
-      existing.abort();
-      controllers.delete(threadId);
+      existing.abortController.abort();
+      threads.delete(threadId);
     }
 
+    const pauseGate = createThreadPauseGate();
     const ac = new AbortController();
-    controllers.set(threadId, ac);
+    threads.set(threadId, { abortController: ac, pauseGate });
 
     try {
       await mkdir(dirname(runningPath), { recursive: true });
@@ -229,7 +309,11 @@ async function main(): Promise<void> {
         workflowFn,
         cmd.workflowName,
         { prompt: cmd.prompt, steps: [] },
-        { ...cmd.options, signal: ac.signal },
+        {
+          ...cmd.options,
+          signal: ac.signal,
+          awaitAfterEachYield: () => pauseGate.awaitAfterYield(),
+        },
         io,
         logger,
       );
@@ -237,7 +321,7 @@ async function main(): Promise<void> {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);
     } finally {
-      controllers.delete(threadId);
+      threads.delete(threadId);
       await unlink(runningPath).catch(() => {});
       bumpDone();
       socket?.end();
@@ -270,8 +354,8 @@ async function main(): Promise<void> {
     })();
   });
 
-  server.on("error", (err) => {
-    bootLog("W8YK4NPX", `worker server error: ${err.message}`);
+  server.on("error", (errObj) => {
+    bootLog("W8YK4NPX", `worker server error: ${errObj.message}`);
     process.exit(1);
   });
 

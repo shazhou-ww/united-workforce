@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
+  rollbackWorkflowToHistoryHash,
   unregisterWorkflow,
   writeWorkflowRegistry,
 } from "../src/registry.js";
@@ -64,6 +65,38 @@ describe("workflow registry", () => {
       expect(Object.keys(empty.value.workflows).length).toBe(0);
     }
     await rm(dir, { recursive: true, force: true });
+  });
+
+  test("rollbackWorkflowToHistoryHash swaps head with a prior version", () => {
+    let reg = registerWorkflowVersion({ workflows: {} }, "solve-issue", "H1", 100);
+    reg = registerWorkflowVersion(reg, "solve-issue", "H2", 200);
+    reg = registerWorkflowVersion(reg, "solve-issue", "H3", 300);
+    const entry = reg.workflows["solve-issue"];
+    expect(entry).toBeDefined();
+    if (entry === undefined) {
+      return;
+    }
+    expect(entry.hash).toBe("H3");
+    expect(entry.history.map((h) => h.hash)).toEqual(["H2", "H1"]);
+
+    const toH2 = rollbackWorkflowToHistoryHash(entry, null);
+    expect(toH2.ok).toBe(true);
+    if (!toH2.ok) {
+      return;
+    }
+    expect(toH2.value.hash).toBe("H2");
+    expect(toH2.value.history.map((h) => h.hash)).toEqual(["H3", "H1"]);
+
+    const toH1 = rollbackWorkflowToHistoryHash(toH2.value, "H1");
+    expect(toH1.ok).toBe(true);
+    if (!toH1.ok) {
+      return;
+    }
+    expect(toH1.value.hash).toBe("H1");
+    expect(toH1.value.history.map((h) => h.hash)).toEqual(["H2", "H3"]);
+
+    const bad = rollbackWorkflowToHistoryHash(toH1.value, "NONE");
+    expect(bad.ok).toBe(false);
   });
 
   test("parse errors on invalid shape", async () => {

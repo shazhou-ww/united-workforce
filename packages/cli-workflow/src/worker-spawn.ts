@@ -143,30 +143,96 @@ export async function ensureWorkerForHash(
   return ok({ port: spawned.value.port });
 }
 
+export type SendWorkerTcpOptions = {
+  awaitResponseLine: boolean;
+};
+
+function parseWorkerControlResponseLine(line: string): Result<void, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line.trim()) as unknown;
+  } catch {
+    return err("invalid JSON in worker response");
+  }
+  if (parsed === null || typeof parsed !== "object") {
+    return err("invalid worker response shape");
+  }
+  const rec = parsed as Record<string, unknown>;
+  if (rec.ok === true) {
+    return ok(undefined);
+  }
+  if (rec.ok === false) {
+    const message = rec.error;
+    if (typeof message === "string") {
+      return err(message);
+    }
+    return err("worker error response missing error string");
+  }
+  return err("invalid worker response: missing ok field");
+}
+
 export async function sendWorkerTcpCommand(
   port: number,
   payload: unknown,
+  options: SendWorkerTcpOptions = { awaitResponseLine: false },
 ): Promise<Result<void, string>> {
   return await new Promise((resolve) => {
     let settled = false;
+    let buf = "";
     const socket = createConnection({ host: "127.0.0.1", port }, () => {
       socket.write(`${JSON.stringify(payload)}\n`);
-      socket.end();
+      if (!options.awaitResponseLine) {
+        socket.end();
+      }
     });
+
+    function finish(result: Result<void, string>): void {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (options.awaitResponseLine && socket.writable) {
+        socket.end();
+      }
+      resolve(result);
+    }
+
+    function tryFinishFromBuffer(): void {
+      if (!options.awaitResponseLine) {
+        return;
+      }
+      const nl = buf.indexOf("\n");
+      if (nl < 0) {
+        return;
+      }
+      finish(parseWorkerControlResponseLine(buf.slice(0, nl)));
+    }
+
+    socket.on("data", (chunk: Buffer | string) => {
+      if (!options.awaitResponseLine) {
+        return;
+      }
+      buf += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      tryFinishFromBuffer();
+    });
+
     socket.on("error", (e) => {
       if (settled) {
         return;
       }
-      settled = true;
       const message = e instanceof Error ? e.message : String(e);
-      resolve(err(`failed to send worker command: ${message}`));
+      finish(err(`failed to send worker command: ${message}`));
     });
+
     socket.on("close", () => {
-      if (settled) {
+      if (options.awaitResponseLine) {
+        tryFinishFromBuffer();
+        if (!settled) {
+          finish(err("worker closed without control response"));
+        }
         return;
       }
-      settled = true;
-      resolve(ok(undefined));
+      finish(ok(undefined));
     });
   });
 }

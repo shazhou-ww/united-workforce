@@ -1,9 +1,13 @@
 import { printCliError, printCliLine } from "./cli-output.js";
 import { cmdAdd, formatAddSuccess } from "./cmd-add.js";
+import { cmdHistory } from "./cmd-history.js";
 import { cmdKill } from "./cmd-kill.js";
 import { cmdList, formatListLines } from "./cmd-list.js";
+import { cmdPause } from "./cmd-pause.js";
 import { cmdPs } from "./cmd-ps.js";
 import { cmdRemove } from "./cmd-remove.js";
+import { cmdResume } from "./cmd-resume.js";
+import { cmdRollback } from "./cmd-rollback.js";
 import { cmdRun } from "./cmd-run.js";
 import { cmdShow, formatShowYaml } from "./cmd-show.js";
 import { cmdThreadRemove, cmdThreadShow } from "./cmd-thread.js";
@@ -20,6 +24,10 @@ function usage(): string {
     "  uncaged-workflow run <name> [--prompt <text>] [--dry-run] [--max-rounds N]",
     "  uncaged-workflow ps",
     "  uncaged-workflow kill <thread-id>",
+    "  uncaged-workflow history <name>",
+    "  uncaged-workflow rollback <name> [hash]",
+    "  uncaged-workflow pause <thread-id>",
+    "  uncaged-workflow resume <thread-id>",
     "  uncaged-workflow threads [name]",
     "  uncaged-workflow thread <id>",
     "  uncaged-workflow thread rm <id>",
@@ -137,6 +145,69 @@ async function dispatchKill(storageRoot: string, argv: string[]): Promise<number
   return 0;
 }
 
+async function dispatchHistory(storageRoot: string, argv: string[]): Promise<number> {
+  const name = argv[0];
+  if (name === undefined || argv.length > 1) {
+    printCliError(`${usage()}\n\nerror: history requires <name>`);
+    return 1;
+  }
+  const result = await cmdHistory(storageRoot, name);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  for (const line of result.value) {
+    printCliLine(line);
+  }
+  return 0;
+}
+
+async function dispatchRollback(storageRoot: string, argv: string[]): Promise<number> {
+  const name = argv[0];
+  if (name === undefined || argv.length > 2) {
+    printCliError(`${usage()}\n\nerror: rollback requires <name> [hash]`);
+    return 1;
+  }
+  const hashArg = argv[1];
+  const result = await cmdRollback(storageRoot, name, hashArg === undefined ? null : hashArg);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(`rolled back workflow "${name}"`);
+  return 0;
+}
+
+async function dispatchPause(storageRoot: string, argv: string[]): Promise<number> {
+  const threadId = argv[0];
+  if (threadId === undefined || argv.length > 1) {
+    printCliError(`${usage()}\n\nerror: pause requires <thread-id>`);
+    return 1;
+  }
+  const result = await cmdPause(storageRoot, threadId);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(`pause sent for thread ${threadId}`);
+  return 0;
+}
+
+async function dispatchResume(storageRoot: string, argv: string[]): Promise<number> {
+  const threadId = argv[0];
+  if (threadId === undefined || argv.length > 1) {
+    printCliError(`${usage()}\n\nerror: resume requires <thread-id>`);
+    return 1;
+  }
+  const result = await cmdResume(storageRoot, threadId);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(`resume sent for thread ${threadId}`);
+  return 0;
+}
+
 async function dispatchThreads(storageRoot: string, argv: string[]): Promise<number> {
   const result = await cmdThreads(storageRoot, argv);
   if (!result.ok) {
@@ -179,6 +250,32 @@ async function dispatchThreadRm(storageRoot: string, argv: string[]): Promise<nu
   return 0;
 }
 
+async function dispatchThreadBranch(storageRoot: string, rest: string[]): Promise<number> {
+  const sub = rest[0];
+  if (sub === "rm") {
+    return dispatchThreadRm(storageRoot, rest.slice(1));
+  }
+  return dispatchThread(storageRoot, rest);
+}
+
+type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
+
+const COMMAND_TABLE: Record<string, DispatchFn> = {
+  add: dispatchAdd,
+  list: dispatchList,
+  show: dispatchShow,
+  remove: dispatchRemove,
+  run: dispatchRun,
+  ps: dispatchPs,
+  kill: dispatchKill,
+  history: dispatchHistory,
+  rollback: dispatchRollback,
+  pause: dispatchPause,
+  resume: dispatchResume,
+  threads: dispatchThreads,
+  thread: dispatchThreadBranch,
+};
+
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length === 0) {
     printCliError(usage());
@@ -190,39 +287,10 @@ export async function runCli(storageRoot: string, argv: string[]): Promise<numbe
     return 1;
   }
   const rest = argv.slice(1);
-
-  if (command === "add") {
-    return dispatchAdd(storageRoot, rest);
+  const dispatch = COMMAND_TABLE[command];
+  if (dispatch === undefined) {
+    printCliError(`${usage()}\n\nerror: unknown command ${command}`);
+    return 1;
   }
-  if (command === "list") {
-    return dispatchList(storageRoot, rest);
-  }
-  if (command === "show") {
-    return dispatchShow(storageRoot, rest);
-  }
-  if (command === "remove") {
-    return dispatchRemove(storageRoot, rest);
-  }
-  if (command === "run") {
-    return dispatchRun(storageRoot, rest);
-  }
-  if (command === "ps") {
-    return dispatchPs(storageRoot, rest);
-  }
-  if (command === "kill") {
-    return dispatchKill(storageRoot, rest);
-  }
-  if (command === "threads") {
-    return dispatchThreads(storageRoot, rest);
-  }
-  if (command === "thread") {
-    const sub = rest[0];
-    if (sub === "rm") {
-      return dispatchThreadRm(storageRoot, rest.slice(1));
-    }
-    return dispatchThread(storageRoot, rest);
-  }
-
-  printCliError(`${usage()}\n\nerror: unknown command ${command}`);
-  return 1;
+  return dispatch(storageRoot, rest);
 }
