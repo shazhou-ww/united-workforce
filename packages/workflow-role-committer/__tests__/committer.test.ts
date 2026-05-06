@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 import type { AgentFn, ThreadContext } from "@uncaged/workflow";
 import { START } from "@uncaged/workflow";
-import * as workflowRoleLlm from "@uncaged/workflow-role-llm";
+import * as roleLlm from "@uncaged/workflow-role-llm";
 
 import { createCommitterRole } from "../src/committer.js";
 import { gitExec } from "../src/git-exec.js";
@@ -79,7 +79,7 @@ describe("createCommitterRole", () => {
     const { repo } = await setupRepoWithRemote();
     await appendFile(join(repo, "README.md"), "\nmore\n", "utf8");
 
-    const spy = spyOn(workflowRoleLlm, "extractMetaOrThrow").mockResolvedValue({
+    const spy = spyOn(roleLlm, "extractMetaOrThrow").mockResolvedValue({
       branch: "feat/test-commit",
       message: "feat: add more",
     });

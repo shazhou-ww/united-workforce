@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { AgentFn, ThreadContext } from "@uncaged/workflow";
 import { START } from "@uncaged/workflow";
+import * as extractMetaModule from "@uncaged/workflow-role-llm";
 import * as z from "zod/v4";
 
 import { createRole } from "../src/create-role.js";
-import * as llmExtract from "../src/llm-extract.js";
 
 const provider = {
   baseUrl: "https://example.com/v1",
@@ -113,7 +113,7 @@ describe("createRole", () => {
   });
 
   test("extract dryRun null runs live extract path", async () => {
-    const spy = spyOn(llmExtract, "extractMetaOrThrow").mockResolvedValue({ n: 0 });
+    const spy = spyOn(extractMetaModule, "extractMetaOrThrow").mockResolvedValue({ n: 0 });
 
     const agent: AgentFn = async () => "raw";
     const role = createRole({
@@ -134,7 +134,7 @@ describe("createRole", () => {
   });
 
   test("extract.dryRun true uses structured extract dry-run", async () => {
-    const spy = spyOn(llmExtract, "extractMetaOrThrow").mockResolvedValue({ n: 0 });
+    const spy = spyOn(extractMetaModule, "extractMetaOrThrow").mockResolvedValue({ n: 0 });
 
     const agent: AgentFn = async () => "raw";
     const role = createRole({

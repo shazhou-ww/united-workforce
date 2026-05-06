@@ -6,5 +6,5 @@
     "composite": true
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../workflow" }]
+  "references": [{ "path": "../workflow" }, { "path": "../workflow-util-role" }]
 }

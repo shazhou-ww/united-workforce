@@ -1,11 +1,7 @@
 import type { AgentFn, Role, RoleResult, ThreadContext } from "@uncaged/workflow";
-import {
-  decorateRole,
-  extractMetaOrThrow,
-  type LlmProvider,
-  onFail,
-  withDryRun,
-} from "@uncaged/workflow-role-llm";
+import type { LlmProvider } from "@uncaged/workflow-role-llm";
+import { extractMetaOrThrow } from "@uncaged/workflow-role-llm";
+import { decorateRole, onFail, withDryRun } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
 
 import { gitExec } from "./git-exec.js";

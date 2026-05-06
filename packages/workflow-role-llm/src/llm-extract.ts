@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "@uncaged/workflow";
+import { schemaDefaults } from "@uncaged/workflow-util-role";
 import * as z from "zod/v4";
-
-import { schemaDefaults } from "./schema-defaults.js";
 import type { LlmProvider } from "./types.js";
 
 export type { LlmProvider } from "./types.js";
@@ -251,24 +250,4 @@ ${correction}`;
     ...options,
     userContent: secondContent,
   });
-}
-
-export async function extractMetaOrThrow<T extends Record<string, unknown>>(
-  roleName: string,
-  raw: string,
-  schema: z.ZodType<T>,
-  options: { provider: LlmProvider; dryRun: boolean },
-): Promise<T> {
-  const result = await llmExtractWithRetry({
-    text: raw,
-    schema,
-    provider: options.provider,
-    dryRun: options.dryRun,
-  });
-  if (!result.ok) {
-    throw new Error(
-      `Role "${roleName}": structured extraction failed after retry: ${JSON.stringify(result.error)}`,
-    );
-  }
-  return result.value;
 }

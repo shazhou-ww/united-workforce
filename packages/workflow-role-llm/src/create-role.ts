@@ -1,7 +1,6 @@
 import type { AgentFn, Role, ThreadContext } from "@uncaged/workflow";
 import type * as z from "zod/v4";
-
-import { extractMetaOrThrow } from "./llm-extract.js";
+import { extractMetaOrThrow } from "./extract-meta.js";
 import type { LlmProvider } from "./types.js";
 
 export type CreateRoleArgs<M extends Record<string, unknown>> = {
