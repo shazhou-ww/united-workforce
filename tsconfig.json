@@ -15,5 +15,9 @@
     "composite": true,
     "outDir": "dist"
   },
-  "references": [{ "path": "packages/workflow" }, { "path": "packages/cli-workflow" }]
+  "references": [
+    { "path": "packages/workflow" },
+    { "path": "packages/workflow-role-llm" },
+    { "path": "packages/cli-workflow" }
+  ]
 }
