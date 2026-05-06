@@ -6,6 +6,13 @@ export {
   encodeUint64AsCrockford,
 } from "./base32.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
+export {
+  buildWorkflowFromTypeScript,
+  type BuildPipelineResult,
+} from "./build-pipeline.js";
+export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
+export { generateWorkflowBundleTypes } from "./generate-types.js";
+export { jsonSchemaToTypeString } from "./json-schema-to-ts.js";
 export { createRoleModerator } from "./create-role-moderator.js";
 export {
   type ExecuteThreadIo,
@@ -66,3 +73,9 @@ export {
 } from "./types.js";
 export { generateUlid } from "./ulid.js";
 export { getWorkerHostScriptPath } from "./worker-entry-path.js";
+export {
+  validateWorkflowDescriptor,
+  type WorkflowDescriptor,
+  type WorkflowRoleDescriptor,
+  type WorkflowRoleSchema,
+} from "./workflow-descriptor.js";

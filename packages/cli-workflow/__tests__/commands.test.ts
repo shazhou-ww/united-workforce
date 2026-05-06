@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
 
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdHistory } from "../src/cmd-history.js";
 import { cmdList, formatListLines } from "../src/cmd-list.js";
@@ -47,8 +49,9 @@ export default async function* (input) {
 `,
       "utf8",
     );
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
 
     const listed = await cmdList(storageRoot);
@@ -88,8 +91,81 @@ export default async function* (input) {
       'import x from "./local";\nexport default async function* (input) { return { returnCode: 0, summary: input.prompt }; }\n',
       "utf8",
     );
-    const r = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const r = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(r.ok).toBe(false);
+  });
+
+  test("add rejects .esm.js without companion YAML", async () => {
+    const bundlePath = join(storageRoot, "solo.esm.js");
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "x", content: input.prompt, meta: {} };
+  return { returnCode: 0, summary: "ok" };
+}
+`,
+      "utf8",
+    );
+    const r = await cmdAdd(storageRoot, addCliArgs("solo", bundlePath));
+    expect(r.ok).toBe(false);
+    if (r.ok) {
+      return;
+    }
+    expect(r.error).toContain("descriptor YAML not found");
+  });
+
+  test("add from .ts builds bundle + yaml + d.ts and registers hash", async () => {
+    const helloTs = fileURLToPath(new URL("../../../examples/hello-world.ts", import.meta.url));
+    const added = await cmdAdd(storageRoot, addCliArgs("hello", helloTs));
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+    const { hash } = added.value;
+    const bundles = join(storageRoot, "bundles");
+    const esm = await readFile(join(bundles, `${hash}.esm.js`), "utf8");
+    expect(esm.length).toBeGreaterThan(100);
+    const yaml = await readFile(join(bundles, `${hash}.yaml`), "utf8");
+    expect(yaml).toContain("hello world");
+    const dts = await readFile(join(bundles, `${hash}.d.ts`), "utf8");
+    expect(dts).toContain("export type Roles");
+    expect(dts).toContain("WorkflowFn");
+
+    const reg = await readWorkflowRegistry(storageRoot);
+    expect(reg.ok).toBe(true);
+    if (!reg.ok) {
+      return;
+    }
+    const entry = getRegisteredWorkflow(reg.value, "hello");
+    expect(entry).not.toBeNull();
+    if (entry === null) {
+      return;
+    }
+    expect(entry.hash).toBe(hash);
+  });
+
+  test("add from .esm.js warns when optional .d.ts is missing", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(
+      bundlePath,
+      `export default async function* (input) {
+  yield { role: "a", content: "x", meta: {} };
+  return { returnCode: 0, summary: "x" };
+}
+`,
+      "utf8",
+    );
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
+
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+    expect(added.value.warnings.length).toBe(1);
+    expect(added.value.warnings[0]).toContain("demo.d.ts");
   });
 
   test("history lists current + prior versions sorted by time descending", async () => {
@@ -107,11 +183,12 @@ export default async function* (input) {
 }
 `;
     await writeFile(bundlePath, v1, "utf8");
-    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
+    const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     await new Promise((r) => setTimeout(r, 15));
     await writeFile(bundlePath, v2, "utf8");
-    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const add2 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add2.ok).toBe(true);
 
     const hist = await cmdHistory(storageRoot, "solve-issue");
@@ -145,14 +222,15 @@ export default async function* (input) {
 }
 `;
     await writeFile(bundlePath, v1, "utf8");
-    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
+    const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     if (!add1.ok) {
       return;
     }
     const hash1 = add1.value.hash;
     await writeFile(bundlePath, v2, "utf8");
-    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const add2 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add2.ok).toBe(true);
     if (!add2.ok) {
       return;
@@ -189,7 +267,8 @@ export default async function* (input) {
 `,
       "utf8",
     );
-    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
+    const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     await writeFile(
       bundlePath,
@@ -200,7 +279,7 @@ export default async function* (input) {
 `,
       "utf8",
     );
-    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const add2 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add2.ok).toBe(true);
 
     const bad = await cmdRollback(storageRoot, "solve-issue", "0000000000000");
@@ -220,7 +299,8 @@ export default async function* (input) {
 `,
       "utf8",
     );
-    const add1 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
+    const add1 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add1.ok).toBe(true);
     if (!add1.ok) {
       return;
@@ -235,7 +315,7 @@ export default async function* (input) {
 `,
       "utf8",
     );
-    const add2 = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const add2 = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(add2.ok).toBe(true);
     if (!add2.ok) {
       return;

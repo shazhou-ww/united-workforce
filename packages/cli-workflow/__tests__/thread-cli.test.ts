@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdKill } from "../src/cmd-kill.js";
 import { cmdPause } from "../src/cmd-pause.js";
@@ -113,8 +114,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, fastBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -174,8 +176,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, slowPlannerBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -204,8 +207,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, abortablePlannerBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -243,8 +247,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, pauseResumeBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -284,8 +289,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, fastBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -313,8 +319,9 @@ describe("cli thread commands", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, delayedFirstYieldBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;

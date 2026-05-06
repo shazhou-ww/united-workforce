@@ -1,0 +1,8 @@
+{
+  "name": "@uncaged/workflow-examples",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*"
+  }
+}

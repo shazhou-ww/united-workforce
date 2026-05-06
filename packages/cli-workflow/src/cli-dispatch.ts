@@ -1,4 +1,5 @@
-import { printCliError, printCliLine } from "./cli-output.js";
+import { parseAddArgv } from "./add-argv.js";
+import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
 import { cmdAdd, formatAddSuccess } from "./cmd-add.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdHistory } from "./cmd-history.js";
@@ -18,7 +19,7 @@ import { parseRunArgv } from "./run-argv.js";
 function usage(): string {
   return [
     "Usage:",
-    "  uncaged-workflow add <name> <file>",
+    "  uncaged-workflow add <name> <file> [--descriptor <path>] [--types <path>]",
     "  uncaged-workflow list",
     "  uncaged-workflow show <name>",
     "  uncaged-workflow remove <name>",
@@ -37,18 +38,20 @@ function usage(): string {
 }
 
 async function dispatchAdd(storageRoot: string, argv: string[]): Promise<number> {
-  const name = argv[0];
-  const file = argv[1];
-  if (name === undefined || file === undefined || argv.length > 2) {
-    printCliError(`${usage()}\n\nerror: add requires <name> <file>`);
+  const parsed = parseAddArgv(argv);
+  if (!parsed.ok) {
+    printCliError(`${usage()}\n\nerror: ${parsed.error}`);
     return 1;
   }
-  const result = await cmdAdd(storageRoot, name, file);
+  const result = await cmdAdd(storageRoot, parsed.value);
   if (!result.ok) {
     printCliError(result.error);
     return 1;
   }
-  printCliLine(formatAddSuccess(name, file, result.value.hash));
+  for (const w of result.value.warnings) {
+    printCliWarn(w);
+  }
+  printCliLine(formatAddSuccess(parsed.value.name, parsed.value.filePath, result.value.hash));
   return 0;
 }
 

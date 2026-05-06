@@ -4,6 +4,8 @@ import type {
   ExportAllDeclaration,
   ExportDefaultDeclaration,
   ExportNamedDeclaration,
+  ExportSpecifier,
+  FunctionDeclaration,
   ImportDeclaration,
   Node,
   Program,
@@ -66,10 +68,83 @@ function walkAst(node: Node, visit: (n: Node) => void): void {
   }
 }
 
+function exportSpecifierIsDefaultReExport(spec: ExportSpecifier): boolean {
+  return spec.exported.type === "Identifier" && spec.exported.name === "default";
+}
+
 function programHasDefaultExport(body: readonly Node[]): boolean {
   for (const stmt of body) {
     if (stmt.type === "ExportDefaultDeclaration") {
       return true;
+    }
+    if (stmt.type === "ExportNamedDeclaration") {
+      const named = stmt as ExportNamedDeclaration;
+      if (named.source !== null && named.source !== undefined) {
+        continue;
+      }
+      for (const spec of named.specifiers) {
+        if (spec.type === "ExportSpecifier" && exportSpecifierIsDefaultReExport(spec)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function findDefaultExportLocalBindingName(program: Program): string | null {
+  for (const stmt of program.body) {
+    if (stmt.type !== "ExportNamedDeclaration") {
+      continue;
+    }
+    const named = stmt as ExportNamedDeclaration;
+    if (named.source !== null && named.source !== undefined) {
+      continue;
+    }
+    for (const spec of named.specifiers) {
+      if (spec.type !== "ExportSpecifier" || !exportSpecifierIsDefaultReExport(spec)) {
+        continue;
+      }
+      const loc = spec.local;
+      if (loc.type !== "Identifier") {
+        return null;
+      }
+      return loc.name;
+    }
+  }
+  return null;
+}
+
+function bindingInitializerIsCallable(init: Node): boolean {
+  return (
+    init.type === "FunctionExpression" ||
+    init.type === "ArrowFunctionExpression" ||
+    init.type === "CallExpression"
+  );
+}
+
+function programDeclaresCallableExportBinding(program: Program, name: string): boolean {
+  for (const stmt of program.body) {
+    if (stmt.type === "FunctionDeclaration") {
+      const fd = stmt as FunctionDeclaration;
+      const id = fd.id;
+      if (id !== null && id !== undefined && id.type === "Identifier" && id.name === name) {
+        return true;
+      }
+    }
+    if (stmt.type === "VariableDeclaration") {
+      for (const decl of stmt.declarations) {
+        if (decl.id.type !== "Identifier" || decl.id.name !== name) {
+          continue;
+        }
+        const init = decl.init;
+        if (init === null || init === undefined) {
+          continue;
+        }
+        if (bindingInitializerIsCallable(init)) {
+          return true;
+        }
+      }
     }
   }
   return false;
@@ -92,6 +167,11 @@ function defaultExportDeclarationIsCallable(program: Program): boolean {
       return true;
     }
     return false;
+  }
+
+  const exportBinding = findDefaultExportLocalBindingName(program);
+  if (exportBinding !== null) {
+    return programDeclaresCallableExportBinding(program, exportBinding);
   }
   return false;
 }

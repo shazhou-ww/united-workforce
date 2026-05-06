@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { addCliArgs, MINIMAL_DESCRIPTOR_YAML } from "./bundle-fixture.js";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdFork } from "../src/cmd-fork.js";
 import { cmdRun } from "../src/cmd-run.js";
@@ -82,8 +83,9 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -132,8 +134,9 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
@@ -183,8 +186,9 @@ describe("cli fork", () => {
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(bundlePath, threeRoleBundleSource, "utf8");
+    await writeFile(join(bundleDir, "demo.yaml"), MINIMAL_DESCRIPTOR_YAML, "utf8");
 
-    const added = await cmdAdd(storageRoot, "solve-issue", bundlePath);
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
     expect(added.ok).toBe(true);
     if (!added.ok) {
       return;
