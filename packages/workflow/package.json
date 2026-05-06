@@ -7,5 +7,13 @@
   "scripts": {
     "build": "echo 'TODO'",
     "test": "bun test"
+  },
+  "dependencies": {
+    "acorn": "^8.16.0",
+    "xxhashjs": "^0.2.2",
+    "yaml": "^2.8.4"
+  },
+  "devDependencies": {
+    "@types/acorn": "^6.0.4"
   }
 }

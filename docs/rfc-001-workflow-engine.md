@@ -202,7 +202,99 @@ No concurrency control or timeout settings in the registry — those belong to e
 |---------|-------------|
 | `uncaged-workflow fork <thread-id> [--from-role <role>]` | Fork from a historical thread state |
 
-## 8. Design Decisions & Rationale
+## 8. Workflow Execution Model: Role, Moderator, Agent
+
+A workflow is a finite-state automaton driven by three concepts:
+
+### Core Types
+
+```typescript
+/** Sentinel values for automaton control flow. */
+const START = "__start__" as const;
+const END = "__end__" as const;
+
+/** Maps role names → their meta types. Single generic drives all inference. */
+type RoleMeta = Record<string, Record<string, unknown>>;
+
+/** Typed output of a Role execution. */
+type RoleResult<Meta> = { content: string; meta: Meta };
+
+/** Engine start frame: initial prompt + thread identity. */
+type StartStep = {
+  role: START;
+  content: string;              // the user prompt
+  meta: { maxRounds: number; threadId: string };
+  timestamp: number;
+};
+
+/** A completed role step in the thread. */
+type RoleStep<M extends RoleMeta> = {
+  [K in keyof M & string]: { role: K; meta: M[K]; content: string; timestamp: number };
+}[keyof M & string];
+
+/** Thread-scoped context passed to roles and moderator. */
+type ThreadContext<M extends RoleMeta = RoleMeta> = {
+  threadId: string;
+  start: StartStep;
+  steps: RoleStep<M>[];
+};
+
+/**
+ * A Role — receives full thread context, returns typed content + meta.
+ * Implementation can be an agent, LLM call, script, HTTP request, etc.
+ */
+type Role<Meta> = (ctx: ThreadContext) => Promise<RoleResult<Meta>>;
+
+/**
+ * An Agent — raw string output interface for LLM/CLI adapters.
+ * Structured meta is extracted by the role's extract layer.
+ */
+type AgentFn = (ctx: ThreadContext, systemPrompt: string) => Promise<string>;
+
+/**
+ * The Moderator — a pure routing function.
+ * Receives the full thread context (start + all prior steps).
+ * On initial call, `steps` is empty.
+ * Returns the next role name or END to terminate.
+ */
+type Moderator<M extends RoleMeta> = (ctx: ThreadContext<M>) => (keyof M & string) | END;
+
+/** Complete workflow definition as authored by users. */
+type WorkflowDefinition<M extends RoleMeta> = {
+  name: string;
+  roles: { [K in keyof M & string]: Role<M[K]> };
+  moderator: Moderator<M>;
+};
+```
+
+### Execution Flow
+
+```
+START (prompt) → Moderator → Role A → Moderator → Role B → ... → Moderator → END
+```
+
+1. Engine creates a `StartStep` with the user prompt and maxRounds
+2. Moderator is called with `steps = []`, returns the first role name
+3. Role executes, appends a `RoleStep` to the thread
+4. Moderator is called again with updated steps, returns next role or END
+5. Repeat until END or maxRounds reached
+
+### Responsibilities
+
+| Component | Responsibility | Purity |
+|-----------|---------------|--------|
+| **Moderator** | Route to next role based on thread state | Pure function, no side effects |
+| **Role** | Execute a step (call LLM, run script, etc.) | Async, may have side effects |
+| **AgentFn** | Low-level LLM/CLI invocation adapter | Async, side effects |
+
+### Key Constraints
+
+- Moderator is **synchronous and pure** — no I/O, no state mutation
+- Roles receive the **full thread context** (not just the last message)
+- Round count = `steps.length`; max rounds in `start.meta.maxRounds`
+- The `meta` field on each step is **typed per role** via the `RoleMeta` generic
+
+## 9. Design Decisions & Rationale
 
 ### Why single-file ESM?
 - Hash = version. No ambiguity.
