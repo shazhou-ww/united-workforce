@@ -9,15 +9,21 @@ import {
 } from "./roles.js";
 
 export { type CursorAgentConfig, createCursorAgent } from "@uncaged/workflow-agent-cursor";
-export { buildSolveIssueDescriptor } from "./descriptor.js";
-export { solveIssueModerator } from "./moderator.js";
 export {
   type CoderMeta,
   coderMetaSchema,
-  createSolveIssueRoles,
+  createCoderRole,
+} from "@uncaged/workflow-role-coder";
+export {
+  createPlannerRole,
   type PlannerMeta,
   phaseSchema,
   plannerMetaSchema,
+} from "@uncaged/workflow-role-planner";
+export { buildSolveIssueDescriptor } from "./descriptor.js";
+export { solveIssueModerator } from "./moderator.js";
+export {
+  createSolveIssueRoles,
   SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
   type SolveIssueMeta,
   type SolveIssueRoles,

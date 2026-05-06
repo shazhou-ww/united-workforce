@@ -8,9 +8,11 @@ import {
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
 
+import type { PlannerMeta } from "@uncaged/workflow-role-planner";
+
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import { solveIssueModerator } from "../src/moderator.js";
-import { createSolveIssueRoles, type PlannerMeta, type SolveIssueMeta } from "../src/roles.js";
+import { createSolveIssueRoles, type SolveIssueMeta } from "../src/roles.js";
 
 const DEFAULT_PHASES: PlannerMeta["phases"] = [
   { name: "phase-a", description: "Do the work", acceptance: "Done" },

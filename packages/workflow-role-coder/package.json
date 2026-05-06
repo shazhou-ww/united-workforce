@@ -1,0 +1,17 @@
+{
+  "name": "@uncaged/workflow-role-coder",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-agent-llm": "workspace:*",
+    "@uncaged/workflow-util-role": "workspace:*",
+    "zod": "^4.0.0"
+  }
+}

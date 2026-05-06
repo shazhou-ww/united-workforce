@@ -21,6 +21,8 @@
     { "path": "packages/workflow-util-role" },
     { "path": "packages/workflow-agent-llm" },
     { "path": "packages/workflow-role-committer" },
+    { "path": "packages/workflow-role-coder" },
+    { "path": "packages/workflow-role-planner" },
     { "path": "packages/workflow-role-reviewer" },
     { "path": "packages/workflow-agent-cursor" },
     { "path": "packages/workflow-agent-hermes" },
