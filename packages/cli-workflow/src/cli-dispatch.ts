@@ -444,7 +444,7 @@ const THREAD_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
   kill: { handler: dispatchKill, args: "<thread-id>", description: "Kill a running thread" },
   live: {
     handler: dispatchLive,
-    args: "<thread-id> [--debug] [--role <name>]",
+    args: "<thread-id> | --latest [--debug] [--role <name>]",
     description: "Attach to a thread and stream output live",
   },
   pause: { handler: dispatchPause, args: "<thread-id>", description: "Pause a running thread" },
@@ -573,18 +573,11 @@ function dispatchGroup(
 }
 
 async function dispatchInit(storageRoot: string, argv: string[]): Promise<number> {
+  const result = dispatchGroup("init", INIT_SUBCOMMAND_TABLE, storageRoot, argv);
+  if (result !== null) {
+    return result;
+  }
   const sub = argv[0];
-  const name = argv[1];
-  if (sub === undefined || name === undefined || argv.length > 2) {
-    printCliError(`${formatCliUsage()}\n\nerror: init requires workspace|template <name>`);
-    return 1;
-  }
-
-  const entry = INIT_SUBCOMMAND_TABLE[sub];
-  if (entry !== undefined) {
-    return entry.handler(storageRoot, argv.slice(1));
-  }
-
   printCliError(`${formatCliUsage()}\n\nerror: unknown init subcommand: ${sub}`);
   return 1;
 }
