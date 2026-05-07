@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createCasStore, getContentMerklePayload, getGlobalCasDir } from "@uncaged/workflow";
 import { cmdAdd } from "../src/cmd-add.js";
 import { cmdFork } from "../src/cmd-fork.js";
 import { cmdRun } from "../src/cmd-run.js";
@@ -9,7 +10,9 @@ import { pathExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
-const threeRoleBundleSource = `export const descriptor = {
+const threeRoleBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
+
+export const descriptor = {
   description: "fork-cli",
   roles: {
     planner: { description: "planner", schema: {} },
@@ -17,20 +20,21 @@ const threeRoleBundleSource = `export const descriptor = {
     reviewer: { description: "reviewer", schema: {} },
   },
 };
-export const run = async function* (input) {
+export const run = async function* (input, options) {
+  const cas = options.cas;
   const has = (r) => input.steps.some((s) => s.role === r);
   if (!has("planner")) {
-    yield { role: "planner", content: "p1", meta: { k: "planner" } };
+    const h = await putContentMerkleNode(cas, "p1");
+    yield { role: "planner", contentHash: h, meta: { k: "planner" }, refs: [h] };
   }
   if (!has("coder")) {
-    yield { role: "coder", content: "c1", meta: { k: "coder" } };
+    const h = await putContentMerkleNode(cas, "c1");
+    yield { role: "coder", contentHash: h, meta: { k: "coder" }, refs: [h] };
   }
   if (!has("reviewer")) {
-    yield {
-      role: "reviewer",
-      content: "rev-" + String(input.steps.length),
-      meta: { k: "reviewer" },
-    };
+    const body = "rev-" + String(input.steps.length);
+    const h = await putContentMerkleNode(cas, body);
+    yield { role: "reviewer", contentHash: h, meta: { k: "reviewer" }, refs: [h] };
   }
   return { returnCode: 0, summary: "done" };
 };
@@ -132,7 +136,8 @@ describe("cli fork", () => {
 
     const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
     expect(last.role).toBe("reviewer");
-    expect(last.content).toBe("rev-1");
+    const cas = createCasStore(getGlobalCasDir(storageRoot));
+    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-1");
   });
 
   test("fork without --from-role retries last role", async () => {
@@ -179,11 +184,12 @@ describe("cli fork", () => {
 
     const replayCoder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
     expect(replayCoder.role).toBe("coder");
-    expect(replayCoder.content).toBe("c1");
+    const cas = createCasStore(getGlobalCasDir(storageRoot));
+    expect(await getContentMerklePayload(cas, String(replayCoder.contentHash))).toBe("c1");
 
     const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
     expect(last.role).toBe("reviewer");
-    expect(last.content).toBe("rev-2");
+    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-2");
   });
 
   test("fork rejects unknown role with available names", async () => {

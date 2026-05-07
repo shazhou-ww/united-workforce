@@ -1,4 +1,6 @@
 import type { ExtractFn } from "./extract-fn.js";
+import { putContentMerkleNode } from "./merkle.js";
+import { mergeRefsWithContentHash } from "./refs-field.js";
 import {
   type AgentBinding,
   type AgentContext,
@@ -58,7 +60,7 @@ export function createWorkflow<M extends RoleMeta>(
     const baseTs = Date.now();
     let steps: RoleStep<M>[] = input.steps.map((out, i) => ({
       role: out.role,
-      content: out.content,
+      contentHash: out.contentHash,
       meta: out.meta,
       refs: out.refs,
       timestamp: baseTs + i,
@@ -93,6 +95,7 @@ export function createWorkflow<M extends RoleMeta>(
       const agentCtx: AgentContext<M> = {
         ...modCtx,
         currentRole: { name: next, systemPrompt: roleDef.systemPrompt },
+        cas: options.cas,
       };
 
       const agent = binding.overrides?.[next] ?? binding.agent;
@@ -110,21 +113,28 @@ export function createWorkflow<M extends RoleMeta>(
         extractCtx as unknown as ExtractContext,
       );
 
-      const refs = resolveExtractedRefs(
-        roleDef as unknown as RoleDefinition<Record<string, unknown>>,
-        meta,
+      const contentHash = await putContentMerkleNode(options.cas, raw);
+
+      const refs = mergeRefsWithContentHash(
+        resolveExtractedRefs(roleDef as unknown as RoleDefinition<Record<string, unknown>>, meta),
+        contentHash,
       );
 
       const ts = Date.now();
       const step = {
         role: next,
-        content: raw,
+        contentHash,
         meta,
         refs,
         timestamp: ts,
       } as RoleStep<M>;
 
-      yield { role: step.role, content: step.content, meta: step.meta, refs: step.refs };
+      yield {
+        role: step.role,
+        contentHash: step.contentHash,
+        meta: step.meta,
+        refs: step.refs,
+      };
 
       steps = [...steps, step];
     }

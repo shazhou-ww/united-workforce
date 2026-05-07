@@ -4,31 +4,43 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createCasStore, garbageCollectCas, getGlobalCasDir } from "@uncaged/workflow";
+import {
+  createCasStore,
+  garbageCollectCas,
+  getGlobalCasDir,
+  putContentMerkleNode,
+} from "@uncaged/workflow";
 import { cmdThreadRemove } from "../src/cmd-thread.js";
 import { pathExists } from "../src/fs-utils.js";
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
-/** Minimal valid `.data.jsonl` with one role step referencing `activeHash` in `refs`. */
-function makeDataJsonl(threadId: string, bundleHash: string, activeHash: string): string {
-  return [
+async function writeDemoDataJsonl(params: {
+  path: string;
+  threadId: string;
+  bundleHash: string;
+  cas: ReturnType<typeof createCasStore>;
+  activeHash: string;
+}): Promise<void> {
+  const bodyHash = await putContentMerkleNode(params.cas, "p");
+  const text = [
     JSON.stringify({
       name: "demo",
-      hash: bundleHash,
-      threadId,
+      hash: params.bundleHash,
+      threadId: params.threadId,
       parameters: { prompt: "hi", options: { maxRounds: 5 } },
       timestamp: 100,
     }),
     JSON.stringify({
       role: "planner",
-      content: "p",
+      contentHash: bodyHash,
       meta: {},
-      refs: [activeHash],
+      refs: [params.activeHash, bodyHash],
       timestamp: 101,
     }),
     "",
   ].join("\n");
+  await writeFile(params.path, text, "utf8");
 }
 
 describe("gc cli and garbageCollectCas", () => {
@@ -60,11 +72,13 @@ describe("gc cli and garbageCollectCas", () => {
     const activeHash = await cas.put("active-blob");
     const orphanHash = await cas.put("orphan-blob");
 
-    await writeFile(
-      join(logsDir, `${threadId}.data.jsonl`),
-      makeDataJsonl(threadId, bundleHash, activeHash),
-      "utf8",
-    );
+    await writeDemoDataJsonl({
+      path: join(logsDir, `${threadId}.data.jsonl`),
+      threadId,
+      bundleHash,
+      cas,
+      activeHash,
+    });
 
     const gc = await garbageCollectCas(storageRoot);
     expect(gc.ok).toBe(true);
@@ -72,7 +86,7 @@ describe("gc cli and garbageCollectCas", () => {
       return;
     }
     expect(gc.value.scannedThreads).toBe(1);
-    expect(gc.value.activeRefs).toBe(1);
+    expect(gc.value.activeRefs).toBe(2);
     expect(gc.value.deletedEntries).toBe(1);
     expect(gc.value.deletedHashes).toEqual([orphanHash]);
 
@@ -106,16 +120,18 @@ describe("gc cli and garbageCollectCas", () => {
     const activeHash = await cas.put("keep-me");
     await cas.put("drop-me");
 
-    await writeFile(
-      join(logsDir, `${threadId}.data.jsonl`),
-      makeDataJsonl(threadId, bundleHash, activeHash),
-      "utf8",
-    );
+    await writeDemoDataJsonl({
+      path: join(logsDir, `${threadId}.data.jsonl`),
+      threadId,
+      bundleHash,
+      cas,
+      activeHash,
+    });
 
     const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
     const proc = spawnSync(process.execPath, [cliEntryPath, "gc"], { env, encoding: "utf8" });
     expect(proc.status).toBe(0);
-    expect(String(proc.stdout).trim()).toBe("scanned 1 threads, 1 active refs, deleted 1 entries");
+    expect(String(proc.stdout).trim()).toBe("scanned 1 threads, 2 active refs, deleted 1 entries");
   });
 
   test("thread rm triggers gc so unreferenced CAS is removed", async () => {
@@ -126,11 +142,13 @@ describe("gc cli and garbageCollectCas", () => {
 
     const cas = createCasStore(getGlobalCasDir(storageRoot));
     const activeHash = await cas.put("pinned-by-ref");
-    await writeFile(
-      join(logsDir, `${threadId}.data.jsonl`),
-      makeDataJsonl(threadId, bundleHash, activeHash),
-      "utf8",
-    );
+    await writeDemoDataJsonl({
+      path: join(logsDir, `${threadId}.data.jsonl`),
+      threadId,
+      bundleHash,
+      cas,
+      activeHash,
+    });
 
     const orphanHash = await cas.put("orphan-after-rm");
     const orphanPath = join(getGlobalCasDir(storageRoot), `${orphanHash}.txt`);

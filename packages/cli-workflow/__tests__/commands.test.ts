@@ -16,6 +16,9 @@ import { addCliArgs } from "./bundle-fixture.js";
 const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };
 `;
 
+const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
+`;
+
 describe("cli workflow commands", () => {
   let prevEnv: string | undefined;
   let storageRoot: string;
@@ -41,11 +44,13 @@ describe("cli workflow commands", () => {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}import fs from "node:fs";
+      `${fixtureDescriptor}${wfPutImport}import fs from "node:fs";
 
-export const run = async function* (input) {
+export const run = async function* (input, options) {
   fs.existsSync(".");
-  yield { role: "noop", content: input.prompt, meta: { done: true } };
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, input.prompt);
+  yield { role: "noop", contentHash: h, meta: { done: true }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 }
 `,
@@ -112,8 +117,8 @@ export const run = async function* (input) { return { returnCode: 0, summary: in
     const bundlePath = join(storageRoot, "solo.esm.js");
     await writeFile(
       bundlePath,
-      `export const run = async function* (input) {
-  yield { role: "x", content: input.prompt, meta: {} };
+      `export const run = async function* () {
+  yield { role: "x", contentHash: "STUBHASH00000000000000001", meta: {}, refs: [] };
   return { returnCode: 0, summary: "ok" };
 }
 `,
@@ -141,8 +146,11 @@ export const run = async function* (input) { return { returnCode: 0, summary: in
     },
   },
 };
-export const run = async function* (input) {
-  yield { role: "greeter", content: input.prompt, meta: { greeting: "hi" } };
+${wfPutImport}
+export const run = async function* (input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, input.prompt);
+  yield { role: "greeter", contentHash: h, meta: { greeting: "hi" }, refs: [h] };
   return { returnCode: 0, summary: "ok" };
 };
 `,
@@ -180,8 +188,10 @@ export const run = async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "x", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
 `,
@@ -209,8 +219,10 @@ export const run = async function* (input) {
     const dtsPath = join(bundleDir, "types.d.ts");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "x", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
 `,
@@ -240,8 +252,10 @@ export const run = async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "x", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
 `,
@@ -261,13 +275,17 @@ export const run = async function* (input) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "v1", meta: {} };
+    const v1 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "v1");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "v2", meta: {} };
+    const v2 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "v2");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v2" };
 }
 `;
@@ -299,13 +317,17 @@ export const run = async function* (input) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "v1", meta: {} };
+    const v1 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "v1");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "v2", meta: {} };
+    const v2 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "v2");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v2" };
 }
 `;
@@ -347,8 +369,10 @@ export const run = async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "x", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
 `,
@@ -358,8 +382,10 @@ export const run = async function* (input) {
     expect(add1.ok).toBe(true);
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "y", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "y");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "y" };
 }
 `,
@@ -409,8 +435,10 @@ export const run = async function* (input) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "x", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
 `,
@@ -424,8 +452,10 @@ export const run = async function* (input) {
     const hash1 = add1.value.hash;
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}export const run = async function* (input) {
-  yield { role: "a", content: "y", meta: {} };
+      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "y");
+  yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "y" };
 }
 `,

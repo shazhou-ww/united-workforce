@@ -1,7 +1,9 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import type { CasStore } from "./cas.js";
 import type { LogFn } from "./logger.js";
+import { getContentMerklePayload } from "./merkle.js";
 import { normalizeRefsField } from "./refs-field.js";
 import type { ThreadInput, WorkflowFn, WorkflowFnOptions, WorkflowResult } from "./types.js";
 
@@ -10,12 +12,13 @@ export type ExecuteThreadIo = {
   hash: string;
   dataJsonlPath: string;
   infoJsonlPath: string;
+  cas: CasStore;
 };
 
 /** One persisted role line in `.data.jsonl` (engine adds these for fork replay before running the generator). */
 export type PrefilledDiskStep = {
   role: string;
-  content: string;
+  contentHash: string;
   meta: Record<string, unknown>;
   refs: string[];
   timestamp: number;
@@ -50,8 +53,9 @@ async function driveWorkflowGenerator(params: {
   dataJsonlPath: string;
   threadId: string;
   logger: LogFn;
+  cas: CasStore;
 }): Promise<WorkflowResult> {
-  const { fn, input, bundleOptions, executeOptions, dataJsonlPath, threadId, logger } = params;
+  const { fn, input, bundleOptions, executeOptions, dataJsonlPath, threadId, logger, cas } = params;
   const gen = fn(input, bundleOptions);
   let written = 0;
 
@@ -78,10 +82,16 @@ async function driveWorkflowGenerator(params: {
 
     written++;
     const step = iterResult.value;
+    const resolved = await getContentMerklePayload(cas, step.contentHash);
+    if (resolved === null) {
+      throw new Error(
+        `role step ${step.role}: CAS blob missing for contentHash ${step.contentHash}`,
+      );
+    }
     const ts = Date.now();
     await appendDataLine(dataJsonlPath, {
       role: step.role,
-      content: step.content,
+      contentHash: step.contentHash,
       meta: step.meta,
       refs: normalizeRefsField(step.refs),
       timestamp: ts,
@@ -153,9 +163,15 @@ export async function executeThread(
 
   if (prefilled !== null) {
     for (const row of prefilled) {
+      const prefilledPayload = await getContentMerklePayload(io.cas, row.contentHash);
+      if (prefilledPayload === null) {
+        throw new Error(
+          `prefilled step ${row.role}: CAS blob missing for contentHash ${row.contentHash}`,
+        );
+      }
       await appendDataLine(io.dataJsonlPath, {
         role: row.role,
-        content: row.content,
+        contentHash: row.contentHash,
         meta: row.meta,
         refs: normalizeRefsField(row.refs),
         timestamp: row.timestamp,
@@ -175,6 +191,7 @@ export async function executeThread(
     threadId: io.threadId,
     maxRounds: options.maxRounds,
     depth: options.depth,
+    cas: io.cas,
   };
 
   return await driveWorkflowGenerator({
@@ -185,5 +202,6 @@ export async function executeThread(
     dataJsonlPath: io.dataJsonlPath,
     threadId: io.threadId,
     logger,
+    cas: io.cas,
   });
 }

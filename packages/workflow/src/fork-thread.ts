@@ -19,14 +19,14 @@ function parseRoleLine(
   lineIndex: number,
 ): Result<ForkHistoricalStep, string> {
   const role = obj.role;
-  const content = obj.content;
+  const contentHash = obj.contentHash;
   const meta = obj.meta;
   const timestamp = obj.timestamp;
   if (typeof role !== "string") {
     return err(`invalid role record at line ${lineIndex}: missing role`);
   }
-  if (typeof content !== "string") {
-    return err(`invalid role record at line ${lineIndex}: missing content`);
+  if (typeof contentHash !== "string") {
+    return err(`invalid role record at line ${lineIndex}: missing contentHash`);
   }
   if (meta === null || typeof meta !== "object") {
     return err(`invalid role record at line ${lineIndex}: missing meta`);
@@ -36,7 +36,7 @@ function parseRoleLine(
   }
   return ok({
     role,
-    content,
+    contentHash,
     meta: meta as Record<string, unknown>,
     refs: normalizeRefsField(obj.refs),
     timestamp,

@@ -65,8 +65,9 @@ export async function cmdFork(
   const newThreadId = generateUlid(Date.now());
   const stepsOnWire = plan.value.historicalSteps.map((s) => ({
     role: s.role,
-    content: s.content,
+    contentHash: s.contentHash,
     meta: s.meta,
+    refs: s.refs,
     timestamp: s.timestamp,
   }));
 

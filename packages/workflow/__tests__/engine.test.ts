@@ -4,10 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
+import { createCasStore } from "../src/cas.js";
 import { createWorkflow } from "../src/create-workflow.js";
 import { executeThread } from "../src/engine.js";
 import { createExtract } from "../src/extract-fn.js";
 import { createLogger } from "../src/logger.js";
+import {
+  createContentMerkleNode,
+  getContentMerklePayload,
+  serializeMerkleNode,
+} from "../src/merkle.js";
 import { END } from "../src/types.js";
 
 const plannerMetaSchema = z.object({
@@ -140,6 +146,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
@@ -156,7 +163,7 @@ describe("executeThread", () => {
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
         },
-        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
       );
 
@@ -184,14 +191,15 @@ describe("executeThread", () => {
 
       const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("planner");
-      expect(role1.content).toBe("plan-body");
+      expect(typeof role1.contentHash).toBe("string");
+      expect(await getContentMerklePayload(cas, String(role1.contentHash))).toBe("plan-body");
       expect(role1.meta).toEqual({ plan: "do-it", files: ["a.ts"] });
-      expect(role1.refs).toEqual([]);
+      expect(role1.refs).toEqual([role1.contentHash]);
       expect(typeof role1.timestamp).toBe("number");
 
       const role2 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role2.role).toBe("coder");
-      expect(role2.refs).toEqual([]);
+      expect(role2.refs).toEqual([role2.contentHash]);
 
       const infoText = await readFile(infoPath, "utf8");
       const infoLines = infoText
@@ -219,11 +227,14 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
+      const plannerHash = await cas.put(serializeMerkleNode(createContentMerkleNode("plan-body")));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
 
       const histTs = 9_000_000;
+      const mergedPlannerRefs = ["CAS111AAAAAAA", plannerHash];
       const result = await executeThread(
         demoWorkflow,
         "demo-flow",
@@ -232,9 +243,9 @@ describe("executeThread", () => {
           steps: [
             {
               role: "planner",
-              content: "plan-body",
+              contentHash: plannerHash,
               meta: { plan: "do-it", files: ["a.ts"] },
-              refs: ["CAS111AAAAAAA"],
+              refs: mergedPlannerRefs,
             },
           ],
         },
@@ -247,14 +258,14 @@ describe("executeThread", () => {
           prefilledDiskSteps: [
             {
               role: "planner",
-              content: "plan-body",
+              contentHash: plannerHash,
               meta: { plan: "do-it", files: ["a.ts"] },
-              refs: ["CAS111AAAAAAA"],
+              refs: mergedPlannerRefs,
               timestamp: histTs,
             },
           ],
         },
-        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
       );
 
@@ -273,11 +284,11 @@ describe("executeThread", () => {
       const role0 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role0.role).toBe("planner");
       expect(role0.timestamp).toBe(histTs);
-      expect(role0.refs).toEqual(["CAS111AAAAAAA"]);
+      expect(role0.refs).toEqual(mergedPlannerRefs);
 
       const role1 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("coder");
-      expect(role1.content).toBe("code-body");
+      expect(await getContentMerklePayload(cas, String(role1.contentHash))).toBe("code-body");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -291,6 +302,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
@@ -307,7 +319,7 @@ describe("executeThread", () => {
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
         },
-        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
       );
 

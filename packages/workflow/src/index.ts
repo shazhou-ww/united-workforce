@@ -41,6 +41,15 @@ export {
   type LoggerSink,
 } from "./logger.js";
 export {
+  createContentMerkleNode,
+  getContentMerklePayload,
+  type MerkleNode,
+  type MerkleNodeType,
+  parseMerkleNode,
+  putContentMerkleNode,
+  serializeMerkleNode,
+} from "./merkle.js";
+export {
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
   parseWorkflowRegistryYaml,

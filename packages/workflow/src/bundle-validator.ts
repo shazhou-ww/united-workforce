@@ -41,8 +41,11 @@ function isAllowedImportSpecifier(spec: string): boolean {
   if (spec.length === 0) {
     return false;
   }
-  if (spec.startsWith(".") || spec.startsWith("/")) {
+  if (spec.startsWith(".") || spec.startsWith("/") || spec.startsWith("file:")) {
     return false;
+  }
+  if (spec === "@uncaged/workflow") {
+    return true;
   }
   return isBuiltin(spec);
 }
@@ -297,7 +300,7 @@ function validateImportDeclaration(node: ImportDeclaration): string | null {
     return "only static string import specifiers are allowed";
   }
   if (!isAllowedImportSpecifier(spec)) {
-    return `disallowed import specifier "${spec}" (only Node built-ins are allowed)`;
+    return `disallowed import specifier "${spec}" (only Node built-ins and "@uncaged/workflow" are allowed)`;
   }
   return null;
 }
@@ -312,7 +315,7 @@ function validateExportSource(
     return staticMessage;
   }
   if (!isAllowedImportSpecifier(spec)) {
-    return `${disallowedPrefix} "${spec}" (only Node built-ins are allowed)`;
+    return `${disallowedPrefix} "${spec}" (only Node built-ins and "@uncaged/workflow" are allowed)`;
   }
   return null;
 }
@@ -365,7 +368,7 @@ function bundleConstraintViolationForNode(node: Node): string | null {
 
 /**
  * Validate RFC-001 bundle rules: single-file ESM shape, named exports `run` + `descriptor`,
- * no default export, no dynamic `import()`, static imports restricted to Node builtins.
+ * no default export, no dynamic `import()`, static imports restricted to Node builtins plus `@uncaged/workflow`.
  */
 export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Result<void, string> {
   if (!endsWithEsmJs(input.filePath)) {

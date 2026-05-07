@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createCasStore } from "../src/cas.js";
 import { hashWorkflowBundleBytes } from "../src/hash.js";
 import {
   readWorkflowRegistry,
@@ -12,7 +13,12 @@ import {
 import { type AgentContext, START } from "../src/types.js";
 import { workflowAsAgent } from "../src/workflow-as-agent.js";
 
-function makeAgentCtx(params: { depth: number; prompt: string; maxRounds: number }): AgentContext {
+function makeAgentCtx(params: {
+  storageRoot: string;
+  depth: number;
+  prompt: string;
+  maxRounds: number;
+}): AgentContext {
   const ts = Date.now();
   return {
     threadId: "01PARENT000000000000000001AA",
@@ -28,10 +34,13 @@ function makeAgentCtx(params: { depth: number; prompt: string; maxRounds: number
       name: "caller",
       systemPrompt: "caller",
     },
+    cas: createCasStore(join(params.storageRoot, "agent-ctx-cas")),
   };
 }
 
-const childBundleSource = `export const descriptor = {
+const childBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
+
+export const descriptor = {
   description: "child-test",
   roles: {
     agent: {
@@ -40,8 +49,10 @@ const childBundleSource = `export const descriptor = {
     },
   },
 };
-export async function* run(input) {
-  yield { role: "agent", content: "child-body", meta: {}, refs: [] };
+export async function* run(input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "child-body");
+  yield { role: "agent", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "child-done:" + input.prompt };
 }
 `;
@@ -68,7 +79,9 @@ describe("workflowAsAgent", () => {
     const root = await mkdtemp(join(tmpdir(), "wf-waa-missing-"));
     try {
       const agent = workflowAsAgent("missing-wf", { storageRoot: root });
-      const out = await agent(makeAgentCtx({ depth: 0, prompt: "x", maxRounds: 5 }));
+      const out = await agent(
+        makeAgentCtx({ storageRoot: root, depth: 0, prompt: "x", maxRounds: 5 }),
+      );
       expect(out).toContain("not found in registry");
       expect(out).toContain("missing-wf");
     } finally {
@@ -81,7 +94,9 @@ describe("workflowAsAgent", () => {
     try {
       await installChildWorkflow(root);
       const agent = workflowAsAgent("child-wf", { storageRoot: root });
-      const out = await agent(makeAgentCtx({ depth: 0, prompt: "hello-parent", maxRounds: 5 }));
+      const out = await agent(
+        makeAgentCtx({ storageRoot: root, depth: 0, prompt: "hello-parent", maxRounds: 5 }),
+      );
       expect(out).toBe("child-done:hello-parent");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -92,7 +107,9 @@ describe("workflowAsAgent", () => {
     const root = await mkdtemp(join(tmpdir(), "wf-waa-depth-"));
     try {
       const agent = workflowAsAgent("child-wf", { storageRoot: root });
-      const out = await agent(makeAgentCtx({ depth: 3, prompt: "x", maxRounds: 5 }));
+      const out = await agent(
+        makeAgentCtx({ storageRoot: root, depth: 3, prompt: "x", maxRounds: 5 }),
+      );
       expect(out).toContain("depth limit");
     } finally {
       await rm(root, { recursive: true, force: true });

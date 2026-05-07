@@ -1,10 +1,11 @@
 import { join } from "node:path";
 
+import { createCasStore } from "./cas.js";
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { extractBundleExports } from "./extract-bundle-exports.js";
 import { createLogger } from "./logger.js";
 import { getRegisteredWorkflow, readWorkflowRegistry } from "./registry.js";
-import { getDefaultWorkflowStorageRoot } from "./storage-root.js";
+import { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
 import type { AgentContext, AgentFn, ThreadInput } from "./types.js";
 import { generateUlid } from "./ulid.js";
 
@@ -50,7 +51,7 @@ export function workflowAsAgent(
     }
 
     const bundlePath = join(storageRoot, "bundles", `${entry.hash}.esm.js`);
-    const bundleExportsResult = await extractBundleExports(bundlePath);
+    const bundleExportsResult = await extractBundleExports(bundlePath, { storageRoot });
     if (!bundleExportsResult.ok) {
       return `ERROR: ${bundleExportsResult.error}`;
     }
@@ -69,6 +70,7 @@ export function workflowAsAgent(
       hash: entry.hash,
       dataJsonlPath,
       infoJsonlPath,
+      cas: createCasStore(getGlobalCasDir(storageRoot)),
     };
 
     const logger = createLogger({ sink: { kind: "file", path: infoJsonlPath } });

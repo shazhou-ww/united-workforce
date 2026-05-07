@@ -192,7 +192,7 @@ export async function cmdAdd(
     return validated;
   }
 
-  const extracted = await extractBundleExports(resolvedPath);
+  const extracted = await extractBundleExports(resolvedPath, { storageRoot });
   if (!extracted.ok) {
     return extracted;
   }

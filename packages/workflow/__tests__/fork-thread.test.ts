@@ -7,9 +7,9 @@ import {
 } from "../src/fork-thread.js";
 
 const sampleDataJsonl = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"maxRounds":5}},"timestamp":100}
-{"role":"planner","content":"p","meta":{},"timestamp":101}
-{"role":"coder","content":"c","meta":{},"timestamp":102}
-{"role":"reviewer","content":"r","meta":{},"timestamp":103}
+{"role":"planner","contentHash":"HP0000000000000000000001","meta":{},"refs":[],"timestamp":101}
+{"role":"coder","contentHash":"HP0000000000000000000002","meta":{},"refs":[],"timestamp":102}
+{"role":"reviewer","contentHash":"HP0000000000000000000003","meta":{},"refs":[],"timestamp":103}
 `;
 
 describe("fork-thread", () => {
@@ -89,7 +89,7 @@ describe("fork-thread", () => {
 
   test("parseThreadDataJsonl reads explicit depth from start record", () => {
     const text = `{"name":"demo","hash":"H","threadId":"01ZZZZZZZZZZZZZZZZZZZZZZ","parameters":{"prompt":"p","options":{"maxRounds":3,"depth":2}},"timestamp":1}
-{"role":"planner","content":"x","meta":{},"timestamp":2}
+{"role":"planner","contentHash":"HP0000000000000000000099","meta":{},"refs":[],"timestamp":2}
 `;
     const r = parseThreadDataJsonl(text);
     expect(r.ok).toBe(true);

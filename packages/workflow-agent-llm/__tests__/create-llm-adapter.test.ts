@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { START, type ThreadContext } from "@uncaged/workflow";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createCasStore, START, type ThreadContext } from "@uncaged/workflow";
 
 import { createLlmAdapter } from "../src/create-llm-adapter.js";
+
+const casDir = mkdtempSync(join(tmpdir(), "wf-llm-adapter-cas-"));
+const testCas = createCasStore(casDir);
 
 function makeCtx(userContent: string): ThreadContext {
   return {
@@ -15,6 +21,7 @@ function makeCtx(userContent: string): ThreadContext {
     steps: [],
     threadId: "01TEST000000000000000000TR",
     currentRole: { name: "planner", systemPrompt: "system instructions" },
+    cas: testCas,
   };
 }
 

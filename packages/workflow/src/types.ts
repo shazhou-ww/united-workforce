@@ -1,5 +1,7 @@
 import type * as z from "zod/v4";
 
+import type { CasStore } from "./cas.js";
+
 /** Sentinel values for automaton control flow. */
 export const START = "__start__" as const;
 export const END = "__end__" as const;
@@ -17,7 +19,8 @@ export type LlmProvider = {
 /** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
 export type RoleOutput = {
   role: string;
-  content: string;
+  /** CAS hash of the serialized Merkle content node for this step's body text. */
+  contentHash: string;
   meta: Record<string, unknown>;
   /** CAS hashes produced or consumed by this step (for GC traceability). */
   refs: string[];
@@ -41,6 +44,8 @@ export type WorkflowFnOptions = {
   maxRounds: number;
   /** Nesting depth for workflow-as-agent chains; root threads use `0`. */
   depth: number;
+  /** Global CAS store for Merkle content blobs (role step bodies). */
+  cas: CasStore;
 };
 
 /** Bundle contract — named export `run` is a function returning an AsyncGenerator. */
@@ -62,7 +67,7 @@ export type RoleStep<M extends RoleMeta> = {
   [K in keyof M & string]: {
     role: K;
     meta: M[K];
-    content: string;
+    contentHash: string;
     refs: string[];
     timestamp: number;
   };
@@ -83,6 +88,7 @@ export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & 
     name: string;
     systemPrompt: string;
   };
+  cas: CasStore;
 };
 
 /** Phase 3: Extractor runs — has agent output; the extraction instruction is a separate argument to the extract function. */

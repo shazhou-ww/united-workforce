@@ -54,7 +54,7 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
       "From the thread context, determine the absolute filesystem path where the project/repository is located.",
       extractCtx,
     );
-    const fullPrompt = buildAgentPrompt(ctx);
+    const fullPrompt = await buildAgentPrompt(ctx);
     const args = [
       "-p",
       fullPrompt,

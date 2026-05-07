@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
+import { createCasStore } from "../src/cas.js";
 import { createWorkflow } from "../src/create-workflow.js";
 import { executeThread } from "../src/engine.js";
 import { createExtract } from "../src/extract-fn.js";
@@ -110,8 +111,8 @@ describe("RoleStep refs tracking", () => {
 
   test("parseThreadDataJsonl reads refs and defaults missing refs to []", () => {
     const text = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"maxRounds":5}},"timestamp":100}
-{"role":"planner","content":"p","meta":{},"refs":["H111AAAAAAAAA","H222AAAAAAAAA"],"timestamp":101}
-{"role":"coder","content":"c","meta":{},"timestamp":102}
+{"role":"planner","contentHash":"HPAYLOAD111111","meta":{},"refs":["H111AAAAAAAAA","H222AAAAAAAAA"],"timestamp":101}
+{"role":"coder","contentHash":"HPAYLOAD222222","meta":{},"timestamp":102}
 `;
     const r = parseThreadDataJsonl(text);
     expect(r.ok).toBe(true);
@@ -139,6 +140,7 @@ describe("RoleStep refs tracking", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
@@ -155,7 +157,7 @@ describe("RoleStep refs tracking", () => {
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
         },
-        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
       );
 
@@ -170,7 +172,12 @@ describe("RoleStep refs tracking", () => {
 
       const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("planner");
-      expect(role1.refs).toEqual(["C9NMV6V2TQT81", "C9NMV6V2TQT82"]);
+      const refs = role1.refs as string[];
+      expect(refs).toContain("C9NMV6V2TQT81");
+      expect(refs).toContain("C9NMV6V2TQT82");
+      expect(typeof role1.contentHash).toBe("string");
+      expect(refs).toContain(String(role1.contentHash));
+      expect(refs.length).toBe(3);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -178,8 +185,8 @@ describe("RoleStep refs tracking", () => {
 
   test("buildForkPlan carries refs on historical steps", () => {
     const text = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"maxRounds":5}},"timestamp":100}
-{"role":"planner","content":"p","meta":{},"refs":["KEEPREFAAAAAA"],"timestamp":101}
-{"role":"coder","content":"c","meta":{},"refs":["CODERHASHAAAA"],"timestamp":102}
+{"role":"planner","contentHash":"HP111111111111","meta":{},"refs":["KEEPREFAAAAAA"],"timestamp":101}
+{"role":"coder","contentHash":"HP222222222222","meta":{},"refs":["CODERHASHAAAA"],"timestamp":102}
 `;
     const plan = buildForkPlan(text, null);
     expect(plan.ok).toBe(true);
