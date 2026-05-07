@@ -1,4 +1,19 @@
+import { getCommandRegistry } from "./cli-dispatch.js";
+
 export function formatSkillDoc(): string {
+  const groups = getCommandRegistry();
+
+  const commandSections: string[] = [];
+  for (const group of groups) {
+    const rows = group.commands.map((cmd) => {
+      const args = cmd.args ? `\`${cmd.args}\`` : "(none)";
+      return `| \`${group.name} ${cmd.name}\` | ${args} | ${cmd.description} |`;
+    });
+    commandSections.push(
+      `### ${group.name}\n\n| Command | Args | Description |\n|---------|------|-------------|\n${rows.join("\n")}`,
+    );
+  }
+
   return `# uncaged-workflow CLI Reference
 
 ## Core Concepts
@@ -13,48 +28,7 @@ export function formatSkillDoc(): string {
 
 ## Commands
 
-### workflow
-
-| Command | Args | Description |
-|---------|------|-------------|
-| \`workflow add\` | \`<name> <file.esm.js> [--types <path>]\` | Register a workflow bundle in the registry |
-| \`workflow list\` | (none) | List all registered workflows |
-| \`workflow show\` | \`<name>\` | Show details of a registered workflow |
-| \`workflow rm\` | \`<name>\` | Remove a workflow from the registry |
-| \`workflow history\` | \`<name>\` | Show version history of a workflow |
-| \`workflow rollback\` | \`<name> [hash]\` | Rollback a workflow to a previous version |
-
-### thread
-
-| Command | Args | Description |
-|---------|------|-------------|
-| \`thread run\` | \`<name> [--prompt <text>] [--max-rounds N]\` | Start a new thread executing a workflow |
-| \`thread list\` | \`[name]\` | List threads, optionally filtered by workflow name |
-| \`thread show\` | \`<id>\` | Show thread details and state |
-| \`thread rm\` | \`<id>\` | Remove a thread |
-| \`thread fork\` | \`<thread-id> [--from-role <role>]\` | Fork a thread, optionally from a specific role |
-| \`thread ps\` | (none) | List running threads |
-| \`thread kill\` | \`<thread-id>\` | Kill a running thread |
-| \`thread live\` | \`<thread-id> [--debug] [--role <name>]\` or \`--latest [--debug] [--role <name>]\` | Attach to a thread and stream output live |
-| \`thread pause\` | \`<thread-id>\` | Pause a running thread |
-| \`thread resume\` | \`<thread-id>\` | Resume a paused thread |
-
-### cas
-
-| Command | Args | Description |
-|---------|------|-------------|
-| \`cas get\` | \`<thread-id> <hash>\` | Retrieve content by hash from a thread's CAS |
-| \`cas put\` | \`<thread-id> <content>\` | Store content in a thread's CAS, returns hash |
-| \`cas list\` | \`<thread-id>\` | List all CAS entries for a thread |
-| \`cas rm\` | \`<thread-id> <hash>\` | Remove a CAS entry |
-| \`cas gc\` | (none) | Garbage-collect unreferenced CAS entries |
-
-### init
-
-| Command | Args | Description |
-|---------|------|-------------|
-| \`init workspace\` | \`<name>\` | Initialize a new workflow workspace |
-| \`init template\` | \`<name>\` | Initialize a new workflow template |
+${commandSections.join("\n\n")}
 
 ### Top-level shortcuts
 

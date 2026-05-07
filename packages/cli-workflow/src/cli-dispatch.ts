@@ -21,84 +21,49 @@ import { cmdThreads } from "./cmd-threads.js";
 import { parseLiveArgv } from "./live-argv.js";
 import { parseRunArgv } from "./run-argv.js";
 
-export function formatCliUsage(): string {
-  return [
-    "Usage:",
-    "  uncaged-workflow workflow add <name> <file.esm.js> [--types <path>]",
-    "  uncaged-workflow workflow list",
-    "  uncaged-workflow workflow show <name>",
-    "  uncaged-workflow workflow rm <name>",
-    "  uncaged-workflow workflow history <name>",
-    "  uncaged-workflow workflow rollback <name> [hash]",
-    "",
-    "  uncaged-workflow thread run <name> [--prompt <text>] [--max-rounds N]",
-    "  uncaged-workflow thread list [name]",
-    "  uncaged-workflow thread show <id>",
-    "  uncaged-workflow thread rm <id>",
-    "  uncaged-workflow thread ps",
-    "  uncaged-workflow thread kill <thread-id>",
-    "  uncaged-workflow thread live <thread-id> [--debug] [--role <name>]",
-    "  uncaged-workflow thread live --latest [--debug] [--role <name>]",
-    "  uncaged-workflow thread pause <thread-id>",
-    "  uncaged-workflow thread resume <thread-id>",
-    "  uncaged-workflow thread fork <thread-id> [--from-role <role>]",
-    "",
-    "  uncaged-workflow cas get <thread-id> <hash>",
-    "  uncaged-workflow cas put <thread-id> <content>",
-    "  uncaged-workflow cas list <thread-id>",
-    "  uncaged-workflow cas rm <thread-id> <hash>",
-    "  uncaged-workflow cas gc",
-    "",
-    "  uncaged-workflow init workspace <name>",
-    "  uncaged-workflow init template <name>",
-    "",
-    "  uncaged-workflow run <name> [...]          (shortcut for thread run)",
-    "  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)",
-    "",
-    "Environment variables:",
-    "  WORKFLOW_STORAGE_ROOT              Override storage directory (default: ~/.uncaged/workflow)",
-    "  UNCAGED_WORKFLOW_STORAGE_ROOT      Internal override (takes priority over WORKFLOW_STORAGE_ROOT)",
-  ].join("\n");
-}
-
-function printDeprecation(oldCmd: string, newCmd: string): void {
-  printCliWarn(`⚠ "${oldCmd}" is deprecated, use "${newCmd}" instead`);
-}
-
 type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
+
+type CommandEntry = {
+  handler: DispatchFn;
+  args: string;
+  description: string;
+};
+
+type CommandGroup = {
+  name: string;
+  commands: ReadonlyArray<{ name: string; args: string; description: string }>;
+};
 
 // ── Individual dispatch functions ──────────────────────────────────────
 
-async function dispatchInit(_storageRoot: string, argv: string[]): Promise<number> {
-  const sub = argv[0];
-  const name = argv[1];
-  if (sub === undefined || name === undefined || argv.length > 2) {
-    printCliError(`${formatCliUsage()}\n\nerror: init requires workspace|template <name>`);
+async function dispatchInitWorkspace(_storageRoot: string, argv: string[]): Promise<number> {
+  const name = argv[0];
+  if (name === undefined || argv.length > 1) {
+    printCliError(`${formatCliUsage()}\n\nerror: init workspace requires <name>`);
     return 1;
   }
-
-  if (sub === "workspace") {
-    const result = await cmdInitWorkspace(process.cwd(), name);
-    if (!result.ok) {
-      printCliError(result.error);
-      return 1;
-    }
-    printCliLine(`initialized workflow workspace at ${result.value.rootPath}`);
-    return 0;
+  const result = await cmdInitWorkspace(process.cwd(), name);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
   }
+  printCliLine(`initialized workflow workspace at ${result.value.rootPath}`);
+  return 0;
+}
 
-  if (sub === "template") {
-    const result = await cmdInitTemplate(process.cwd(), name);
-    if (!result.ok) {
-      printCliError(result.error);
-      return 1;
-    }
-    printCliLine(`initialized template at ${result.value.templatePath}`);
-    return 0;
+async function dispatchInitTemplate(_storageRoot: string, argv: string[]): Promise<number> {
+  const name = argv[0];
+  if (name === undefined || argv.length > 1) {
+    printCliError(`${formatCliUsage()}\n\nerror: init template requires <name>`);
+    return 1;
   }
-
-  printCliError(`${formatCliUsage()}\n\nerror: unknown init subcommand: ${sub}`);
-  return 1;
+  const result = await cmdInitTemplate(process.cwd(), name);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(`initialized template at ${result.value.templatePath}`);
+  return 0;
 }
 
 async function dispatchAdd(storageRoot: string, argv: string[]): Promise<number> {
@@ -426,49 +391,210 @@ async function dispatchCasRm(storageRoot: string, rest: string[]): Promise<numbe
   return 0;
 }
 
-const CAS_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
-  get: dispatchCasGet,
-  put: dispatchCasPut,
-  list: dispatchCasList,
-  rm: dispatchCasRm,
-  gc: dispatchGc,
+// ── Subcommand tables with metadata ────────────────────────────────────
+
+const WORKFLOW_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
+  add: {
+    handler: dispatchAdd,
+    args: "<name> <file.esm.js> [--types <path>]",
+    description: "Register a workflow bundle in the registry",
+  },
+  list: { handler: dispatchList, args: "", description: "List all registered workflows" },
+  show: {
+    handler: dispatchShow,
+    args: "<name>",
+    description: "Show details of a registered workflow",
+  },
+  rm: {
+    handler: dispatchRemove,
+    args: "<name>",
+    description: "Remove a workflow from the registry",
+  },
+  history: {
+    handler: dispatchHistory,
+    args: "<name>",
+    description: "Show version history of a workflow",
+  },
+  rollback: {
+    handler: dispatchRollback,
+    args: "<name> [hash]",
+    description: "Rollback a workflow to a previous version",
+  },
 };
 
-async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
-  const sub = argv[0];
-  if (sub === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown cas subcommand: (none)`);
-    return 1;
-  }
-  const handler = CAS_SUBCOMMAND_TABLE[sub];
-  if (handler === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown cas subcommand: ${sub}`);
-    return 1;
-  }
-  return handler(storageRoot, argv.slice(1));
+const THREAD_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
+  run: {
+    handler: dispatchRun,
+    args: "<name> [--prompt <text>] [--max-rounds N]",
+    description: "Start a new thread executing a workflow",
+  },
+  list: {
+    handler: dispatchThreadList,
+    args: "[name]",
+    description: "List threads, optionally filtered by workflow name",
+  },
+  show: { handler: dispatchThreadShow, args: "<id>", description: "Show thread details and state" },
+  rm: { handler: dispatchThreadRm, args: "<id>", description: "Remove a thread" },
+  fork: {
+    handler: dispatchFork,
+    args: "<thread-id> [--from-role <role>]",
+    description: "Fork a thread, optionally from a specific role",
+  },
+  ps: { handler: dispatchPs, args: "", description: "List running threads" },
+  kill: { handler: dispatchKill, args: "<thread-id>", description: "Kill a running thread" },
+  live: {
+    handler: dispatchLive,
+    args: "<thread-id> [--debug] [--role <name>]",
+    description: "Attach to a thread and stream output live",
+  },
+  pause: { handler: dispatchPause, args: "<thread-id>", description: "Pause a running thread" },
+  resume: { handler: dispatchResume, args: "<thread-id>", description: "Resume a paused thread" },
+};
+
+const CAS_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
+  get: {
+    handler: dispatchCasGet,
+    args: "<thread-id> <hash>",
+    description: "Retrieve content by hash from a thread's CAS",
+  },
+  put: {
+    handler: dispatchCasPut,
+    args: "<thread-id> <content>",
+    description: "Store content in a thread's CAS, returns hash",
+  },
+  list: {
+    handler: dispatchCasList,
+    args: "<thread-id>",
+    description: "List all CAS entries for a thread",
+  },
+  rm: { handler: dispatchCasRm, args: "<thread-id> <hash>", description: "Remove a CAS entry" },
+  gc: { handler: dispatchGc, args: "", description: "Garbage-collect unreferenced CAS entries" },
+};
+
+const INIT_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
+  workspace: {
+    handler: dispatchInitWorkspace,
+    args: "<name>",
+    description: "Initialize a new workflow workspace",
+  },
+  template: {
+    handler: dispatchInitTemplate,
+    args: "<name>",
+    description: "Initialize a new workflow template",
+  },
+};
+
+// ── Command registry ───────────────────────────────────────────────────
+
+export function getCommandRegistry(): ReadonlyArray<CommandGroup> {
+  return [
+    {
+      name: "workflow",
+      commands: Object.entries(WORKFLOW_SUBCOMMAND_TABLE).map(([name, e]) => ({
+        name,
+        args: e.args,
+        description: e.description,
+      })),
+    },
+    {
+      name: "thread",
+      commands: Object.entries(THREAD_SUBCOMMAND_TABLE).map(([name, e]) => ({
+        name,
+        args: e.args,
+        description: e.description,
+      })),
+    },
+    {
+      name: "cas",
+      commands: Object.entries(CAS_SUBCOMMAND_TABLE).map(([name, e]) => ({
+        name,
+        args: e.args,
+        description: e.description,
+      })),
+    },
+    {
+      name: "init",
+      commands: Object.entries(INIT_SUBCOMMAND_TABLE).map(([name, e]) => ({
+        name,
+        args: e.args,
+        description: e.description,
+      })),
+    },
+  ];
 }
 
-// ── Workflow subcommand table (Phase 1) ────────────────────────────────
+// ── Auto-generated CLI usage ───────────────────────────────────────────
 
-const WORKFLOW_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
-  add: dispatchAdd,
-  list: dispatchList,
-  show: dispatchShow,
-  rm: dispatchRemove,
-  history: dispatchHistory,
-  rollback: dispatchRollback,
-};
+export function formatCliUsage(): string {
+  const groups = getCommandRegistry();
+  const lines: string[] = ["Usage:"];
+  for (const group of groups) {
+    for (const cmd of group.commands) {
+      const args = cmd.args ? ` ${cmd.args}` : "";
+      lines.push(`  uncaged-workflow ${group.name} ${cmd.name}${args}`);
+    }
+    lines.push("");
+  }
+  lines.push("  uncaged-workflow run <name> [...]          (shortcut for thread run)");
+  lines.push("  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)");
+  lines.push("");
+  lines.push("Environment variables:");
+  lines.push(
+    "  WORKFLOW_STORAGE_ROOT              Override storage directory (default: ~/.uncaged/workflow)",
+  );
+  lines.push(
+    "  UNCAGED_WORKFLOW_STORAGE_ROOT      Internal override (takes priority over WORKFLOW_STORAGE_ROOT)",
+  );
+  return lines.join("\n");
+}
 
-async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<number> {
+function printDeprecation(oldCmd: string, newCmd: string): void {
+  printCliWarn(`⚠ "${oldCmd}" is deprecated, use "${newCmd}" instead`);
+}
+
+// ── Group dispatchers ──────────────────────────────────────────────────
+
+function dispatchGroup(
+  tableName: string,
+  table: Record<string, CommandEntry>,
+  storageRoot: string,
+  argv: string[],
+): Promise<number> | null {
   const sub = argv[0];
   if (sub === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown workflow subcommand: (none)`);
+    printCliError(`${formatCliUsage()}\n\nerror: unknown ${tableName} subcommand: (none)`);
+    return Promise.resolve(1);
+  }
+  const entry = table[sub];
+  if (entry === undefined) {
+    return null;
+  }
+  return entry.handler(storageRoot, argv.slice(1));
+}
+
+async function dispatchInit(storageRoot: string, argv: string[]): Promise<number> {
+  const sub = argv[0];
+  const name = argv[1];
+  if (sub === undefined || name === undefined || argv.length > 2) {
+    printCliError(`${formatCliUsage()}\n\nerror: init requires workspace|template <name>`);
     return 1;
   }
-  const handler = WORKFLOW_SUBCOMMAND_TABLE[sub];
-  if (handler !== undefined) {
-    return handler(storageRoot, argv.slice(1));
+
+  const entry = INIT_SUBCOMMAND_TABLE[sub];
+  if (entry !== undefined) {
+    return entry.handler(storageRoot, argv.slice(1));
   }
+
+  printCliError(`${formatCliUsage()}\n\nerror: unknown init subcommand: ${sub}`);
+  return 1;
+}
+
+async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<number> {
+  const result = dispatchGroup("workflow", WORKFLOW_SUBCOMMAND_TABLE, storageRoot, argv);
+  if (result !== null) {
+    return result;
+  }
+  const sub = argv[0];
   if (sub === "remove") {
     printDeprecation("workflow remove", "workflow rm");
     return dispatchRemove(storageRoot, argv.slice(1));
@@ -477,33 +603,24 @@ async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<nu
   return 1;
 }
 
-// ── Thread subcommand table (Phase 2) ──────────────────────────────────
-
-const THREAD_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
-  run: dispatchRun,
-  list: dispatchThreadList,
-  show: dispatchThreadShow,
-  rm: dispatchThreadRm,
-  fork: dispatchFork,
-  ps: dispatchPs,
-  kill: dispatchKill,
-  live: dispatchLive,
-  pause: dispatchPause,
-  resume: dispatchResume,
-};
-
 async function dispatchThread(storageRoot: string, argv: string[]): Promise<number> {
+  const result = dispatchGroup("thread", THREAD_SUBCOMMAND_TABLE, storageRoot, argv);
+  if (result !== null) {
+    return result;
+  }
   const sub = argv[0];
-  if (sub === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown thread subcommand: (none)`);
-    return 1;
+  printCliError(`${formatCliUsage()}\n\nerror: unknown thread subcommand: ${sub}`);
+  return 1;
+}
+
+async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
+  const result = dispatchGroup("cas", CAS_SUBCOMMAND_TABLE, storageRoot, argv);
+  if (result !== null) {
+    return result;
   }
-  const handler = THREAD_SUBCOMMAND_TABLE[sub];
-  if (handler === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown thread subcommand: ${sub}`);
-    return 1;
-  }
-  return handler(storageRoot, argv.slice(1));
+  const sub = argv[0];
+  printCliError(`${formatCliUsage()}\n\nerror: unknown cas subcommand: ${sub}`);
+  return 1;
 }
 
 // ── Help ────────────────────────────────────────────────────────────────
