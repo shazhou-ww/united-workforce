@@ -34,7 +34,7 @@ export function formatSkillTopic(topic: string): string | null {
 
 export function formatSkillIndex(): string {
   const rows = SKILL_TOPICS.map((t) => `| \`${t.name}\` | ${t.description} |`);
-  return `# uncaged-workflow help --skill
+  return `# uncaged-workflow skill
 
 Available topics:
 

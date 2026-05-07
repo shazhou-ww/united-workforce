@@ -129,8 +129,9 @@ describe("init workspace", () => {
 
   test("usage lists init subcommands", () => {
     const u = formatCliUsage();
-    expect(u).toContain("uncaged-workflow init workspace <name>");
-    expect(u).toContain("uncaged-workflow init template <name>");
+    expect(u).toContain("init workspace <name>");
+    expect(u).toContain("init template <name>");
+    expect(u).toContain("Development:");
   });
 
   test("runCli rejects unknown init subcommand", async () => {
