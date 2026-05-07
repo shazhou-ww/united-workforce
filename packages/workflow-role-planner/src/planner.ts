@@ -22,5 +22,7 @@ Order phases so earlier steps unblock later ones. Cover root cause, edge cases, 
 export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
+  extractPrompt:
+    "Extract the implementation phases from the agent's analysis. Each phase needs a name, description, and acceptance criteria.",
   schema: plannerMetaSchema,
 };

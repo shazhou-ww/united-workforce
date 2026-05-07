@@ -6,6 +6,7 @@ import * as z from "zod/v4";
 
 import { createWorkflow } from "../src/create-workflow.js";
 import { executeThread } from "../src/engine.js";
+import { createExtract } from "../src/extract-fn.js";
 import { createLogger } from "../src/logger.js";
 import { END } from "../src/types.js";
 
@@ -74,9 +75,11 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
-const demoExtract = {
-  provider: { baseUrl: "http://127.0.0.1:9", apiKey: "test", model: "test" },
-} as const;
+const demoExtract = createExtract({
+  baseUrl: "http://127.0.0.1:9",
+  apiKey: "test",
+  model: "test",
+});
 
 const demoWorkflow = createWorkflow<DemoMeta>(
   {
@@ -84,11 +87,13 @@ const demoWorkflow = createWorkflow<DemoMeta>(
       planner: {
         description: "Demo planner",
         systemPrompt: "You are a planner.",
+        extractPrompt: "Extract plan text and affected files list.",
         schema: plannerMetaSchema,
       },
       coder: {
         description: "Demo coder",
         systemPrompt: "You are a coder.",
+        extractPrompt: "Extract the code diff summary.",
         schema: coderMetaSchema,
       },
     },

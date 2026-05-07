@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { ExtractFn } from "@uncaged/workflow";
+import type { ExtractContext, ExtractFn } from "@uncaged/workflow";
+import type * as z from "zod/v4";
 import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 
-const testExtract: ExtractFn = ((_schema, _prompt) => async (_ctx) => ({
-  workspace: "/tmp",
-})) as ExtractFn;
+const testExtract: ExtractFn = async <T extends Record<string, unknown>>(
+  _schema: z.ZodType<T>,
+  _ctx: ExtractContext,
+): Promise<T> => ({ workspace: "/tmp" }) as unknown as T;
 
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config", () => {

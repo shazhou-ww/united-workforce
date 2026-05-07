@@ -1,7 +1,7 @@
-import type { ThreadContext } from "@uncaged/workflow";
+import type { AgentContext } from "@uncaged/workflow";
 
 /** Builds the full agent prompt: system instructions plus summarized thread history. */
-export function buildAgentPrompt(ctx: ThreadContext): string {
+export function buildAgentPrompt(ctx: AgentContext): string {
   const lines: string[] = [];
   lines.push(ctx.currentRole.systemPrompt);
   lines.push("");

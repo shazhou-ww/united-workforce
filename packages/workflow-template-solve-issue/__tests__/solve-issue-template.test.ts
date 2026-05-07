@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  createExtract,
   END,
+  type ModeratorContext,
   type RoleStep,
   START,
-  type ThreadContext,
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
 
@@ -79,7 +80,7 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
-function makeStart(maxRounds: number): ThreadContext<SolveIssueMeta>["start"] {
+function makeStart(maxRounds: number): ModeratorContext<SolveIssueMeta>["start"] {
   return {
     role: START,
     content: "Fix the flaky login test",
@@ -90,11 +91,10 @@ function makeStart(maxRounds: number): ThreadContext<SolveIssueMeta>["start"] {
 
 function makeCtx(
   maxRounds: number,
-  steps: ThreadContext<SolveIssueMeta>["steps"],
-): ThreadContext<SolveIssueMeta> {
+  steps: ModeratorContext<SolveIssueMeta>["steps"],
+): ModeratorContext<SolveIssueMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
-    currentRole: { name: START, systemPrompt: "" },
     start: makeStart(maxRounds),
     steps,
   };
@@ -138,9 +138,11 @@ function committerStep(): RoleStep<SolveIssueMeta> {
   };
 }
 
-const stubExtract = {
-  provider: { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
-} as const;
+const stubExtract = createExtract({
+  baseUrl: "http://127.0.0.1:9",
+  apiKey: "",
+  model: "test",
+});
 
 describe("solveIssueModerator", () => {
   test("routes planner → coder → reviewer → committer → END", () => {
@@ -158,7 +160,7 @@ describe("solveIssueModerator", () => {
   });
 
   test("reviewer rejects → coder retry when budget allows", () => {
-    const steps: ThreadContext<SolveIssueMeta>["steps"] = [
+    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(false),
@@ -167,7 +169,7 @@ describe("solveIssueModerator", () => {
   });
 
   test("reviewer rejects → END when max rounds exhausted", () => {
-    const steps: ThreadContext<SolveIssueMeta>["steps"] = [
+    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(false),
@@ -192,7 +194,7 @@ describe("solveIssueModerator", () => {
       { name: "p1", description: "first", acceptance: "a1" },
       { name: "p2", description: "second", acceptance: "a2" },
     ];
-    const steps: ThreadContext<SolveIssueMeta>["steps"] = [plannerStep(phases), coderStep("p1")];
+    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [plannerStep(phases), coderStep("p1")];
     expect(solveIssueModerator(makeCtx(3, steps))).toBe(END);
   });
 });

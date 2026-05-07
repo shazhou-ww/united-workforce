@@ -18,5 +18,7 @@ Only reject for blocking issues. End with your verdict.`;
 export const reviewerRole: RoleDefinition<ReviewerMeta> = {
   description: "Runs git diff checks and sets approved when the change is ready.",
   systemPrompt: REVIEWER_SYSTEM,
+  extractPrompt:
+    "Extract the review verdict: approved or rejected. If rejected, list the blocking issues.",
   schema: reviewerMetaSchema,
 };

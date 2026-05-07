@@ -16,7 +16,6 @@ export {
 } from "./engine.js";
 export { type ExtractedBundleExports, extractBundleExports } from "./extract-bundle-exports.js";
 export { createExtract, type ExtractFn } from "./extract-fn.js";
-export { extractMetaOrThrow } from "./extract-meta.js";
 export {
   buildForkPlan,
   type ForkHistoricalStep,
@@ -59,11 +58,13 @@ export { getDefaultWorkflowStorageRoot } from "./storage-root.js";
 export { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 export {
   type AgentBinding,
+  type AgentContext,
   type AgentFn,
   END,
-  type ExtractConfig,
+  type ExtractContext,
   type LlmProvider,
   type Moderator,
+  type ModeratorContext,
   type RoleDefinition,
   type RoleMeta,
   type RoleOutput,

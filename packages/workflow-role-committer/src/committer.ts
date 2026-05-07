@@ -28,5 +28,7 @@ Do not attempt to fix failures yourself.`;
 export const committerRole: RoleDefinition<CommitterMeta> = {
   description: "Creates branch, commits, and pushes when review passes.",
   systemPrompt: COMMITTER_SYSTEM,
+  extractPrompt:
+    "Extract the commit result: committed (with branch and SHA), recoverable failure, or unrecoverable failure. Include error details and log references if applicable.",
   schema: committerMetaSchema,
 };

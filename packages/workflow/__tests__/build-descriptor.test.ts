@@ -20,6 +20,7 @@ describe("buildDescriptor", () => {
         analyst: {
           description: "Analyzes input",
           systemPrompt: "You are an analyst.",
+          extractPrompt: "Extract title and count from the analysis.",
           schema,
         },
       },

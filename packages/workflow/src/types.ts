@@ -58,19 +58,32 @@ export type RoleStep<M extends RoleMeta> = {
   [K in keyof M & string]: { role: K; meta: M[K]; content: string; timestamp: number };
 }[keyof M & string];
 
-/** Thread-scoped context passed to agents and moderator. */
-export type ThreadContext<M extends RoleMeta = RoleMeta> = {
+/** Phase 1: Moderator decides next role. */
+export type ModeratorContext<M extends RoleMeta = RoleMeta> = {
   threadId: string;
-  currentRole: {
-    name: string;
-    systemPrompt: string;
-  };
   start: StartStep;
   steps: RoleStep<M>[];
 };
 
+/** Phase 2: Agent executes — knows its role and prompt. */
+export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & {
+  currentRole: {
+    name: string;
+    systemPrompt: string;
+  };
+};
+
+/** Phase 3: Extractor runs — has agent output and extract instruction. */
+export type ExtractContext<M extends RoleMeta = RoleMeta> = AgentContext<M> & {
+  agentContent: string;
+  extractPrompt: string;
+};
+
+/** Alias — most external consumers see the agent-phase context. */
+export type ThreadContext<M extends RoleMeta = RoleMeta> = AgentContext<M>;
+
 /** Raw string output from an LLM/CLI adapter; meta is extracted by the engine. */
-export type AgentFn = (ctx: ThreadContext) => Promise<string>;
+export type AgentFn = (ctx: AgentContext) => Promise<string>;
 
 /** Runtime agent assignment (optional per-role overrides). */
 export type AgentBinding = {
@@ -78,15 +91,11 @@ export type AgentBinding = {
   overrides?: Partial<Record<string, AgentFn>>;
 };
 
-/** Structured extraction settings for the workflow engine. */
-export type ExtractConfig = {
-  provider: LlmProvider;
-};
-
 /** Role wiring: prompts, schema, and human-readable description. */
 export type RoleDefinition<Meta extends Record<string, unknown>> = {
   description: string;
   systemPrompt: string;
+  extractPrompt: string;
   schema: z.ZodType<Meta>;
 };
 
@@ -97,7 +106,7 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
  * Returns the next role name or END to terminate.
  */
 export type Moderator<M extends RoleMeta> = (
-  ctx: ThreadContext<M>,
+  ctx: ModeratorContext<M>,
 ) => (keyof M & string) | typeof END;
 
 /** Complete workflow definition as authored by users. */

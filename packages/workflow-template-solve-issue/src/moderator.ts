@@ -1,10 +1,10 @@
-import type { Moderator, ThreadContext } from "@uncaged/workflow";
+import type { Moderator, ModeratorContext } from "@uncaged/workflow";
 import { END } from "@uncaged/workflow";
 
 import type { SolveIssueMeta } from "./roles.js";
 
 function nextAfterCoder(
-  ctx: ThreadContext<SolveIssueMeta>,
+  ctx: ModeratorContext<SolveIssueMeta>,
   maxRounds: number,
 ): (keyof SolveIssueMeta & string) | typeof END {
   const plannerStep = ctx.steps.find((s) => s.role === "planner");

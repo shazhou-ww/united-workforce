@@ -1,10 +1,10 @@
 import {
+  type AgentContext,
   type AgentFn,
   err,
   type LlmProvider,
   ok,
   type Result,
-  type ThreadContext,
 } from "@uncaged/workflow";
 
 /** OpenAI chat completion message shape (passed to `/chat/completions`). */
@@ -97,9 +97,9 @@ export async function chatCompletionText(options: {
   return parseAssistantText(res.value);
 }
 
-/** Single-turn chat adapter: system prompt comes from {@link ThreadContext.currentRole}. */
+/** Single-turn chat adapter: system prompt comes from {@link AgentContext.currentRole}. */
 export function createLlmAdapter(provider: LlmProvider): AgentFn {
-  return async (ctx: ThreadContext) => {
+  return async (ctx: AgentContext) => {
     const result = await chatCompletionText({
       provider,
       messages: [

@@ -1,4 +1,4 @@
-import type { AgentFn } from "@uncaged/workflow";
+import type { AgentFn, ExtractContext } from "@uncaged/workflow";
 import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 import * as z from "zod/v4";
 
@@ -43,13 +43,15 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
 
   const modelFlag = resolveCursorModel(config.model);
   const timeoutMs = config.timeout > 0 ? config.timeout : null;
-  const extractWorkspace = config.extract(
-    cursorWorkspaceSchema,
-    "From the thread context, determine the absolute filesystem path where the project/repository is located. Look for clone paths, working directories, or repo paths mentioned in previous steps.",
-  );
 
   return async (ctx) => {
-    const { workspace } = await extractWorkspace(ctx);
+    const extractCtx: ExtractContext = {
+      ...ctx,
+      agentContent: "",
+      extractPrompt:
+        "From the thread context, determine the absolute filesystem path where the project/repository is located.",
+    };
+    const { workspace } = await config.extract(cursorWorkspaceSchema, extractCtx);
     const fullPrompt = buildAgentPrompt(ctx);
     const args = [
       "-p",

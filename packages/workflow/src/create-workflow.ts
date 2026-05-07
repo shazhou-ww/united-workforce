@@ -1,13 +1,14 @@
-import { extractMetaOrThrow } from "./extract-meta.js";
+import type { ExtractFn } from "./extract-fn.js";
 import {
   type AgentBinding,
+  type AgentContext,
   END,
-  type ExtractConfig,
+  type ExtractContext,
+  type ModeratorContext,
   type RoleMeta,
   type RoleOutput,
   type RoleStep,
   START,
-  type ThreadContext,
   type ThreadInput,
   type WorkflowDefinition,
   type WorkflowFn,
@@ -21,33 +22,6 @@ function isRoleNext<M extends RoleMeta>(
   return next !== END;
 }
 
-function moderatorThreadContext<M extends RoleMeta>(params: {
-  threadId: string;
-  start: ThreadContext<M>["start"];
-  steps: RoleStep<M>[];
-  roles: Pick<WorkflowDefinition<M>, "roles">["roles"];
-}): ThreadContext<M> {
-  const { threadId, start, steps, roles } = params;
-  const last = steps[steps.length - 1];
-  if (last === undefined) {
-    return {
-      threadId,
-      currentRole: { name: START, systemPrompt: "" },
-      start,
-      steps,
-    };
-  }
-  const roleName = last.role as keyof M & string;
-  const roleDef = roles[roleName];
-  const systemPrompt = roleDef !== undefined ? roleDef.systemPrompt : "";
-  return {
-    threadId,
-    currentRole: { name: roleName, systemPrompt },
-    start,
-    steps,
-  };
-}
-
 /**
  * Binds pure role definitions + moderator to runtime agents and structured extraction.
  * Assign with `export const run = createWorkflow(def, binding, extract)`.
@@ -55,14 +29,14 @@ function moderatorThreadContext<M extends RoleMeta>(params: {
 export function createWorkflow<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  extract: ExtractConfig,
+  extract: ExtractFn,
 ): WorkflowFn {
   return async function* workflowLoop(
     input: ThreadInput,
     options: WorkflowFnOptions,
   ): AsyncGenerator<RoleOutput, WorkflowResult> {
     const nowMs = Date.now();
-    const start: ThreadContext<M>["start"] = {
+    const start: ModeratorContext<M>["start"] = {
       role: START,
       content: input.prompt,
       meta: { maxRounds: options.maxRounds },
@@ -85,12 +59,11 @@ export function createWorkflow<M extends RoleMeta>(
         };
       }
 
-      const modCtx = moderatorThreadContext({
+      const modCtx: ModeratorContext<M> = {
         threadId: options.threadId,
         start,
         steps,
-        roles: def.roles,
-      });
+      };
 
       const next = def.moderator(modCtx);
 
@@ -103,20 +76,22 @@ export function createWorkflow<M extends RoleMeta>(
         return { returnCode: 1, summary: `unknown role: ${next}` };
       }
 
-      const ctx: ThreadContext<M> = {
-        threadId: options.threadId,
+      const agentCtx: AgentContext<M> = {
+        ...modCtx,
         currentRole: { name: next, systemPrompt: roleDef.systemPrompt },
-        start,
-        steps,
       };
 
       const agent = binding.overrides?.[next] ?? binding.agent;
 
-      const raw = await agent(ctx as unknown as ThreadContext);
+      const raw = await agent(agentCtx as unknown as AgentContext);
 
-      const meta = await extractMetaOrThrow(next, raw, roleDef.schema, {
-        provider: extract.provider,
-      });
+      const extractCtx: ExtractContext<M> = {
+        ...agentCtx,
+        agentContent: raw,
+        extractPrompt: roleDef.extractPrompt,
+      };
+
+      const meta = await extract(roleDef.schema, extractCtx as unknown as ExtractContext);
 
       const ts = Date.now();
       const step = {

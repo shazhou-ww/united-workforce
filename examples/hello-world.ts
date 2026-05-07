@@ -1,4 +1,4 @@
-import { createWorkflow, END, type RoleDefinition } from "@uncaged/workflow";
+import { createExtract, createWorkflow, END, type RoleDefinition } from "@uncaged/workflow";
 import * as z from "zod/v4";
 
 type Roles = {
@@ -26,12 +26,15 @@ export const descriptor = {
 const greeter: RoleDefinition<Roles["greeter"]> = {
   description: "Generates a greeting",
   systemPrompt: "You greet the user briefly.",
+  extractPrompt: "Extract the greeting string produced for the user.",
   schema: greeterMetaSchema,
 };
 
-const extract = {
-  provider: { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "" },
-} as const;
+const extract = createExtract({
+  baseUrl: "http://127.0.0.1:9",
+  apiKey: "",
+  model: "",
+});
 
 export const run = createWorkflow<Roles>(
   {
