@@ -36,6 +36,16 @@ Replace \`<THREAD_ID>\` with the actual thread ID you found above. The command p
 
 **Do NOT store phase details in any other way** (no temp files, no invented paths). The CLI command is the only supported storage mechanism.
 
+## Phase granularity
+
+Match the number of phases to task complexity:
+- Trivial (add a config option, fix a typo, rename): 1 phase
+- Small (a new feature touching 2-3 files): 1-2 phases
+- Medium (cross-module refactor): 2-3 phases
+- Large (new subsystem, architectural change): 3-5 phases
+
+Fewer phases is always better. Each phase must justify its existence — if two phases would be tested together anyway, merge them.
+
 ## Output format
 
 After storing all phases via the CLI, output compact JSON only:
