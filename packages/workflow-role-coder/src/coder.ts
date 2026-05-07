@@ -10,7 +10,7 @@ export const coderMetaSchema = z.object({
 export type CoderMeta = z.infer<typeof coderMetaSchema>;
 
 const CODER_SYSTEM = `You are a **coder**. Read the thread for the plan and work on the NEXT incomplete phase only.
-Report which phase you completed using the planner's exact phase name. If you legitimately finish every remaining phase in this single turn, set completedPhase to the last phase name in the plan (the workflow treats that as full completion). List the files you changed and summarize what you did.`;
+Each planner phase is identified by a hash (8-char Crockford Base32) and a title (one-line summary). Report which phase you completed using the planner's exact phase name. If you legitimately finish every remaining phase in this single turn, set completedPhase to the last phase name in the plan (the workflow treats that as full completion). List the files you changed and summarize what you did.`;
 
 export const coderRole: RoleDefinition<CoderMeta> = {
   description:
