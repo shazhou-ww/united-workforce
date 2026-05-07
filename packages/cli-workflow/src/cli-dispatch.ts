@@ -23,32 +23,46 @@ import { parseRunArgv } from "./run-argv.js";
 export function formatCliUsage(): string {
   return [
     "Usage:",
-    "  uncaged-workflow add <name> <file.esm.js> [--types <path>]",
-    "  uncaged-workflow list",
-    "  uncaged-workflow show <name>",
-    "  uncaged-workflow remove <name>",
-    "  uncaged-workflow run <name> [--prompt <text>] [--max-rounds N]",
-    "  uncaged-workflow ps",
-    "  uncaged-workflow kill <thread-id>",
-    "  uncaged-workflow live <thread-id> [--debug] [--role <name>]",
-    "  uncaged-workflow live --latest [--debug] [--role <name>]",
-    "  uncaged-workflow history <name>",
-    "  uncaged-workflow rollback <name> [hash]",
-    "  uncaged-workflow pause <thread-id>",
-    "  uncaged-workflow resume <thread-id>",
-    "  uncaged-workflow threads [name]",
-    "  uncaged-workflow thread <id>",
+    "  uncaged-workflow workflow add <name> <file.esm.js> [--types <path>]",
+    "  uncaged-workflow workflow list",
+    "  uncaged-workflow workflow show <name>",
+    "  uncaged-workflow workflow rm <name>",
+    "  uncaged-workflow workflow history <name>",
+    "  uncaged-workflow workflow rollback <name> [hash]",
+    "",
+    "  uncaged-workflow thread run <name> [--prompt <text>] [--max-rounds N]",
+    "  uncaged-workflow thread list [name]",
+    "  uncaged-workflow thread show <id>",
     "  uncaged-workflow thread rm <id>",
-    "  uncaged-workflow fork <thread-id> [--from-role <role>]",
-    "  uncaged-workflow gc",
+    "  uncaged-workflow thread ps",
+    "  uncaged-workflow thread kill <thread-id>",
+    "  uncaged-workflow thread live <thread-id> [--debug] [--role <name>]",
+    "  uncaged-workflow thread live --latest [--debug] [--role <name>]",
+    "  uncaged-workflow thread pause <thread-id>",
+    "  uncaged-workflow thread resume <thread-id>",
+    "  uncaged-workflow thread fork <thread-id> [--from-role <role>]",
+    "",
     "  uncaged-workflow cas get <thread-id> <hash>",
     "  uncaged-workflow cas put <thread-id> <content>",
     "  uncaged-workflow cas list <thread-id>",
     "  uncaged-workflow cas rm <thread-id> <hash>",
+    "  uncaged-workflow cas gc",
+    "",
     "  uncaged-workflow init workspace <name>",
     "  uncaged-workflow init template <name>",
+    "",
+    "  uncaged-workflow run <name> [...]          (shortcut for thread run)",
+    "  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)",
   ].join("\n");
 }
+
+function printDeprecation(oldCmd: string, newCmd: string): void {
+  printCliWarn(`⚠ "${oldCmd}" is deprecated, use "${newCmd}" instead`);
+}
+
+type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
+
+// ── Individual dispatch functions ──────────────────────────────────────
 
 async function dispatchInit(_storageRoot: string, argv: string[]): Promise<number> {
   const sub = argv[0];
@@ -266,7 +280,7 @@ async function dispatchResume(storageRoot: string, argv: string[]): Promise<numb
   return 0;
 }
 
-async function dispatchThreads(storageRoot: string, argv: string[]): Promise<number> {
+async function dispatchThreadList(storageRoot: string, argv: string[]): Promise<number> {
   const result = await cmdThreads(storageRoot, argv);
   if (!result.ok) {
     printCliError(result.error);
@@ -278,10 +292,10 @@ async function dispatchThreads(storageRoot: string, argv: string[]): Promise<num
   return 0;
 }
 
-async function dispatchThread(storageRoot: string, argv: string[]): Promise<number> {
+async function dispatchThreadShow(storageRoot: string, argv: string[]): Promise<number> {
   const id = argv[0];
   if (id === undefined || argv.length > 1) {
-    printCliError(`${formatCliUsage()}\n\nerror: thread requires <id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: thread show requires <id>`);
     return 1;
   }
   const result = await cmdThreadShow(storageRoot, id);
@@ -306,14 +320,6 @@ async function dispatchThreadRm(storageRoot: string, argv: string[]): Promise<nu
   }
   printCliLine(`removed thread ${id}`);
   return 0;
-}
-
-async function dispatchThreadBranch(storageRoot: string, rest: string[]): Promise<number> {
-  const sub = rest[0];
-  if (sub === "rm") {
-    return dispatchThreadRm(storageRoot, rest.slice(1));
-  }
-  return dispatchThread(storageRoot, rest);
 }
 
 async function dispatchGc(storageRoot: string, argv: string[]): Promise<number> {
@@ -347,6 +353,8 @@ async function dispatchFork(storageRoot: string, argv: string[]): Promise<number
   printCliLine(result.value.threadId);
   return 0;
 }
+
+// ── CAS subcommand table ───────────────────────────────────────────────
 
 async function dispatchCasGet(storageRoot: string, rest: string[]): Promise<number> {
   const threadId = rest[0];
@@ -413,14 +421,12 @@ async function dispatchCasRm(storageRoot: string, rest: string[]): Promise<numbe
   return 0;
 }
 
-const CAS_SUBCOMMAND_TABLE: Record<
-  string,
-  (storageRoot: string, rest: string[]) => Promise<number>
-> = {
+const CAS_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
   get: dispatchCasGet,
   put: dispatchCasPut,
   list: dispatchCasList,
   rm: dispatchCasRm,
+  gc: dispatchGc,
 };
 
 async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
@@ -437,27 +443,93 @@ async function dispatchCas(storageRoot: string, argv: string[]): Promise<number>
   return handler(storageRoot, argv.slice(1));
 }
 
-type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
+// ── Workflow subcommand table (Phase 1) ────────────────────────────────
 
-const COMMAND_TABLE: Record<string, DispatchFn> = {
+const WORKFLOW_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
   add: dispatchAdd,
-  init: dispatchInit,
   list: dispatchList,
   show: dispatchShow,
-  remove: dispatchRemove,
+  rm: dispatchRemove,
+  history: dispatchHistory,
+  rollback: dispatchRollback,
+};
+
+async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<number> {
+  const sub = argv[0];
+  if (sub === undefined) {
+    printCliError(`${formatCliUsage()}\n\nerror: unknown workflow subcommand: (none)`);
+    return 1;
+  }
+  const handler = WORKFLOW_SUBCOMMAND_TABLE[sub];
+  if (handler !== undefined) {
+    return handler(storageRoot, argv.slice(1));
+  }
+  if (sub === "remove") {
+    printDeprecation("workflow remove", "workflow rm");
+    return dispatchRemove(storageRoot, argv.slice(1));
+  }
+  printCliError(`${formatCliUsage()}\n\nerror: unknown workflow subcommand: ${sub}`);
+  return 1;
+}
+
+// ── Thread subcommand table (Phase 2) ──────────────────────────────────
+
+const THREAD_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
   run: dispatchRun,
+  list: dispatchThreadList,
+  show: dispatchThreadShow,
+  rm: dispatchThreadRm,
+  fork: dispatchFork,
   ps: dispatchPs,
   kill: dispatchKill,
   live: dispatchLive,
-  history: dispatchHistory,
-  rollback: dispatchRollback,
   pause: dispatchPause,
   resume: dispatchResume,
-  threads: dispatchThreads,
-  thread: dispatchThreadBranch,
-  fork: dispatchFork,
-  gc: dispatchGc,
+};
+
+async function dispatchThread(storageRoot: string, argv: string[]): Promise<number> {
+  const sub = argv[0];
+  if (sub === undefined) {
+    printCliError(`${formatCliUsage()}\n\nerror: unknown thread subcommand: (none)`);
+    return 1;
+  }
+  const handler = THREAD_SUBCOMMAND_TABLE[sub];
+  if (handler === undefined) {
+    printCliError(`${formatCliUsage()}\n\nerror: unknown thread subcommand: ${sub}`);
+    return 1;
+  }
+  return handler(storageRoot, argv.slice(1));
+}
+
+// ── Top-level command table (Phase 3) ──────────────────────────────────
+
+const COMMAND_TABLE: Record<string, DispatchFn> = {
+  // Grouped commands (primary)
+  workflow: dispatchWorkflow,
+  thread: dispatchThread,
   cas: dispatchCas,
+  init: dispatchInit,
+
+  // Top-level shortcuts (no deprecation)
+  run: dispatchRun,
+  live: dispatchLive,
+};
+
+// Deprecated flat commands that delegate to grouped commands
+const DEPRECATED_ALIASES: Record<string, { newCmd: string; handler: DispatchFn }> = {
+  add: { newCmd: "workflow add", handler: dispatchAdd },
+  list: { newCmd: "workflow list", handler: dispatchList },
+  show: { newCmd: "workflow show", handler: dispatchShow },
+  remove: { newCmd: "workflow rm", handler: dispatchRemove },
+  ps: { newCmd: "thread ps", handler: dispatchPs },
+  kill: { newCmd: "thread kill", handler: dispatchKill },
+  pause: { newCmd: "thread pause", handler: dispatchPause },
+  resume: { newCmd: "thread resume", handler: dispatchResume },
+  threads: { newCmd: "thread list", handler: dispatchThreadList },
+  fork: { newCmd: "thread fork", handler: dispatchFork },
+  gc: { newCmd: "cas gc", handler: dispatchGc },
+  history: { newCmd: "workflow history", handler: dispatchHistory },
+  rollback: { newCmd: "workflow rollback", handler: dispatchRollback },
 };
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
@@ -471,10 +543,18 @@ export async function runCli(storageRoot: string, argv: string[]): Promise<numbe
     return 1;
   }
   const rest = argv.slice(1);
+
   const dispatch = COMMAND_TABLE[command];
-  if (dispatch === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown command ${command}`);
-    return 1;
+  if (dispatch !== undefined) {
+    return dispatch(storageRoot, rest);
   }
-  return dispatch(storageRoot, rest);
+
+  const deprecated = DEPRECATED_ALIASES[command];
+  if (deprecated !== undefined) {
+    printDeprecation(command, deprecated.newCmd);
+    return deprecated.handler(storageRoot, rest);
+  }
+
+  printCliError(`${formatCliUsage()}\n\nerror: unknown command ${command}`);
+  return 1;
 }
