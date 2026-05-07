@@ -5,6 +5,7 @@ import {
   END,
   type ExtractContext,
   type ModeratorContext,
+  type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
   type RoleStep,
@@ -20,6 +21,17 @@ function isRoleNext<M extends RoleMeta>(
   next: (keyof M & string) | typeof END,
 ): next is keyof M & string {
   return next !== END;
+}
+
+function resolveExtractedRefs(
+  roleDef: RoleDefinition<Record<string, unknown>>,
+  meta: unknown,
+): string[] {
+  const extractRefsFn = roleDef.extractRefs;
+  if (extractRefsFn === null || typeof extractRefsFn !== "function") {
+    return [];
+  }
+  return extractRefsFn(meta as Record<string, unknown>);
 }
 
 /**
@@ -48,6 +60,7 @@ export function createWorkflow<M extends RoleMeta>(
       role: out.role,
       content: out.content,
       meta: out.meta,
+      refs: out.refs,
       timestamp: baseTs + i,
     })) as RoleStep<M>[];
 
@@ -96,15 +109,21 @@ export function createWorkflow<M extends RoleMeta>(
         extractCtx as unknown as ExtractContext,
       );
 
+      const refs = resolveExtractedRefs(
+        roleDef as unknown as RoleDefinition<Record<string, unknown>>,
+        meta,
+      );
+
       const ts = Date.now();
       const step = {
         role: next,
         content: raw,
         meta,
+        refs,
         timestamp: ts,
       } as RoleStep<M>;
 
-      yield { role: step.role, content: step.content, meta: step.meta };
+      yield { role: step.role, content: step.content, meta: step.meta, refs: step.refs };
 
       steps = [...steps, step];
     }

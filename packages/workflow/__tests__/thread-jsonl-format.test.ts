@@ -19,13 +19,16 @@ describe("RFC-001 thread JSONL shapes", () => {
       role: "planner",
       content: "Plan: modify auth middleware...",
       meta: { plan: "...", files: ["src/auth.ts"] },
+      refs: [] as string[],
       timestamp: 1714963201000,
     };
 
     expect(Object.keys(startRecord).sort()).toEqual(
       ["hash", "name", "parameters", "threadId", "timestamp"].sort(),
     );
-    expect(Object.keys(roleRecord).sort()).toEqual(["content", "meta", "role", "timestamp"].sort());
+    expect(Object.keys(roleRecord).sort()).toEqual(
+      ["content", "meta", "refs", "role", "timestamp"].sort(),
+    );
   });
 
   test("documents the `.info.jsonl` debug record keys", () => {

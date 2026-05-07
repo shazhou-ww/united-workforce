@@ -28,6 +28,7 @@ const greeter: RoleDefinition<Roles["greeter"]> = {
   systemPrompt: "You greet the user briefly.",
   extractPrompt: "Extract the greeting string produced for the user.",
   schema: greeterMetaSchema,
+  extractRefs: null,
 };
 
 const extract = createExtract({

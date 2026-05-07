@@ -2,6 +2,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { LogFn } from "./logger.js";
+import { normalizeRefsField } from "./refs-field.js";
 import type { ThreadInput, WorkflowFn, WorkflowFnOptions, WorkflowResult } from "./types.js";
 
 export type ExecuteThreadIo = {
@@ -16,6 +17,7 @@ export type PrefilledDiskStep = {
   role: string;
   content: string;
   meta: Record<string, unknown>;
+  refs: string[];
   timestamp: number;
 };
 
@@ -79,6 +81,7 @@ async function driveWorkflowGenerator(params: {
       role: step.role,
       content: step.content,
       meta: step.meta,
+      refs: normalizeRefsField(step.refs),
       timestamp: ts,
     });
 
@@ -151,6 +154,7 @@ export async function executeThread(
         role: row.role,
         content: row.content,
         meta: row.meta,
+        refs: normalizeRefsField(row.refs),
         timestamp: row.timestamp,
       });
     }

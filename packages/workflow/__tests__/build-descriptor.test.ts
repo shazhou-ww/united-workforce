@@ -22,6 +22,7 @@ describe("buildDescriptor", () => {
           systemPrompt: "You are an analyst.",
           extractPrompt: "Extract title and count from the analysis.",
           schema,
+          extractRefs: null,
         },
       },
       moderator: () => END,

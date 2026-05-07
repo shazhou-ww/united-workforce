@@ -19,6 +19,8 @@ export type RoleOutput = {
   role: string;
   content: string;
   meta: Record<string, unknown>;
+  /** CAS hashes produced or consumed by this step (for GC traceability). */
+  refs: string[];
 };
 
 /** What the workflow AsyncGenerator returns when done. */
@@ -55,7 +57,13 @@ export type StartStep = {
 
 /** A completed role step in the thread. */
 export type RoleStep<M extends RoleMeta> = {
-  [K in keyof M & string]: { role: K; meta: M[K]; content: string; timestamp: number };
+  [K in keyof M & string]: {
+    role: K;
+    meta: M[K];
+    content: string;
+    refs: string[];
+    timestamp: number;
+  };
 }[keyof M & string];
 
 /** Phase 1: Moderator decides next role. */
@@ -96,6 +104,8 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
   systemPrompt: string;
   extractPrompt: string;
   schema: z.ZodType<Meta>;
+  /** When non-null, produces CAS hashes to persist on this role's steps (see `RoleOutput.refs`). */
+  extractRefs: ((meta: Meta) => string[]) | null;
 };
 
 /**
