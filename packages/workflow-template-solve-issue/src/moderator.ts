@@ -3,28 +3,23 @@ import { END } from "@uncaged/workflow";
 
 import type { SolveIssueMeta } from "./roles.js";
 
-const COMPLETED_PHASE_SENTINELS = new Set(["all-done", "all_done", "complete"]);
-
 function coderFinishedAllPlannedPhases(
-  phases: ReadonlyArray<{ name: string }>,
+  phases: ReadonlyArray<{ hash: string }>,
   coderCompletedPhases: ReadonlyArray<string>,
 ): boolean {
   if (phases.length === 0) {
     return true;
   }
-  const plannedNames = new Set(phases.map((p) => p.name));
-  const lastName = phases[phases.length - 1].name;
-  const explicit = new Set(coderCompletedPhases.filter((name) => plannedNames.has(name)));
-  if (phases.every((p) => explicit.has(p.name))) {
+  const plannedHashes = new Set(phases.map((p) => p.hash));
+  const lastHash = phases[phases.length - 1].hash;
+  const explicit = new Set(coderCompletedPhases.filter((h) => plannedHashes.has(h)));
+  if (phases.every((p) => explicit.has(p.hash))) {
     return true;
   }
-  // One-shot runs often report only the final phase; treat that as the full plan done.
-  if (coderCompletedPhases.some((name) => name === lastName)) {
+  if (coderCompletedPhases.some((h) => h === lastHash)) {
     return true;
   }
-  return coderCompletedPhases.some(
-    (name) => !plannedNames.has(name) && COMPLETED_PHASE_SENTINELS.has(name),
-  );
+  return false;
 }
 
 function nextAfterCoder(

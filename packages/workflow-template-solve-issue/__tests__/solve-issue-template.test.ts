@@ -19,9 +19,6 @@ const DEFAULT_PHASES: PlannerMeta["phases"] = [
   {
     hash: "4KNMR2PX",
     title: "Do the work",
-    name: "phase-a",
-    description: "Do the work",
-    acceptance: "Done",
   },
 ];
 
@@ -30,15 +27,12 @@ const EXPECT_PLANNER_META: PlannerMeta = {
     {
       hash: "7BQST3VW",
       title: "placeholder phase",
-      name: "phase-1",
-      description: "placeholder",
-      acceptance: "placeholder",
     },
   ],
 };
 
 const EXPECT_CODER_META: CoderMeta = {
-  completedPhase: "phase-1",
+  completedPhase: "7BQST3VW",
   filesChanged: [],
   summary: "",
 };
@@ -123,7 +117,7 @@ function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<S
   };
 }
 
-function coderStep(completedPhase = "phase-a"): RoleStep<SolveIssueMeta> {
+function coderStep(completedPhase = "4KNMR2PX"): RoleStep<SolveIssueMeta> {
   return {
     role: "coder",
     content: "code",
@@ -196,101 +190,54 @@ describe("solveIssueModerator", () => {
       {
         hash: "AA000001",
         title: "first phase",
-        name: "p1",
-        description: "first",
-        acceptance: "a1",
       },
       {
         hash: "AA000002",
         title: "second phase",
-        name: "p2",
-        description: "second",
-        acceptance: "a2",
       },
     ];
     expect(solveIssueModerator(makeCtx(20, [plannerStep(phases)]))).toBe("coder");
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("p1")]))).toBe("coder");
+    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("AA000001")]))).toBe(
+      "coder",
+    );
     expect(
-      solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("p1"), coderStep("p2")])),
+      solveIssueModerator(
+        makeCtx(20, [plannerStep(phases), coderStep("AA000001"), coderStep("AA000002")]),
+      ),
     ).toBe("reviewer");
   });
 
-  test("one-shot coder reports only last phase name → reviewer (moderator treats as all phases done)", () => {
+  test("one-shot coder reports only last phase hash → reviewer (moderator treats as all phases done)", () => {
     const phases: PlannerMeta["phases"] = [
-      {
-        hash: "BB000001",
-        title: "setup branch",
-        name: "setup-branch",
-        description: "branch",
-        acceptance: "branch exists",
-      },
-      {
-        hash: "BB000002",
-        title: "write tests",
-        name: "write-tests",
-        description: "tests",
-        acceptance: "tests pass",
-      },
-      {
-        hash: "BB000003",
-        title: "verify",
-        name: "verify",
-        description: "verify",
-        acceptance: "ok",
-      },
-      {
-        hash: "BB000004",
-        title: "commit and pr",
-        name: "commit-and-pr",
-        description: "pr",
-        acceptance: "pr open",
-      },
+      { hash: "BB000001", title: "setup branch" },
+      { hash: "BB000002", title: "write tests" },
+      { hash: "BB000003", title: "verify" },
+      { hash: "BB000004", title: "commit and pr" },
     ];
-    expect(
-      solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("commit-and-pr")])),
-    ).toBe("reviewer");
+    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("BB000004")]))).toBe(
+      "reviewer",
+    );
   });
 
-  test("completedPhase sentinel when not a planned name → reviewer", () => {
+  test("unrecognised completedPhase hash → coder retry when budget allows", () => {
     const phases: PlannerMeta["phases"] = [
-      {
-        hash: "CC000001",
-        title: "first phase",
-        name: "p1",
-        description: "first",
-        acceptance: "a1",
-      },
-      {
-        hash: "CC000002",
-        title: "second phase",
-        name: "p2",
-        description: "second",
-        acceptance: "a2",
-      },
+      { hash: "CC000001", title: "first phase" },
+      { hash: "CC000002", title: "second phase" },
     ];
     expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("all-done")]))).toBe(
-      "reviewer",
+      "coder",
     );
   });
 
   test("incomplete phases → END when max rounds exhausted", () => {
     const phases: PlannerMeta["phases"] = [
-      {
-        hash: "DD000001",
-        title: "first phase",
-        name: "p1",
-        description: "first",
-        acceptance: "a1",
-      },
-      {
-        hash: "DD000002",
-        title: "second phase",
-        name: "p2",
-        description: "second",
-        acceptance: "a2",
-      },
+      { hash: "DD000001", title: "first phase" },
+      { hash: "DD000002", title: "second phase" },
     ];
-    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [plannerStep(phases), coderStep("p1")];
+    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
+      plannerStep(phases),
+      coderStep("DD000001"),
+    ];
     expect(solveIssueModerator(makeCtx(3, steps))).toBe(END);
   });
 });
