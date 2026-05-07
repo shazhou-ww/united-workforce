@@ -538,6 +538,9 @@ export function formatCliUsage(): string {
   lines.push("  uncaged-workflow run <name> [...]          (shortcut for thread run)");
   lines.push("  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)");
   lines.push("");
+  lines.push("  uncaged-workflow skill [topic]             agent-consumable reference docs");
+  lines.push("  uncaged-workflow help                      show this usage");
+  lines.push("");
   lines.push("Environment variables:");
   lines.push(
     "  WORKFLOW_STORAGE_ROOT              Override storage directory (default: ~/.uncaged/workflow)",
@@ -561,9 +564,16 @@ function dispatchGroup(
   argv: string[],
 ): Promise<number> | null {
   const sub = argv[0];
-  if (sub === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown ${tableName} subcommand: (none)`);
-    return Promise.resolve(1);
+  if (sub === undefined || sub === "--help" || sub === "-h") {
+    const entries = Object.entries(table);
+    const lines = [`${tableName} subcommands:\n`];
+    for (const [name, e] of entries) {
+      const args = e.args ? ` ${e.args}` : "";
+      lines.push(`  uncaged-workflow ${tableName} ${name}${args}`);
+      lines.push(`      ${e.description}\n`);
+    }
+    printCliLine(lines.join("\n"));
+    return Promise.resolve(sub === undefined ? 1 : 0);
   }
   const entry = table[sub];
   if (entry === undefined) {
@@ -618,13 +628,8 @@ async function dispatchCas(storageRoot: string, argv: string[]): Promise<number>
 
 // ── Help ────────────────────────────────────────────────────────────────
 
-async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
-  const skillIdx = argv.indexOf("--skill");
-  if (skillIdx === -1) {
-    printCliLine(formatCliUsage());
-    return 0;
-  }
-  const topic = argv[skillIdx + 1];
+async function dispatchSkill(_storageRoot: string, argv: string[]): Promise<number> {
+  const topic = argv[0];
   if (topic === undefined) {
     printCliLine(formatSkillIndex());
     return 0;
@@ -638,6 +643,27 @@ async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<numbe
   return 0;
 }
 
+async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
+  // Legacy compat: help --skill [topic] → skill [topic]
+  const skillIdx = argv.indexOf("--skill");
+  if (skillIdx !== -1) {
+    const topic = argv[skillIdx + 1];
+    if (topic === undefined) {
+      printCliLine(formatSkillIndex());
+      return 0;
+    }
+    const doc = formatSkillTopic(topic);
+    if (doc === null) {
+      printCliError(`unknown skill topic: ${topic}\n\n${formatSkillIndex()}`);
+      return 1;
+    }
+    printCliLine(doc);
+    return 0;
+  }
+  printCliLine(formatCliUsage());
+  return 0;
+}
+
 // ── Top-level command table (Phase 3) ──────────────────────────────────
 
 const COMMAND_TABLE: Record<string, DispatchFn> = {
@@ -647,6 +673,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   cas: dispatchCas,
   init: dispatchInit,
   help: dispatchHelp,
+  skill: dispatchSkill,
 
   // Top-level shortcuts (no deprecation)
   run: dispatchRun,
@@ -672,12 +699,12 @@ const DEPRECATED_ALIASES: Record<string, { newCmd: string; handler: DispatchFn }
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length === 0) {
-    printCliError(formatCliUsage());
+    printCliLine(formatCliUsage());
     return 1;
   }
   const command = argv[0];
   if (command === undefined) {
-    printCliError(formatCliUsage());
+    printCliLine(formatCliUsage());
     return 1;
   }
   const rest = argv.slice(1);
