@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { runCli } from "../src/cli-dispatch.js";
+import { formatCliUsage, runCli } from "../src/cli-dispatch.js";
 import {
   formatSkillDoc,
   formatSkillIndex,
@@ -90,10 +90,41 @@ describe("getSkillTopics", () => {
 describe("formatSkillIndex", () => {
   test("lists all topics", () => {
     const idx = formatSkillIndex();
+    expect(idx).toContain("# uncaged-workflow skill");
+    expect(idx).not.toContain("# uncaged-workflow help --skill");
     expect(idx).toContain("cli");
     expect(idx).toContain("develop");
     expect(idx).toContain("author");
     expect(idx).toContain("skill <topic>");
+  });
+});
+
+describe("formatCliUsage", () => {
+  test("has tagline, grouped sections, help hint, and env vars", () => {
+    const u = formatCliUsage();
+    expect(u.startsWith("uncaged-workflow — workflow engine CLI")).toBe(true);
+    expect(u).toContain("Workflow registry:");
+    expect(u).toContain("Thread execution:");
+    expect(u).toContain("Content-addressable storage:");
+    expect(u).toContain("Development:");
+    expect(u).toContain("Shortcuts:");
+    expect(u).toContain("Reference:");
+    expect(u).toContain("skill [topic]");
+    expect(u).toContain("Agent-consumable docs");
+    expect(u).toContain("Use <command> --help for subcommand details.");
+    expect(u).toContain("Environment variables:");
+    expect(u).toContain("WORKFLOW_STORAGE_ROOT");
+    expect(u).toContain("UNCAGED_WORKFLOW_STORAGE_ROOT");
+  });
+
+  test("lists commands from registry with descriptions", () => {
+    const u = formatCliUsage();
+    expect(u).toContain("workflow add");
+    expect(u).toContain("Register a workflow bundle in the registry");
+    expect(u).toContain("thread run");
+    expect(u).toContain("Start a new thread executing a workflow");
+    expect(u).toContain("cas gc");
+    expect(u).toContain("Garbage-collect unreferenced CAS entries");
   });
 });
 

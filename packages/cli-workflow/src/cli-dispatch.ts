@@ -3,7 +3,12 @@ import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdGc } from "./cmd-gc.js";
-import { formatSkillDoc, formatSkillIndex, formatSkillTopic } from "./cmd-help.js";
+import {
+  formatSkillDoc,
+  formatSkillIndex,
+  formatSkillTopic,
+  getSkillTopics,
+} from "./cmd-help.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
 import { cmdKill } from "./cmd-kill.js";
@@ -525,21 +530,68 @@ export function getCommandRegistry(): ReadonlyArray<CommandGroup> {
 
 // ── Auto-generated CLI usage ───────────────────────────────────────────
 
+const USAGE_SECTION_BY_GROUP: Record<string, string> = {
+  workflow: "Workflow registry:",
+  thread: "Thread execution:",
+  cas: "Content-addressable storage:",
+  init: "Development:",
+};
+
+function formatUsageCommandLines(
+  rows: ReadonlyArray<{ prefix: string; description: string }>,
+): string[] {
+  const maxPrefix = rows.reduce((max, row) => Math.max(max, row.prefix.length), 0);
+  const gap = 2;
+  return rows.map((row) => {
+    const pad = " ".repeat(maxPrefix - row.prefix.length + gap);
+    return `  ${row.prefix}${pad}${row.description}`;
+  });
+}
+
 export function formatCliUsage(): string {
   const groups = getCommandRegistry();
-  const lines: string[] = ["Usage:"];
+  const lines: string[] = ["uncaged-workflow — workflow engine CLI", ""];
+
   for (const group of groups) {
-    for (const cmd of group.commands) {
-      const args = cmd.args ? ` ${cmd.args}` : "";
-      lines.push(`  uncaged-workflow ${group.name} ${cmd.name}${args}`);
+    const sectionTitle = USAGE_SECTION_BY_GROUP[group.name];
+    if (sectionTitle === undefined) {
+      throw new Error(`BUG: missing usage section title for group "${group.name}"`);
     }
+    lines.push(sectionTitle);
+    const rows = group.commands.map((cmd) => {
+      const args = cmd.args ? ` ${cmd.args}` : "";
+      return {
+        prefix: `${group.name} ${cmd.name}${args}`,
+        description: cmd.description,
+      };
+    });
+    lines.push(...formatUsageCommandLines(rows));
     lines.push("");
   }
-  lines.push("  uncaged-workflow run <name> [...]          (shortcut for thread run)");
-  lines.push("  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)");
+
+  lines.push("Shortcuts:");
+  lines.push(
+    ...formatUsageCommandLines([
+      { prefix: "run <name> [...]", description: "→ thread run" },
+      { prefix: "live <id> [...]", description: "→ thread live" },
+    ]),
+  );
   lines.push("");
-  lines.push("  uncaged-workflow skill [topic]             agent-consumable reference docs");
-  lines.push("  uncaged-workflow help                      show this usage");
+
+  lines.push("Reference:");
+  const skillTopicNames = getSkillTopics()
+    .map((t) => t.name)
+    .join(", ");
+  lines.push(
+    ...formatUsageCommandLines([
+      {
+        prefix: "skill [topic]",
+        description: `Agent-consumable docs (${skillTopicNames})`,
+      },
+    ]),
+  );
+  lines.push("");
+  lines.push("Use <command> --help for subcommand details.");
   lines.push("");
   lines.push("Environment variables:");
   lines.push(
