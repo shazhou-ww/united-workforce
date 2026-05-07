@@ -26,6 +26,19 @@ export const run = async function* (input) {
     expect(r.ok).toBe(true);
   });
 
+  test("allows static import of @uncaged/workflow", () => {
+    const source = `${minimalDescriptor}import { putContentMerkleNode } from "@uncaged/workflow";
+
+export const run = async function* (_input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  return { returnCode: 0, summary: h };
+};
+`;
+    const r = validateWorkflowBundle({ filePath: "/tmp/w.esm.js", source });
+    expect(r.ok).toBe(true);
+  });
+
   test("rejects wrong filename suffix", () => {
     const r = validateWorkflowBundle({
       filePath: "/tmp/w.js",

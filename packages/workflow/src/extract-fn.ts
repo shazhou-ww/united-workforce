@@ -1,6 +1,7 @@
 import type * as z from "zod/v4";
 
 import { llmExtractWithRetry } from "./llm-extract.js";
+import { getContentMerklePayload } from "./merkle.js";
 import type { ExtractContext, LlmProvider } from "./types.js";
 
 export type ExtractFn = <T extends Record<string, unknown>>(
@@ -29,8 +30,12 @@ export function createExtract(provider: LlmProvider): ExtractFn {
     if (ctx.steps.length > 0) {
       lines.push("## Thread History");
       for (const step of ctx.steps) {
+        const body = await getContentMerklePayload(ctx.cas, step.contentHash);
+        if (body === null) {
+          throw new Error(`extract: missing CAS blob for step ${step.role}: ${step.contentHash}`);
+        }
         lines.push(`### ${step.role}`);
-        lines.push(step.content);
+        lines.push(body);
         lines.push(`Meta: ${JSON.stringify(step.meta)}`);
         lines.push("");
       }

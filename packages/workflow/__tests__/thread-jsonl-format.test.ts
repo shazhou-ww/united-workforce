@@ -18,7 +18,7 @@ describe("RFC-001 thread JSONL shapes", () => {
 
     const roleRecord = {
       role: "planner",
-      content: "Plan: modify auth middleware...",
+      contentHash: "CPHASH000000000000000001",
       meta: { plan: "...", files: ["src/auth.ts"] },
       refs: [] as string[],
       timestamp: 1714963201000,
@@ -28,7 +28,7 @@ describe("RFC-001 thread JSONL shapes", () => {
       ["hash", "name", "parameters", "threadId", "timestamp"].sort(),
     );
     expect(Object.keys(roleRecord).sort()).toEqual(
-      ["content", "meta", "refs", "role", "timestamp"].sort(),
+      ["contentHash", "meta", "refs", "role", "timestamp"].sort(),
     );
   });
 

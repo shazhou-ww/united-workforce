@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
+import { createCasStore } from "../src/cas.js";
 import { createWorkflow } from "../src/create-workflow.js";
 import { executeThread } from "../src/engine.js";
 import { createExtract } from "../src/extract-fn.js";
 import { hashWorkflowBundleBytes } from "../src/hash.js";
 import { createLogger } from "../src/logger.js";
+import { getContentMerklePayload } from "../src/merkle.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
@@ -80,7 +82,9 @@ const parentExtract = createExtract({
   model: "test",
 });
 
-const childBundleSource = `export const descriptor = {
+const childBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
+
+export const descriptor = {
   description: "child-integration",
   roles: {
     agent: {
@@ -89,8 +93,10 @@ const childBundleSource = `export const descriptor = {
     },
   },
 };
-export async function* run(input) {
-  yield { role: "agent", content: "child-body", meta: {}, refs: [] };
+export async function* run(input, options) {
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "child-body");
+  yield { role: "agent", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "child-done:" + input.prompt };
 }
 `;
@@ -149,6 +155,7 @@ describe("workflowAsAgent integration", () => {
       const dataPath = join(root, "logs", parentHash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", parentHash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", parentHash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
@@ -165,7 +172,7 @@ describe("workflowAsAgent integration", () => {
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
         },
-        { threadId, hash: parentHash, dataJsonlPath: dataPath, infoJsonlPath: infoPath },
+        { threadId, hash: parentHash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
       );
 
@@ -179,7 +186,9 @@ describe("workflowAsAgent integration", () => {
       expect(parentLines.length).toBe(2);
       const callerLine = JSON.parse(parentLines[1] ?? "{}") as Record<string, unknown>;
       expect(callerLine.role).toBe("caller");
-      expect(callerLine.content).toBe("child-done:from-parent");
+      expect(await getContentMerklePayload(cas, String(callerLine.contentHash))).toBe(
+        "child-done:from-parent",
+      );
 
       const childDir = join(root, "logs", childHash);
       const childFiles = await readdir(childDir);

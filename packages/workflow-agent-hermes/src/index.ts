@@ -35,7 +35,7 @@ export function createHermesAgent(config: HermesAgentConfig): AgentFn {
   const timeoutMs = config.timeout;
 
   return async (ctx) => {
-    const fullPrompt = buildAgentPrompt(ctx);
+    const fullPrompt = await buildAgentPrompt(ctx);
     const args = [
       "chat",
       "-q",

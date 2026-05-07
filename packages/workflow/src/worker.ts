@@ -1,12 +1,15 @@
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { importWorkflowBundleModule } from "./bundle-import-env.js";
+import { createCasStore } from "./cas.js";
 import type { PrefilledDiskStep } from "./engine.js";
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
+import { ensureUncagedWorkflowSymlink } from "./ensure-uncaged-workflow-symlink.js";
 import { createLogger } from "./logger.js";
 import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
+import { getGlobalCasDir } from "./storage-root.js";
 import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 import type { RoleOutput, WorkflowFn } from "./types.js";
 
@@ -48,9 +51,9 @@ type ThreadHandle = {
 
 function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null {
   const role = obj.role;
-  const content = obj.content;
+  const contentHash = obj.contentHash;
   const meta = obj.meta;
-  if (typeof role !== "string" || typeof content !== "string") {
+  if (typeof role !== "string" || typeof contentHash !== "string") {
     return null;
   }
   if (meta === null || typeof meta !== "object") {
@@ -58,7 +61,7 @@ function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null 
   }
   return {
     role,
-    content,
+    contentHash,
     meta: meta as Record<string, unknown>,
     refs: normalizeRefsField(obj.refs),
   };
@@ -300,8 +303,9 @@ async function main(): Promise<void> {
     return;
   }
 
+  await ensureUncagedWorkflowSymlink(storageRoot);
   // Dynamic import required: user bundle path resolved at runtime
-  const modUnknown: unknown = await import(pathToFileURL(bundlePath).href);
+  const modUnknown: unknown = await importWorkflowBundleModule(bundlePath);
   const modRec = modUnknown as Record<string, unknown>;
   const runExport = modRec.run;
   if (!isWorkflowFnLike(runExport)) {
@@ -314,6 +318,8 @@ async function main(): Promise<void> {
   const threads = new Map<string, ThreadHandle>();
   let activeThreads = 0;
   let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
 
   const workerCtlPath = join(storageRoot, "workers", `${hash}.json`);
 
@@ -363,6 +369,7 @@ async function main(): Promise<void> {
       hash,
       dataJsonlPath,
       infoJsonlPath,
+      cas,
     };
 
     const existing = threads.get(threadId);
@@ -389,7 +396,7 @@ async function main(): Promise<void> {
           const ts = cmd.stepTimestamps?.[i];
           return {
             role: step.role,
-            content: step.content,
+            contentHash: step.contentHash,
             meta: step.meta,
             refs: normalizeRefsField(step.refs),
             timestamp: typeof ts === "number" && ts > 0 ? ts : baseTs + i,

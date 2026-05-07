@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  createCasStore,
   createExtract,
   END,
   type ModeratorContext,
@@ -113,7 +117,7 @@ function makeCtx(
 function preparerStep(): RoleStep<SolveIssueMeta> {
   return {
     role: "preparer",
-    content: "prepared",
+    contentHash: "STUBHASHPREPARER01",
     meta: {
       repoPath: "/home/user/repos/test",
       defaultBranch: "main",
@@ -133,7 +137,7 @@ function preparerStep(): RoleStep<SolveIssueMeta> {
 function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<SolveIssueMeta> {
   return {
     role: "planner",
-    content: "plan",
+    contentHash: "STUBHASHPLANNER001",
     meta: { phases },
     refs: phases.map((p) => p.hash),
     timestamp: 1,
@@ -143,7 +147,7 @@ function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<S
 function coderStep(completedPhase = "4KNMR2PX"): RoleStep<SolveIssueMeta> {
   return {
     role: "coder",
-    content: "code",
+    contentHash: "STUBHASHCODER00001",
     meta: { completedPhase, filesChanged: ["a.ts"], summary: "fixed" },
     refs: [completedPhase],
     timestamp: 2,
@@ -153,7 +157,7 @@ function coderStep(completedPhase = "4KNMR2PX"): RoleStep<SolveIssueMeta> {
 function reviewerStep(approved: boolean): RoleStep<SolveIssueMeta> {
   return {
     role: "reviewer",
-    content: "rev",
+    contentHash: "STUBHASHREVIEWER01",
     meta: approved
       ? { status: "approved" as const }
       : { status: "rejected" as const, issues: ["needs fix"] },
@@ -165,7 +169,7 @@ function reviewerStep(approved: boolean): RoleStep<SolveIssueMeta> {
 function committerStep(): RoleStep<SolveIssueMeta> {
   return {
     role: "committer",
-    content: "commit",
+    contentHash: "STUBHASHCOMMITTER1",
     meta: { status: "committed", branch: "feat/issue-1", commitSha: "abc1234" },
     refs: [],
     timestamp: 4,
@@ -281,10 +285,15 @@ describe("solveIssueModerator", () => {
 
 describe("createSolveIssueRun", () => {
   let restoreFetch: (() => void) | null = null;
+  let casDir: string | undefined;
 
-  afterEach(() => {
+  afterEach(async () => {
     restoreFetch?.();
     restoreFetch = null;
+    if (casDir !== undefined) {
+      await rm(casDir, { recursive: true, force: true }).catch(() => {});
+      casDir = undefined;
+    }
   });
 
   test("structured extraction yields preparer then planner meta from mocked chat completions", async () => {
@@ -301,10 +310,13 @@ describe("createSolveIssueRun", () => {
     };
     restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META, EXPECT_PLANNER_META]);
 
+    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
+    const cas = createCasStore(casDir);
+
     const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
     );
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -336,6 +348,9 @@ describe("createSolveIssueRun", () => {
       EXPECT_CODER_META,
     ]);
 
+    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
+    const cas = createCasStore(casDir);
+
     const calls: string[] = [];
     const run = createSolveIssueRun(
       {
@@ -362,7 +377,7 @@ describe("createSolveIssueRun", () => {
     );
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
     );
     await gen.next();
     expect(calls).toEqual(["preparer"]);

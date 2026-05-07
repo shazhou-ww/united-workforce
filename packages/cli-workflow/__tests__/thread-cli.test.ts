@@ -17,6 +17,9 @@ import { cmdThreads } from "../src/cmd-threads.js";
 import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
+const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
+`;
+
 const threadFixtureDescriptor = `export const descriptor = {
   description: "thread-cli",
   roles: {
@@ -31,18 +34,26 @@ const threadFixtureDescriptor = `export const descriptor = {
 `;
 
 const fastBundleSource = `${threadFixtureDescriptor}
-export const run = async function* (input) {
-  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
-  yield { role: "coder", content: "code", meta: { diff: "y" } };
+${wfPutImport}
+export const run = async function* (input, options) {
+  const cas = options.cas;
+  let h = await putContentMerkleNode(cas, "plan");
+  yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
+  h = await putContentMerkleNode(cas, "code");
+  yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const slowPlannerBundleSource = `${threadFixtureDescriptor}
-export const run = async function* (input) {
+${wfPutImport}
+export const run = async function* (input, options) {
   await new Promise((r) => setTimeout(r, 400));
-  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
-  yield { role: "coder", content: "code", meta: { diff: "y" } };
+  const cas = options.cas;
+  let h = await putContentMerkleNode(cas, "plan");
+  yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
+  h = await putContentMerkleNode(cas, "code");
+  yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
@@ -50,27 +61,38 @@ export const run = async function* (input) {
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
 const abortablePlannerBundleSource = `${threadFixtureDescriptor}
-export const run = async function* (input) {
+${wfPutImport}
+export const run = async function* (input, options) {
   await new Promise((r) => setTimeout(r, 600));
-  yield { role: "planner", content: "plan", meta: { plan: input.prompt } };
-  yield { role: "coder", content: "code", meta: { diff: "y" } };
+  const cas = options.cas;
+  let h = await putContentMerkleNode(cas, "plan");
+  yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
+  h = await putContentMerkleNode(cas, "code");
+  yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const pauseResumeBundleSource = `${threadFixtureDescriptor}
-export const run = async function* (input) {
-  yield { role: "first", content: "f", meta: {} };
+${wfPutImport}
+export const run = async function* (_input, options) {
+  const cas = options.cas;
+  let h = await putContentMerkleNode(cas, "f");
+  yield { role: "first", contentHash: h, meta: {}, refs: [h] };
   await new Promise((r) => setTimeout(r, 1500));
-  yield { role: "second", content: "s", meta: {} };
+  h = await putContentMerkleNode(cas, "s");
+  yield { role: "second", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const delayedFirstYieldBundleSource = `${threadFixtureDescriptor}
-export const run = async function* (input) {
+${wfPutImport}
+export const run = async function* (_input, options) {
   await new Promise((r) => setTimeout(r, 900));
-  yield { role: "only", content: "x", meta: {} };
+  const cas = options.cas;
+  const h = await putContentMerkleNode(cas, "x");
+  yield { role: "only", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;

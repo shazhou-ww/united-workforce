@@ -5,22 +5,29 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createCasStore } from "../src/cas.js";
+import { createContentMerkleNode, serializeMerkleNode } from "../src/merkle.js";
 import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
 
-const bundleSource = `export const descriptor = {
+const bundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
+
+export const descriptor = {
   description: "worker-test",
   roles: {
     planner: { description: "planner", schema: {} },
     coder: { description: "coder", schema: {} },
   },
 };
-export const run = async function* (input) {
+export const run = async function* (input, options) {
+  const cas = options.cas;
   const has = (r) => input.steps.some((s) => s.role === r);
   if (!has("planner")) {
-    yield { role: "planner", content: "p", meta: { plan: input.prompt } };
+    const h = await putContentMerkleNode(cas, "p");
+    yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
   }
   if (!has("coder")) {
-    yield { role: "coder", content: "c", meta: { diff: "y" } };
+    const h = await putContentMerkleNode(cas, "c");
+    yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   }
   return { returnCode: 0, summary: "completed: moderator returned END" };
 };
@@ -102,7 +109,7 @@ describe("worker process", () => {
         threadId,
         workflowName: "demo-flow",
         prompt: "hello",
-        options: { maxRounds: 5 },
+        options: { maxRounds: 5, depth: 0 },
       });
 
       const exitCode: number = await new Promise((resolve) => {
@@ -143,6 +150,11 @@ describe("worker process", () => {
 
       const port = await readReadyPort(child);
 
+      const cas = createCasStore(join(root, "cas"));
+      const plannerReplayHash = await cas.put(
+        serializeMerkleNode(createContentMerkleNode("p-old")),
+      );
+
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
       const srcId = "01SRCMMMMMMMMMMMMMMMMMMMM";
       await sendJson(port, {
@@ -150,12 +162,13 @@ describe("worker process", () => {
         threadId,
         workflowName: "demo-flow",
         prompt: "hello",
-        options: { maxRounds: 5 },
+        options: { maxRounds: 5, depth: 0 },
         steps: [
           {
             role: "planner",
-            content: "p-old",
+            contentHash: plannerReplayHash,
             meta: { plan: "z" },
+            refs: [plannerReplayHash],
             timestamp: 555,
           },
         ],
