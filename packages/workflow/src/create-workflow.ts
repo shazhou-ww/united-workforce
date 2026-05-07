@@ -88,10 +88,13 @@ export function createWorkflow<M extends RoleMeta>(
       const extractCtx: ExtractContext<M> = {
         ...agentCtx,
         agentContent: raw,
-        extractPrompt: roleDef.extractPrompt,
       };
 
-      const meta = await extract(roleDef.schema, extractCtx as unknown as ExtractContext);
+      const meta = await extract(
+        roleDef.schema,
+        roleDef.extractPrompt,
+        extractCtx as unknown as ExtractContext,
+      );
 
       const ts = Date.now();
       const step = {

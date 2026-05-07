@@ -73,10 +73,9 @@ export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & 
   };
 };
 
-/** Phase 3: Extractor runs — has agent output and extract instruction. */
+/** Phase 3: Extractor runs — has agent output; the extraction instruction is a separate argument to the extract function. */
 export type ExtractContext<M extends RoleMeta = RoleMeta> = AgentContext<M> & {
   agentContent: string;
-  extractPrompt: string;
 };
 
 /** Alias — most external consumers see the agent-phase context. */

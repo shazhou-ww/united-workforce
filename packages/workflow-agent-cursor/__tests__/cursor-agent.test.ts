@@ -5,6 +5,7 @@ import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 
 const testExtract: ExtractFn = async <T extends Record<string, unknown>>(
   _schema: z.ZodType<T>,
+  _prompt: string,
   _ctx: ExtractContext,
 ): Promise<T> => ({ workspace: "/tmp" }) as unknown as T;
 

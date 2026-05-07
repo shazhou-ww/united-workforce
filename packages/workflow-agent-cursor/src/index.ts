@@ -48,10 +48,12 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
     const extractCtx: ExtractContext = {
       ...ctx,
       agentContent: "",
-      extractPrompt:
-        "From the thread context, determine the absolute filesystem path where the project/repository is located.",
     };
-    const { workspace } = await config.extract(cursorWorkspaceSchema, extractCtx);
+    const { workspace } = await config.extract(
+      cursorWorkspaceSchema,
+      "From the thread context, determine the absolute filesystem path where the project/repository is located.",
+      extractCtx,
+    );
     const fullPrompt = buildAgentPrompt(ctx);
     const args = [
       "-p",
