@@ -1,9 +1,9 @@
 import type { RoleDefinition } from "@uncaged/workflow";
-import { type CoderMeta, coderRole } from "@uncaged/workflow-role-coder";
-import { type CommitterMeta, committerRole } from "@uncaged/workflow-role-committer";
-import { type PlannerMeta, plannerRole } from "@uncaged/workflow-role-planner";
-import { type ReviewerMeta, reviewerRole } from "@uncaged/workflow-role-reviewer";
-import { type TesterMeta, testerRole } from "@uncaged/workflow-role-tester";
+import { type CoderMeta, coderRole } from "./roles/coder.js";
+import { type CommitterMeta, committerRole } from "./roles/committer.js";
+import { type PlannerMeta, plannerRole } from "./roles/planner.js";
+import { type ReviewerMeta, reviewerRole } from "./roles/reviewer.js";
+import { type TesterMeta, testerRole } from "./roles/tester.js";
 
 export const DEVELOP_WORKFLOW_DESCRIPTION =
   "Plan phases, implement incrementally, review, verify with tests/build/lint, and commit (planner → coder [repeat per phase] → reviewer → tester → committer).";

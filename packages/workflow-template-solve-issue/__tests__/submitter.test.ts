@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { submitterMetaSchema, submitterRole } from "../src/submitter.js";
+import { submitterMetaSchema, submitterRole } from "../src/roles/submitter.js";
 
 describe("submitterRole", () => {
   test("submitted sample validates against schema", () => {

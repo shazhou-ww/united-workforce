@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { reviewerMetaSchema, reviewerRole } from "../src/reviewer.js";
+import { reviewerMetaSchema, reviewerRole } from "../src/roles/reviewer.js";
 
 describe("reviewerRole", () => {
   test("approved sample validates against schema", () => {

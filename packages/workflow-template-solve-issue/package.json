@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@uncaged/workflow": "workspace:*",
-    "@uncaged/workflow-role-preparer": "workspace:*",
-    "@uncaged/workflow-role-submitter": "workspace:*",
     "zod": "^4.0.0"
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { committerMetaSchema, committerRole } from "../src/committer.js";
+import { committerMetaSchema, committerRole } from "../src/roles/committer.js";
 
 describe("committerRole", () => {
   test("committed sample validates against schema", () => {

@@ -10,34 +10,26 @@ import {
 import { developModerator } from "./moderator.js";
 import { DEVELOP_WORKFLOW_DESCRIPTION, type DevelopMeta, developRoles } from "./roles.js";
 
+export { buildDevelopDescriptor } from "./descriptor.js";
+export { developModerator } from "./moderator.js";
 export {
   type CoderMeta,
+  type CommitterMeta,
   coderMetaSchema,
   coderRole,
-} from "@uncaged/workflow-role-coder";
-export {
-  type CommitterMeta,
   committerMetaSchema,
   committerRole,
-} from "@uncaged/workflow-role-committer";
-export {
   type PlannerMeta,
   phaseSchema,
   plannerMetaSchema,
   plannerRole,
-} from "@uncaged/workflow-role-planner";
-export {
   type ReviewerMeta,
   reviewerMetaSchema,
   reviewerRole,
-} from "@uncaged/workflow-role-reviewer";
-export {
   type TesterMeta,
   testerMetaSchema,
   testerRole,
-} from "@uncaged/workflow-role-tester";
-export { buildDevelopDescriptor } from "./descriptor.js";
-export { developModerator } from "./moderator.js";
+} from "./roles/index.js";
 export {
   DEVELOP_WORKFLOW_DESCRIPTION,
   type DevelopMeta,

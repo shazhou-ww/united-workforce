@@ -6,12 +6,9 @@ import {
   START,
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
-
-import type { CommitterMeta } from "@uncaged/workflow-role-committer";
-import type { PlannerMeta } from "@uncaged/workflow-role-planner";
-
 import { buildDevelopDescriptor } from "../src/descriptor.js";
 import { developModerator } from "../src/index.js";
+import type { CommitterMeta, PlannerMeta } from "../src/roles/index.js";
 import type { DevelopMeta } from "../src/roles.js";
 
 const DEFAULT_PHASES: PlannerMeta["phases"] = [
