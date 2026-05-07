@@ -16,6 +16,9 @@ export type LlmProvider = {
   model: string;
 };
 
+/** How the engine runs meta extraction for a role after the agent phase. */
+export type ExtractMode = "single" | "react";
+
 /** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
 export type RoleOutput = {
   role: string;
@@ -121,6 +124,7 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
   schema: z.ZodType<Meta>;
   /** When non-null, produces CAS hashes to persist on this role's steps (see `RoleOutput.refs`). */
   extractRefs: ((meta: Meta) => string[]) | null;
+  extractMode: ExtractMode;
 };
 
 /**

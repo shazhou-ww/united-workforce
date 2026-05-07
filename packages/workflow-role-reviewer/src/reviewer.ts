@@ -22,4 +22,5 @@ export const reviewerRole: RoleDefinition<ReviewerMeta> = {
     "Extract the review verdict: approved or rejected. If rejected, list the blocking issues.",
   schema: reviewerMetaSchema,
   extractRefs: null,
+  extractMode: "single",
 };

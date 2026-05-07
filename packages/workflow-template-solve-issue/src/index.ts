@@ -2,6 +2,7 @@ import {
   type AgentBinding,
   createWorkflow,
   type ExtractFn,
+  type LlmProvider,
   type WorkflowDefinition,
   type WorkflowFn,
 } from "@uncaged/workflow";
@@ -50,6 +51,10 @@ export const solveIssueWorkflowDefinition: WorkflowDefinition<SolveIssueMeta> = 
   moderator: solveIssueModerator,
 };
 
-export function createSolveIssueRun(binding: AgentBinding, extract: ExtractFn): WorkflowFn {
-  return createWorkflow(solveIssueWorkflowDefinition, binding, extract);
+export function createSolveIssueRun(
+  binding: AgentBinding,
+  extract: ExtractFn,
+  llmProvider: LlmProvider | null,
+): WorkflowFn {
+  return createWorkflow(solveIssueWorkflowDefinition, binding, extract, llmProvider);
 }

@@ -54,6 +54,7 @@ export {
   serializeMerkleNode,
   type ThreadMerklePayload,
 } from "./merkle.js";
+export { type ReactExtractArgs, reactExtract } from "./react-extract.js";
 export {
   type ExtractProviderConfig,
   getRegisteredWorkflow,
@@ -80,6 +81,7 @@ export {
   type AgentFn,
   END,
   type ExtractContext,
+  type ExtractMode,
   type LlmProvider,
   type Moderator,
   type ModeratorContext,

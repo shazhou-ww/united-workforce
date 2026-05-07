@@ -29,6 +29,7 @@ const greeter: RoleDefinition<Roles["greeter"]> = {
   extractPrompt: "Extract the greeting string produced for the user.",
   schema: greeterMetaSchema,
   extractRefs: null,
+  extractMode: "single",
 };
 
 const extract = createExtract({
@@ -48,4 +49,5 @@ export const run = createWorkflow<Roles>(
     agent: async (ctx) => `Hello, ${ctx.start.content}`,
   },
   extract,
+  null,
 );

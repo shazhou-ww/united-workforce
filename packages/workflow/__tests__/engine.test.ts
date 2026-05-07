@@ -15,7 +15,7 @@ import {
   parseMerkleNode,
   serializeMerkleNode,
 } from "../src/merkle.js";
-import { END } from "../src/types.js";
+import { END, type LlmProvider } from "../src/types.js";
 
 const plannerMetaSchema = z.object({
   plan: z.string(),
@@ -97,6 +97,7 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         extractPrompt: "Extract plan text and affected files list.",
         schema: plannerMetaSchema,
         extractRefs: null,
+        extractMode: "single",
       },
       coder: {
         description: "Demo coder",
@@ -104,6 +105,7 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         extractPrompt: "Extract the code diff summary.",
         schema: coderMetaSchema,
         extractRefs: null,
+        extractMode: "single",
       },
     },
     moderator: (ctx) => {
@@ -124,6 +126,7 @@ const demoWorkflow = createWorkflow<DemoMeta>(
     },
   },
   demoExtract,
+  null,
 );
 
 describe("executeThread", () => {
@@ -442,6 +445,171 @@ describe("executeThread", () => {
       expect(rolePlanner.role).toBe("planner");
       expect(roleCoder.role).toBe("coder");
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("extractMode react traverses CAS DAG via cas_get during extraction", async () => {
+    const dagMetaSchema = z.object({ leafPayload: z.string() });
+    type DagDemoMeta = { walker: z.infer<typeof dagMetaSchema> };
+
+    const origFetch = globalThis.fetch;
+    restoreFetch = () => {
+      globalThis.fetch = origFetch;
+    };
+    let fetchRound = 0;
+
+    const root = await mkdtemp(join(tmpdir(), "wf-engine-react-"));
+    try {
+      const cas = createCasStore(join(root, "cas"));
+      const leafYaml = serializeMerkleNode(createContentMerkleNode("needle-from-leaf"));
+      const leafHash = await cas.put(leafYaml);
+      const rootYaml = serializeMerkleNode({
+        type: "thread",
+        payload: {
+          workflow: "dag-demo",
+          threadId: "01DAG00000000000000000001",
+          result: { returnCode: 0, summary: "" },
+        },
+        children: [leafHash],
+      });
+      const dagRootHash = await cas.put(rootYaml);
+
+      globalThis.fetch = Object.assign(
+        async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) => {
+          fetchRound += 1;
+          if (fetchRound === 1) {
+            return new Response(
+              JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      tool_calls: [
+                        {
+                          id: "c1",
+                          type: "function",
+                          function: {
+                            name: "cas_get",
+                            arguments: JSON.stringify({ hash: dagRootHash }),
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+          if (fetchRound === 2) {
+            return new Response(
+              JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      tool_calls: [
+                        {
+                          id: "c2",
+                          type: "function",
+                          function: {
+                            name: "cas_get",
+                            arguments: JSON.stringify({ hash: leafHash }),
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    tool_calls: [
+                      {
+                        id: "c3",
+                        type: "function",
+                        function: {
+                          name: "extract",
+                          arguments: JSON.stringify({ leafPayload: "needle-from-leaf" }),
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        },
+        { preconnect: origFetch.preconnect.bind(origFetch) },
+      ) as typeof fetch;
+
+      const llm: LlmProvider = { baseUrl: "http://127.0.0.1:9", apiKey: "test", model: "test" };
+      const extractFn = createExtract(llm);
+
+      const dagWorkflow = createWorkflow<DagDemoMeta>(
+        {
+          roles: {
+            walker: {
+              description: "DAG walker",
+              systemPrompt: "Output only the root CAS hash.",
+              extractPrompt:
+                "Set leafPayload to the string payload of the content Merkle node under the root.",
+              schema: dagMetaSchema,
+              extractRefs: null,
+              extractMode: "react",
+            },
+          },
+          moderator: (ctx) => (ctx.steps.length === 0 ? "walker" : END),
+        },
+        { agent: async () => dagRootHash },
+        extractFn,
+        llm,
+      );
+
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const hash = "C9NMV6V2TQT81";
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
+      await mkdir(join(root, "logs", hash), { recursive: true });
+
+      const logger = createLogger({ sink: { kind: "file", path: infoPath } });
+      const ac = new AbortController();
+
+      const result = await executeThread(
+        dagWorkflow,
+        "dag-demo",
+        { prompt: "traverse", steps: [] },
+        {
+          maxRounds: 5,
+          depth: 0,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
+        },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
+        logger,
+      );
+
+      expect(result.returnCode).toBe(0);
+      expect(fetchRound).toBe(3);
+
+      const dataText = await readFile(dataPath, "utf8");
+      const lines = dataText
+        .trim()
+        .split("\n")
+        .filter((l) => l !== "");
+      const roleRec = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      expect(roleRec.role).toBe("walker");
+      expect(roleRec.meta).toEqual({ leafPayload: "needle-from-leaf" });
+    } finally {
+      globalThis.fetch = origFetch;
       await rm(root, { recursive: true, force: true });
     }
   });

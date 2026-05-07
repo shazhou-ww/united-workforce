@@ -313,7 +313,7 @@ describe("createSolveIssueRun", () => {
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
-    const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
+    const run = createSolveIssueRun({ agent: async () => "" }, stubExtract, null);
     const gen = run(
       { prompt: "task", steps: [] },
       { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
@@ -374,6 +374,7 @@ describe("createSolveIssueRun", () => {
         },
       },
       stubExtract,
+      null,
     );
     const gen = run(
       { prompt: "task", steps: [] },
