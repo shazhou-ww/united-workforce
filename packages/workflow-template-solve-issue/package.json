@@ -13,6 +13,7 @@
     "@uncaged/workflow-role-committer": "workspace:*",
     "@uncaged/workflow-role-coder": "workspace:*",
     "@uncaged/workflow-role-planner": "workspace:*",
+    "@uncaged/workflow-role-preparer": "workspace:*",
     "@uncaged/workflow-role-reviewer": "workspace:*"
   }
 }

@@ -26,6 +26,11 @@ export {
   plannerRole,
 } from "@uncaged/workflow-role-planner";
 export {
+  type PreparerMeta,
+  preparerMetaSchema,
+  preparerRole,
+} from "@uncaged/workflow-role-preparer";
+export {
   type ReviewerMeta,
   reviewerMetaSchema,
   reviewerRole,
