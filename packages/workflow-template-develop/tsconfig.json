@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../workflow" },
+    { "path": "../workflow-role-coder" },
+    { "path": "../workflow-role-committer" },
+    { "path": "../workflow-role-planner" },
+    { "path": "../workflow-role-reviewer" },
+    { "path": "../workflow-role-tester" }
+  ]
+}

@@ -23,10 +23,12 @@
     { "path": "packages/workflow-role-coder" },
     { "path": "packages/workflow-role-planner" },
     { "path": "packages/workflow-role-reviewer" },
+    { "path": "packages/workflow-role-tester" },
     { "path": "packages/workflow-agent-cursor" },
     { "path": "packages/workflow-agent-hermes" },
     { "path": "packages/workflow-util-agent" },
     { "path": "packages/cli-workflow" },
-    { "path": "packages/workflow-template-solve-issue" }
+    { "path": "packages/workflow-template-solve-issue" },
+    { "path": "packages/workflow-template-develop" }
   ]
 }
