@@ -142,12 +142,14 @@ describe("workflowAsAgent integration", () => {
               extractPrompt: "extract done flag",
               schema: callerMetaSchema,
               extractRefs: null,
+              extractMode: "single",
             },
           },
           moderator: (ctx) => (ctx.steps.length === 0 ? "caller" : END),
         },
         { agent: workflowAsAgent("child-wf", { storageRoot: root }) },
         parentExtract,
+        null,
       );
 
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";

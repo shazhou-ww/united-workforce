@@ -47,6 +47,21 @@ function readToolDescription(parametersSchema: Record<string, unknown>): string 
   return "Extract structured data from the input text.";
 }
 
+/** Builds OpenAI function-tool metadata from a Zod meta schema (same naming rules as single-shot extract). */
+export function extractFunctionToolFromZodSchema(schema: z.ZodType<unknown>): {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+} {
+  const rawJsonSchema = z.toJSONSchema(schema) as Record<string, unknown>;
+  const parameters = stripJsonSchemaMeta(rawJsonSchema);
+  return {
+    name: readToolName(parameters),
+    description: readToolDescription(parameters),
+    parameters,
+  };
+}
+
 function readToolArgumentsJson(parsed: unknown, previewSource: string): Result<string, LlmError> {
   if (!isRecord(parsed)) {
     return err({ kind: "invalid_response_json", message: "Top-level JSON is not an object" });
@@ -124,10 +139,7 @@ export function llmErrorToCause(error: LlmError): Error {
 async function performLlmExtract<T>(
   options: LlmExtractArgs<T> & { userContent: string },
 ): Promise<Result<T, LlmError>> {
-  const rawJsonSchema = z.toJSONSchema(options.schema) as Record<string, unknown>;
-  const parameters = stripJsonSchemaMeta(rawJsonSchema);
-  const toolName = readToolName(parameters);
-  const toolDescription = readToolDescription(parameters);
+  const extractTool = extractFunctionToolFromZodSchema(options.schema);
 
   const body = {
     model: options.provider.model,
@@ -142,13 +154,13 @@ async function performLlmExtract<T>(
       {
         type: "function" as const,
         function: {
-          name: toolName,
-          description: toolDescription,
-          parameters,
+          name: extractTool.name,
+          description: extractTool.description,
+          parameters: extractTool.parameters,
         },
       },
     ],
-    tool_choice: { type: "function" as const, function: { name: toolName } },
+    tool_choice: { type: "function" as const, function: { name: extractTool.name } },
   };
 
   let response: Response;

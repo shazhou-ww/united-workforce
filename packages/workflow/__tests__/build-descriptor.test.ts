@@ -23,6 +23,7 @@ describe("buildDescriptor", () => {
           extractPrompt: "Extract title and count from the analysis.",
           schema,
           extractRefs: null,
+          extractMode: "single",
         },
       },
       moderator: () => END,

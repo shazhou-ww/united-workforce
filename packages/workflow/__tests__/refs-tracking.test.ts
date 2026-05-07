@@ -91,6 +91,7 @@ const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
         extractPrompt: "Extract phases with CAS hashes.",
         schema: plannerMetaSchema,
         extractRefs: (meta) => meta.phases.map((p) => p.hash),
+        extractMode: "single",
       },
     },
     moderator: (ctx) => (ctx.steps.length === 0 ? "planner" : END),
@@ -99,6 +100,7 @@ const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
     agent: async () => "plan-output",
   },
   refsDemoExtract,
+  null,
 );
 
 describe("RoleStep refs tracking", () => {
