@@ -450,7 +450,6 @@ const WORKFLOW_SUBCOMMAND_TABLE: Record<string, DispatchFn> = {
   list: dispatchList,
   show: dispatchShow,
   rm: dispatchRemove,
-  remove: dispatchRemove,
   history: dispatchHistory,
   rollback: dispatchRollback,
 };
@@ -462,11 +461,15 @@ async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<nu
     return 1;
   }
   const handler = WORKFLOW_SUBCOMMAND_TABLE[sub];
-  if (handler === undefined) {
-    printCliError(`${formatCliUsage()}\n\nerror: unknown workflow subcommand: ${sub}`);
-    return 1;
+  if (handler !== undefined) {
+    return handler(storageRoot, argv.slice(1));
   }
-  return handler(storageRoot, argv.slice(1));
+  if (sub === "remove") {
+    printDeprecation("workflow remove", "workflow rm");
+    return dispatchRemove(storageRoot, argv.slice(1));
+  }
+  printCliError(`${formatCliUsage()}\n\nerror: unknown workflow subcommand: ${sub}`);
+  return 1;
 }
 
 // ── Thread subcommand table (Phase 2) ──────────────────────────────────
