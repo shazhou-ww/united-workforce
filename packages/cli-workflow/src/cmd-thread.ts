@@ -1,4 +1,4 @@
-import { rm, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow";
@@ -33,12 +33,10 @@ export async function cmdThreadRemove(
   const dir = dirname(dataPath);
   const infoPath = join(dir, `${threadId}.info.jsonl`);
   const runningPath = join(dir, `${threadId}.running`);
-  const casPath = join(dir, `${threadId}.cas`);
 
   await unlink(dataPath);
   await unlink(infoPath).catch(() => {});
   await unlink(runningPath).catch(() => {});
-  await rm(casPath, { recursive: true, force: true });
 
   return ok(undefined);
 }

@@ -3,8 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
+import { getGlobalCasDir, getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
 import { cmdAdd } from "../src/cmd-add.js";
+import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/cmd-cas.js";
 import { cmdHistory } from "../src/cmd-history.js";
 import { cmdList, formatListLines } from "../src/cmd-list.js";
 import { cmdRemove } from "../src/cmd-remove.js";
@@ -369,6 +370,37 @@ export const run = async function* (input) {
 
     const bad = await cmdRollback(storageRoot, "solve-issue", "0000000000000");
     expect(bad.ok).toBe(false);
+  });
+
+  test("cas put/get/list/rm use global cas dir (thread id not required for storage)", async () => {
+    const put = await cmdCasPut(storageRoot, "nonexistent-thread-id", "phase doc");
+    expect(put.ok).toBe(true);
+    if (!put.ok) {
+      return;
+    }
+    const hash = put.value;
+    const blobPath = join(getGlobalCasDir(storageRoot), `${hash}.txt`);
+    expect(await readFile(blobPath, "utf8")).toBe("phase doc");
+
+    const got = await cmdCasGet(storageRoot, "other-thread", hash);
+    expect(got.ok).toBe(true);
+    if (!got.ok) {
+      return;
+    }
+    expect(got.value).toBe("phase doc");
+
+    const listed = await cmdCasList(storageRoot, "another-thread");
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) {
+      return;
+    }
+    expect(listed.value).toContain(hash);
+
+    const removed = await cmdCasRm(storageRoot, "rm-thread", hash);
+    expect(removed.ok).toBe(true);
+
+    const missing = await cmdCasGet(storageRoot, "after-rm", hash);
+    expect(missing.ok).toBe(false);
   });
 
   test("rollback rejects missing bundle file for target hash", async () => {
