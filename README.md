@@ -39,7 +39,7 @@ bun install
 bun run build
 
 # Register a workflow bundle
-uncaged-workflow add solve-issue dist/packages/workflow-template-solve-issue/solve-issue.esm.js
+uncaged-workflow workflow add solve-issue dist/packages/workflow-template-solve-issue/solve-issue.esm.js
 
 # Run a workflow
 uncaged-workflow run solve-issue --prompt "Fix bug #42"
@@ -48,15 +48,15 @@ uncaged-workflow run solve-issue --prompt "Fix bug #42"
 ## CLI Usage
 
 ```bash
-uncaged-workflow help          # Show all commands
-uncaged-workflow list          # List registered workflows
-uncaged-workflow run <name>    # Start a workflow thread
-uncaged-workflow threads       # List all threads
-uncaged-workflow thread <id>   # Inspect a thread
-uncaged-workflow skill         # Show workflow skill info
+uncaged-workflow help              # Show all commands
+uncaged-workflow workflow list     # List registered workflows
+uncaged-workflow run <name>        # Start a workflow thread
+uncaged-workflow thread list       # List all threads
+uncaged-workflow thread show <id>  # Inspect a thread
+uncaged-workflow skill             # Agent-consumable reference docs
 ```
 
-See `uncaged-workflow --help` for the full command reference.
+See `uncaged-workflow help` for the full command reference.
 
 ## Development
 
