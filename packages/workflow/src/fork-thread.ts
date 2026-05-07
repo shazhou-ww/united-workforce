@@ -11,6 +11,7 @@ export type ParsedThreadStartRecord = {
   threadId: string;
   prompt: string;
   maxRounds: number;
+  depth: number;
 };
 
 function parseRoleLine(
@@ -78,12 +79,17 @@ function parseStartRecordLine(firstLine: string): Result<ParsedThreadStartRecord
     return err("start record missing parameters.options.maxRounds");
   }
 
+  const depthRaw = optRec.depth;
+  const depth =
+    typeof depthRaw === "number" && Number.isFinite(depthRaw) ? Math.trunc(depthRaw) : 0;
+
   return ok({
     workflowName: name,
     hash,
     threadId,
     prompt,
     maxRounds,
+    depth,
   });
 }
 
@@ -196,7 +202,7 @@ export type ForkPlan = {
   hash: string;
   sourceThreadId: string;
   prompt: string;
-  runOptions: { maxRounds: number };
+  runOptions: { maxRounds: number; depth: number };
   historicalSteps: ForkHistoricalStep[];
 };
 
@@ -221,7 +227,7 @@ export function buildForkPlan(
     hash: start.hash,
     sourceThreadId: start.threadId,
     prompt: start.prompt,
-    runOptions: { maxRounds: start.maxRounds },
+    runOptions: { maxRounds: start.maxRounds, depth: start.depth },
     historicalSteps: selected.value,
   });
 }

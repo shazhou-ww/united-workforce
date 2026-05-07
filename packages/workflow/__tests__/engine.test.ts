@@ -150,6 +150,7 @@ describe("executeThread", () => {
         { prompt: "Fix the login redirect bug in #3", steps: [] },
         {
           maxRounds: 5,
+          depth: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
@@ -178,7 +179,8 @@ describe("executeThread", () => {
       expect(params.prompt).toBe("Fix the login redirect bug in #3");
       const opts = params.options as Record<string, unknown>;
       expect(opts.maxRounds).toBe(5);
-      expect(Object.keys(opts).sort()).toEqual(["maxRounds"]);
+      expect(opts.depth).toBe(0);
+      expect(Object.keys(opts).sort()).toEqual(["depth", "maxRounds"]);
 
       const role1 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("planner");
@@ -238,6 +240,7 @@ describe("executeThread", () => {
         },
         {
           maxRounds: 5,
+          depth: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: "01SRC1111111111111111111",
@@ -298,6 +301,7 @@ describe("executeThread", () => {
         { prompt: "hello", steps: [] },
         {
           maxRounds: 0,
+          depth: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,

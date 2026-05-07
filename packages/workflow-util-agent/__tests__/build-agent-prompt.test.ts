@@ -16,6 +16,7 @@ describe("buildAgentPrompt", () => {
   test("includes system prompt and full task; omits tools when there are no steps", () => {
     const ctx: ThreadContext = {
       start: startTask("fix the bug"),
+      depth: 0,
       steps: [],
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: START, systemPrompt: "You are an agent." },
@@ -30,6 +31,7 @@ describe("buildAgentPrompt", () => {
   test("single step shows full content and meta, and includes tools", () => {
     const ctx: ThreadContext = {
       start: startTask("user task"),
+      depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "Be helpful." },
       steps: [
@@ -55,6 +57,7 @@ describe("buildAgentPrompt", () => {
   test("two or more steps: previous steps are meta-only; latest step is full", () => {
     const ctx: ThreadContext = {
       start: startTask("first message full: task content here"),
+      depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "System." },
       steps: [
@@ -90,6 +93,7 @@ describe("buildAgentPrompt", () => {
   test("middle steps show meta summary only, not full content", () => {
     const ctx: ThreadContext = {
       start: startTask("start"),
+      depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "c", systemPrompt: "S" },
       steps: [

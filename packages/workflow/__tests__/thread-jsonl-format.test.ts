@@ -10,6 +10,7 @@ describe("RFC-001 thread JSONL shapes", () => {
         prompt: "Fix the login redirect bug in #3",
         options: {
           maxRounds: 5,
+          depth: 0,
         },
       },
       timestamp: 1714963200000,

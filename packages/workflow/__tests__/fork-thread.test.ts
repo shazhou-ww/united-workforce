@@ -24,6 +24,7 @@ describe("fork-thread", () => {
     expect(r.value.start.threadId).toBe("01AAA1111111111111111111");
     expect(r.value.start.prompt).toBe("hi");
     expect(r.value.start.maxRounds).toBe(5);
+    expect(r.value.start.depth).toBe(0);
     expect(r.value.roleSteps.length).toBe(3);
     expect(r.value.roleSteps[0]?.role).toBe("planner");
   });
@@ -83,6 +84,24 @@ describe("fork-thread", () => {
     expect(r.value.workflowName).toBe("demo");
     expect(r.value.historicalSteps.length).toBe(1);
     expect(r.value.historicalSteps[0]?.timestamp).toBe(101);
-    expect(r.value.runOptions).toEqual({ maxRounds: 5 });
+    expect(r.value.runOptions).toEqual({ maxRounds: 5, depth: 0 });
+  });
+
+  test("parseThreadDataJsonl reads explicit depth from start record", () => {
+    const text = `{"name":"demo","hash":"H","threadId":"01ZZZZZZZZZZZZZZZZZZZZZZ","parameters":{"prompt":"p","options":{"maxRounds":3,"depth":2}},"timestamp":1}
+{"role":"planner","content":"x","meta":{},"timestamp":2}
+`;
+    const r = parseThreadDataJsonl(text);
+    expect(r.ok).toBe(true);
+    if (!r.ok) {
+      return;
+    }
+    expect(r.value.start.depth).toBe(2);
+    const plan = buildForkPlan(text, null);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) {
+      return;
+    }
+    expect(plan.value.runOptions).toEqual({ maxRounds: 3, depth: 2 });
   });
 });

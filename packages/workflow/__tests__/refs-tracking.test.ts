@@ -149,6 +149,7 @@ describe("RoleStep refs tracking", () => {
         { prompt: "task", steps: [] },
         {
           maxRounds: 5,
+          depth: 0,
           signal: ac.signal,
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,

@@ -17,7 +17,7 @@ type RunCommand = {
   threadId: string;
   workflowName: string;
   prompt: string;
-  options: { maxRounds: number };
+  options: { maxRounds: number; depth: number };
   steps: RoleOutput[];
   /** Timestamps aligned with `steps` for `.data.jsonl` replay; length must match `steps` when non-null. */
   stepTimestamps: number[] | null;
@@ -124,6 +124,9 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
   if (typeof maxRounds !== "number") {
     return null;
   }
+  const depthRaw = optRec.depth;
+  const depth =
+    typeof depthRaw === "number" && Number.isFinite(depthRaw) ? Math.trunc(depthRaw) : 0;
   const parsedSteps = parseRunStepsPayload(rec);
   if (parsedSteps === null) {
     return null;
@@ -141,7 +144,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     threadId,
     workflowName,
     prompt,
-    options: { maxRounds },
+    options: { maxRounds, depth },
     steps: parsedSteps.steps,
     stepTimestamps: parsedSteps.stepTimestamps,
     forkSourceThreadId,

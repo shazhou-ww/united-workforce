@@ -23,6 +23,8 @@ export type PrefilledDiskStep = {
 
 export type ExecuteThreadOptions = {
   maxRounds: number;
+  /** Passed to the bundle as `WorkflowFnOptions.depth`. */
+  depth: number;
   signal: AbortSignal;
   /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */
   awaitAfterEachYield: () => Promise<void>;
@@ -136,6 +138,7 @@ export async function executeThread(
       prompt: input.prompt,
       options: {
         maxRounds: options.maxRounds,
+        depth: options.depth,
       },
     },
     timestamp: nowMs,
@@ -171,6 +174,7 @@ export async function executeThread(
   const bundleOptions: WorkflowFnOptions = {
     threadId: io.threadId,
     maxRounds: options.maxRounds,
+    depth: options.depth,
   };
 
   return await driveWorkflowGenerator({
