@@ -7,6 +7,7 @@ export {
 } from "./base32.js";
 export { buildDescriptor } from "./build-descriptor.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
+export { type CasStore, createThreadCas } from "./cas.js";
 export { createWorkflow } from "./create-workflow.js";
 export {
   type ExecuteThreadIo,
@@ -25,7 +26,7 @@ export {
   selectForkHistoricalSteps,
 } from "./fork-thread.js";
 export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
-export { hashWorkflowBundleBytes } from "./hash.js";
+export { hashString, hashWorkflowBundleBytes } from "./hash.js";
 export {
   type LlmError,
   llmErrorToCause,

@@ -15,3 +15,10 @@ export function hashWorkflowBundleBytes(data: Uint8Array): string {
   const digest = XXH.h64(0).update(buf).digest();
   return encodeUint64AsCrockford(digestToUint64(digest));
 }
+
+/** XXH64 (seed 0) over a UTF-8 string, encoded as 13-char Crockford Base32. */
+export function hashString(content: string): string {
+  const buf = Buffer.from(content, "utf8");
+  const digest = XXH.h64(0).update(buf).digest();
+  return encodeUint64AsCrockford(digestToUint64(digest));
+}
