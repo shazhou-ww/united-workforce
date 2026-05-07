@@ -1,2 +1,2 @@
 {"name":"demo-live","hash":"C9NMV6V2TQT81","threadId":"01LIVEINFLY01DDDDDDDDDDDDG","parameters":{"prompt":"hello","options":{"maxRounds":5,"depth":0}},"timestamp":1714963200000}
-{"role":"planner","content":"still running","meta":{"x":1},"refs":[],"timestamp":1714963201000}
+{"role":"planner","contentHash":"P6M9FHE1GSBN0","meta":{"x":1},"refs":[],"timestamp":1714963201000}

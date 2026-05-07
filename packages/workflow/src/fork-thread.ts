@@ -1,6 +1,6 @@
 import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
-import type { RoleOutput, WorkflowResult } from "./types.js";
+import type { RoleOutput, WorkflowCompletion } from "./types.js";
 
 /** Role steps replayed from `.data.jsonl`, including persisted timestamps. */
 export type ForkHistoricalStep = RoleOutput & { timestamp: number };
@@ -14,8 +14,10 @@ export type ParsedThreadStartRecord = {
   depth: number;
 };
 
-/** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). */
-export function tryParseWorkflowResultRecord(obj: Record<string, unknown>): WorkflowResult | null {
+/** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). Omits `rootHash` when absent. */
+export function tryParseWorkflowResultRecord(
+  obj: Record<string, unknown>,
+): WorkflowCompletion | null {
   if (obj.role !== undefined) {
     return null;
   }

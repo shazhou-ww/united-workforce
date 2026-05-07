@@ -1,4 +1,4 @@
-{"name":"demo-live","hash":"C9NMV6V2TQT81","threadId":"01LIVECMPLT01DDDDDDDDDDDDG","parameters":{"prompt":"hello","options":{"maxRounds":5,"depth":0}},"timestamp":1714963200000}
-{"role":"planner","content":"alpha\nbeta\ngamma\nLINE4\nLINE5\nLINE6\nLINE7\nLINE8\nLINE9\nLINE10\nLINE11","meta":{"phase":"plan","flags":[1,2]},"refs":[],"timestamp":1714963201000}
-{"role":"coder","content":"patch","meta":{},"refs":[],"timestamp":1714963202000}
+{"name":"demo-live","hash":"C9NMV6V2TQT81","threadId":"01LIVECMPLT01DDDDDDDDDDDDG","parameters":{"prompt":"hello","options":{"maxRounds":5,"depth":0}},"timestamp":1714963400000}
+{"role":"planner","contentHash":"FF7YQ5W3S2EV6","meta":{"phase":"plan","flags":[1,2]},"refs":[],"timestamp":1714963201000}
+{"role":"coder","contentHash":"EN34XX1W4WAFJ","meta":{},"refs":[],"timestamp":1714963202000}
 {"returnCode":0,"summary":"fixture completed"}

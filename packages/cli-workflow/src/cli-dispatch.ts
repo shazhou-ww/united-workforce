@@ -17,6 +17,7 @@ import { cmdRun } from "./cmd-run.js";
 import { cmdShow, formatShowYaml } from "./cmd-show.js";
 import { cmdThreadRemove, cmdThreadShow } from "./cmd-thread.js";
 import { cmdThreads } from "./cmd-threads.js";
+import { parseLiveArgv } from "./live-argv.js";
 import { parseRunArgv } from "./run-argv.js";
 
 export function formatCliUsage(): string {
@@ -29,7 +30,8 @@ export function formatCliUsage(): string {
     "  uncaged-workflow run <name> [--prompt <text>] [--max-rounds N]",
     "  uncaged-workflow ps",
     "  uncaged-workflow kill <thread-id>",
-    "  uncaged-workflow live <thread-id>",
+    "  uncaged-workflow live <thread-id> [--debug] [--role <name>]",
+    "  uncaged-workflow live --latest [--debug] [--role <name>]",
     "  uncaged-workflow history <name>",
     "  uncaged-workflow rollback <name> [hash]",
     "  uncaged-workflow pause <thread-id>",
@@ -193,12 +195,12 @@ async function dispatchKill(storageRoot: string, argv: string[]): Promise<number
 }
 
 async function dispatchLive(storageRoot: string, argv: string[]): Promise<number> {
-  const threadId = argv[0];
-  if (threadId === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: live requires <thread-id>`);
+  const parsed = parseLiveArgv(argv);
+  if (!parsed.ok) {
+    printCliError(`${formatCliUsage()}\n\nerror: ${parsed.error}`);
     return 1;
   }
-  return cmdLive(storageRoot, threadId);
+  return cmdLive(storageRoot, parsed.value);
 }
 
 async function dispatchHistory(storageRoot: string, argv: string[]): Promise<number> {

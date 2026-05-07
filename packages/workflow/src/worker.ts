@@ -422,7 +422,7 @@ async function main(): Promise<void> {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);
-      const failure: WorkflowResult = { returnCode: 1, summary: message };
+      const failure: WorkflowResult = { returnCode: 1, summary: message, rootHash: "" };
       await appendFile(dataJsonlPath, `${JSON.stringify(failure)}\n`, "utf8").catch(() => {});
     } finally {
       threads.delete(threadId);

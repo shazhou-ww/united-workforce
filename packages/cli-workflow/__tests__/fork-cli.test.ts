@@ -134,10 +134,10 @@ describe("cli fork", () => {
     expect(start.threadId).toBe(newId);
     expect(start.forkFrom).toEqual({ threadId: sourceId });
 
-    const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
-    expect(last.role).toBe("reviewer");
+    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
+    expect(lastRoleLine.role).toBe("reviewer");
     const cas = createCasStore(getGlobalCasDir(storageRoot));
-    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-1");
+    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-1");
   });
 
   test("fork without --from-role retries last role", async () => {
@@ -187,9 +187,9 @@ describe("cli fork", () => {
     const cas = createCasStore(getGlobalCasDir(storageRoot));
     expect(await getContentMerklePayload(cas, String(replayCoder.contentHash))).toBe("c1");
 
-    const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
-    expect(last.role).toBe("reviewer");
-    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-2");
+    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
+    expect(lastRoleLine.role).toBe("reviewer");
+    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-2");
   });
 
   test("fork rejects unknown role with available names", async () => {
