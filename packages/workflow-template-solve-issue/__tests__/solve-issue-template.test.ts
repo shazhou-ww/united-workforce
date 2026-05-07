@@ -10,6 +10,7 @@ import {
 
 import type { CoderMeta } from "@uncaged/workflow-role-coder";
 import type { PlannerMeta } from "@uncaged/workflow-role-planner";
+import type { PreparerMeta } from "@uncaged/workflow-role-preparer";
 
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
@@ -108,6 +109,25 @@ function makeCtx(
   };
 }
 
+function preparerStep(): RoleStep<SolveIssueMeta> {
+  return {
+    role: "preparer",
+    content: "prepared",
+    meta: {
+      repoPath: "/home/user/repos/test",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: {
+        packageManager: "bun",
+        testCommand: "bun test",
+        lintCommand: null,
+        buildCommand: "bun run build",
+      },
+    },
+    timestamp: 0,
+  };
+}
+
 function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<SolveIssueMeta> {
   return {
     role: "planner",
@@ -153,16 +173,27 @@ const stubExtract = createExtract({
 });
 
 describe("solveIssueModerator", () => {
-  test("routes planner → coder → reviewer → committer → END", () => {
-    expect(solveIssueModerator(makeCtx(20, []))).toBe("planner");
-    expect(solveIssueModerator(makeCtx(20, [plannerStep()]))).toBe("coder");
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(), coderStep()]))).toBe("reviewer");
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(), coderStep(), reviewerStep(true)]))).toBe(
-      "committer",
+  test("routes preparer → planner → coder → reviewer → committer → END", () => {
+    expect(solveIssueModerator(makeCtx(20, []))).toBe("preparer");
+    expect(solveIssueModerator(makeCtx(20, [preparerStep()]))).toBe("planner");
+    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep()]))).toBe("coder");
+    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep(), coderStep()]))).toBe(
+      "reviewer",
     );
     expect(
       solveIssueModerator(
-        makeCtx(20, [plannerStep(), coderStep(), reviewerStep(true), committerStep()]),
+        makeCtx(20, [preparerStep(), plannerStep(), coderStep(), reviewerStep(true)]),
+      ),
+    ).toBe("committer");
+    expect(
+      solveIssueModerator(
+        makeCtx(20, [
+          preparerStep(),
+          plannerStep(),
+          coderStep(),
+          reviewerStep(true),
+          committerStep(),
+        ]),
       ),
     ).toBe(END);
   });
@@ -250,8 +281,19 @@ describe("createSolveIssueRun", () => {
     restoreFetch = null;
   });
 
-  test("structured extraction yields planner meta from mocked chat completions", async () => {
-    restoreFetch = installMockChatCompletions([EXPECT_PLANNER_META]);
+  test("structured extraction yields preparer then planner meta from mocked chat completions", async () => {
+    const EXPECT_PREPARER_META: PreparerMeta = {
+      repoPath: "/home/user/repos/test",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: {
+        packageManager: "bun",
+        testCommand: "bun test",
+        lintCommand: null,
+        buildCommand: "bun run build",
+      },
+    };
+    restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META, EXPECT_PLANNER_META]);
 
     const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
     const gen = run(
@@ -263,12 +305,30 @@ describe("createSolveIssueRun", () => {
     if (first.done) {
       throw new Error("expected yield");
     }
-    expect(first.value.role).toBe("planner");
-    expect(first.value.meta).toEqual(EXPECT_PLANNER_META);
+    expect(first.value.role).toBe("preparer");
+    expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
+
+    const second = await gen.next();
+    expect(second.done).toBe(false);
+    if (second.done) {
+      throw new Error("expected yield");
+    }
+    expect(second.value.role).toBe("planner");
+    expect(second.value.meta).toEqual(EXPECT_PLANNER_META);
   });
 
   test("per-role agent overrides default", async () => {
-    restoreFetch = installMockChatCompletions([EXPECT_PLANNER_META, EXPECT_CODER_META]);
+    const PREPARER_META: PreparerMeta = {
+      repoPath: "/tmp/r",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
+    };
+    restoreFetch = installMockChatCompletions([
+      PREPARER_META,
+      EXPECT_PLANNER_META,
+      EXPECT_CODER_META,
+    ]);
 
     const calls: string[] = [];
     const run = createSolveIssueRun(
@@ -278,6 +338,10 @@ describe("createSolveIssueRun", () => {
           return "";
         },
         overrides: {
+          preparer: async () => {
+            calls.push("preparer");
+            return "";
+          },
           planner: async () => {
             calls.push("planner");
             return "";
@@ -294,6 +358,10 @@ describe("createSolveIssueRun", () => {
       { prompt: "task", steps: [] },
       { threadId: "01TEST000000000000000000TR", maxRounds: 20 },
     );
+    await gen.next();
+    expect(calls).toEqual(["preparer"]);
+
+    calls.length = 0;
     await gen.next();
     expect(calls).toEqual(["planner"]);
 
@@ -315,9 +383,10 @@ describe("buildSolveIssueDescriptor", () => {
       "coder",
       "committer",
       "planner",
+      "preparer",
       "reviewer",
     ]);
-    for (const key of ["planner", "coder", "reviewer", "committer"] as const) {
+    for (const key of ["preparer", "planner", "coder", "reviewer", "committer"] as const) {
       const role = validated.value.roles[key];
       expect(role).toBeDefined();
       expect(typeof role.schema).toBe("object");

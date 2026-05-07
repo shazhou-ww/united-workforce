@@ -48,10 +48,14 @@ export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
   const maxRounds = ctx.start.meta.maxRounds;
 
   if (ctx.steps.length === 0) {
-    return "planner";
+    return "preparer";
   }
 
   const last = ctx.steps[ctx.steps.length - 1];
+
+  if (last.role === "preparer") {
+    return "planner";
+  }
 
   if (last.role === "planner") {
     return "coder";
