@@ -12,6 +12,7 @@ import { createLogger } from "../src/logger.js";
 import {
   createContentMerkleNode,
   getContentMerklePayload,
+  parseMerkleNode,
   serializeMerkleNode,
 } from "../src/merkle.js";
 import { END } from "../src/types.js";
@@ -168,6 +169,19 @@ describe("executeThread", () => {
       );
 
       expect(result.returnCode).toBe(0);
+      expect(typeof result.rootHash).toBe("string");
+      expect(result.rootHash.length).toBeGreaterThan(0);
+
+      const rootYaml = await cas.get(result.rootHash);
+      expect(rootYaml).not.toBeNull();
+      const rootNode = parseMerkleNode(rootYaml ?? "");
+      expect(rootNode.type).toBe("thread");
+      const rootPayload = rootNode.payload as Record<string, unknown>;
+      expect(rootPayload.workflow).toBe("demo-flow");
+      expect(rootPayload.threadId).toBe(threadId);
+      const rootResult = rootPayload.result as Record<string, unknown>;
+      expect(rootResult.returnCode).toBe(0);
+      expect(rootNode.children.length).toBe(2);
 
       const dataText = await readFile(dataPath, "utf8");
       const lines = dataText
@@ -200,6 +214,20 @@ describe("executeThread", () => {
       const role2 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role2.role).toBe("coder");
       expect(role2.refs).toEqual([role2.contentHash]);
+
+      const step1Yaml = await cas.get(rootNode.children[0] ?? "");
+      const step2Yaml = await cas.get(rootNode.children[1] ?? "");
+      expect(step1Yaml).not.toBeNull();
+      expect(step2Yaml).not.toBeNull();
+      const step1Node = parseMerkleNode(step1Yaml ?? "");
+      const step2Node = parseMerkleNode(step2Yaml ?? "");
+      expect(step1Node.type).toBe("step");
+      expect(step2Node.type).toBe("step");
+      expect(step1Node.children).toEqual([String(role1.contentHash)]);
+      expect(step2Node.children).toEqual([String(role2.contentHash)]);
+      const step1Payload = step1Node.payload as Record<string, unknown>;
+      expect(step1Payload.role).toBe("planner");
+      expect(step1Payload.meta).toEqual({ plan: "do-it", files: ["a.ts"] });
 
       const infoText = await readFile(infoPath, "utf8");
       const infoLines = infoText
@@ -270,6 +298,11 @@ describe("executeThread", () => {
       );
 
       expect(result.returnCode).toBe(0);
+      expect(typeof result.rootHash).toBe("string");
+
+      const rootYaml = await cas.get(result.rootHash);
+      const rootNode = parseMerkleNode(rootYaml ?? "");
+      expect(rootNode.children.length).toBe(2);
 
       const dataText = await readFile(dataPath, "utf8");
       const lines = dataText
@@ -324,6 +357,12 @@ describe("executeThread", () => {
       );
 
       expect(result.returnCode).toBe(0);
+      expect(typeof result.rootHash).toBe("string");
+
+      const rootYaml = await cas.get(result.rootHash);
+      const rootNode = parseMerkleNode(rootYaml ?? "");
+      expect(rootNode.type).toBe("thread");
+      expect(rootNode.children.length).toBe(0);
 
       const dataText = await readFile(dataPath, "utf8");
       const lines = dataText
@@ -331,6 +370,77 @@ describe("executeThread", () => {
         .split("\n")
         .filter((l) => l !== "");
       expect(lines.length).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("Merkle DAG: root → step nodes → content for full thread traversal", async () => {
+    restoreFetch = installMockChatCompletions([
+      { plan: "do-it", files: ["a.ts"] },
+      { diff: "+ok" },
+    ]);
+
+    const root = await mkdtemp(join(tmpdir(), "wf-engine-dag-"));
+    try {
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const hash = "C9NMV6V2TQT81";
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
+      await mkdir(join(root, "logs", hash), { recursive: true });
+      const cas = createCasStore(join(root, "cas"));
+
+      const logger = createLogger({ sink: { kind: "file", path: infoPath } });
+      const ac = new AbortController();
+
+      const result = await executeThread(
+        demoWorkflow,
+        "demo-flow",
+        { prompt: "DAG test", steps: [] },
+        {
+          maxRounds: 5,
+          depth: 0,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
+        },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
+        logger,
+      );
+
+      const dataText = await readFile(dataPath, "utf8");
+      const lines = dataText
+        .trim()
+        .split("\n")
+        .filter((l) => l !== "");
+      expect(lines.length).toBe(3);
+
+      const rolePlanner = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+      const roleCoder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
+
+      const threadYaml = await cas.get(result.rootHash);
+      expect(threadYaml).not.toBeNull();
+      const threadNode = parseMerkleNode(threadYaml ?? "");
+      expect(threadNode.type).toBe("thread");
+
+      const bodies: string[] = [];
+      for (const stepHash of threadNode.children) {
+        const stepYaml = await cas.get(stepHash);
+        expect(stepYaml).not.toBeNull();
+        const stepNode = parseMerkleNode(stepYaml ?? "");
+        expect(stepNode.type).toBe("step");
+        expect(stepNode.children.length).toBe(1);
+        const contentHash = stepNode.children[0];
+        expect(contentHash).toBeDefined();
+        const body = await getContentMerklePayload(cas, contentHash ?? "");
+        expect(body).not.toBeNull();
+        bodies.push(body ?? "");
+      }
+
+      expect(bodies.sort()).toEqual(["code-body", "plan-body"].sort());
+      expect(rolePlanner.role).toBe("planner");
+      expect(roleCoder.role).toBe("coder");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

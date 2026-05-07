@@ -92,7 +92,7 @@ export function workflowAsAgent(
         io,
         logger,
       );
-      return result.summary;
+      return result.rootHash;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return `ERROR: ${message}`;

@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { createCasStore } from "../src/cas.js";
 import { hashWorkflowBundleBytes } from "../src/hash.js";
+import { parseMerkleNode } from "../src/merkle.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
@@ -89,7 +90,7 @@ describe("workflowAsAgent", () => {
     }
   });
 
-  test("runs registered workflow and returns child summary string", async () => {
+  test("runs registered workflow and returns child thread root CAS hash", async () => {
     const root = await mkdtemp(join(tmpdir(), "wf-waa-ok-"));
     try {
       await installChildWorkflow(root);
@@ -97,7 +98,16 @@ describe("workflowAsAgent", () => {
       const out = await agent(
         makeAgentCtx({ storageRoot: root, depth: 0, prompt: "hello-parent", maxRounds: 5 }),
       );
-      expect(out).toBe("child-done:hello-parent");
+      const cas = createCasStore(join(root, "cas"));
+      const threadYaml = await cas.get(out);
+      expect(threadYaml).not.toBeNull();
+      const node = parseMerkleNode(threadYaml ?? "");
+      expect(node.type).toBe("thread");
+      const payload = node.payload as Record<string, unknown>;
+      expect(payload.workflow).toBe("child-wf");
+      const resultObj = payload.result as Record<string, unknown>;
+      expect(resultObj.summary).toBe("child-done:hello-parent");
+      expect(node.children.length).toBe(1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

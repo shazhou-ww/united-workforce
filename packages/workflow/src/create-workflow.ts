@@ -13,10 +13,10 @@ import {
   type RoleStep,
   START,
   type ThreadInput,
+  type WorkflowCompletion,
   type WorkflowDefinition,
   type WorkflowFn,
   type WorkflowFnOptions,
-  type WorkflowResult,
 } from "./types.js";
 
 function isRoleNext<M extends RoleMeta>(
@@ -48,7 +48,7 @@ export function createWorkflow<M extends RoleMeta>(
   return async function* workflowLoop(
     input: ThreadInput,
     options: WorkflowFnOptions,
-  ): AsyncGenerator<RoleOutput, WorkflowResult> {
+  ): AsyncGenerator<RoleOutput, WorkflowCompletion> {
     const nowMs = Date.now();
     const start: ModeratorContext<M>["start"] = {
       role: START,

@@ -47,7 +47,11 @@ export {
   type MerkleNodeType,
   parseMerkleNode,
   putContentMerkleNode,
+  putStepMerkleNode,
+  putThreadMerkleNode,
+  type StepMerklePayload,
   serializeMerkleNode,
+  type ThreadMerklePayload,
 } from "./merkle.js";
 export {
   getRegisteredWorkflow,
@@ -84,6 +88,7 @@ export {
   type StartStep,
   type ThreadContext,
   type ThreadInput,
+  type WorkflowCompletion,
   type WorkflowDefinition,
   type WorkflowFn,
   type WorkflowFnOptions,
