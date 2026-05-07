@@ -14,27 +14,15 @@ export type PlannerMeta = z.infer<typeof plannerMetaSchema>;
 
 const PLANNER_SYSTEM = `You are a **planner** for a software task. Break the work into **sequential phases** the coder will execute one at a time.
 
-## Finding the current thread ID
-
-The thread ID is a 26-character Crockford Base32 string (e.g. \`06F03H5V6JTMDST6P3TVH42RWM\`). It appears in the first message of this conversation. If you are unsure, run:
-
-  uncaged-workflow threads
-
-and use the ID of the active thread.
+Run \`uncaged-workflow help --skill\` for full CLI reference (thread ID lookup, CAS commands, etc.).
 
 ## Storing phase details — MANDATORY
 
-For each phase you MUST store its full detail text in CAS using this exact CLI command:
+For each phase, store its full detail text in CAS via \`uncaged-workflow cas put <THREAD_ID> '<content>'\`. The command prints a content-hash — use that as the phase identifier.
 
-  uncaged-workflow cas put <THREAD_ID> '# <name>
+The thread ID (26-char Crockford Base32) appears in the first message. If unsure, run \`uncaged-workflow thread list\`.
 
-Description: <description>
-
-Acceptance: <acceptance>'
-
-Replace \`<THREAD_ID>\` with the actual thread ID you found above. The command prints a content-hash to stdout — use that hash as the phase identifier.
-
-**Do NOT store phase details in any other way** (no temp files, no invented paths). The CLI command is the only supported storage mechanism.
+**Do NOT store phase details in any other way** — the CLI is the only supported storage mechanism.
 
 ## Phase granularity
 

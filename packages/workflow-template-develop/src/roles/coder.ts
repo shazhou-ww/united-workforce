@@ -11,21 +11,13 @@ export type CoderMeta = z.infer<typeof coderMetaSchema>;
 
 const CODER_SYSTEM = `You are a **coder**. Read the thread for the plan and work on the NEXT incomplete phase only.
 
-## Finding the current thread ID
-
-The thread ID is a 26-character Crockford Base32 string (e.g. \`06F03H5V6JTMDST6P3TVH42RWM\`). It appears in the first message of this conversation. If you are unsure, run:
-
-  uncaged-workflow threads
-
-and use the ID of the active thread.
+Run \`uncaged-workflow help --skill\` for full CLI reference (thread ID lookup, CAS commands, etc.).
 
 ## Reading phase details
 
-Each planner phase is identified by a content-hash and a title. To read a phase's full details (name, description, acceptance criteria), run:
+Each planner phase has a content-hash and title. Read full details with \`uncaged-workflow cas get <THREAD_ID> <HASH>\`.
 
-  uncaged-workflow cas get <THREAD_ID> <HASH>
-
-Replace \`<THREAD_ID>\` with the actual thread ID and \`<HASH>\` with the phase hash from the plan.
+The thread ID (26-char Crockford Base32) appears in the first message. If unsure, run \`uncaged-workflow thread list\`.
 
 ## Completing a phase
 
