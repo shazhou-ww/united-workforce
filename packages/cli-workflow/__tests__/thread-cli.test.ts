@@ -4,7 +4,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getGlobalCasDir } from "@uncaged/workflow";
 import { cmdAdd } from "../src/cmd-add.js";
+import { cmdCasPut } from "../src/cmd-cas.js";
 import { cmdKill } from "../src/cmd-kill.js";
 import { cmdPause } from "../src/cmd-pause.js";
 import { cmdPs } from "../src/cmd-ps.js";
@@ -12,7 +14,7 @@ import { cmdResume } from "../src/cmd-resume.js";
 import { cmdRun } from "../src/cmd-run.js";
 import { cmdThreadRemove, cmdThreadShow } from "../src/cmd-thread.js";
 import { cmdThreads } from "../src/cmd-threads.js";
-import { pathExists } from "../src/fs-utils.js";
+import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
 const threadFixtureDescriptor = `export const descriptor = {
@@ -173,6 +175,55 @@ describe("cli thread commands", () => {
 
     const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
     expect(await pathExists(dataPath)).toBe(false);
+  });
+
+  test("thread rm does not delete global cas blobs for that thread id", async () => {
+    const bundleDir = join(storageRoot, "src");
+    await mkdir(bundleDir, { recursive: true });
+    const bundlePath = join(bundleDir, "demo.esm.js");
+    await writeFile(bundlePath, fastBundleSource, "utf8");
+
+    const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
+    expect(added.ok).toBe(true);
+    if (!added.ok) {
+      return;
+    }
+
+    const ran = await cmdRun(storageRoot, "solve-issue", "hello", 5);
+    expect(ran.ok).toBe(true);
+    if (!ran.ok) {
+      return;
+    }
+
+    const threadId = ran.value.threadId;
+
+    let threads = await cmdThreads(storageRoot, []);
+    for (
+      let attempt = 0;
+      attempt < 50 && threads.ok && !threads.value.some((l) => l.includes(threadId));
+      attempt++
+    ) {
+      await new Promise((r) => setTimeout(r, 20));
+      threads = await cmdThreads(storageRoot, []);
+    }
+
+    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
+    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    await waitUntilRunningFileAbsent(runningPath, 120);
+
+    const put = await cmdCasPut(storageRoot, threadId, "keep-after-thread-rm");
+    expect(put.ok).toBe(true);
+    if (!put.ok) {
+      return;
+    }
+    const hash = put.value;
+    const casBlob = join(getGlobalCasDir(storageRoot), `${hash}.txt`);
+
+    const removed = await cmdThreadRemove(storageRoot, threadId);
+    expect(removed.ok).toBe(true);
+
+    const stillThere = await readTextFileIfExists(casBlob);
+    expect(stillThere).toBe("keep-after-thread-rm");
   });
 
   test("cli entrypoint dispatches threads / ps (spawn)", () => {

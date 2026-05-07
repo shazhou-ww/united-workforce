@@ -10,7 +10,7 @@ export type CasStore = {
   list(): Promise<string[]>;
 };
 
-export function createThreadCas(casDir: string): CasStore {
+export function createCasStore(casDir: string): CasStore {
   async function ensureDir(): Promise<void> {
     await mkdir(casDir, { recursive: true });
   }
@@ -68,3 +68,6 @@ export function createThreadCas(casDir: string): CasStore {
     },
   };
 }
+
+/** @deprecated Use {@link createCasStore} — CAS is global, not per-thread. */
+export const createThreadCas = createCasStore;

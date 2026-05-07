@@ -7,7 +7,7 @@ export {
 } from "./base32.js";
 export { buildDescriptor } from "./build-descriptor.js";
 export { validateWorkflowBundle, type WorkflowBundleValidationInput } from "./bundle-validator.js";
-export { type CasStore, createThreadCas } from "./cas.js";
+export { type CasStore, createCasStore, createThreadCas } from "./cas.js";
 export { createWorkflow } from "./create-workflow.js";
 export {
   type ExecuteThreadIo,
@@ -55,7 +55,7 @@ export {
   writeWorkflowRegistry,
 } from "./registry.js";
 export { err, ok, type Result } from "./result.js";
-export { getDefaultWorkflowStorageRoot } from "./storage-root.js";
+export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
 export { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 export {
   type AgentBinding,
