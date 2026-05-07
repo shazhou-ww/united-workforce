@@ -65,11 +65,12 @@ async function dispatchInit(_storageRoot: string, argv: string[]): Promise<numbe
   }
 
   if (sub === "template") {
-    const result = cmdInitTemplate(process.cwd(), name);
+    const result = await cmdInitTemplate(process.cwd(), name);
     if (!result.ok) {
       printCliError(result.error);
       return 1;
     }
+    printCliLine(`initialized template at ${result.value.templatePath}`);
     return 0;
   }
 

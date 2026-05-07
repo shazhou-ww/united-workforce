@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { formatCliUsage, runCli } from "../src/cli-dispatch.js";
-import { cmdInitTemplate, cmdInitWorkspace } from "../src/cmd-init.js";
+import { cmdInitWorkspace } from "../src/cmd-init.js";
 import { pathExists } from "../src/fs-utils.js";
 
 describe("init workspace", () => {
@@ -85,14 +85,6 @@ describe("init workspace", () => {
     expect(u).toContain("uncaged-workflow init template <name>");
   });
 
-  test("init template command is stubbed", () => {
-    const r = cmdInitTemplate(parent, "x");
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.error).toBe("not implemented yet");
-    }
-  });
-
   test("runCli rejects unknown init subcommand", async () => {
     const code = await runCli(join(parent, "_storage"), ["init", "bogus", "name"]);
     expect(code).toBe(1);
@@ -108,10 +100,5 @@ describe("init workspace", () => {
     } finally {
       process.chdir(prev);
     }
-  });
-
-  test("runCli init template exits with error", async () => {
-    const code = await runCli(join(parent, "_storage"), ["init", "template", "t"]);
-    expect(code).toBe(1);
   });
 });
