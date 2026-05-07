@@ -1,33 +1,38 @@
 import { describe, expect, test } from "bun:test";
+import type { ExtractFn } from "@uncaged/workflow";
 import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
+
+const testExtract: ExtractFn = ((_schema, _prompt) => async (_ctx) => ({
+  workspace: "/tmp",
+})) as ExtractFn;
 
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config", () => {
     const r = validateCursorAgentConfig({
-      workdir: "/tmp",
       model: null,
-      timeout: null,
+      timeout: 0,
+      extract: testExtract,
     });
     expect(r.ok).toBe(true);
   });
 
-  test("rejects empty workdir", () => {
+  test("rejects non-function extract", () => {
     const r = validateCursorAgentConfig({
-      workdir: "   ",
       model: null,
-      timeout: null,
+      timeout: 0,
+      extract: null as unknown as ExtractFn,
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.error).toContain("workdir");
+      expect(r.error).toContain("extract");
     }
   });
 
   test("rejects negative timeout", () => {
     const r = validateCursorAgentConfig({
-      workdir: "/tmp",
       model: null,
       timeout: -1,
+      extract: testExtract,
     });
     expect(r.ok).toBe(false);
   });
@@ -36,9 +41,9 @@ describe("validateCursorAgentConfig", () => {
 describe("createCursorAgent", () => {
   test("returns an AgentFn", () => {
     const agent = createCursorAgent({
-      workdir: "/tmp",
       model: null,
-      timeout: null,
+      timeout: 0,
+      extract: testExtract,
     });
     expect(typeof agent).toBe("function");
   });
@@ -46,9 +51,9 @@ describe("createCursorAgent", () => {
   test("throws on invalid config at construction", () => {
     expect(() =>
       createCursorAgent({
-        workdir: "",
         model: null,
-        timeout: null,
+        timeout: -1,
+        extract: testExtract,
       }),
     ).toThrow();
   });

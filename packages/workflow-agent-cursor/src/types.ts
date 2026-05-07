@@ -1,5 +1,7 @@
+import type { ExtractFn } from "@uncaged/workflow";
+
 export type CursorAgentConfig = {
-  workdir: string;
   model: string | null;
-  timeout: number | null;
+  timeout: number;
+  extract: ExtractFn;
 };

@@ -15,6 +15,7 @@ export {
   type PrefilledDiskStep,
 } from "./engine.js";
 export { type ExtractedBundleExports, extractBundleExports } from "./extract-bundle-exports.js";
+export { createExtract, type ExtractFn } from "./extract-fn.js";
 export { extractMetaOrThrow } from "./extract-meta.js";
 export {
   buildForkPlan,

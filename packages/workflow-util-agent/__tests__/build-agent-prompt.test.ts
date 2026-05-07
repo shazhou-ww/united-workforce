@@ -18,9 +18,9 @@ describe("buildAgentPrompt", () => {
       start: startTask("fix the bug"),
       steps: [],
       threadId: "01TEST000000000000000000TR",
-      currentRole: { name: START, systemPrompt: "" },
+      currentRole: { name: START, systemPrompt: "You are an agent." },
     };
-    const text = buildAgentPrompt("You are an agent.", ctx);
+    const text = buildAgentPrompt(ctx);
     expect(text).toContain("You are an agent.");
     expect(text).toContain("## Task");
     expect(text).toContain("fix the bug");
@@ -31,7 +31,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("user task"),
       threadId: "01TEST000000000000000000TR",
-      currentRole: { name: "coder", systemPrompt: "" },
+      currentRole: { name: "coder", systemPrompt: "Be helpful." },
       steps: [
         {
           role: "coder",
@@ -41,7 +41,7 @@ describe("buildAgentPrompt", () => {
         },
       ],
     };
-    const text = buildAgentPrompt("Be helpful.", ctx);
+    const text = buildAgentPrompt(ctx);
     expect(text).toContain("## Task");
     expect(text).toContain("user task");
     expect(text).toContain("## Step: coder");
@@ -55,7 +55,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("first message full: task content here"),
       threadId: "01TEST000000000000000000TR",
-      currentRole: { name: "coder", systemPrompt: "" },
+      currentRole: { name: "coder", systemPrompt: "System." },
       steps: [
         {
           role: "planner",
@@ -71,7 +71,7 @@ describe("buildAgentPrompt", () => {
         },
       ],
     };
-    const text = buildAgentPrompt("System.", ctx);
+    const text = buildAgentPrompt(ctx);
     expect(text).toContain("first message full: task content here");
     expect(text).toContain("## Previous Steps");
     expect(text).toContain("### Step 1: planner");
@@ -88,7 +88,7 @@ describe("buildAgentPrompt", () => {
     const ctx: ThreadContext = {
       start: startTask("start"),
       threadId: "01TEST000000000000000000TR",
-      currentRole: { name: "c", systemPrompt: "" },
+      currentRole: { name: "c", systemPrompt: "S" },
       steps: [
         {
           role: "a",
@@ -110,7 +110,7 @@ describe("buildAgentPrompt", () => {
         },
       ],
     };
-    const text = buildAgentPrompt("S", ctx);
+    const text = buildAgentPrompt(ctx);
     expect(text).not.toContain("HIDDEN_A");
     expect(text).not.toContain("HIDDEN_B_MIDDLE");
     expect(text).toContain('Summary: {"n":1}');

@@ -1,5 +1,6 @@
 import type { AgentFn } from "@uncaged/workflow";
 import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
+import * as z from "zod/v4";
 
 import type { CursorAgentConfig } from "./types.js";
 import { validateCursorAgentConfig } from "./validate-config.js";
@@ -7,6 +8,12 @@ import { validateCursorAgentConfig } from "./validate-config.js";
 export { buildAgentPrompt } from "@uncaged/workflow-util-agent";
 export type { CursorAgentConfig } from "./types.js";
 export { validateCursorAgentConfig } from "./validate-config.js";
+
+const cursorWorkspaceSchema = z.object({
+  workspace: z
+    .string()
+    .describe("Absolute path to the project/repository directory the agent should work in"),
+});
 
 function throwCursorSpawnError(error: SpawnCliError): never {
   if (error.kind === "non_zero_exit") {
@@ -27,7 +34,7 @@ function resolveCursorModel(model: string | null): string {
   return model === null ? "auto" : model;
 }
 
-/** Runs `cursor-agent` in {@link CursorAgentConfig.workdir} with a prompt built from context + system prompt. */
+/** Runs `cursor-agent` with workspace from {@link CursorAgentConfig.extract} and prompt from context. */
 export function createCursorAgent(config: CursorAgentConfig): AgentFn {
   const validated = validateCursorAgentConfig(config);
   if (!validated.ok) {
@@ -35,22 +42,29 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
   }
 
   const modelFlag = resolveCursorModel(config.model);
-  const timeoutMs = config.timeout;
+  const timeoutMs = config.timeout > 0 ? config.timeout : null;
+  const extractWorkspace = config.extract(
+    cursorWorkspaceSchema,
+    "From the thread context, determine the absolute filesystem path where the project/repository is located. Look for clone paths, working directories, or repo paths mentioned in previous steps.",
+  );
 
   return async (ctx) => {
-    const fullPrompt = buildAgentPrompt(ctx.currentRole.systemPrompt, ctx);
+    const { workspace } = await extractWorkspace(ctx);
+    const fullPrompt = buildAgentPrompt(ctx);
     const args = [
       "-p",
       fullPrompt,
       "--model",
       modelFlag,
+      "--workspace",
+      workspace,
       "--output-format",
       "text",
       "--trust",
       "--force",
     ];
     const run = await spawnCli("cursor-agent", args, {
-      cwd: config.workdir,
+      cwd: workspace,
       timeoutMs,
     });
     if (!run.ok) {

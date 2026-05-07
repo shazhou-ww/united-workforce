@@ -1,9 +1,9 @@
 import type { ThreadContext } from "@uncaged/workflow";
 
 /** Builds the full agent prompt: system instructions plus summarized thread history. */
-export function buildAgentPrompt(systemPrompt: string, ctx: ThreadContext): string {
+export function buildAgentPrompt(ctx: ThreadContext): string {
   const lines: string[] = [];
-  lines.push(systemPrompt);
+  lines.push(ctx.currentRole.systemPrompt);
   lines.push("");
   lines.push("## Task");
   lines.push(ctx.start.content);
