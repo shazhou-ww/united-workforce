@@ -53,6 +53,52 @@ export function createContentMerkleNode(payload: string): MerkleNode {
   return { type: "content", payload, children: [] };
 }
 
+export type StepMerklePayload = {
+  role: string;
+  meta: Record<string, unknown>;
+};
+
+export type ThreadMerklePayload = {
+  workflow: string;
+  threadId: string;
+  result: {
+    returnCode: number;
+    summary: string;
+  };
+};
+
+/** Serializes a step Merkle node (role + meta + content child) and stores it in CAS. */
+export async function putStepMerkleNode(
+  store: CasStore,
+  payload: StepMerklePayload,
+  contentHash: string,
+): Promise<string> {
+  const node: MerkleNode = {
+    type: "step",
+    payload: { role: payload.role, meta: payload.meta },
+    children: [contentHash],
+  };
+  return store.put(serializeMerkleNode(node));
+}
+
+/** Serializes the thread root Merkle node and stores it in CAS. */
+export async function putThreadMerkleNode(
+  store: CasStore,
+  payload: ThreadMerklePayload,
+  stepHashes: readonly string[],
+): Promise<string> {
+  const node: MerkleNode = {
+    type: "thread",
+    payload: {
+      workflow: payload.workflow,
+      threadId: payload.threadId,
+      result: payload.result,
+    },
+    children: [...stepHashes],
+  };
+  return store.put(serializeMerkleNode(node));
+}
+
 /** Serializes a content Merkle node and stores it in CAS; returns its hash. */
 export async function putContentMerkleNode(store: CasStore, content: string): Promise<string> {
   const yamlText = serializeMerkleNode(createContentMerkleNode(content));

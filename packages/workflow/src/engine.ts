@@ -3,9 +3,15 @@ import { dirname } from "node:path";
 
 import type { CasStore } from "./cas.js";
 import type { LogFn } from "./logger.js";
-import { getContentMerklePayload } from "./merkle.js";
+import { getContentMerklePayload, putStepMerkleNode, putThreadMerkleNode } from "./merkle.js";
 import { normalizeRefsField } from "./refs-field.js";
-import type { ThreadInput, WorkflowFn, WorkflowFnOptions, WorkflowResult } from "./types.js";
+import type {
+  ThreadInput,
+  WorkflowCompletion,
+  WorkflowFn,
+  WorkflowFnOptions,
+  WorkflowResult,
+} from "./types.js";
 
 export type ExecuteThreadIo = {
   threadId: string;
@@ -45,8 +51,35 @@ async function appendDataLine(path: string, record: unknown): Promise<void> {
   await appendFile(path, line, "utf8");
 }
 
+async function finalizeThreadResult(params: {
+  cas: CasStore;
+  workflowName: string;
+  threadId: string;
+  stepMerkleHashes: readonly string[];
+  completion: WorkflowCompletion;
+}): Promise<WorkflowResult> {
+  const rootHash = await putThreadMerkleNode(
+    params.cas,
+    {
+      workflow: params.workflowName,
+      threadId: params.threadId,
+      result: {
+        returnCode: params.completion.returnCode,
+        summary: params.completion.summary,
+      },
+    },
+    params.stepMerkleHashes,
+  );
+  return {
+    returnCode: params.completion.returnCode,
+    summary: params.completion.summary,
+    rootHash,
+  };
+}
+
 async function driveWorkflowGenerator(params: {
   fn: WorkflowFn;
+  workflowName: string;
   input: ThreadInput;
   bundleOptions: WorkflowFnOptions;
   executeOptions: ExecuteThreadOptions;
@@ -54,30 +87,61 @@ async function driveWorkflowGenerator(params: {
   threadId: string;
   logger: LogFn;
   cas: CasStore;
+  stepMerkleHashes: string[];
 }): Promise<WorkflowResult> {
-  const { fn, input, bundleOptions, executeOptions, dataJsonlPath, threadId, logger, cas } = params;
+  const {
+    fn,
+    workflowName,
+    input,
+    bundleOptions,
+    executeOptions,
+    dataJsonlPath,
+    threadId,
+    logger,
+    cas,
+    stepMerkleHashes,
+  } = params;
   const gen = fn(input, bundleOptions);
   let written = 0;
 
   while (true) {
     if (executeOptions.signal.aborted) {
       logger("V8JX4NP2", `thread ${threadId} aborted`);
-      return { returnCode: 130, summary: "thread aborted" };
+      return await finalizeThreadResult({
+        cas,
+        workflowName,
+        threadId,
+        stepMerkleHashes,
+        completion: { returnCode: 130, summary: "thread aborted" },
+      });
     }
 
     if (written >= executeOptions.maxRounds) {
       logger("R3CW7YBQ", `thread ${threadId} stopped at maxRounds=${executeOptions.maxRounds}`);
-      return {
-        returnCode: 0,
-        summary: `completed: reached maxRounds (${executeOptions.maxRounds})`,
-      };
+      return await finalizeThreadResult({
+        cas,
+        workflowName,
+        threadId,
+        stepMerkleHashes,
+        completion: {
+          returnCode: 0,
+          summary: `completed: reached maxRounds (${executeOptions.maxRounds})`,
+        },
+      });
     }
 
     const iterResult = await gen.next();
 
     if (iterResult.done) {
       logger("F3HN8QKP", `thread ${threadId} generator finished`);
-      return iterResult.value;
+      const completion = iterResult.value;
+      return await finalizeThreadResult({
+        cas,
+        workflowName,
+        threadId,
+        stepMerkleHashes,
+        completion,
+      });
     }
 
     written++;
@@ -97,6 +161,13 @@ async function driveWorkflowGenerator(params: {
       timestamp: ts,
     });
 
+    const stepNodeHash = await putStepMerkleNode(
+      cas,
+      { role: step.role, meta: step.meta },
+      step.contentHash,
+    );
+    stepMerkleHashes.push(stepNodeHash);
+
     logger("N7BW4YHQ", `thread ${threadId} wrote role ${step.role}`);
 
     await Promise.race([
@@ -112,7 +183,13 @@ async function driveWorkflowGenerator(params: {
 
     if (executeOptions.signal.aborted) {
       logger("V8JX4NP4", `thread ${threadId} aborted`);
-      return { returnCode: 130, summary: "thread aborted" };
+      return await finalizeThreadResult({
+        cas,
+        workflowName,
+        threadId,
+        stepMerkleHashes,
+        completion: { returnCode: 130, summary: "thread aborted" },
+      });
     }
   }
 }
@@ -161,6 +238,8 @@ export async function executeThread(
 
   logger("T9HQ2KHM", `thread ${io.threadId} started for workflow ${workflowName}`);
 
+  const stepMerkleHashes: string[] = [];
+
   if (prefilled !== null) {
     for (const row of prefilled) {
       const prefilledPayload = await getContentMerklePayload(io.cas, row.contentHash);
@@ -176,15 +255,27 @@ export async function executeThread(
         refs: normalizeRefsField(row.refs),
         timestamp: row.timestamp,
       });
+      const stepNodeHash = await putStepMerkleNode(
+        io.cas,
+        { role: row.role, meta: row.meta },
+        row.contentHash,
+      );
+      stepMerkleHashes.push(stepNodeHash);
     }
   }
 
   if (options.maxRounds <= 0) {
     logger("R3CW7YBQ", `thread ${io.threadId} stopped at maxRounds=${options.maxRounds}`);
-    return {
-      returnCode: 0,
-      summary: `completed: reached maxRounds (${options.maxRounds})`,
-    };
+    return await finalizeThreadResult({
+      cas: io.cas,
+      workflowName,
+      threadId: io.threadId,
+      stepMerkleHashes,
+      completion: {
+        returnCode: 0,
+        summary: `completed: reached maxRounds (${options.maxRounds})`,
+      },
+    });
   }
 
   const bundleOptions: WorkflowFnOptions = {
@@ -196,6 +287,7 @@ export async function executeThread(
 
   return await driveWorkflowGenerator({
     fn,
+    workflowName,
     input,
     bundleOptions,
     executeOptions: options,
@@ -203,5 +295,6 @@ export async function executeThread(
     threadId: io.threadId,
     logger,
     cas: io.cas,
+    stepMerkleHashes,
   });
 }

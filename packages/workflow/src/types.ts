@@ -26,10 +26,15 @@ export type RoleOutput = {
   refs: string[];
 };
 
-/** What the workflow AsyncGenerator returns when done. */
-export type WorkflowResult = {
+/** Generator completion value from a workflow bundle (`run` export). Root hash is added by the engine. */
+export type WorkflowCompletion = {
   returnCode: number;
   summary: string;
+};
+
+/** Final thread outcome from {@link executeThread}, including Merkle thread root CAS hash. */
+export type WorkflowResult = WorkflowCompletion & {
+  rootHash: string;
 };
 
 /** Input to a workflow — prompt plus optional historical steps for fork/resume. */
@@ -52,7 +57,7 @@ export type WorkflowFnOptions = {
 export type WorkflowFn = (
   input: ThreadInput,
   options: WorkflowFnOptions,
-) => AsyncGenerator<RoleOutput, WorkflowResult>;
+) => AsyncGenerator<RoleOutput, WorkflowCompletion>;
 
 /** Engine start frame: initial prompt + thread identity. */
 export type StartStep = {

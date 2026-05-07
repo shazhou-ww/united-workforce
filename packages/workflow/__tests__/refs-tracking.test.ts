@@ -162,6 +162,8 @@ describe("RoleStep refs tracking", () => {
       );
 
       expect(result.returnCode).toBe(0);
+      expect(typeof result.rootHash).toBe("string");
+      expect(result.rootHash.length).toBeGreaterThan(0);
 
       const dataText = await readFile(dataPath, "utf8");
       const lines = dataText

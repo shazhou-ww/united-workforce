@@ -10,7 +10,7 @@ import { executeThread } from "../src/engine.js";
 import { createExtract } from "../src/extract-fn.js";
 import { hashWorkflowBundleBytes } from "../src/hash.js";
 import { createLogger } from "../src/logger.js";
-import { getContentMerklePayload } from "../src/merkle.js";
+import { getContentMerklePayload, parseMerkleNode } from "../src/merkle.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
@@ -177,6 +177,7 @@ describe("workflowAsAgent integration", () => {
       );
 
       expect(result.returnCode).toBe(0);
+      expect(typeof result.rootHash).toBe("string");
 
       const parentText = await readFile(dataPath, "utf8");
       const parentLines = parentText
@@ -186,9 +187,16 @@ describe("workflowAsAgent integration", () => {
       expect(parentLines.length).toBe(2);
       const callerLine = JSON.parse(parentLines[1] ?? "{}") as Record<string, unknown>;
       expect(callerLine.role).toBe("caller");
-      expect(await getContentMerklePayload(cas, String(callerLine.contentHash))).toBe(
-        "child-done:from-parent",
-      );
+      const childRootHash = await getContentMerklePayload(cas, String(callerLine.contentHash));
+      expect(childRootHash).not.toBeNull();
+      const childThreadYaml = await cas.get(childRootHash ?? "");
+      expect(childThreadYaml).not.toBeNull();
+      const childThreadNode = parseMerkleNode(childThreadYaml ?? "");
+      expect(childThreadNode.type).toBe("thread");
+      const childPayload = childThreadNode.payload as Record<string, unknown>;
+      expect(childPayload.workflow).toBe("child-wf");
+      const childResult = childPayload.result as Record<string, unknown>;
+      expect(childResult.summary).toBe("child-done:from-parent");
 
       const childDir = join(root, "logs", childHash);
       const childFiles = await readdir(childDir);
