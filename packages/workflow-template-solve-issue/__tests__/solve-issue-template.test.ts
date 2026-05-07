@@ -177,13 +177,23 @@ describe("solveIssueModerator", () => {
     expect(solveIssueModerator(makeCtx(20, []))).toBe("preparer");
     expect(solveIssueModerator(makeCtx(20, [preparerStep()]))).toBe("planner");
     expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep()]))).toBe("coder");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep(), coderStep()]))).toBe("reviewer");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep(), coderStep(), reviewerStep(true)]))).toBe(
-      "committer",
+    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep(), coderStep()]))).toBe(
+      "reviewer",
     );
     expect(
       solveIssueModerator(
-        makeCtx(20, [preparerStep(), plannerStep(), coderStep(), reviewerStep(true), committerStep()]),
+        makeCtx(20, [preparerStep(), plannerStep(), coderStep(), reviewerStep(true)]),
+      ),
+    ).toBe("committer");
+    expect(
+      solveIssueModerator(
+        makeCtx(20, [
+          preparerStep(),
+          plannerStep(),
+          coderStep(),
+          reviewerStep(true),
+          committerStep(),
+        ]),
       ),
     ).toBe(END);
   });
@@ -314,7 +324,11 @@ describe("createSolveIssueRun", () => {
       conventions: null,
       toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
     };
-    restoreFetch = installMockChatCompletions([PREPARER_META, EXPECT_PLANNER_META, EXPECT_CODER_META]);
+    restoreFetch = installMockChatCompletions([
+      PREPARER_META,
+      EXPECT_PLANNER_META,
+      EXPECT_CODER_META,
+    ]);
 
     const calls: string[] = [];
     const run = createSolveIssueRun(
