@@ -12,41 +12,71 @@ import {
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
 
-import type { CoderMeta } from "@uncaged/workflow-role-coder";
-import type { PlannerMeta } from "@uncaged/workflow-role-planner";
 import type { PreparerMeta } from "@uncaged/workflow-role-preparer";
+import type { SubmitterMeta } from "@uncaged/workflow-role-submitter";
 
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
+import type { DeveloperMeta } from "../src/developer.js";
 import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
-const DEFAULT_PHASES: PlannerMeta["phases"] = [
-  {
-    hash: "4KNMR2PX",
-    title: "Do the work",
-  },
-];
+function jsonResponse(payload: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
-const EXPECT_PLANNER_META: PlannerMeta = {
-  phases: [
-    {
-      hash: "7BQST3VW",
-      title: "placeholder phase",
-    },
-  ],
-};
+function readToolListFromBody(init: RequestInit | undefined): readonly Record<string, unknown>[] {
+  if (init === undefined || init.body === undefined || init.body === null) {
+    return [];
+  }
+  const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+  const tools = body.tools;
+  if (!Array.isArray(tools)) {
+    return [];
+  }
+  return tools.filter((t): t is Record<string, unknown> => t !== null && typeof t === "object");
+}
 
-const EXPECT_CODER_META: CoderMeta = {
-  completedPhase: "7BQST3VW",
-  filesChanged: [],
-  summary: "",
-};
+function singleToolName(tools: readonly Record<string, unknown>[]): string {
+  if (tools.length === 0) {
+    return "extract";
+  }
+  const fn = tools[0].function as Record<string, unknown> | undefined;
+  return typeof fn?.name === "string" ? fn.name : "extract";
+}
+
+function buildSingleModeResponse(args: Record<string, unknown>, toolName: string): Response {
+  return jsonResponse({
+    choices: [
+      {
+        message: {
+          tool_calls: [
+            {
+              type: "function",
+              function: { name: toolName, arguments: JSON.stringify(args) },
+            },
+          ],
+        },
+      },
+    ],
+  });
+}
+
+function buildReactModeResponse(args: Record<string, unknown>): Response {
+  // reactExtract accepts a plain-JSON assistant message and validates it
+  // directly against the schema, so we skip the cas_get / extract tool dance.
+  return jsonResponse({
+    choices: [{ message: { content: JSON.stringify(args) } }],
+  });
+}
 
 function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
   const origFetch = globalThis.fetch;
   let i = 0;
   const mockFetch = async (
-    input: Parameters<typeof fetch>[0],
+    _input: Parameters<typeof fetch>[0],
     init?: RequestInit,
   ): Promise<Response> => {
     const args = sequence[i] ?? sequence[sequence.length - 1];
@@ -54,36 +84,11 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
       throw new Error("installMockChatCompletions: empty sequence");
     }
     i += 1;
-    void input;
-    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-    const tools = body.tools;
-    const firstTool =
-      Array.isArray(tools) && tools.length > 0 && tools[0] !== null && typeof tools[0] === "object"
-        ? (tools[0] as Record<string, unknown>)
-        : null;
-    const fn =
-      firstTool !== null ? (firstTool.function as Record<string, unknown> | undefined) : undefined;
-    const toolName = typeof fn?.name === "string" ? fn.name : "extract";
-    return new Response(
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              tool_calls: [
-                {
-                  type: "function",
-                  function: {
-                    name: toolName,
-                    arguments: JSON.stringify(args),
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    );
+    const tools = readToolListFromBody(init);
+    if (tools.length > 1) {
+      return buildReactModeResponse(args);
+    }
+    return buildSingleModeResponse(args, singleToolName(tools));
   };
   globalThis.fetch = Object.assign(mockFetch, {
     preconnect: origFetch.preconnect.bind(origFetch),
@@ -134,45 +139,28 @@ function preparerStep(): RoleStep<SolveIssueMeta> {
   };
 }
 
-function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<SolveIssueMeta> {
+function developerStep(): RoleStep<SolveIssueMeta> {
   return {
-    role: "planner",
-    contentHash: "STUBHASHPLANNER001",
-    meta: { phases },
-    refs: phases.map((p) => p.hash),
+    role: "developer",
+    contentHash: "STUBHASHDEVELOPER1",
+    meta: {
+      branch: "feat/issue-1",
+      commitSha: "abc1234",
+      filesChanged: ["src/login.ts"],
+      summary: "Fixed flaky login test by stabilising async setup.",
+    },
+    refs: [],
     timestamp: 1,
   };
 }
 
-function coderStep(completedPhase = "4KNMR2PX"): RoleStep<SolveIssueMeta> {
+function submitterStep(meta: SubmitterMeta): RoleStep<SolveIssueMeta> {
   return {
-    role: "coder",
-    contentHash: "STUBHASHCODER00001",
-    meta: { completedPhase, filesChanged: ["a.ts"], summary: "fixed" },
-    refs: [completedPhase],
+    role: "submitter",
+    contentHash: "STUBHASHSUBMITTER1",
+    meta,
+    refs: [],
     timestamp: 2,
-  };
-}
-
-function reviewerStep(approved: boolean): RoleStep<SolveIssueMeta> {
-  return {
-    role: "reviewer",
-    contentHash: "STUBHASHREVIEWER01",
-    meta: approved
-      ? { status: "approved" as const }
-      : { status: "rejected" as const, issues: ["needs fix"] },
-    refs: [],
-    timestamp: 3,
-  };
-}
-
-function committerStep(): RoleStep<SolveIssueMeta> {
-  return {
-    role: "committer",
-    contentHash: "STUBHASHCOMMITTER1",
-    meta: { status: "committed", branch: "feat/issue-1", commitSha: "abc1234" },
-    refs: [],
-    timestamp: 4,
   };
 }
 
@@ -182,104 +170,55 @@ const stubExtract = createExtract({
   model: "test",
 });
 
+const stubLlmProvider = {
+  baseUrl: "http://127.0.0.1:9",
+  apiKey: "",
+  model: "test",
+};
+
 describe("solveIssueModerator", () => {
-  test("routes preparer → planner → coder → reviewer → committer → END", () => {
+  test("routes initial → preparer → developer → submitter → END", () => {
     expect(solveIssueModerator(makeCtx(20, []))).toBe("preparer");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep()]))).toBe("planner");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep()]))).toBe("coder");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep(), plannerStep(), coderStep()]))).toBe(
-      "reviewer",
-    );
-    expect(
-      solveIssueModerator(
-        makeCtx(20, [preparerStep(), plannerStep(), coderStep(), reviewerStep(true)]),
-      ),
-    ).toBe("committer");
+    expect(solveIssueModerator(makeCtx(20, [preparerStep()]))).toBe("developer");
+    expect(solveIssueModerator(makeCtx(20, [preparerStep(), developerStep()]))).toBe("submitter");
     expect(
       solveIssueModerator(
         makeCtx(20, [
           preparerStep(),
-          plannerStep(),
-          coderStep(),
-          reviewerStep(true),
-          committerStep(),
+          developerStep(),
+          submitterStep({
+            status: "submitted",
+            prUrl: "https://github.com/example/repo/pull/1",
+          }),
         ]),
       ),
     ).toBe(END);
   });
 
-  test("reviewer rejects → coder retry when budget allows", () => {
-    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
-      plannerStep(),
-      coderStep(),
-      reviewerStep(false),
-    ];
-    expect(solveIssueModerator(makeCtx(20, steps))).toBe("coder");
-  });
-
-  test("reviewer rejects → END when max rounds exhausted", () => {
-    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
-      plannerStep(),
-      coderStep(),
-      reviewerStep(false),
-    ];
-    expect(solveIssueModerator(makeCtx(4, steps))).toBe(END);
-  });
-
-  test("multiple planner phases → coder until all complete, then reviewer", () => {
-    const phases: PlannerMeta["phases"] = [
-      {
-        hash: "AA000001",
-        title: "first phase",
-      },
-      {
-        hash: "AA000002",
-        title: "second phase",
-      },
-    ];
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases)]))).toBe("coder");
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("AA000001")]))).toBe(
-      "coder",
-    );
+  test("submitter failed → END", () => {
     expect(
       solveIssueModerator(
-        makeCtx(20, [plannerStep(phases), coderStep("AA000001"), coderStep("AA000002")]),
+        makeCtx(20, [
+          preparerStep(),
+          developerStep(),
+          submitterStep({ status: "failed", error: "gh not authenticated" }),
+        ]),
       ),
-    ).toBe("reviewer");
+    ).toBe(END);
   });
 
-  test("one-shot coder reports only last phase hash → reviewer (moderator treats as all phases done)", () => {
-    const phases: PlannerMeta["phases"] = [
-      { hash: "BB000001", title: "setup branch" },
-      { hash: "BB000002", title: "write tests" },
-      { hash: "BB000003", title: "verify" },
-      { hash: "BB000004", title: "commit and pr" },
-    ];
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("BB000004")]))).toBe(
-      "reviewer",
-    );
-  });
-
-  test("unrecognised completedPhase hash → coder retry when budget allows", () => {
-    const phases: PlannerMeta["phases"] = [
-      { hash: "CC000001", title: "first phase" },
-      { hash: "CC000002", title: "second phase" },
-    ];
-    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("all-done")]))).toBe(
-      "coder",
-    );
-  });
-
-  test("incomplete phases → END when max rounds exhausted", () => {
-    const phases: PlannerMeta["phases"] = [
-      { hash: "DD000001", title: "first phase" },
-      { hash: "DD000002", title: "second phase" },
-    ];
-    const steps: ModeratorContext<SolveIssueMeta>["steps"] = [
-      plannerStep(phases),
-      coderStep("DD000001"),
-    ];
-    expect(solveIssueModerator(makeCtx(3, steps))).toBe(END);
+  test("returns END for any unexpected last step (defensive)", () => {
+    // A submitter step with a pseudo-unknown future status would still be
+    // routed to END, since the moderator is a closed switch over known roles.
+    expect(
+      solveIssueModerator(
+        makeCtx(20, [
+          preparerStep(),
+          developerStep(),
+          submitterStep({ status: "submitted", prUrl: "https://example.com/pr/1" }),
+        ]),
+      ),
+    ).toBe(END);
   });
 });
 
@@ -296,7 +235,7 @@ describe("createSolveIssueRun", () => {
     }
   });
 
-  test("structured extraction yields preparer then planner meta from mocked chat completions", async () => {
+  test("structured extraction yields preparer meta from mocked chat completions", async () => {
     const EXPECT_PREPARER_META: PreparerMeta = {
       repoPath: "/home/user/repos/test",
       defaultBranch: "main",
@@ -308,12 +247,20 @@ describe("createSolveIssueRun", () => {
         buildCommand: "bun run build",
       },
     };
-    restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META, EXPECT_PLANNER_META]);
+    restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META]);
 
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
-    const run = createSolveIssueRun({ agent: async () => "" }, stubExtract, null);
+    // Override developer so the test does not spin up a child workflow.
+    const run = createSolveIssueRun(
+      {
+        agent: async () => "",
+        overrides: { developer: async () => "stub-root-hash" },
+      },
+      stubExtract,
+      stubLlmProvider,
+    );
     const gen = run(
       { prompt: "task", steps: [] },
       { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
@@ -325,14 +272,6 @@ describe("createSolveIssueRun", () => {
     }
     expect(first.value.role).toBe("preparer");
     expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
-
-    const second = await gen.next();
-    expect(second.done).toBe(false);
-    if (second.done) {
-      throw new Error("expected yield");
-    }
-    expect(second.value.role).toBe("planner");
-    expect(second.value.meta).toEqual(EXPECT_PLANNER_META);
   });
 
   test("per-role agent overrides default", async () => {
@@ -342,11 +281,17 @@ describe("createSolveIssueRun", () => {
       conventions: null,
       toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
     };
-    restoreFetch = installMockChatCompletions([
-      PREPARER_META,
-      EXPECT_PLANNER_META,
-      EXPECT_CODER_META,
-    ]);
+    const DEVELOPER_META: DeveloperMeta = {
+      branch: "feat/x",
+      commitSha: "abc1234",
+      filesChanged: ["a.ts"],
+      summary: "did the work",
+    };
+    const SUBMITTER_META: SubmitterMeta = {
+      status: "submitted",
+      prUrl: "https://github.com/example/repo/pull/2",
+    };
+    restoreFetch = installMockChatCompletions([PREPARER_META, DEVELOPER_META, SUBMITTER_META]);
 
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
@@ -363,18 +308,18 @@ describe("createSolveIssueRun", () => {
             calls.push("preparer");
             return "";
           },
-          planner: async () => {
-            calls.push("planner");
-            return "";
+          developer: async () => {
+            calls.push("developer");
+            return "stub-root-hash";
           },
-          coder: async () => {
-            calls.push("coder");
+          submitter: async () => {
+            calls.push("submitter");
             return "";
           },
         },
       },
       stubExtract,
-      null,
+      stubLlmProvider,
     );
     const gen = run(
       { prompt: "task", steps: [] },
@@ -385,16 +330,65 @@ describe("createSolveIssueRun", () => {
 
     calls.length = 0;
     await gen.next();
-    expect(calls).toEqual(["planner"]);
+    expect(calls).toEqual(["developer"]);
 
     calls.length = 0;
     await gen.next();
-    expect(calls).toEqual(["coder"]);
+    expect(calls).toEqual(["submitter"]);
+  });
+
+  test("developer defaults to workflowAsAgent override (caller override still wins)", async () => {
+    const PREPARER_META: PreparerMeta = {
+      repoPath: "/tmp/r",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
+    };
+    const DEVELOPER_META: DeveloperMeta = {
+      branch: "feat/y",
+      commitSha: "def5678",
+      filesChanged: ["b.ts"],
+      summary: "more work",
+    };
+    restoreFetch = installMockChatCompletions([PREPARER_META, DEVELOPER_META]);
+
+    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
+    const cas = createCasStore(casDir);
+
+    let developerInvocations = 0;
+    const run = createSolveIssueRun(
+      {
+        agent: async () => "",
+        overrides: {
+          developer: async () => {
+            developerInvocations += 1;
+            return "stub-root-hash";
+          },
+        },
+      },
+      stubExtract,
+      stubLlmProvider,
+    );
+    const gen = run(
+      { prompt: "task", steps: [] },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
+    );
+    // preparer
+    await gen.next();
+    // developer (caller override should be invoked, NOT workflowAsAgent default)
+    const devYield = await gen.next();
+    expect(devYield.done).toBe(false);
+    if (devYield.done) {
+      throw new Error("expected yield");
+    }
+    expect(devYield.value.role).toBe("developer");
+    expect(devYield.value.meta).toEqual(DEVELOPER_META);
+    expect(developerInvocations).toBe(1);
   });
 });
 
 describe("buildSolveIssueDescriptor", () => {
-  test("lists all roles with schemas that validate", () => {
+  test("lists preparer, developer, submitter with schemas that validate", () => {
     const descriptor = buildSolveIssueDescriptor();
     const validated = validateWorkflowDescriptor(descriptor);
     expect(validated.ok).toBe(true);
@@ -402,13 +396,11 @@ describe("buildSolveIssueDescriptor", () => {
       throw new Error(validated.error);
     }
     expect(Object.keys(validated.value.roles).sort()).toEqual([
-      "coder",
-      "committer",
-      "planner",
+      "developer",
       "preparer",
-      "reviewer",
+      "submitter",
     ]);
-    for (const key of ["preparer", "planner", "coder", "reviewer", "committer"] as const) {
+    for (const key of ["preparer", "developer", "submitter"] as const) {
       const role = validated.value.roles[key];
       expect(role).toBeDefined();
       expect(typeof role.schema).toBe("object");
