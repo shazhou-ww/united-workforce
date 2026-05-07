@@ -3,6 +3,7 @@ import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdGc } from "./cmd-gc.js";
+import { formatSkillDoc } from "./cmd-help.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
 import { cmdKill } from "./cmd-kill.js";
@@ -501,6 +502,17 @@ async function dispatchThread(storageRoot: string, argv: string[]): Promise<numb
   return handler(storageRoot, argv.slice(1));
 }
 
+// ── Help ────────────────────────────────────────────────────────────────
+
+async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
+  if (argv.includes("--skill")) {
+    printCliLine(formatSkillDoc());
+  } else {
+    printCliLine(formatCliUsage());
+  }
+  return 0;
+}
+
 // ── Top-level command table (Phase 3) ──────────────────────────────────
 
 const COMMAND_TABLE: Record<string, DispatchFn> = {
@@ -509,6 +521,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   thread: dispatchThread,
   cas: dispatchCas,
   init: dispatchInit,
+  help: dispatchHelp,
 
   // Top-level shortcuts (no deprecation)
   run: dispatchRun,
