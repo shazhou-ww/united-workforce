@@ -177,7 +177,7 @@ describe("cli thread commands", () => {
     expect(await pathExists(dataPath)).toBe(false);
   });
 
-  test("thread rm does not delete global cas blobs for that thread id", async () => {
+  test("thread rm runs GC and removes CAS blobs not referenced by any remaining thread", async () => {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
@@ -223,7 +223,7 @@ describe("cli thread commands", () => {
     expect(removed.ok).toBe(true);
 
     const stillThere = await readTextFileIfExists(casBlob);
-    expect(stillThere).toBe("keep-after-thread-rm");
+    expect(stillThere).toBeNull();
   });
 
   test("cli entrypoint dispatches threads / ps (spawn)", () => {

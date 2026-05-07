@@ -25,6 +25,7 @@ export {
   parseThreadDataJsonl,
   selectForkHistoricalSteps,
 } from "./fork-thread.js";
+export { type GcResult, garbageCollectCas } from "./gc.js";
 export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
 export { hashString, hashWorkflowBundleBytes } from "./hash.js";
 export {

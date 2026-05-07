@@ -2,6 +2,7 @@ import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
 import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
+import { cmdGc } from "./cmd-gc.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdKill } from "./cmd-kill.js";
 import { cmdList, formatListLines } from "./cmd-list.js";
@@ -34,6 +35,7 @@ function usage(): string {
     "  uncaged-workflow thread <id>",
     "  uncaged-workflow thread rm <id>",
     "  uncaged-workflow fork <thread-id> [--from-role <role>]",
+    "  uncaged-workflow gc",
     "  uncaged-workflow cas get <thread-id> <hash>",
     "  uncaged-workflow cas put <thread-id> <content>",
     "  uncaged-workflow cas list <thread-id>",
@@ -266,6 +268,23 @@ async function dispatchThreadBranch(storageRoot: string, rest: string[]): Promis
   return dispatchThread(storageRoot, rest);
 }
 
+async function dispatchGc(storageRoot: string, argv: string[]): Promise<number> {
+  if (argv.length > 0) {
+    printCliError(`${usage()}\n\nerror: gc takes no arguments`);
+    return 1;
+  }
+  const result = await cmdGc(storageRoot);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  const stats = result.value;
+  printCliLine(
+    `scanned ${stats.scannedThreads} threads, ${stats.activeRefs} active refs, deleted ${stats.deletedEntries} entries`,
+  );
+  return 0;
+}
+
 async function dispatchFork(storageRoot: string, argv: string[]): Promise<number> {
   const parsed = parseForkArgv(argv);
   if (!parsed.ok) {
@@ -387,6 +406,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   threads: dispatchThreads,
   thread: dispatchThreadBranch,
   fork: dispatchFork,
+  gc: dispatchGc,
   cas: dispatchCas,
 };
 
