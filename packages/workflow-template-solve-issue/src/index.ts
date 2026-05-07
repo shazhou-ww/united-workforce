@@ -11,16 +11,6 @@ import {
 import { solveIssueModerator } from "./moderator.js";
 import { SOLVE_ISSUE_WORKFLOW_DESCRIPTION, type SolveIssueMeta, solveIssueRoles } from "./roles.js";
 
-export {
-  type PreparerMeta,
-  preparerMetaSchema,
-  preparerRole,
-} from "@uncaged/workflow-role-preparer";
-export {
-  type SubmitterMeta,
-  submitterMetaSchema,
-  submitterRole,
-} from "@uncaged/workflow-role-submitter";
 export { buildSolveIssueDescriptor } from "./descriptor.js";
 export {
   type DeveloperMeta,
@@ -28,6 +18,14 @@ export {
   developerRole,
 } from "./developer.js";
 export { solveIssueModerator } from "./moderator.js";
+export {
+  type PreparerMeta,
+  preparerMetaSchema,
+  preparerRole,
+  type SubmitterMeta,
+  submitterMetaSchema,
+  submitterRole,
+} from "./roles/index.js";
 export {
   SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
   type SolveIssueMeta,

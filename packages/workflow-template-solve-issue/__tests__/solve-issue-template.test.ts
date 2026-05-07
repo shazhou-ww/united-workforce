@@ -11,13 +11,10 @@ import {
   START,
   validateWorkflowDescriptor,
 } from "@uncaged/workflow";
-
-import type { PreparerMeta } from "@uncaged/workflow-role-preparer";
-import type { SubmitterMeta } from "@uncaged/workflow-role-submitter";
-
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
 import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
+import type { PreparerMeta, SubmitterMeta } from "../src/roles/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
 function jsonResponse(payload: Record<string, unknown>): Response {
