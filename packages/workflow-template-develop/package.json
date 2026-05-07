@@ -1,0 +1,19 @@
+{
+  "name": "@uncaged/workflow-template-develop",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-role-coder": "workspace:*",
+    "@uncaged/workflow-role-committer": "workspace:*",
+    "@uncaged/workflow-role-planner": "workspace:*",
+    "@uncaged/workflow-role-reviewer": "workspace:*",
+    "@uncaged/workflow-role-tester": "workspace:*"
+  }
+}
