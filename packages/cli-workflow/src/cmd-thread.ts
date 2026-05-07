@@ -1,7 +1,7 @@
 import { unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, garbageCollectCas, ok, type Result } from "@uncaged/workflow";
 
 import { readTextFileIfExists } from "./fs-utils.js";
 import { resolveThreadDataPath } from "./thread-scan.js";
@@ -37,6 +37,8 @@ export async function cmdThreadRemove(
   await unlink(dataPath);
   await unlink(infoPath).catch(() => {});
   await unlink(runningPath).catch(() => {});
+
+  await garbageCollectCas(storageRoot);
 
   return ok(undefined);
 }
