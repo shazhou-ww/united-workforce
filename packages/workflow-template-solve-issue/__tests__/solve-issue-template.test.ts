@@ -189,6 +189,28 @@ describe("solveIssueModerator", () => {
     ).toBe("reviewer");
   });
 
+  test("one-shot coder reports only last phase name → reviewer (moderator treats as all phases done)", () => {
+    const phases: PlannerMeta["phases"] = [
+      { name: "setup-branch", description: "branch", acceptance: "branch exists" },
+      { name: "write-tests", description: "tests", acceptance: "tests pass" },
+      { name: "verify", description: "verify", acceptance: "ok" },
+      { name: "commit-and-pr", description: "pr", acceptance: "pr open" },
+    ];
+    expect(
+      solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("commit-and-pr")])),
+    ).toBe("reviewer");
+  });
+
+  test("completedPhase sentinel when not a planned name → reviewer", () => {
+    const phases: PlannerMeta["phases"] = [
+      { name: "p1", description: "first", acceptance: "a1" },
+      { name: "p2", description: "second", acceptance: "a2" },
+    ];
+    expect(solveIssueModerator(makeCtx(20, [plannerStep(phases), coderStep("all-done")]))).toBe(
+      "reviewer",
+    );
+  });
+
   test("incomplete phases → END when max rounds exhausted", () => {
     const phases: PlannerMeta["phases"] = [
       { name: "p1", description: "first", acceptance: "a1" },
