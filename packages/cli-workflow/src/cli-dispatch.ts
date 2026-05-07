@@ -4,6 +4,7 @@ import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdGc } from "./cmd-gc.js";
 import { cmdHistory } from "./cmd-history.js";
+import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
 import { cmdKill } from "./cmd-kill.js";
 import { cmdList, formatListLines } from "./cmd-list.js";
 import { cmdPause } from "./cmd-pause.js";
@@ -17,7 +18,7 @@ import { cmdThreadRemove, cmdThreadShow } from "./cmd-thread.js";
 import { cmdThreads } from "./cmd-threads.js";
 import { parseRunArgv } from "./run-argv.js";
 
-function usage(): string {
+export function formatCliUsage(): string {
   return [
     "Usage:",
     "  uncaged-workflow add <name> <file.esm.js> [--types <path>]",
@@ -40,13 +41,47 @@ function usage(): string {
     "  uncaged-workflow cas put <thread-id> <content>",
     "  uncaged-workflow cas list <thread-id>",
     "  uncaged-workflow cas rm <thread-id> <hash>",
+    "  uncaged-workflow init workspace <name>",
+    "  uncaged-workflow init template <name>",
   ].join("\n");
+}
+
+async function dispatchInit(_storageRoot: string, argv: string[]): Promise<number> {
+  const sub = argv[0];
+  const name = argv[1];
+  if (sub === undefined || name === undefined || argv.length > 2) {
+    printCliError(`${formatCliUsage()}\n\nerror: init requires workspace|template <name>`);
+    return 1;
+  }
+
+  if (sub === "workspace") {
+    const result = await cmdInitWorkspace(process.cwd(), name);
+    if (!result.ok) {
+      printCliError(result.error);
+      return 1;
+    }
+    printCliLine(`initialized workflow workspace at ${result.value.rootPath}`);
+    return 0;
+  }
+
+  if (sub === "template") {
+    const result = await cmdInitTemplate(process.cwd(), name);
+    if (!result.ok) {
+      printCliError(result.error);
+      return 1;
+    }
+    printCliLine(`initialized template at ${result.value.templatePath}`);
+    return 0;
+  }
+
+  printCliError(`${formatCliUsage()}\n\nerror: unknown init subcommand: ${sub}`);
+  return 1;
 }
 
 async function dispatchAdd(storageRoot: string, argv: string[]): Promise<number> {
   const parsed = parseAddArgv(argv);
   if (!parsed.ok) {
-    printCliError(`${usage()}\n\nerror: ${parsed.error}`);
+    printCliError(`${formatCliUsage()}\n\nerror: ${parsed.error}`);
     return 1;
   }
   const result = await cmdAdd(storageRoot, parsed.value);
@@ -63,7 +98,7 @@ async function dispatchAdd(storageRoot: string, argv: string[]): Promise<number>
 
 async function dispatchList(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length > 0) {
-    printCliError(`${usage()}\n\nerror: list takes no arguments`);
+    printCliError(`${formatCliUsage()}\n\nerror: list takes no arguments`);
     return 1;
   }
   const result = await cmdList(storageRoot);
@@ -80,7 +115,7 @@ async function dispatchList(storageRoot: string, argv: string[]): Promise<number
 async function dispatchShow(storageRoot: string, argv: string[]): Promise<number> {
   const name = argv[0];
   if (name === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: show requires <name>`);
+    printCliError(`${formatCliUsage()}\n\nerror: show requires <name>`);
     return 1;
   }
   const result = await cmdShow(storageRoot, name);
@@ -95,7 +130,7 @@ async function dispatchShow(storageRoot: string, argv: string[]): Promise<number
 async function dispatchRemove(storageRoot: string, argv: string[]): Promise<number> {
   const name = argv[0];
   if (name === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: remove requires <name>`);
+    printCliError(`${formatCliUsage()}\n\nerror: remove requires <name>`);
     return 1;
   }
   const result = await cmdRemove(storageRoot, name);
@@ -110,7 +145,7 @@ async function dispatchRemove(storageRoot: string, argv: string[]): Promise<numb
 async function dispatchRun(storageRoot: string, argv: string[]): Promise<number> {
   const parsed = parseRunArgv(argv);
   if (!parsed.ok) {
-    printCliError(`${usage()}\n\nerror: ${parsed.error}`);
+    printCliError(`${formatCliUsage()}\n\nerror: ${parsed.error}`);
     return 1;
   }
 
@@ -131,7 +166,7 @@ async function dispatchRun(storageRoot: string, argv: string[]): Promise<number>
 
 async function dispatchPs(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length > 0) {
-    printCliError(`${usage()}\n\nerror: ps takes no arguments`);
+    printCliError(`${formatCliUsage()}\n\nerror: ps takes no arguments`);
     return 1;
   }
   for (const line of await cmdPs(storageRoot)) {
@@ -143,7 +178,7 @@ async function dispatchPs(storageRoot: string, argv: string[]): Promise<number> 
 async function dispatchKill(storageRoot: string, argv: string[]): Promise<number> {
   const threadId = argv[0];
   if (threadId === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: kill requires <thread-id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: kill requires <thread-id>`);
     return 1;
   }
   const result = await cmdKill(storageRoot, threadId);
@@ -158,7 +193,7 @@ async function dispatchKill(storageRoot: string, argv: string[]): Promise<number
 async function dispatchHistory(storageRoot: string, argv: string[]): Promise<number> {
   const name = argv[0];
   if (name === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: history requires <name>`);
+    printCliError(`${formatCliUsage()}\n\nerror: history requires <name>`);
     return 1;
   }
   const result = await cmdHistory(storageRoot, name);
@@ -175,7 +210,7 @@ async function dispatchHistory(storageRoot: string, argv: string[]): Promise<num
 async function dispatchRollback(storageRoot: string, argv: string[]): Promise<number> {
   const name = argv[0];
   if (name === undefined || argv.length > 2) {
-    printCliError(`${usage()}\n\nerror: rollback requires <name> [hash]`);
+    printCliError(`${formatCliUsage()}\n\nerror: rollback requires <name> [hash]`);
     return 1;
   }
   const hashArg = argv[1];
@@ -191,7 +226,7 @@ async function dispatchRollback(storageRoot: string, argv: string[]): Promise<nu
 async function dispatchPause(storageRoot: string, argv: string[]): Promise<number> {
   const threadId = argv[0];
   if (threadId === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: pause requires <thread-id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: pause requires <thread-id>`);
     return 1;
   }
   const result = await cmdPause(storageRoot, threadId);
@@ -206,7 +241,7 @@ async function dispatchPause(storageRoot: string, argv: string[]): Promise<numbe
 async function dispatchResume(storageRoot: string, argv: string[]): Promise<number> {
   const threadId = argv[0];
   if (threadId === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: resume requires <thread-id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: resume requires <thread-id>`);
     return 1;
   }
   const result = await cmdResume(storageRoot, threadId);
@@ -233,7 +268,7 @@ async function dispatchThreads(storageRoot: string, argv: string[]): Promise<num
 async function dispatchThread(storageRoot: string, argv: string[]): Promise<number> {
   const id = argv[0];
   if (id === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: thread requires <id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: thread requires <id>`);
     return 1;
   }
   const result = await cmdThreadShow(storageRoot, id);
@@ -248,7 +283,7 @@ async function dispatchThread(storageRoot: string, argv: string[]): Promise<numb
 async function dispatchThreadRm(storageRoot: string, argv: string[]): Promise<number> {
   const id = argv[0];
   if (id === undefined || argv.length > 1) {
-    printCliError(`${usage()}\n\nerror: thread rm requires <id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: thread rm requires <id>`);
     return 1;
   }
   const result = await cmdThreadRemove(storageRoot, id);
@@ -270,7 +305,7 @@ async function dispatchThreadBranch(storageRoot: string, rest: string[]): Promis
 
 async function dispatchGc(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length > 0) {
-    printCliError(`${usage()}\n\nerror: gc takes no arguments`);
+    printCliError(`${formatCliUsage()}\n\nerror: gc takes no arguments`);
     return 1;
   }
   const result = await cmdGc(storageRoot);
@@ -288,7 +323,7 @@ async function dispatchGc(storageRoot: string, argv: string[]): Promise<number> 
 async function dispatchFork(storageRoot: string, argv: string[]): Promise<number> {
   const parsed = parseForkArgv(argv);
   if (!parsed.ok) {
-    printCliError(`${usage()}\n\nerror: ${parsed.error}`);
+    printCliError(`${formatCliUsage()}\n\nerror: ${parsed.error}`);
     return 1;
   }
   const result = await cmdFork(storageRoot, parsed.value.threadId, parsed.value.fromRole);
@@ -304,7 +339,7 @@ async function dispatchCasGet(storageRoot: string, rest: string[]): Promise<numb
   const threadId = rest[0];
   const hash = rest[1];
   if (threadId === undefined || hash === undefined || rest.length > 2) {
-    printCliError(`${usage()}\n\nerror: cas get requires <thread-id> <hash>`);
+    printCliError(`${formatCliUsage()}\n\nerror: cas get requires <thread-id> <hash>`);
     return 1;
   }
   const result = await cmdCasGet(storageRoot, threadId, hash);
@@ -320,7 +355,7 @@ async function dispatchCasPut(storageRoot: string, rest: string[]): Promise<numb
   const threadId = rest[0];
   const content = rest[1];
   if (threadId === undefined || content === undefined || rest.length > 2) {
-    printCliError(`${usage()}\n\nerror: cas put requires <thread-id> <content>`);
+    printCliError(`${formatCliUsage()}\n\nerror: cas put requires <thread-id> <content>`);
     return 1;
   }
   const result = await cmdCasPut(storageRoot, threadId, content);
@@ -335,7 +370,7 @@ async function dispatchCasPut(storageRoot: string, rest: string[]): Promise<numb
 async function dispatchCasList(storageRoot: string, rest: string[]): Promise<number> {
   const threadId = rest[0];
   if (threadId === undefined || rest.length > 1) {
-    printCliError(`${usage()}\n\nerror: cas list requires <thread-id>`);
+    printCliError(`${formatCliUsage()}\n\nerror: cas list requires <thread-id>`);
     return 1;
   }
   const result = await cmdCasList(storageRoot, threadId);
@@ -353,7 +388,7 @@ async function dispatchCasRm(storageRoot: string, rest: string[]): Promise<numbe
   const threadId = rest[0];
   const hash = rest[1];
   if (threadId === undefined || hash === undefined || rest.length > 2) {
-    printCliError(`${usage()}\n\nerror: cas rm requires <thread-id> <hash>`);
+    printCliError(`${formatCliUsage()}\n\nerror: cas rm requires <thread-id> <hash>`);
     return 1;
   }
   const result = await cmdCasRm(storageRoot, threadId, hash);
@@ -378,12 +413,12 @@ const CAS_SUBCOMMAND_TABLE: Record<
 async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
   const sub = argv[0];
   if (sub === undefined) {
-    printCliError(`${usage()}\n\nerror: unknown cas subcommand: (none)`);
+    printCliError(`${formatCliUsage()}\n\nerror: unknown cas subcommand: (none)`);
     return 1;
   }
   const handler = CAS_SUBCOMMAND_TABLE[sub];
   if (handler === undefined) {
-    printCliError(`${usage()}\n\nerror: unknown cas subcommand: ${sub}`);
+    printCliError(`${formatCliUsage()}\n\nerror: unknown cas subcommand: ${sub}`);
     return 1;
   }
   return handler(storageRoot, argv.slice(1));
@@ -393,6 +428,7 @@ type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
 
 const COMMAND_TABLE: Record<string, DispatchFn> = {
   add: dispatchAdd,
+  init: dispatchInit,
   list: dispatchList,
   show: dispatchShow,
   remove: dispatchRemove,
@@ -412,18 +448,18 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
   if (argv.length === 0) {
-    printCliError(usage());
+    printCliError(formatCliUsage());
     return 1;
   }
   const command = argv[0];
   if (command === undefined) {
-    printCliError(usage());
+    printCliError(formatCliUsage());
     return 1;
   }
   const rest = argv.slice(1);
   const dispatch = COMMAND_TABLE[command];
   if (dispatch === undefined) {
-    printCliError(`${usage()}\n\nerror: unknown command ${command}`);
+    printCliError(`${formatCliUsage()}\n\nerror: unknown command ${command}`);
     return 1;
   }
   return dispatch(storageRoot, rest);
