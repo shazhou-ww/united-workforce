@@ -323,7 +323,7 @@ describe("cli thread commands", () => {
       .trim()
       .split("\n")
       .filter((l) => l !== "");
-    expect(lines.length).toBe(2);
+    expect(lines.length).toBe(3);
 
     const runningPath = join(dirname(dataPath), `${threadId}.running`);
     expect(await pathExists(runningPath)).toBe(false);
@@ -362,8 +362,8 @@ describe("cli thread commands", () => {
     const resumed = await cmdResume(storageRoot, threadId);
     expect(resumed.ok).toBe(true);
 
-    await waitUntilMinDataLines(dataPath, 3, 120);
-    expect(await countDataJsonlLines(dataPath)).toBe(3);
+    await waitUntilMinDataLines(dataPath, 4, 120);
+    expect(await countDataJsonlLines(dataPath)).toBe(4);
 
     const runningPath = join(dirname(dataPath), `${threadId}.running`);
     await waitUntilRunningFileAbsent(runningPath, 100);

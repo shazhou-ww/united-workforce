@@ -125,7 +125,7 @@ describe("worker process", () => {
           .trim()
           .split("\n")
           .filter((l) => l !== "").length,
-      ).toBe(3);
+      ).toBe(4);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -187,7 +187,7 @@ describe("worker process", () => {
         .trim()
         .split("\n")
         .filter((l) => l !== "");
-      expect(lines.length).toBe(3);
+      expect(lines.length).toBe(4);
       const start = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
       expect(start.forkFrom).toEqual({ threadId: srcId });
       const replay = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
@@ -195,6 +195,8 @@ describe("worker process", () => {
       expect(replay.timestamp).toBe(555);
       const coder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(coder.role).toBe("coder");
+      const done = JSON.parse(lines[3] ?? "{}") as Record<string, unknown>;
+      expect(done.returnCode).toBe(0);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

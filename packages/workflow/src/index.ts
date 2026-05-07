@@ -25,6 +25,8 @@ export {
   type ParsedThreadStartRecord,
   parseThreadDataJsonl,
   selectForkHistoricalSteps,
+  tryParseRoleStepRecord,
+  tryParseWorkflowResultRecord,
 } from "./fork-thread.js";
 export { type GcResult, garbageCollectCas } from "./gc.js";
 export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";

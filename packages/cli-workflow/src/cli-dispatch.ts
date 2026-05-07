@@ -7,6 +7,7 @@ import { cmdHistory } from "./cmd-history.js";
 import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
 import { cmdKill } from "./cmd-kill.js";
 import { cmdList, formatListLines } from "./cmd-list.js";
+import { cmdLive } from "./cmd-live.js";
 import { cmdPause } from "./cmd-pause.js";
 import { cmdPs } from "./cmd-ps.js";
 import { cmdRemove } from "./cmd-remove.js";
@@ -28,6 +29,7 @@ export function formatCliUsage(): string {
     "  uncaged-workflow run <name> [--prompt <text>] [--max-rounds N]",
     "  uncaged-workflow ps",
     "  uncaged-workflow kill <thread-id>",
+    "  uncaged-workflow live <thread-id>",
     "  uncaged-workflow history <name>",
     "  uncaged-workflow rollback <name> [hash]",
     "  uncaged-workflow pause <thread-id>",
@@ -188,6 +190,15 @@ async function dispatchKill(storageRoot: string, argv: string[]): Promise<number
   }
   printCliLine(`kill sent for thread ${threadId}`);
   return 0;
+}
+
+async function dispatchLive(storageRoot: string, argv: string[]): Promise<number> {
+  const threadId = argv[0];
+  if (threadId === undefined || argv.length > 1) {
+    printCliError(`${usage()}\n\nerror: live requires <thread-id>`);
+    return 1;
+  }
+  return cmdLive(storageRoot, threadId);
 }
 
 async function dispatchHistory(storageRoot: string, argv: string[]): Promise<number> {
@@ -435,6 +446,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   run: dispatchRun,
   ps: dispatchPs,
   kill: dispatchKill,
+  live: dispatchLive,
   history: dispatchHistory,
   rollback: dispatchRollback,
   pause: dispatchPause,

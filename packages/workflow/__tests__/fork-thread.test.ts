@@ -87,6 +87,26 @@ describe("fork-thread", () => {
     expect(r.value.runOptions).toEqual({ maxRounds: 5, depth: 0 });
   });
 
+  test("parseThreadDataJsonl ignores trailing WorkflowResult line", () => {
+    const text = `${sampleDataJsonl.trim()}\n{"returnCode":0,"summary":"done"}\n`;
+    const r = parseThreadDataJsonl(text);
+    expect(r.ok).toBe(true);
+    if (!r.ok) {
+      return;
+    }
+    expect(r.value.roleSteps.length).toBe(3);
+    expect(r.value.roleSteps[2]?.role).toBe("reviewer");
+  });
+
+  test("parseThreadDataJsonl errors when WorkflowResult is not last", () => {
+    const text = `{"name":"demo","hash":"H","threadId":"01ZZZZZZZZZZZZZZZZZZZZZZ","parameters":{"prompt":"p","options":{"maxRounds":3}},"timestamp":1}
+{"returnCode":0,"summary":"early"}
+{"role":"planner","content":"x","meta":{},"timestamp":2}
+`;
+    const r = parseThreadDataJsonl(text);
+    expect(r.ok).toBe(false);
+  });
+
   test("parseThreadDataJsonl reads explicit depth from start record", () => {
     const text = `{"name":"demo","hash":"H","threadId":"01ZZZZZZZZZZZZZZZZZZZZZZ","parameters":{"prompt":"p","options":{"maxRounds":3,"depth":2}},"timestamp":1}
 {"role":"planner","contentHash":"HP0000000000000000000099","meta":{},"refs":[],"timestamp":2}

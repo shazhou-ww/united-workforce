@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 import { importWorkflowBundleModule } from "./bundle-import-env.js";
@@ -11,7 +11,7 @@ import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
 import { getGlobalCasDir } from "./storage-root.js";
 import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
-import type { RoleOutput, WorkflowFn } from "./types.js";
+import type { RoleOutput, WorkflowFn, WorkflowResult } from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
 
@@ -404,7 +404,7 @@ async function main(): Promise<void> {
         });
       }
 
-      await executeThread(
+      const runResult = await executeThread(
         workflowFn,
         cmd.workflowName,
         { prompt: cmd.prompt, steps: cmd.steps },
@@ -418,9 +418,12 @@ async function main(): Promise<void> {
         io,
         logger,
       );
+      await appendFile(dataJsonlPath, `${JSON.stringify(runResult)}\n`, "utf8");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);
+      const failure: WorkflowResult = { returnCode: 1, summary: message };
+      await appendFile(dataJsonlPath, `${JSON.stringify(failure)}\n`, "utf8").catch(() => {});
     } finally {
       threads.delete(threadId);
       await unlink(runningPath).catch(() => {});
