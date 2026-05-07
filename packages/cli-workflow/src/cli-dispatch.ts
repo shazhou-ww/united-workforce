@@ -54,6 +54,10 @@ export function formatCliUsage(): string {
     "",
     "  uncaged-workflow run <name> [...]          (shortcut for thread run)",
     "  uncaged-workflow live <thread-id> [...]    (shortcut for thread live)",
+    "",
+    "Environment variables:",
+    "  WORKFLOW_STORAGE_ROOT              Override storage directory (default: ~/.uncaged/workflow)",
+    "  UNCAGED_WORKFLOW_STORAGE_ROOT      Internal override (takes priority over WORKFLOW_STORAGE_ROOT)",
   ].join("\n");
 }
 
