@@ -1,19 +1,16 @@
 import type { RoleDefinition } from "@uncaged/workflow";
-import { type CoderMeta, coderRole } from "@uncaged/workflow-role-coder";
-import { type CommitterMeta, committerRole } from "@uncaged/workflow-role-committer";
-import { type PlannerMeta, plannerRole } from "@uncaged/workflow-role-planner";
 import { type PreparerMeta, preparerRole } from "@uncaged/workflow-role-preparer";
-import { type ReviewerMeta, reviewerRole } from "@uncaged/workflow-role-reviewer";
+import { type SubmitterMeta, submitterRole } from "@uncaged/workflow-role-submitter";
+
+import { type DeveloperMeta, developerRole } from "./developer.js";
 
 export const SOLVE_ISSUE_WORKFLOW_DESCRIPTION =
-  "Prepare repo context, plan phases, implement incrementally, review, and commit to resolve an issue end-to-end (preparer → planner → coder [repeat per phase] → reviewer → committer).";
+  "Resolve an issue end-to-end by preparing the repo, delegating implementation to the develop workflow, and opening a pull request (preparer → developer → submitter).";
 
 export type SolveIssueMeta = {
   preparer: PreparerMeta;
-  planner: PlannerMeta;
-  coder: CoderMeta;
-  reviewer: ReviewerMeta;
-  committer: CommitterMeta;
+  developer: DeveloperMeta;
+  submitter: SubmitterMeta;
 };
 
 export type SolveIssueRoles = {
@@ -22,8 +19,6 @@ export type SolveIssueRoles = {
 
 export const solveIssueRoles: SolveIssueRoles = {
   preparer: preparerRole,
-  planner: plannerRole,
-  coder: coderRole,
-  reviewer: reviewerRole,
-  committer: committerRole,
+  developer: developerRole,
+  submitter: submitterRole,
 };

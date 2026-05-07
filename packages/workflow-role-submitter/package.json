@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-template-solve-issue",
+  "name": "@uncaged/workflow-role-submitter",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@uncaged/workflow": "workspace:*",
-    "@uncaged/workflow-role-preparer": "workspace:*",
-    "@uncaged/workflow-role-submitter": "workspace:*",
     "zod": "^4.0.0"
   }
 }
