@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  parseWorkflowRegistryYaml,
   readWorkflowRegistry,
   registerWorkflowVersion,
   rollbackWorkflowToHistoryHash,
@@ -21,6 +22,7 @@ describe("workflow registry", () => {
     if (!empty.ok) {
       return;
     }
+    expect(empty.value.config).toBeNull();
 
     const r1 = registerWorkflowVersion(empty.value, "solve-issue", "AAAAAAAAAAAAA", 100);
     const w1 = await writeWorkflowRegistry(dir, r1);
@@ -68,7 +70,7 @@ describe("workflow registry", () => {
   });
 
   test("rollbackWorkflowToHistoryHash swaps head with a prior version", () => {
-    let reg = registerWorkflowVersion({ workflows: {} }, "solve-issue", "H1", 100);
+    let reg = registerWorkflowVersion({ config: null, workflows: {} }, "solve-issue", "H1", 100);
     reg = registerWorkflowVersion(reg, "solve-issue", "H2", 200);
     reg = registerWorkflowVersion(reg, "solve-issue", "H3", 300);
     const entry = reg.workflows["solve-issue"];
@@ -97,6 +99,85 @@ describe("workflow registry", () => {
 
     const bad = rollbackWorkflowToHistoryHash(toH1.value, "NONE");
     expect(bad.ok).toBe(false);
+  });
+
+  test("parses config section and literal apiKey", () => {
+    const yaml = `
+config:
+  maxDepth: 3
+  extract:
+    baseUrl: https://example.com/v1
+    model: qwen-plus
+    apiKey: secret-key
+workflows:
+  solve-issue:
+    hash: SPVR4BDMSGC1W
+    timestamp: 1
+    history: []
+`;
+    const r = parseWorkflowRegistryYaml(yaml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) {
+      return;
+    }
+    expect(r.value.config).not.toBeNull();
+    if (r.value.config === null) {
+      return;
+    }
+    expect(r.value.config.maxDepth).toBe(3);
+    expect(r.value.config.extract.baseUrl).toBe("https://example.com/v1");
+    expect(r.value.config.extract.model).toBe("qwen-plus");
+    expect(r.value.config.extract.apiKey).toBe("secret-key");
+  });
+
+  test("parses config apiKey env: prefix from process.env", () => {
+    const prev = process.env.WF_REGISTRY_TEST_API_KEY;
+    process.env.WF_REGISTRY_TEST_API_KEY = "from-env";
+    try {
+      const yaml = `
+config:
+  maxDepth: 1
+  extract:
+    baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus
+    apiKey: env:WF_REGISTRY_TEST_API_KEY
+workflows: {}
+`;
+      const r = parseWorkflowRegistryYaml(yaml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) {
+        return;
+      }
+      expect(r.value.config?.extract.apiKey).toBe("from-env");
+    } finally {
+      if (prev === undefined) {
+        delete process.env.WF_REGISTRY_TEST_API_KEY;
+      } else {
+        process.env.WF_REGISTRY_TEST_API_KEY = prev;
+      }
+    }
+  });
+
+  test("parse errors when env: apiKey variable is unset", () => {
+    const prev = process.env.WF_REGISTRY_TEST_API_KEY_UNSET;
+    delete process.env.WF_REGISTRY_TEST_API_KEY_UNSET;
+    try {
+      const yaml = `
+config:
+  maxDepth: 1
+  extract:
+    baseUrl: https://example.com
+    model: m
+    apiKey: env:WF_REGISTRY_TEST_API_KEY_UNSET
+workflows: {}
+`;
+      const r = parseWorkflowRegistryYaml(yaml);
+      expect(r.ok).toBe(false);
+    } finally {
+      if (prev !== undefined) {
+        process.env.WF_REGISTRY_TEST_API_KEY_UNSET = prev;
+      }
+    }
   });
 
   test("parse errors on invalid shape", async () => {

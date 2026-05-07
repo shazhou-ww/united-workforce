@@ -17,6 +17,7 @@ export {
 } from "./engine.js";
 export { type ExtractedBundleExports, extractBundleExports } from "./extract-bundle-exports.js";
 export { createExtract, type ExtractFn } from "./extract-fn.js";
+export { getExtractProvider } from "./extract-provider.js";
 export {
   buildForkPlan,
   type ForkHistoricalStep,
@@ -54,6 +55,7 @@ export {
   type ThreadMerklePayload,
 } from "./merkle.js";
 export {
+  type ExtractProviderConfig,
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
   parseWorkflowRegistryYaml,
@@ -62,6 +64,7 @@ export {
   rollbackWorkflowToHistoryHash,
   stringifyWorkflowRegistryYaml,
   unregisterWorkflow,
+  type WorkflowConfig,
   type WorkflowHistoryEntry,
   type WorkflowRegistryEntry,
   type WorkflowRegistryFile,

@@ -44,6 +44,7 @@ export async function cmdRollback(
   }
 
   const nextRegistry = {
+    config: reg.value.config,
     workflows: { ...reg.value.workflows, [name]: rolled.value },
   };
   const written = await writeWorkflowRegistry(storageRoot, nextRegistry);
