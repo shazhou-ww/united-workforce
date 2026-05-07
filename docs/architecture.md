@@ -17,11 +17,8 @@ A workflow engine that executes single-file ESM bundles. Each workflow is a self
 | `workflow-agent-cursor` | `@uncaged/workflow-agent-cursor` | Cursor CLI agent (extracts workspace from ctx) |
 | `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | Hermes CLI agent |
 | `workflow-agent-llm` | `@uncaged/workflow-agent-llm` | OpenAI-compatible LLM agent |
-| `workflow-role-planner` | `@uncaged/workflow-role-planner` | Pure data: phased planning prompt + schema |
-| `workflow-role-coder` | `@uncaged/workflow-role-coder` | Pure data: coding prompt + schema |
-| `workflow-role-reviewer` | `@uncaged/workflow-role-reviewer` | Pure data: code review prompt + schema |
-| `workflow-role-committer` | `@uncaged/workflow-role-committer` | Pure data: git commit prompt + schema |
-| `workflow-template-solve-issue` | `@uncaged/workflow-template-solve-issue` | Composes roles + moderator into a complete workflow |
+| `workflow-template-develop` | `@uncaged/workflow-template-develop` | Develop workflow template (roles in `src/roles/`) |
+| `workflow-template-solve-issue` | `@uncaged/workflow-template-solve-issue` | Solve-issue workflow template (roles in `src/roles/`) |
 | `workflow-util-agent` | `@uncaged/workflow-util-agent` | `buildAgentPrompt` + `spawnCli` utilities |
 
 Monorepo with **bun workspace**, `workspace:*` protocol.
