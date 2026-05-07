@@ -57,6 +57,54 @@ describe("init workspace", () => {
     expect(tsconfig.compilerOptions.target).toBe("ESNext");
   });
 
+  test("AGENTS.md contains coding agent guide sections and terms", async () => {
+    const created = await cmdInitWorkspace(parent, "my-workflows");
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+
+    const agentsPath = join(created.value.rootPath, "AGENTS.md");
+    const body = await readFile(agentsPath, "utf8");
+
+    for (const section of [
+      "项目结构",
+      "核心概念",
+      "开发流程",
+      "编码规范",
+      "Template",
+      "Build",
+      "常见陷阱",
+    ]) {
+      expect(body).toContain(section);
+    }
+
+    for (const term of [
+      "RoleDefinition",
+      "WorkflowDefinition",
+      "Moderator",
+      "AgentFn",
+      "ExtractFn",
+      "RoleMeta",
+    ]) {
+      expect(body).toContain(term);
+    }
+
+    expect(body).toMatch(/type[\s\S]*interface/i);
+    expect(body).toMatch(/function[\s\S]*class/i);
+    expect(body).toContain("Crockford Base32");
+    expect(body).toMatch(/no[\s\S]*default export/i);
+    expect(body).toMatch(/no[\s\S]*console/i);
+    expect(body).toMatch(/no[\s\S]*dynamic import/i);
+
+    expect(body).toContain("bun run check");
+    expect(body).toContain("bun test");
+    expect(body).toContain("uncaged-workflow");
+    expect(body).toContain("bun build");
+    expect(body).toContain("CLAUDE.md");
+    expect(body).toContain("docs/architecture.md");
+  });
+
   test("errors when directory already exists", async () => {
     const first = await cmdInitWorkspace(parent, "dup");
     expect(first.ok).toBe(true);
