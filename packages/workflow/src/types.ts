@@ -39,6 +39,8 @@ export type ThreadInput = {
 export type WorkflowFnOptions = {
   threadId: string;
   maxRounds: number;
+  /** Nesting depth for workflow-as-agent chains; root threads use `0`. */
+  depth: number;
 };
 
 /** Bundle contract — named export `run` is a function returning an AsyncGenerator. */
@@ -69,6 +71,8 @@ export type RoleStep<M extends RoleMeta> = {
 /** Phase 1: Moderator decides next role. */
 export type ModeratorContext<M extends RoleMeta = RoleMeta> = {
   threadId: string;
+  /** Same as `WorkflowFnOptions.depth` for the active thread. */
+  depth: number;
   start: StartStep;
   steps: RoleStep<M>[];
 };

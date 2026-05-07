@@ -74,6 +74,7 @@ export function createWorkflow<M extends RoleMeta>(
 
       const modCtx: ModeratorContext<M> = {
         threadId: options.threadId,
+        depth: options.depth,
         start,
         steps,
       };

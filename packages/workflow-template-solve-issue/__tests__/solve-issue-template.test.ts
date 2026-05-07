@@ -104,6 +104,7 @@ function makeCtx(
 ): ModeratorContext<SolveIssueMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
+    depth: 0,
     start: makeStart(maxRounds),
     steps,
   };
@@ -303,7 +304,7 @@ describe("createSolveIssueRun", () => {
     const run = createSolveIssueRun({ agent: async () => "" }, stubExtract);
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0 },
     );
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -361,7 +362,7 @@ describe("createSolveIssueRun", () => {
     );
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20 },
+      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0 },
     );
     await gen.next();
     expect(calls).toEqual(["preparer"]);

@@ -46,7 +46,7 @@ export async function cmdRun(
       threadId,
       workflowName: name,
       prompt,
-      options: { maxRounds },
+      options: { maxRounds, depth: 0 },
     },
     { awaitResponseLine: false },
   );

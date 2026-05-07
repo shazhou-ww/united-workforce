@@ -11,6 +11,7 @@ function makeCtx(userContent: string): ThreadContext {
       meta: { maxRounds: 10 },
       timestamp: 1,
     },
+    depth: 0,
     steps: [],
     threadId: "01TEST000000000000000000TR",
     currentRole: { name: "planner", systemPrompt: "system instructions" },

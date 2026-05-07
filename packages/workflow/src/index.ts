@@ -82,6 +82,7 @@ export {
 } from "./types.js";
 export { generateUlid } from "./ulid.js";
 export { getWorkerHostScriptPath } from "./worker-entry-path.js";
+export { type WorkflowAsAgentOptions, workflowAsAgent } from "./workflow-as-agent.js";
 export {
   validateWorkflowDescriptor,
   type WorkflowDescriptor,
