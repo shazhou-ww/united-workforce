@@ -10,7 +10,7 @@ import {
   getGlobalCasDir,
   putContentMerkleNode,
 } from "@uncaged/workflow";
-import { cmdThreadRemove } from "../src/cmd-thread.js";
+import { cmdThreadRemove } from "../src/commands/thread/rm.js";
 import { pathExists } from "../src/fs-utils.js";
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));

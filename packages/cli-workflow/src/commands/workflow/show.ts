@@ -8,7 +8,7 @@ import {
 } from "@uncaged/workflow";
 import { stringify } from "yaml";
 
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdShow(
   storageRoot: string,

@@ -14,8 +14,8 @@ import {
   writeWorkflowRegistry,
 } from "@uncaged/workflow";
 
-import { storeWorkflowBundleArtifacts } from "./bundle-store.js";
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { storeWorkflowBundleArtifacts } from "../../bundle-store.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export type ParsedAddArgv = {
   name: string;

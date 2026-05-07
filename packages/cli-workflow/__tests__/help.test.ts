@@ -5,7 +5,7 @@ import {
   formatSkillIndex,
   formatSkillTopic,
   getSkillTopics,
-} from "../src/cmd-help.js";
+} from "../src/skill.js";
 
 const STORAGE_ROOT = "/tmp/help-test-storage";
 

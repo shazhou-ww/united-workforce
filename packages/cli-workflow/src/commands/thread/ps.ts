@@ -1,4 +1,4 @@
-import { listRunningThreads } from "./thread-scan.js";
+import { listRunningThreads } from "../../thread-scan.js";
 
 export async function cmdPs(storageRoot: string): Promise<string[]> {
   const rows = await listRunningThreads(storageRoot);

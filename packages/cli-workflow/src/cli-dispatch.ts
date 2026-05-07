@@ -1,30 +1,30 @@
 import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
-import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
-import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
-import { cmdFork, parseForkArgv } from "./cmd-fork.js";
-import { cmdGc } from "./cmd-gc.js";
-import {
-  formatSkillDoc,
-  formatSkillIndex,
-  formatSkillTopic,
-  getSkillTopics,
-} from "./cmd-help.js";
-import { cmdHistory } from "./cmd-history.js";
-import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
-import { cmdKill } from "./cmd-kill.js";
-import { cmdList, formatListLines } from "./cmd-list.js";
-import { cmdLive } from "./cmd-live.js";
-import { cmdPause } from "./cmd-pause.js";
-import { cmdPs } from "./cmd-ps.js";
-import { cmdRemove } from "./cmd-remove.js";
-import { cmdResume } from "./cmd-resume.js";
-import { cmdRollback } from "./cmd-rollback.js";
-import { cmdRun } from "./cmd-run.js";
-import { cmdShow, formatShowYaml } from "./cmd-show.js";
-import { cmdThreadRemove, cmdThreadShow } from "./cmd-thread.js";
-import { cmdThreads } from "./cmd-threads.js";
+import { cmdGc } from "./commands/cas/gc.js";
+import { cmdCasGet } from "./commands/cas/get.js";
+import { cmdCasList } from "./commands/cas/list.js";
+import { cmdCasPut } from "./commands/cas/put.js";
+import { cmdCasRm } from "./commands/cas/rm.js";
+import { cmdInitTemplate } from "./commands/init/template.js";
+import { cmdInitWorkspace } from "./commands/init/workspace.js";
+import { cmdFork, parseForkArgv } from "./commands/thread/fork.js";
+import { cmdKill } from "./commands/thread/kill.js";
+import { cmdThreads } from "./commands/thread/list.js";
+import { cmdLive } from "./commands/thread/live.js";
+import { cmdPause } from "./commands/thread/pause.js";
+import { cmdPs } from "./commands/thread/ps.js";
+import { cmdResume } from "./commands/thread/resume.js";
+import { cmdThreadRemove } from "./commands/thread/rm.js";
+import { cmdRun } from "./commands/thread/run.js";
+import { cmdThreadShow } from "./commands/thread/show.js";
+import { cmdAdd, formatAddSuccess, parseAddArgv } from "./commands/workflow/add.js";
+import { cmdHistory } from "./commands/workflow/history.js";
+import { cmdList, formatListLines } from "./commands/workflow/list.js";
+import { cmdRemove } from "./commands/workflow/rm.js";
+import { cmdRollback } from "./commands/workflow/rollback.js";
+import { cmdShow, formatShowYaml } from "./commands/workflow/show.js";
 import { parseLiveArgv } from "./live-argv.js";
 import { parseRunArgv } from "./run-argv.js";
+import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "./skill.js";
 
 type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
 

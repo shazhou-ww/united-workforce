@@ -2,9 +2,9 @@ import { join } from "node:path";
 
 import { buildForkPlan, err, generateUlid, ok, type Result } from "@uncaged/workflow";
 
-import { pathExists, readTextFileIfExists } from "./fs-utils.js";
-import { resolveThreadDataPath } from "./thread-scan.js";
-import { ensureWorkerForHash, sendWorkerTcpCommand } from "./worker-spawn.js";
+import { pathExists, readTextFileIfExists } from "../../fs-utils.js";
+import { resolveThreadDataPath } from "../../thread-scan.js";
+import { ensureWorkerForHash, sendWorkerTcpCommand } from "../../worker-spawn.js";
 
 export function parseForkArgv(
   argv: string[],

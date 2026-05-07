@@ -6,7 +6,7 @@ import {
   readWorkflowRegistry,
 } from "@uncaged/workflow";
 
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdHistory(
   storageRoot: string,

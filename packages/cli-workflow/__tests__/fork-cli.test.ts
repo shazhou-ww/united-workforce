@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCasStore, getContentMerklePayload, getGlobalCasDir } from "@uncaged/workflow";
-import { cmdAdd } from "../src/cmd-add.js";
-import { cmdFork } from "../src/cmd-fork.js";
-import { cmdRun } from "../src/cmd-run.js";
+import { cmdFork } from "../src/commands/thread/fork.js";
+import { cmdRun } from "../src/commands/thread/run.js";
+import { cmdAdd } from "../src/commands/workflow/add.js";
 import { pathExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
