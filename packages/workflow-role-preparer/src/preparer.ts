@@ -47,4 +47,5 @@ export const preparerRole: RoleDefinition<PreparerMeta> = {
   extractPrompt:
     "Extract repoPath (absolute path), defaultBranch, conventions (summary string or null), and toolchain (packageManager, testCommand, lintCommand, buildCommand — each string or null).",
   schema: preparerMetaSchema,
+  extractRefs: null,
 };

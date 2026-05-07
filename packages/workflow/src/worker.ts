@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import type { PrefilledDiskStep } from "./engine.js";
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { createLogger } from "./logger.js";
+import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
 import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
 import type { RoleOutput, WorkflowFn } from "./types.js";
@@ -55,7 +56,12 @@ function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null 
   if (meta === null || typeof meta !== "object") {
     return null;
   }
-  return { role, content, meta: meta as Record<string, unknown> };
+  return {
+    role,
+    content,
+    meta: meta as Record<string, unknown>,
+    refs: normalizeRefsField(obj.refs),
+  };
 }
 
 function parseRunStepsPayload(rec: Record<string, unknown>): {
@@ -382,6 +388,7 @@ async function main(): Promise<void> {
             role: step.role,
             content: step.content,
             meta: step.meta,
+            refs: normalizeRefsField(step.refs),
             timestamp: typeof ts === "number" && ts > 0 ? ts : baseTs + i,
           };
         });

@@ -124,6 +124,7 @@ function preparerStep(): RoleStep<SolveIssueMeta> {
         buildCommand: "bun run build",
       },
     },
+    refs: [],
     timestamp: 0,
   };
 }
@@ -133,6 +134,7 @@ function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<S
     role: "planner",
     content: "plan",
     meta: { phases },
+    refs: phases.map((p) => p.hash),
     timestamp: 1,
   };
 }
@@ -142,6 +144,7 @@ function coderStep(completedPhase = "4KNMR2PX"): RoleStep<SolveIssueMeta> {
     role: "coder",
     content: "code",
     meta: { completedPhase, filesChanged: ["a.ts"], summary: "fixed" },
+    refs: [completedPhase],
     timestamp: 2,
   };
 }
@@ -153,6 +156,7 @@ function reviewerStep(approved: boolean): RoleStep<SolveIssueMeta> {
     meta: approved
       ? { status: "approved" as const }
       : { status: "rejected" as const, issues: ["needs fix"] },
+    refs: [],
     timestamp: 3,
   };
 }
@@ -162,6 +166,7 @@ function committerStep(): RoleStep<SolveIssueMeta> {
     role: "committer",
     content: "commit",
     meta: { status: "committed", branch: "feat/issue-1", commitSha: "abc1234" },
+    refs: [],
     timestamp: 4,
   };
 }

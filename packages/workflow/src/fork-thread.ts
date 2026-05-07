@@ -1,3 +1,4 @@
+import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
 import type { RoleOutput } from "./types.js";
 
@@ -36,6 +37,7 @@ function parseRoleLine(
     role,
     content,
     meta: meta as Record<string, unknown>,
+    refs: normalizeRefsField(obj.refs),
     timestamp,
   });
 }

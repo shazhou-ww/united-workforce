@@ -89,12 +89,14 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         systemPrompt: "You are a planner.",
         extractPrompt: "Extract plan text and affected files list.",
         schema: plannerMetaSchema,
+        extractRefs: null,
       },
       coder: {
         description: "Demo coder",
         systemPrompt: "You are a coder.",
         extractPrompt: "Extract the code diff summary.",
         schema: coderMetaSchema,
+        extractRefs: null,
       },
     },
     moderator: (ctx) => {
@@ -182,10 +184,12 @@ describe("executeThread", () => {
       expect(role1.role).toBe("planner");
       expect(role1.content).toBe("plan-body");
       expect(role1.meta).toEqual({ plan: "do-it", files: ["a.ts"] });
+      expect(role1.refs).toEqual([]);
       expect(typeof role1.timestamp).toBe("number");
 
       const role2 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role2.role).toBe("coder");
+      expect(role2.refs).toEqual([]);
 
       const infoText = await readFile(infoPath, "utf8");
       const infoLines = infoText
@@ -228,6 +232,7 @@ describe("executeThread", () => {
               role: "planner",
               content: "plan-body",
               meta: { plan: "do-it", files: ["a.ts"] },
+              refs: ["CAS111AAAAAAA"],
             },
           ],
         },
@@ -241,6 +246,7 @@ describe("executeThread", () => {
               role: "planner",
               content: "plan-body",
               meta: { plan: "do-it", files: ["a.ts"] },
+              refs: ["CAS111AAAAAAA"],
               timestamp: histTs,
             },
           ],
@@ -264,6 +270,7 @@ describe("executeThread", () => {
       const role0 = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
       expect(role0.role).toBe("planner");
       expect(role0.timestamp).toBe(histTs);
+      expect(role0.refs).toEqual(["CAS111AAAAAAA"]);
 
       const role1 = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
       expect(role1.role).toBe("coder");
