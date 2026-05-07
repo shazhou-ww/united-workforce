@@ -250,13 +250,16 @@ describe("cli thread commands", () => {
 
   test("cli entrypoint dispatches threads / ps (spawn)", () => {
     const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const threads = spawnSync(process.execPath, [cliEntryPath, "threads"], {
+    const threads = spawnSync(process.execPath, [cliEntryPath, "thread", "list"], {
       env,
       encoding: "utf8",
     });
     expect(threads.status).toBe(0);
 
-    const ps = spawnSync(process.execPath, [cliEntryPath, "ps"], { env, encoding: "utf8" });
+    const ps = spawnSync(process.execPath, [cliEntryPath, "thread", "ps"], {
+      env,
+      encoding: "utf8",
+    });
     expect(ps.status).toBe(0);
   });
 

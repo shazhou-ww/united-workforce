@@ -129,7 +129,10 @@ describe("gc cli and garbageCollectCas", () => {
     });
 
     const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawnSync(process.execPath, [cliEntryPath, "gc"], { env, encoding: "utf8" });
+    const proc = spawnSync(process.execPath, [cliEntryPath, "cas", "gc"], {
+      env,
+      encoding: "utf8",
+    });
     expect(proc.status).toBe(0);
     expect(String(proc.stdout).trim()).toBe("scanned 1 threads, 2 active refs, deleted 1 entries");
   });
