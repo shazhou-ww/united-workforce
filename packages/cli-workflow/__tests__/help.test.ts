@@ -15,29 +15,65 @@ describe("help command", () => {
     expect(code).toBe(0);
   });
 
-  test("help --skill (no topic) returns 0 and lists topics", async () => {
+  test("no args prints usage (not red) and returns 1", async () => {
+    const code = await runCli(STORAGE_ROOT, []);
+    expect(code).toBe(1);
+  });
+});
+
+describe("skill command", () => {
+  test("skill (no topic) lists topics and returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["skill"]);
+    expect(code).toBe(0);
+  });
+
+  test("skill cli returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["skill", "cli"]);
+    expect(code).toBe(0);
+  });
+
+  test("skill develop returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["skill", "develop"]);
+    expect(code).toBe(0);
+  });
+
+  test("skill author returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["skill", "author"]);
+    expect(code).toBe(0);
+  });
+
+  test("skill unknown returns 1", async () => {
+    const code = await runCli(STORAGE_ROOT, ["skill", "unknown"]);
+    expect(code).toBe(1);
+  });
+});
+
+describe("--help flag on groups", () => {
+  test("workflow --help returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["workflow", "--help"]);
+    expect(code).toBe(0);
+  });
+
+  test("thread --help returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["thread", "--help"]);
+    expect(code).toBe(0);
+  });
+
+  test("cas --help returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["cas", "--help"]);
+    expect(code).toBe(0);
+  });
+
+  test("init --help returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["init", "--help"]);
+    expect(code).toBe(0);
+  });
+});
+
+describe("legacy help --skill compat", () => {
+  test("help --skill still works (lists topics)", async () => {
     const code = await runCli(STORAGE_ROOT, ["help", "--skill"]);
     expect(code).toBe(0);
-  });
-
-  test("help --skill cli returns 0", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help", "--skill", "cli"]);
-    expect(code).toBe(0);
-  });
-
-  test("help --skill develop returns 0", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help", "--skill", "develop"]);
-    expect(code).toBe(0);
-  });
-
-  test("help --skill author returns 0", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help", "--skill", "author"]);
-    expect(code).toBe(0);
-  });
-
-  test("help --skill unknown returns 1", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help", "--skill", "unknown"]);
-    expect(code).toBe(1);
   });
 });
 
@@ -57,7 +93,7 @@ describe("formatSkillIndex", () => {
     expect(idx).toContain("cli");
     expect(idx).toContain("develop");
     expect(idx).toContain("author");
-    expect(idx).toContain("help --skill <topic>");
+    expect(idx).toContain("skill <topic>");
   });
 });
 

@@ -42,7 +42,7 @@ Available topics:
 |-------|-------------|
 ${rows.join("\n")}
 
-Usage: \`uncaged-workflow help --skill <topic>\`
+Usage: \`uncaged-workflow skill <topic>\`
 `;
 }
 

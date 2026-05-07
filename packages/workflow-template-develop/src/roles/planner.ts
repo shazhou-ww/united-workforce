@@ -14,7 +14,7 @@ export type PlannerMeta = z.infer<typeof plannerMetaSchema>;
 
 const PLANNER_SYSTEM = `You are a **planner** for a software task. Break the work into **sequential phases** the coder will execute one at a time.
 
-Run \`uncaged-workflow help --skill develop\` for thread ID lookup, CAS commands, and meta output guide.
+Run \`uncaged-workflow skill develop\` for thread ID lookup, CAS commands, and meta output guide.
 
 ## Storing phase details — MANDATORY
 
