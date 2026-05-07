@@ -1,5 +1,6 @@
 import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
 import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
+import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdKill } from "./cmd-kill.js";
@@ -33,6 +34,10 @@ function usage(): string {
     "  uncaged-workflow thread <id>",
     "  uncaged-workflow thread rm <id>",
     "  uncaged-workflow fork <thread-id> [--from-role <role>]",
+    "  uncaged-workflow cas get <thread-id> <hash>",
+    "  uncaged-workflow cas put <thread-id> <content>",
+    "  uncaged-workflow cas list <thread-id>",
+    "  uncaged-workflow cas rm <thread-id> <hash>",
   ].join("\n");
 }
 
@@ -276,6 +281,95 @@ async function dispatchFork(storageRoot: string, argv: string[]): Promise<number
   return 0;
 }
 
+async function dispatchCasGet(storageRoot: string, rest: string[]): Promise<number> {
+  const threadId = rest[0];
+  const hash = rest[1];
+  if (threadId === undefined || hash === undefined || rest.length > 2) {
+    printCliError(`${usage()}\n\nerror: cas get requires <thread-id> <hash>`);
+    return 1;
+  }
+  const result = await cmdCasGet(storageRoot, threadId, hash);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(result.value);
+  return 0;
+}
+
+async function dispatchCasPut(storageRoot: string, rest: string[]): Promise<number> {
+  const threadId = rest[0];
+  const content = rest[1];
+  if (threadId === undefined || content === undefined || rest.length > 2) {
+    printCliError(`${usage()}\n\nerror: cas put requires <thread-id> <content>`);
+    return 1;
+  }
+  const result = await cmdCasPut(storageRoot, threadId, content);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(result.value);
+  return 0;
+}
+
+async function dispatchCasList(storageRoot: string, rest: string[]): Promise<number> {
+  const threadId = rest[0];
+  if (threadId === undefined || rest.length > 1) {
+    printCliError(`${usage()}\n\nerror: cas list requires <thread-id>`);
+    return 1;
+  }
+  const result = await cmdCasList(storageRoot, threadId);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  for (const hash of result.value) {
+    printCliLine(hash);
+  }
+  return 0;
+}
+
+async function dispatchCasRm(storageRoot: string, rest: string[]): Promise<number> {
+  const threadId = rest[0];
+  const hash = rest[1];
+  if (threadId === undefined || hash === undefined || rest.length > 2) {
+    printCliError(`${usage()}\n\nerror: cas rm requires <thread-id> <hash>`);
+    return 1;
+  }
+  const result = await cmdCasRm(storageRoot, threadId, hash);
+  if (!result.ok) {
+    printCliError(result.error);
+    return 1;
+  }
+  printCliLine(`removed cas entry ${hash}`);
+  return 0;
+}
+
+const CAS_SUBCOMMAND_TABLE: Record<
+  string,
+  (storageRoot: string, rest: string[]) => Promise<number>
+> = {
+  get: dispatchCasGet,
+  put: dispatchCasPut,
+  list: dispatchCasList,
+  rm: dispatchCasRm,
+};
+
+async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
+  const sub = argv[0];
+  if (sub === undefined) {
+    printCliError(`${usage()}\n\nerror: unknown cas subcommand: (none)`);
+    return 1;
+  }
+  const handler = CAS_SUBCOMMAND_TABLE[sub];
+  if (handler === undefined) {
+    printCliError(`${usage()}\n\nerror: unknown cas subcommand: ${sub}`);
+    return 1;
+  }
+  return handler(storageRoot, argv.slice(1));
+}
+
 type DispatchFn = (storageRoot: string, argv: string[]) => Promise<number>;
 
 const COMMAND_TABLE: Record<string, DispatchFn> = {
@@ -293,6 +387,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   threads: dispatchThreads,
   thread: dispatchThreadBranch,
   fork: dispatchFork,
+  cas: dispatchCas,
 };
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
