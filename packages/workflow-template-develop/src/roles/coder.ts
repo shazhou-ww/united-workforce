@@ -11,7 +11,7 @@ export type CoderMeta = z.infer<typeof coderMetaSchema>;
 
 const CODER_SYSTEM = `You are a **coder**. Read the thread for the plan and work on the NEXT incomplete phase only.
 
-Run \`uncaged-workflow help --skill\` for full CLI reference (thread ID lookup, CAS commands, etc.).
+Run \`uncaged-workflow help --skill develop\` for thread ID lookup, CAS commands, and meta output guide.
 
 ## Reading phase details
 

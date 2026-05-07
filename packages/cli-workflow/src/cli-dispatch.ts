@@ -3,7 +3,7 @@ import { cmdAdd, formatAddSuccess, parseAddArgv } from "./cmd-add.js";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "./cmd-cas.js";
 import { cmdFork, parseForkArgv } from "./cmd-fork.js";
 import { cmdGc } from "./cmd-gc.js";
-import { formatSkillDoc } from "./cmd-help.js";
+import { formatSkillDoc, formatSkillIndex, formatSkillTopic } from "./cmd-help.js";
 import { cmdHistory } from "./cmd-history.js";
 import { cmdInitTemplate, cmdInitWorkspace } from "./cmd-init.js";
 import { cmdKill } from "./cmd-kill.js";
@@ -619,11 +619,22 @@ async function dispatchCas(storageRoot: string, argv: string[]): Promise<number>
 // ── Help ────────────────────────────────────────────────────────────────
 
 async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
-  if (argv.includes("--skill")) {
-    printCliLine(formatSkillDoc());
-  } else {
+  const skillIdx = argv.indexOf("--skill");
+  if (skillIdx === -1) {
     printCliLine(formatCliUsage());
+    return 0;
   }
+  const topic = argv[skillIdx + 1];
+  if (topic === undefined) {
+    printCliLine(formatSkillIndex());
+    return 0;
+  }
+  const doc = formatSkillTopic(topic);
+  if (doc === null) {
+    printCliError(`unknown skill topic: ${topic}\n\n${formatSkillIndex()}`);
+    return 1;
+  }
+  printCliLine(doc);
   return 0;
 }
 
