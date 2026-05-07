@@ -121,6 +121,46 @@ describe("workflowAsAgent", () => {
         makeAgentCtx({ storageRoot: root, depth: 3, prompt: "x", maxRounds: 5 }),
       );
       expect(out).toContain("depth limit");
+      expect(out).toContain("max 3");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("uses registry config maxDepth when set", async () => {
+    const root = await mkdtemp(join(tmpdir(), "wf-waa-maxdepth-cfg-"));
+    try {
+      await installChildWorkflow(root);
+      const reg = await readWorkflowRegistry(root);
+      expect(reg.ok).toBe(true);
+      if (!reg.ok) {
+        return;
+      }
+      const withCfg = {
+        ...reg.value,
+        config: {
+          maxDepth: 2,
+          extract: {
+            baseUrl: "http://127.0.0.1:9",
+            model: "m",
+            apiKey: "k",
+          },
+        },
+      };
+      const wr = await writeWorkflowRegistry(root, withCfg);
+      expect(wr.ok).toBe(true);
+
+      const agent = workflowAsAgent("child-wf", { storageRoot: root });
+      const okOut = await agent(
+        makeAgentCtx({ storageRoot: root, depth: 1, prompt: "nest-once", maxRounds: 5 }),
+      );
+      expect(okOut).not.toContain("depth limit");
+
+      const badOut = await agent(
+        makeAgentCtx({ storageRoot: root, depth: 2, prompt: "x", maxRounds: 5 }),
+      );
+      expect(badOut).toContain("depth limit");
+      expect(badOut).toContain("max 2");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

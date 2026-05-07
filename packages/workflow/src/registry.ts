@@ -12,6 +12,8 @@ import type {
 import { err, ok, type Result } from "./result.js";
 
 export type {
+  ExtractProviderConfig,
+  WorkflowConfig,
   WorkflowHistoryEntry,
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
@@ -22,7 +24,7 @@ export function workflowRegistryPath(storageRoot: string): string {
 }
 
 function emptyRegistry(): WorkflowRegistryFile {
-  return { workflows: {} };
+  return { config: null, workflows: {} };
 }
 
 export function parseWorkflowRegistryYaml(text: string): Result<WorkflowRegistryFile, Error> {
@@ -103,6 +105,7 @@ export function registerWorkflowVersion(
       : [{ hash: prev.hash, timestamp: prev.timestamp }, ...baseHistory];
   const next: WorkflowRegistryEntry = { hash, timestamp, history };
   return {
+    config: registry.config,
     workflows: { ...registry.workflows, [name]: next },
   };
 }
@@ -150,5 +153,5 @@ export function unregisterWorkflow(
     return err(new Error(`workflow not registered: ${name}`));
   }
   const { [name]: _removed, ...rest } = registry.workflows;
-  return ok({ workflows: rest });
+  return ok({ config: registry.config, workflows: rest });
 }

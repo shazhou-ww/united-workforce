@@ -3,14 +3,12 @@ import { join } from "node:path";
 import { createCasStore } from "./cas.js";
 import { type ExecuteThreadIo, executeThread } from "./engine.js";
 import { extractBundleExports } from "./extract-bundle-exports.js";
+import { getWorkflowAsAgentMaxDepth } from "./extract-provider.js";
 import { createLogger } from "./logger.js";
 import { getRegisteredWorkflow, readWorkflowRegistry } from "./registry.js";
 import { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
 import type { AgentContext, AgentFn, ThreadInput } from "./types.js";
 import { generateUlid } from "./ulid.js";
-
-/** Maximum `WorkflowFnOptions.depth` allowed for a child spawned via `workflowAsAgent`. */
-const WORKFLOW_AS_AGENT_MAX_DEPTH = 3;
 
 export type WorkflowAsAgentOptions = {
   /** When `null`, uses `getDefaultWorkflowStorageRoot()`. */
@@ -34,15 +32,17 @@ export function workflowAsAgent(
 ): AgentFn {
   return async (ctx: AgentContext): Promise<string> => {
     const nextDepth = ctx.depth + 1;
-    if (nextDepth > WORKFLOW_AS_AGENT_MAX_DEPTH) {
-      return `ERROR: workflow-as-agent depth limit exceeded (max ${WORKFLOW_AS_AGENT_MAX_DEPTH})`;
-    }
 
     const storageRoot = resolveWorkflowAsAgentStorageRoot(options);
 
     const registryResult = await readWorkflowRegistry(storageRoot);
     if (!registryResult.ok) {
       return `ERROR: failed to read workflow registry: ${registryResult.error.message}`;
+    }
+
+    const maxDepth = getWorkflowAsAgentMaxDepth(registryResult.value.config);
+    if (nextDepth > maxDepth) {
+      return `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`;
     }
 
     const entry = getRegisteredWorkflow(registryResult.value, workflowName);

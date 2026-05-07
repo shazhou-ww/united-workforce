@@ -1,9 +1,67 @@
 import type {
+  ExtractProviderConfig,
+  WorkflowConfig,
   WorkflowHistoryEntry,
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
 } from "./registry-types.js";
 import { err, ok, type Result } from "./result.js";
+
+function resolveRegistryApiKey(raw: string): Result<string, Error> {
+  if (raw.startsWith("env:")) {
+    const name = raw.slice("env:".length);
+    if (name === "") {
+      return err(new Error('config.extract.apiKey "env:" reference must name a variable'));
+    }
+    const value = process.env[name];
+    if (value === undefined) {
+      return err(new Error(`config.extract.apiKey: environment variable "${name}" is not set`));
+    }
+    return ok(value);
+  }
+  return ok(raw);
+}
+
+function normalizeExtractProviderConfig(raw: unknown): Result<ExtractProviderConfig, Error> {
+  if (raw === null || typeof raw !== "object") {
+    return err(new Error('registry config must contain an "extract" mapping'));
+  }
+  const e = raw as Record<string, unknown>;
+  const baseUrl = e.baseUrl;
+  const model = e.model;
+  const apiKeyRaw = e.apiKey;
+  if (typeof baseUrl !== "string" || baseUrl === "") {
+    return err(new Error("config.extract.baseUrl must be a non-empty string"));
+  }
+  if (typeof model !== "string" || model === "") {
+    return err(new Error("config.extract.model must be a non-empty string"));
+  }
+  if (typeof apiKeyRaw !== "string" || apiKeyRaw === "") {
+    return err(new Error("config.extract.apiKey must be a non-empty string"));
+  }
+  const apiKeyResult = resolveRegistryApiKey(apiKeyRaw);
+  if (!apiKeyResult.ok) {
+    return apiKeyResult;
+  }
+  return ok({ baseUrl, model, apiKey: apiKeyResult.value });
+}
+
+function normalizeWorkflowConfig(raw: unknown): Result<WorkflowConfig, Error> {
+  if (raw === null || typeof raw !== "object") {
+    return err(new Error('registry "config" must be a mapping'));
+  }
+  const c = raw as Record<string, unknown>;
+  const maxDepth = c.maxDepth;
+  const extractRaw = c.extract;
+  if (typeof maxDepth !== "number" || !Number.isInteger(maxDepth) || maxDepth < 0) {
+    return err(new Error("config.maxDepth must be a non-negative integer"));
+  }
+  const extractResult = normalizeExtractProviderConfig(extractRaw);
+  if (!extractResult.ok) {
+    return extractResult;
+  }
+  return ok({ maxDepth, extract: extractResult.value });
+}
 
 export function normalizeWorkflowHistoryEntry(
   workflowName: string,
@@ -61,6 +119,15 @@ export function normalizeWorkflowRegistryRoot(raw: unknown): Result<WorkflowRegi
     return err(new Error("registry root must be a mapping"));
   }
   const root = raw as Record<string, unknown>;
+  const configRaw = root.config;
+  let config: WorkflowConfig | null = null;
+  if (configRaw !== undefined && configRaw !== null) {
+    const configResult = normalizeWorkflowConfig(configRaw);
+    if (!configResult.ok) {
+      return configResult;
+    }
+    config = configResult.value;
+  }
   const workflowsRaw = root.workflows;
   if (workflowsRaw === null || workflowsRaw === undefined || typeof workflowsRaw !== "object") {
     return err(new Error('registry must contain a "workflows" mapping'));
@@ -73,5 +140,5 @@ export function normalizeWorkflowRegistryRoot(raw: unknown): Result<WorkflowRegi
     }
     workflows[name] = entryResult.value;
   }
-  return ok({ workflows });
+  return ok({ config, workflows });
 }
