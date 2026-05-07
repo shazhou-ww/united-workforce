@@ -1,6 +1,6 @@
 import { normalizeRefsField } from "./refs-field.js";
 import { err, ok, type Result } from "./result.js";
-import type { RoleOutput } from "./types.js";
+import type { RoleOutput, WorkflowCompletion } from "./types.js";
 
 /** Role steps replayed from `.data.jsonl`, including persisted timestamps. */
 export type ForkHistoricalStep = RoleOutput & { timestamp: number };
@@ -14,33 +14,56 @@ export type ParsedThreadStartRecord = {
   depth: number;
 };
 
-function parseRoleLine(
+/** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). Omits `rootHash` when absent. */
+export function tryParseWorkflowResultRecord(
   obj: Record<string, unknown>,
-  lineIndex: number,
-): Result<ForkHistoricalStep, string> {
+): WorkflowCompletion | null {
+  if (obj.role !== undefined) {
+    return null;
+  }
+  const returnCode = obj.returnCode;
+  const summary = obj.summary;
+  if (typeof returnCode !== "number" || typeof summary !== "string") {
+    return null;
+  }
+  return { returnCode, summary };
+}
+
+export function tryParseRoleStepRecord(obj: Record<string, unknown>): ForkHistoricalStep | null {
   const role = obj.role;
   const contentHash = obj.contentHash;
   const meta = obj.meta;
   const timestamp = obj.timestamp;
   if (typeof role !== "string") {
-    return err(`invalid role record at line ${lineIndex}: missing role`);
+    return null;
   }
   if (typeof contentHash !== "string") {
-    return err(`invalid role record at line ${lineIndex}: missing contentHash`);
+    return null;
   }
   if (meta === null || typeof meta !== "object") {
-    return err(`invalid role record at line ${lineIndex}: missing meta`);
+    return null;
   }
   if (typeof timestamp !== "number") {
-    return err(`invalid role record at line ${lineIndex}: missing timestamp`);
+    return null;
   }
-  return ok({
+  return {
     role,
     contentHash,
     meta: meta as Record<string, unknown>,
     refs: normalizeRefsField(obj.refs),
     timestamp,
-  });
+  };
+}
+
+function parseRoleLine(
+  obj: Record<string, unknown>,
+  lineIndex: number,
+): Result<ForkHistoricalStep, string> {
+  const parsed = tryParseRoleStepRecord(obj);
+  if (parsed === null) {
+    return err(`invalid role record at line ${lineIndex}`);
+  }
+  return ok(parsed);
 }
 
 function parseStartRecordLine(firstLine: string): Result<ParsedThreadStartRecord, string> {
@@ -109,7 +132,15 @@ function parseFollowingRoleLines(lines: string[]): Result<ForkHistoricalStep[], 
     if (rec === null || typeof rec !== "object") {
       return err(`invalid record at line ${i + 1}`);
     }
-    const parsed = parseRoleLine(rec as Record<string, unknown>, i + 1);
+    const recObj = rec as Record<string, unknown>;
+    const wf = tryParseWorkflowResultRecord(recObj);
+    if (wf !== null) {
+      if (i !== lines.length - 1) {
+        return err("WorkflowResult record must be the final line in `.data.jsonl`");
+      }
+      break;
+    }
+    const parsed = parseRoleLine(recObj, i + 1);
     if (!parsed.ok) {
       return parsed;
     }

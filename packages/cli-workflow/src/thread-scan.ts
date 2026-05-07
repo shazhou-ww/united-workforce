@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
@@ -14,6 +14,28 @@ export type HistoricalThreadRow = {
   hash: string;
   workflowName: string | null;
 };
+
+async function readThreadStartTimestampMs(dataPath: string): Promise<number | null> {
+  const text = await readTextFileIfExists(dataPath);
+  if (text === null) {
+    return null;
+  }
+  const firstLine = text.split("\n")[0];
+  if (firstLine === undefined || firstLine.trim() === "") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(firstLine) as unknown;
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object") {
+    return null;
+  }
+  const ts = (parsed as Record<string, unknown>).timestamp;
+  return typeof ts === "number" && Number.isFinite(ts) ? ts : null;
+}
 
 async function readWorkflowNameFromDataJsonl(dataPath: string): Promise<string | null> {
   const text = await readTextFileIfExists(dataPath);
@@ -122,6 +144,50 @@ export async function listHistoricalThreads(
   });
 
   return out;
+}
+
+/**
+ * Picks the thread whose `.data.jsonl` is newest by start-record `timestamp`,
+ * falling back to file `mtime` when the timestamp is missing.
+ * Tie-breaker: larger `mtime` wins when start timestamps are equal.
+ */
+export async function findLatestThreadDataPath(
+  storageRoot: string,
+): Promise<{ threadId: string; dataPath: string } | null> {
+  const threads = await listHistoricalThreads(storageRoot, null);
+  if (threads.length === 0) {
+    return null;
+  }
+
+  let best: {
+    threadId: string;
+    dataPath: string;
+    primary: number;
+    secondary: number;
+  } | null = null;
+
+  for (const t of threads) {
+    const dataPath = join(storageRoot, "logs", t.hash, `${t.threadId}.data.jsonl`);
+    let mtimeMs = 0;
+    try {
+      const st = await stat(dataPath);
+      mtimeMs = st.mtimeMs;
+    } catch {
+      continue;
+    }
+    const startTs = await readThreadStartTimestampMs(dataPath);
+    const primary = startTs !== null ? startTs : mtimeMs;
+    const secondary = mtimeMs;
+    if (
+      best === null ||
+      primary > best.primary ||
+      (primary === best.primary && secondary > best.secondary)
+    ) {
+      best = { threadId: t.threadId, dataPath, primary, secondary };
+    }
+  }
+
+  return best === null ? null : { threadId: best.threadId, dataPath: best.dataPath };
 }
 
 export async function resolveThreadDataPath(

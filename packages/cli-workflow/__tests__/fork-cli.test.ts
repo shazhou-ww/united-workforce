@@ -111,7 +111,7 @@ describe("cli fork", () => {
     const sourceData = join(storageRoot, "logs", hash, `${sourceId}.data.jsonl`);
     const sourceRunning = join(storageRoot, "logs", hash, `${sourceId}.running`);
     await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 4);
+    await waitUntilMinDataLines(sourceData, 5);
 
     const forked = await cmdFork(storageRoot, sourceId, "planner");
     expect(forked.ok).toBe(true);
@@ -122,22 +122,22 @@ describe("cli fork", () => {
     const newData = join(storageRoot, "logs", hash, `${newId}.data.jsonl`);
     const newRunning = join(storageRoot, "logs", hash, `${newId}.running`);
     await waitUntilRunningAbsent(newRunning);
-    await waitUntilMinDataLines(newData, 4);
+    await waitUntilMinDataLines(newData, 5);
 
     const text = await readFile(newData, "utf8");
     const lines = text
       .trim()
       .split("\n")
       .filter((l) => l !== "");
-    expect(lines.length).toBe(4);
+    expect(lines.length).toBe(5);
     const start = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
     expect(start.threadId).toBe(newId);
     expect(start.forkFrom).toEqual({ threadId: sourceId });
 
-    const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
-    expect(last.role).toBe("reviewer");
+    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
+    expect(lastRoleLine.role).toBe("reviewer");
     const cas = createCasStore(getGlobalCasDir(storageRoot));
-    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-1");
+    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-1");
   });
 
   test("fork without --from-role retries last role", async () => {
@@ -162,7 +162,7 @@ describe("cli fork", () => {
     const sourceData = join(storageRoot, "logs", hash, `${sourceId}.data.jsonl`);
     const sourceRunning = join(storageRoot, "logs", hash, `${sourceId}.running`);
     await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 4);
+    await waitUntilMinDataLines(sourceData, 5);
 
     const forked = await cmdFork(storageRoot, sourceId, null);
     expect(forked.ok).toBe(true);
@@ -173,23 +173,23 @@ describe("cli fork", () => {
     const newData = join(storageRoot, "logs", hash, `${newId}.data.jsonl`);
     const newRunning = join(storageRoot, "logs", hash, `${newId}.running`);
     await waitUntilRunningAbsent(newRunning);
-    await waitUntilMinDataLines(newData, 4);
+    await waitUntilMinDataLines(newData, 5);
 
     const text = await readFile(newData, "utf8");
     const lines = text
       .trim()
       .split("\n")
       .filter((l) => l !== "");
-    expect(lines.length).toBe(4);
+    expect(lines.length).toBe(5);
 
     const replayCoder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
     expect(replayCoder.role).toBe("coder");
     const cas = createCasStore(getGlobalCasDir(storageRoot));
     expect(await getContentMerklePayload(cas, String(replayCoder.contentHash))).toBe("c1");
 
-    const last = JSON.parse(lines[lines.length - 1] ?? "{}") as Record<string, unknown>;
-    expect(last.role).toBe("reviewer");
-    expect(await getContentMerklePayload(cas, String(last.contentHash))).toBe("rev-2");
+    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
+    expect(lastRoleLine.role).toBe("reviewer");
+    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-2");
   });
 
   test("fork rejects unknown role with available names", async () => {
@@ -213,7 +213,7 @@ describe("cli fork", () => {
     const sourceData = join(storageRoot, "logs", added.value.hash, `${sourceId}.data.jsonl`);
     const sourceRunning = join(storageRoot, "logs", added.value.hash, `${sourceId}.running`);
     await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 4);
+    await waitUntilMinDataLines(sourceData, 5);
 
     const bad = await cmdFork(storageRoot, sourceId, "ghost-role");
     expect(bad.ok).toBe(false);
