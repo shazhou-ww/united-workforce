@@ -250,17 +250,20 @@ describe("createSolveIssueRun", () => {
     const cas = createCasStore(casDir);
 
     // Override developer so the test does not spin up a child workflow.
-    const run = createSolveIssueRun(
-      {
-        agent: async () => "",
-        overrides: { developer: async () => "stub-root-hash" },
-      },
-      stubExtract,
-      stubLlmProvider,
-    );
+    const run = createSolveIssueRun({
+      agent: async () => "",
+      overrides: { developer: async () => "stub-root-hash" },
+    });
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
+      {
+        threadId: "01TEST000000000000000000TR",
+        maxRounds: 20,
+        depth: 0,
+        cas,
+        extract: stubExtract,
+        llmProvider: stubLlmProvider,
+      },
     );
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -294,33 +297,36 @@ describe("createSolveIssueRun", () => {
     const cas = createCasStore(casDir);
 
     const calls: string[] = [];
-    const run = createSolveIssueRun(
-      {
-        agent: async () => {
-          calls.push("default");
+    const run = createSolveIssueRun({
+      agent: async () => {
+        calls.push("default");
+        return "";
+      },
+      overrides: {
+        preparer: async () => {
+          calls.push("preparer");
           return "";
         },
-        overrides: {
-          preparer: async () => {
-            calls.push("preparer");
-            return "";
-          },
-          developer: async () => {
-            calls.push("developer");
-            return "stub-root-hash";
-          },
-          submitter: async () => {
-            calls.push("submitter");
-            return "";
-          },
+        developer: async () => {
+          calls.push("developer");
+          return "stub-root-hash";
+        },
+        submitter: async () => {
+          calls.push("submitter");
+          return "";
         },
       },
-      stubExtract,
-      stubLlmProvider,
-    );
+    });
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
+      {
+        threadId: "01TEST000000000000000000TR",
+        maxRounds: 20,
+        depth: 0,
+        cas,
+        extract: stubExtract,
+        llmProvider: stubLlmProvider,
+      },
     );
     await gen.next();
     expect(calls).toEqual(["preparer"]);
@@ -353,22 +359,25 @@ describe("createSolveIssueRun", () => {
     const cas = createCasStore(casDir);
 
     let developerInvocations = 0;
-    const run = createSolveIssueRun(
-      {
-        agent: async () => "",
-        overrides: {
-          developer: async () => {
-            developerInvocations += 1;
-            return "stub-root-hash";
-          },
+    const run = createSolveIssueRun({
+      agent: async () => "",
+      overrides: {
+        developer: async () => {
+          developerInvocations += 1;
+          return "stub-root-hash";
         },
       },
-      stubExtract,
-      stubLlmProvider,
-    );
+    });
     const gen = run(
       { prompt: "task", steps: [] },
-      { threadId: "01TEST000000000000000000TR", maxRounds: 20, depth: 0, cas },
+      {
+        threadId: "01TEST000000000000000000TR",
+        maxRounds: 20,
+        depth: 0,
+        cas,
+        extract: stubExtract,
+        llmProvider: stubLlmProvider,
+      },
     );
     // preparer
     await gen.next();

@@ -7,6 +7,7 @@ import { cmdFork, cmdRun } from "../src/commands/thread/index.js";
 import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
+import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
 const threeRoleBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
@@ -77,6 +78,7 @@ describe("cli fork", () => {
     prevEnv = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
     storageRoot = await mkdtemp(join(tmpdir(), "uncaged-wf-fork-"));
     process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = storageRoot;
+    await ensureTestWorkflowRegistryConfig(storageRoot);
   });
 
   afterEach(async () => {

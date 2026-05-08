@@ -19,6 +19,7 @@ import {
 import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
+import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
 const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
 `;
@@ -142,6 +143,7 @@ describe("cli thread commands", () => {
     prevEnv = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
     storageRoot = await mkdtemp(join(tmpdir(), "uncaged-wf-thread-"));
     process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = storageRoot;
+    await ensureTestWorkflowRegistryConfig(storageRoot);
   });
 
   afterEach(async () => {

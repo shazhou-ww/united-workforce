@@ -1,8 +1,6 @@
 import {
   type AgentBinding,
   createWorkflow,
-  type ExtractFn,
-  type LlmProvider,
   type WorkflowDefinition,
   type WorkflowFn,
   workflowAsAgent,
@@ -46,11 +44,7 @@ export const solveIssueWorkflowDefinition: WorkflowDefinition<SolveIssueMeta> = 
  * {@link workflowAsAgent}; if the caller supplies their own `developer` override in
  * `binding.overrides`, it takes precedence so tests and custom hosts can stub it.
  */
-export function createSolveIssueRun(
-  binding: AgentBinding,
-  extract: ExtractFn,
-  llmProvider: LlmProvider | null,
-): WorkflowFn {
+export function createSolveIssueRun(binding: AgentBinding): WorkflowFn {
   const developerOverride = binding.overrides?.developer ?? workflowAsAgent("develop");
   const mergedBinding: AgentBinding = {
     agent: binding.agent,
@@ -59,5 +53,5 @@ export function createSolveIssueRun(
       developer: developerOverride,
     },
   };
-  return createWorkflow(solveIssueWorkflowDefinition, mergedBinding, extract, llmProvider);
+  return createWorkflow(solveIssueWorkflowDefinition, mergedBinding);
 }

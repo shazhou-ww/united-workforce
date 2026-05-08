@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
@@ -13,8 +13,7 @@ import {
 } from "../src/cas/merkle.js";
 import { createWorkflow } from "../src/engine/create-workflow.js";
 import { executeThread } from "../src/engine/engine.js";
-import { createExtract } from "../src/extract/extract-fn.js";
-import { END, type LlmProvider } from "../src/types.js";
+import { END } from "../src/types.js";
 import { createLogger } from "../src/util/logger.js";
 
 const plannerMetaSchema = z.object({
@@ -82,11 +81,20 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
-const demoExtract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "test",
-  model: "test",
-});
+const EXTRACT_REGISTRY_YAML = `config:
+  maxDepth: 3
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    default: stub/model
+workflows: {}
+`;
+
+async function writeExtractRegistryConfig(storageRoot: string): Promise<void> {
+  await writeFile(join(storageRoot, "workflow.yaml"), EXTRACT_REGISTRY_YAML, "utf8");
+}
 
 const demoWorkflow = createWorkflow<DemoMeta>(
   {
@@ -125,8 +133,6 @@ const demoWorkflow = createWorkflow<DemoMeta>(
       coder: async () => "code-body",
     },
   },
-  demoExtract,
-  null,
 );
 
 describe("executeThread", () => {
@@ -150,6 +156,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeExtractRegistryConfig(root);
       const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
@@ -166,6 +173,7 @@ describe("executeThread", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
@@ -258,6 +266,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeExtractRegistryConfig(root);
       const cas = createCasStore(join(root, "cas"));
       const plannerHash = await cas.put(serializeMerkleNode(createContentMerkleNode("plan-body")));
 
@@ -295,6 +304,7 @@ describe("executeThread", () => {
               timestamp: histTs,
             },
           ],
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
@@ -354,6 +364,7 @@ describe("executeThread", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
@@ -391,6 +402,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeExtractRegistryConfig(root);
       const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
@@ -407,6 +419,7 @@ describe("executeThread", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,
@@ -549,9 +562,6 @@ describe("executeThread", () => {
         { preconnect: origFetch.preconnect.bind(origFetch) },
       ) as typeof fetch;
 
-      const llm: LlmProvider = { baseUrl: "http://127.0.0.1:9", apiKey: "test", model: "test" };
-      const extractFn = createExtract(llm);
-
       const dagWorkflow = createWorkflow<DagDemoMeta>(
         {
           roles: {
@@ -568,8 +578,6 @@ describe("executeThread", () => {
           moderator: (ctx) => (ctx.steps.length === 0 ? "walker" : END),
         },
         { agent: async () => dagRootHash },
-        extractFn,
-        llm,
       );
 
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
@@ -577,6 +585,7 @@ describe("executeThread", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeExtractRegistryConfig(root);
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
       const ac = new AbortController();
@@ -592,6 +601,7 @@ describe("executeThread", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,

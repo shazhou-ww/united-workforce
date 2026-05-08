@@ -63,7 +63,6 @@ export {
   type ReactExtractArgs,
   reactExtract,
 } from "./extract/index.js";
-export { getExtractProvider } from "./extract-provider.js";
 export {
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
@@ -8,7 +8,6 @@ import { createCasStore } from "../src/cas/cas.js";
 import { createWorkflow } from "../src/engine/create-workflow.js";
 import { executeThread } from "../src/engine/engine.js";
 import { buildForkPlan, parseThreadDataJsonl } from "../src/engine/fork-thread.js";
-import { createExtract } from "../src/extract/extract-fn.js";
 import { END } from "../src/types.js";
 import { createLogger } from "../src/util/logger.js";
 
@@ -76,11 +75,16 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
-const refsDemoExtract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "test",
-  model: "test",
-});
+const EXTRACT_REGISTRY_YAML = `config:
+  maxDepth: 3
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    default: stub/model
+workflows: {}
+`;
 
 const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
   {
@@ -99,8 +103,6 @@ const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
   {
     agent: async () => "plan-output",
   },
-  refsDemoExtract,
-  null,
 );
 
 describe("RoleStep refs tracking", () => {
@@ -142,6 +144,7 @@ describe("RoleStep refs tracking", () => {
       const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
       const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
       await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeFile(join(root, "workflow.yaml"), EXTRACT_REGISTRY_YAML, "utf8");
       const cas = createCasStore(join(root, "cas"));
 
       const logger = createLogger({ sink: { kind: "file", path: infoPath } });
@@ -158,6 +161,7 @@ describe("RoleStep refs tracking", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,

@@ -4,7 +4,7 @@ import { extractBundleExports } from "./bundle/index.js";
 import { createCasStore } from "./cas/index.js";
 import type { ExecuteThreadIo } from "./engine/index.js";
 import { executeThread } from "./engine/index.js";
-import { getWorkflowAsAgentMaxDepth } from "./extract-provider.js";
+import type { WorkflowConfig } from "./registry/index.js";
 import { getRegisteredWorkflow, readWorkflowRegistry } from "./registry/index.js";
 import type { AgentContext, AgentFn, ThreadInput } from "./types.js";
 import {
@@ -13,6 +13,15 @@ import {
   getDefaultWorkflowStorageRoot,
   getGlobalCasDir,
 } from "./util/index.js";
+
+const DEFAULT_WORKFLOW_AS_AGENT_MAX_DEPTH = 3;
+
+function workflowAsAgentMaxDepth(config: WorkflowConfig | null): number {
+  if (config === null) {
+    return DEFAULT_WORKFLOW_AS_AGENT_MAX_DEPTH;
+  }
+  return config.maxDepth;
+}
 
 export type WorkflowAsAgentOptions = {
   /** When `null`, uses `getDefaultWorkflowStorageRoot()`. */
@@ -44,7 +53,7 @@ export function workflowAsAgent(
       return `ERROR: failed to read workflow registry: ${registryResult.error.message}`;
     }
 
-    const maxDepth = getWorkflowAsAgentMaxDepth(registryResult.value.config);
+    const maxDepth = workflowAsAgentMaxDepth(registryResult.value.config);
     if (nextDepth > maxDepth) {
       return `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`;
     }
@@ -92,6 +101,7 @@ export function workflowAsAgent(
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: ctx.threadId,
           prefilledDiskSteps: null,
+          storageRoot,
         },
         io,
         logger,

@@ -1,4 +1,4 @@
-import { createExtract, createWorkflow, END, type RoleDefinition } from "@uncaged/workflow";
+import { createWorkflow, END, type RoleDefinition } from "@uncaged/workflow";
 import * as z from "zod/v4";
 
 type Roles = {
@@ -32,12 +32,6 @@ const greeter: RoleDefinition<Roles["greeter"]> = {
   extractMode: "single",
 };
 
-const extract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "",
-  model: "",
-});
-
 export const run = createWorkflow<Roles>(
   {
     roles: { greeter },
@@ -48,6 +42,4 @@ export const run = createWorkflow<Roles>(
   {
     agent: async (ctx) => `Hello, ${ctx.start.content}`,
   },
-  extract,
-  null,
 );

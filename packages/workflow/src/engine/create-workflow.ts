@@ -1,12 +1,10 @@
-import type { CasStore } from "../cas/index.js";
 import { putContentMerkleNode } from "../cas/index.js";
-import { buildExtractUserContent, type ExtractFn, reactExtract } from "../extract/index.js";
+import { buildExtractUserContent, reactExtract } from "../extract/index.js";
 import {
   type AgentBinding,
   type AgentContext,
   END,
   type ExtractContext,
-  type LlmProvider,
   type ModeratorContext,
   type RoleDefinition,
   type RoleMeta,
@@ -41,14 +39,12 @@ function resolveExtractedRefs(
 async function resolveRoleMeta<M extends RoleMeta>(
   roleDef: RoleDefinition<Record<string, unknown>>,
   extractCtx: ExtractContext<M>,
-  extract: ExtractFn,
-  llmProvider: LlmProvider | null,
-  cas: CasStore,
+  options: WorkflowFnOptions,
 ): Promise<Record<string, unknown>> {
   if (roleDef.extractMode === "react") {
-    if (llmProvider === null) {
+    if (options.llmProvider === null) {
       throw new Error(
-        'createWorkflow: llmProvider is required when a role uses extractMode "react"',
+        'createWorkflow: WorkflowFnOptions.llmProvider is required when a role uses extractMode "react"',
       );
     }
     const text = await buildExtractUserContent(
@@ -58,15 +54,15 @@ async function resolveRoleMeta<M extends RoleMeta>(
     const reactResult = await reactExtract({
       text,
       schema: roleDef.schema,
-      provider: llmProvider,
-      cas,
+      provider: options.llmProvider,
+      cas: options.cas,
     });
     if (!reactResult.ok) {
       throw new Error(`react extract failed: ${reactResult.error}`);
     }
     return reactResult.value as Record<string, unknown>;
   }
-  return (await extract(
+  return (await options.extract(
     roleDef.schema,
     roleDef.extractPrompt,
     extractCtx as unknown as ExtractContext,
@@ -74,15 +70,13 @@ async function resolveRoleMeta<M extends RoleMeta>(
 }
 
 /**
- * Binds pure role definitions + moderator to runtime agents and structured extraction.
- * Assign with `export const run = createWorkflow(def, binding, extract, llmProvider)`.
- * Pass the same {@link LlmProvider} as {@link createExtract} when any role uses `extractMode: "react"`.
+ * Binds pure role definitions + moderator to runtime agents.
+ * Assign with `export const run = createWorkflow(def, binding)`.
+ * The engine supplies {@link WorkflowFnOptions.extract} and {@link WorkflowFnOptions.llmProvider} from workflow.yaml.
  */
 export function createWorkflow<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  extract: ExtractFn,
-  llmProvider: LlmProvider | null,
 ): WorkflowFn {
   return async function* workflowLoop(
     input: ThreadInput,
@@ -149,9 +143,7 @@ export function createWorkflow<M extends RoleMeta>(
       const meta = await resolveRoleMeta(
         roleDef as unknown as RoleDefinition<Record<string, unknown>>,
         extractCtx,
-        extract,
-        llmProvider,
-        options.cas,
+        options,
       );
 
       const contentHash = await putContentMerkleNode(options.cas, raw);

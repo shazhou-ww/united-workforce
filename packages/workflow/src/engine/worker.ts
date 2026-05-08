@@ -417,6 +417,7 @@ async function main(): Promise<void> {
           awaitAfterEachYield: () => pauseGate.awaitAfterYield(),
           forkSourceThreadId: cmd.forkSourceThreadId,
           prefilledDiskSteps,
+          storageRoot,
         },
         io,
         logger,
