@@ -13,7 +13,7 @@ export function App() {
 
   return (
     <div className="flex h-screen">
-      <Sidebar view={view} onViewChange={setView} onBack={() => setSelectedThread(null)} />
+      <Sidebar view={view} onViewChange={setView} />
       <main className="flex-1 overflow-hidden flex flex-col">
         <StatusBar />
         <div className="flex-1 overflow-auto p-6">

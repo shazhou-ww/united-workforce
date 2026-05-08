@@ -1,7 +1,6 @@
 type Props = {
   view: "threads" | "workflows";
   onViewChange: (v: "threads" | "workflows") => void;
-  onBack: () => void;
 };
 
 export function Sidebar({ view, onViewChange }: Props) {
