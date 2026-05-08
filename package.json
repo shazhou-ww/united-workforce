@@ -6,7 +6,6 @@
     "examples"
   ],
   "scripts": {
-    "build": "bun run --filter '*' build",
     "check": "bunx tsc --build && biome check .",
     "typecheck": "bunx tsc --build",
     "format": "biome format --write .",
