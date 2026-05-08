@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
+import { type AgentContext, START } from "@uncaged/workflow-runtime";
 import { createCasStore } from "../src/cas/cas.js";
 import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
 import { parseMerkleNode } from "../src/cas/merkle.js";
@@ -11,7 +11,6 @@ import {
   registerWorkflowVersion,
   writeWorkflowRegistry,
 } from "../src/registry/registry.js";
-import { type AgentContext, START } from "../src/types.js";
 import { workflowAsAgent } from "../src/workflow-as-agent.js";
 
 function makeAgentCtx(params: {

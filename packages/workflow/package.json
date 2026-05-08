@@ -8,6 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@uncaged/workflow-runtime": "workspace:*",
     "acorn": "^8.16.0",
     "xxhashjs": "^0.2.2",
     "yaml": "^2.8.4"

@@ -6,6 +6,7 @@
     "uncaged-workflow": "src/cli.ts"
   },
   "dependencies": {
+    "@uncaged/workflow-runtime": "workspace:*",
     "@uncaged/workflow": "workspace:*",
     "hono": "^4.12.18",
     "yaml": "^2.8.4"

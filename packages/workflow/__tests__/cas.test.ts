@@ -5,6 +5,11 @@ import { join } from "node:path";
 
 import { createCasStore } from "../src/cas/cas.js";
 import { hashString } from "../src/cas/hash.js";
+import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
+
+function casStoredForm(raw: string): string {
+  return serializeMerkleNode(createContentMerkleNode(raw));
+}
 
 describe("createCasStore", () => {
   let casDir: string;
@@ -19,25 +24,30 @@ describe("createCasStore", () => {
 
   test("put returns consistent hash for same content", async () => {
     const cas = createCasStore(casDir);
-    const h1 = await cas.put("hello world");
-    const h2 = await cas.put("hello world");
+    const raw = "hello world";
+    const stored = casStoredForm(raw);
+    const h1 = await cas.put(raw);
+    const h2 = await cas.put(raw);
     expect(h1).toBe(h2);
+    expect(h1).toBe(hashString(stored));
     expect(h1).toHaveLength(13);
   });
 
-  test("put returns hash matching hashString", async () => {
+  test("put returns hash matching hashString of merkle-stored form", async () => {
     const cas = createCasStore(casDir);
     const content = "some content to store";
+    const stored = casStoredForm(content);
     const h = await cas.put(content);
-    expect(h).toBe(hashString(content));
+    expect(h).toBe(hashString(stored));
   });
 
-  test("get returns stored content", async () => {
+  test("get returns merkle-serialized blob for raw puts", async () => {
     const cas = createCasStore(casDir);
     const content = "line1\nline2\nline3";
+    const stored = casStoredForm(content);
     const h = await cas.put(content);
     const retrieved = await cas.get(h);
-    expect(retrieved).toBe(content);
+    expect(retrieved).toBe(stored);
   });
 
   test("get returns null for missing hash", async () => {
@@ -76,11 +86,13 @@ describe("createCasStore", () => {
 
   test("put is idempotent — same content written twice causes no error", async () => {
     const cas = createCasStore(casDir);
-    const h1 = await cas.put("idempotent");
-    const h2 = await cas.put("idempotent");
+    const raw = "idempotent";
+    const stored = casStoredForm(raw);
+    const h1 = await cas.put(raw);
+    const h2 = await cas.put(raw);
     expect(h1).toBe(h2);
     const content = await cas.get(h1);
-    expect(content).toBe("idempotent");
+    expect(content).toBe(stored);
   });
 
   test("different content produces different hashes", async () => {

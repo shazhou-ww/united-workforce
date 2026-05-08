@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { END } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
-
 import { createCasStore } from "../src/cas/cas.js";
 import {
   createContentMerkleNode,
@@ -13,7 +13,6 @@ import {
 } from "../src/cas/merkle.js";
 import { createWorkflow } from "../src/engine/create-workflow.js";
 import { executeThread } from "../src/engine/engine.js";
-import { END } from "../src/types.js";
 import { createLogger } from "../src/util/logger.js";
 
 const plannerMetaSchema = z.object({
@@ -669,7 +668,7 @@ describe("executeThread", () => {
           },
           moderator: (ctx) => (ctx.steps.length === 0 ? "walker" : END),
         },
-        { agent: async () => dagRootHash },
+        { agent: async () => dagRootHash, overrides: null },
       );
 
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";

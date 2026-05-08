@@ -1,9 +1,9 @@
 import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
+import type { RoleOutput, WorkflowFn, WorkflowResult } from "@uncaged/workflow-runtime";
 import { ensureUncagedWorkflowSymlink, importWorkflowBundleModule } from "../bundle/index.js";
 import { createCasStore } from "../cas/index.js";
-import type { RoleOutput, WorkflowFn, WorkflowResult } from "../types.js";
 import {
   createLogger,
   err,

@@ -2,12 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { LlmProvider } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
-
 import { createCasStore } from "../src/cas/cas.js";
 import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
 import { reactExtract } from "../src/extract/react-extract.js";
-import type { LlmProvider } from "../src/types.js";
 
 const metaSchema = z.object({ seen: z.string() });
 

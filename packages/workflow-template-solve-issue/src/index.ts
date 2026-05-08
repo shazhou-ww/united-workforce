@@ -1,10 +1,5 @@
-import {
-  type AgentBinding,
-  createWorkflow,
-  type WorkflowDefinition,
-  type WorkflowFn,
-  workflowAsAgent,
-} from "@uncaged/workflow";
+import { createWorkflow, workflowAsAgent } from "@uncaged/workflow";
+import type { AgentBinding, WorkflowDefinition, WorkflowFn } from "@uncaged/workflow-runtime";
 
 import { solveIssueModerator } from "./moderator.js";
 import { SOLVE_ISSUE_WORKFLOW_DESCRIPTION, type SolveIssueMeta, solveIssueRoles } from "./roles.js";

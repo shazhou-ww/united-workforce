@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { getGlobalCasDir, getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
+import {
+  createContentMerkleNode,
+  getGlobalCasDir,
+  getRegisteredWorkflow,
+  readWorkflowRegistry,
+  serializeMerkleNode,
+} from "@uncaged/workflow";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/commands/cas/index.js";
 import {
   cmdAdd,
@@ -21,6 +27,10 @@ const fixtureDescriptor = `export const descriptor = { description: "fixture", r
 
 const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
 `;
+
+function casStoredForm(raw: string): string {
+  return serializeMerkleNode(createContentMerkleNode(raw));
+}
 
 describe("cli workflow commands", () => {
   let prevEnv: string | undefined;
@@ -402,21 +412,23 @@ export const run = async function* (input, options) {
   });
 
   test("cas put/get/list/rm use global cas dir (thread id not required for storage)", async () => {
-    const put = await cmdCasPut(storageRoot, "phase doc");
+    const raw = "phase doc";
+    const stored = casStoredForm(raw);
+    const put = await cmdCasPut(storageRoot, raw);
     expect(put.ok).toBe(true);
     if (!put.ok) {
       return;
     }
     const hash = put.value;
     const blobPath = join(getGlobalCasDir(storageRoot), `${hash}.txt`);
-    expect(await readFile(blobPath, "utf8")).toBe("phase doc");
+    expect(await readFile(blobPath, "utf8")).toBe(stored);
 
     const got = await cmdCasGet(storageRoot, hash);
     expect(got.ok).toBe(true);
     if (!got.ok) {
       return;
     }
-    expect(got.value).toBe("phase doc");
+    expect(got.value).toBe(stored);
 
     const listed = await cmdCasList(storageRoot);
     expect(listed.ok).toBe(true);

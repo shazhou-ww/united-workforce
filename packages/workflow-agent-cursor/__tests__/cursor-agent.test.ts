@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { ExtractContext, ExtractFn } from "@uncaged/workflow";
+import type { ExtractContext, ExtractFn } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
 import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 

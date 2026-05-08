@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-runtime";
 
 import type { HermesAgentConfig } from "./types.js";
 

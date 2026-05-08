@@ -2,7 +2,18 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/pro
 import { join } from "node:path";
 
 import { hashString } from "./hash.js";
+import { createContentMerkleNode, parseMerkleNode, serializeMerkleNode } from "./merkle.js";
 import type { CasStore } from "./types.js";
+
+/** Raw strings become content merkle YAML; already-valid merkle documents pass through. */
+function normalizeCasPutContent(content: string): string {
+  try {
+    parseMerkleNode(content);
+    return content;
+  } catch {
+    return serializeMerkleNode(createContentMerkleNode(content));
+  }
+}
 
 export function createCasStore(casDir: string): CasStore {
   async function ensureDir(): Promise<void> {
@@ -15,11 +26,12 @@ export function createCasStore(casDir: string): CasStore {
 
   return {
     async put(content: string): Promise<string> {
-      const hash = hashString(content);
+      const toStore = normalizeCasPutContent(content);
+      const hash = hashString(toStore);
       await ensureDir();
       const target = filePath(hash);
       const tmp = `${target}.tmp.${Date.now()}`;
-      await writeFile(tmp, content, "utf8");
+      await writeFile(tmp, toStore, "utf8");
       await rename(tmp, target);
       return hash;
     },

@@ -1,4 +1,4 @@
-import type { RoleDefinition } from "@uncaged/workflow";
+import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import { type DeveloperMeta, developerRole } from "./developer.js";
 import { type PreparerMeta, preparerRole } from "./roles/preparer.js";
 import { type SubmitterMeta, submitterRole } from "./roles/submitter.js";

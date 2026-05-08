@@ -5,7 +5,7 @@ import {
   type RoleStep,
   START,
   validateWorkflowDescriptor,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-runtime";
 import { buildDevelopDescriptor } from "../src/descriptor.js";
 import { developModerator } from "../src/index.js";
 import type { CommitterMeta, PlannerMeta } from "../src/roles/index.js";

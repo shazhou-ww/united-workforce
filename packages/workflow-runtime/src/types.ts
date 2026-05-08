@@ -36,7 +36,7 @@ export type WorkflowCompletion = {
   summary: string;
 };
 
-/** Final thread outcome from {@link executeThread}, including Merkle thread root CAS hash. */
+/** Final thread outcome from executeThread, including Merkle thread root CAS hash. */
 export type WorkflowResult = WorkflowCompletion & {
   rootHash: string;
 };
@@ -115,10 +115,10 @@ export type ThreadContext<M extends RoleMeta = RoleMeta> = AgentContext<M>;
 /** Raw string output from an LLM/CLI adapter; meta is extracted by the engine. */
 export type AgentFn = (ctx: AgentContext) => Promise<string>;
 
-/** Runtime agent assignment (optional per-role overrides). */
+/** Runtime agent assignment (explicit null when no per-role overrides). */
 export type AgentBinding = {
   agent: AgentFn;
-  overrides?: Partial<Record<string, AgentFn>>;
+  overrides: Partial<Record<string, AgentFn>> | null;
 };
 
 /** Role wiring: prompts, schema, and human-readable description. */
@@ -148,3 +148,10 @@ export type WorkflowDefinition<M extends RoleMeta> = {
   roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
   moderator: Moderator<M>;
 };
+
+/** Engine-injected meta extraction for workflow loops (single + react modes). */
+export type ResolveRoleMetaFn<M extends RoleMeta = RoleMeta> = (
+  roleDef: RoleDefinition<Record<string, unknown>>,
+  extractCtx: ExtractContext<M>,
+  options: WorkflowFnOptions,
+) => Promise<Record<string, unknown>>;

@@ -1,4 +1,4 @@
-import type { AgentFn } from "@uncaged/workflow";
+import type { AgentFn } from "@uncaged/workflow-runtime";
 import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 
 import type { HermesAgentConfig } from "./types.js";

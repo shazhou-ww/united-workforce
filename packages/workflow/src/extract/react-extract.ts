@@ -1,7 +1,5 @@
+import type { CasStore, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
-
-import type { CasStore } from "../cas/index.js";
-import type { LlmProvider } from "../types.js";
 import { err, ok, type Result } from "../util/index.js";
 
 import { extractFunctionToolFromZodSchema } from "./llm-extract.js";

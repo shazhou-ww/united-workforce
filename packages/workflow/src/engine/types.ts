@@ -1,5 +1,5 @@
+import type { RoleOutput } from "@uncaged/workflow-runtime";
 import type { CasStore } from "../cas/index.js";
-import type { RoleOutput } from "../types.js";
 import type { Result } from "../util/index.js";
 
 export type SupervisorDecision = "continue" | "stop";

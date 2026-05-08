@@ -9,8 +9,8 @@ import {
   getGlobalCasDir,
   tryParseRoleStepRecord,
   tryParseWorkflowResultRecord,
-  type WorkflowCompletion,
 } from "@uncaged/workflow";
+import type { WorkflowCompletion } from "@uncaged/workflow-runtime";
 
 import { dimGreyLine, highlightLiveRole } from "../../cli-color.js";
 import { printCliError, printCliLine } from "../../cli-output.js";

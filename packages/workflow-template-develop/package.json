@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:*",
     "zod": "^4.0.0"
   }
 }
