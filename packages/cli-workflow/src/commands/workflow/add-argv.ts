@@ -1,11 +1,6 @@
 import { err, ok, type Result } from "@uncaged/workflow";
 
-export type ParsedAddArgv = {
-  name: string;
-  filePath: string;
-  /** Override path to `.d.ts` when adding a bundle. */
-  typesPath: string | null;
-};
+import type { ParsedAddArgv } from "./types.js";
 
 type ParsedLongFlag = { advance: 2; kind: "types"; value: string };
 

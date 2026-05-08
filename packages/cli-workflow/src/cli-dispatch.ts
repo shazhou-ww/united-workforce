@@ -2,8 +2,8 @@ import type { CommandEntry, DispatchFn } from "./cli-command-types.js";
 import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
 import { getCommandRegistry } from "./cli-registry.js";
 import { formatCliUsage as formatCliUsageWithGroups } from "./cli-usage.js";
-import { createCasDispatcher, dispatchGc } from "./commands/cas/dispatch.js";
-import { createInitDispatcher } from "./commands/init/dispatch.js";
+import { createCasDispatcher, dispatchGc } from "./commands/cas/index.js";
+import { createInitDispatcher } from "./commands/init/index.js";
 import {
   createThreadDispatcher,
   dispatchFork,
@@ -14,7 +14,7 @@ import {
   dispatchResume,
   dispatchRun,
   dispatchThreadList,
-} from "./commands/thread/dispatch.js";
+} from "./commands/thread/index.js";
 import {
   createWorkflowDispatcher,
   dispatchAdd,
@@ -23,7 +23,7 @@ import {
   dispatchRemove,
   dispatchRollback,
   dispatchShow,
-} from "./commands/workflow/dispatch.js";
+} from "./commands/workflow/index.js";
 import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "./skill.js";
 
 export type { CommandEntry, CommandGroup, DispatchFn } from "./cli-command-types.js";

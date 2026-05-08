@@ -4,16 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { getGlobalCasDir, getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
-import { cmdCasGet } from "../src/commands/cas/get.js";
-import { cmdCasList } from "../src/commands/cas/list.js";
-import { cmdCasPut } from "../src/commands/cas/put.js";
-import { cmdCasRm } from "../src/commands/cas/rm.js";
-import { cmdAdd } from "../src/commands/workflow/add.js";
-import { cmdHistory } from "../src/commands/workflow/history.js";
-import { cmdList, formatListLines } from "../src/commands/workflow/list.js";
-import { cmdRemove } from "../src/commands/workflow/rm.js";
-import { cmdRollback } from "../src/commands/workflow/rollback.js";
-import { cmdShow } from "../src/commands/workflow/show.js";
+import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/commands/cas/index.js";
+import {
+  cmdAdd,
+  cmdHistory,
+  cmdList,
+  cmdRemove,
+  cmdRollback,
+  cmdShow,
+  formatListLines,
+} from "../src/commands/workflow/index.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
 const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };
