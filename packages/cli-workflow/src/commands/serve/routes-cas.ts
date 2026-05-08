@@ -3,17 +3,15 @@ import { Hono } from "hono";
 
 export function createCasRoutes(storageRoot: string): Hono {
   const app = new Hono();
+  const casDir = getGlobalCasDir(storageRoot);
+  const cas = createCasStore(casDir);
 
   app.get("/", async (c) => {
-    const casDir = getGlobalCasDir(storageRoot);
-    const cas = createCasStore(casDir);
     const hashes = await cas.list();
     return c.json({ hashes });
   });
 
   app.get("/:hash", async (c) => {
-    const casDir = getGlobalCasDir(storageRoot);
-    const cas = createCasStore(casDir);
     const content = await cas.get(c.req.param("hash"));
     if (content === null) {
       return c.json({ error: "not found" }, 404);
@@ -22,19 +20,20 @@ export function createCasRoutes(storageRoot: string): Hono {
   });
 
   app.post("/", async (c) => {
-    const body = await c.req.json<{ content: string }>();
+    let body: { content: string };
+    try {
+      body = (await c.req.json()) as { content: string };
+    } catch {
+      return c.json({ error: "invalid JSON body" }, 400);
+    }
     if (typeof body.content !== "string") {
       return c.json({ error: "content field required" }, 400);
     }
-    const casDir = getGlobalCasDir(storageRoot);
-    const cas = createCasStore(casDir);
     const hash = await cas.put(body.content);
     return c.json({ hash }, 201);
   });
 
   app.delete("/:hash", async (c) => {
-    const casDir = getGlobalCasDir(storageRoot);
-    const cas = createCasStore(casDir);
     const hash = c.req.param("hash");
     const content = await cas.get(hash);
     if (content === null) {
