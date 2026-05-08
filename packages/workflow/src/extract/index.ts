@@ -6,7 +6,6 @@ export {
   extractFunctionToolFromZodSchema,
   llmErrorToCause,
   llmExtract,
-  llmExtractWithRetry,
 } from "./llm-extract.js";
 export { reactExtract } from "./react-extract.js";
 export type {

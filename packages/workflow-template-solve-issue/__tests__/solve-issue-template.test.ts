@@ -51,6 +51,49 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
+function buildToolCallResponse(args: Record<string, unknown>): Response {
+  return jsonResponse({
+    choices: [
+      {
+        message: {
+          tool_calls: [
+            {
+              id: "tc_extract_1",
+              type: "function",
+              function: {
+                name: "extract",
+                arguments: JSON.stringify(args),
+              },
+            },
+          ],
+        },
+      },
+    ],
+  });
+}
+
+function installMockToolCallCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
+  const origFetch = globalThis.fetch;
+  let i = 0;
+  const mockFetch = async (
+    _input: Parameters<typeof fetch>[0],
+    _init?: RequestInit,
+  ): Promise<Response> => {
+    const args = sequence[i] ?? sequence[sequence.length - 1];
+    if (args === undefined) {
+      throw new Error("installMockToolCallCompletions: empty sequence");
+    }
+    i += 1;
+    return buildToolCallResponse(args);
+  };
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: origFetch.preconnect.bind(origFetch),
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
+
 function makeStart(maxRounds: number): ModeratorContext<SolveIssueMeta>["start"] {
   return {
     role: START,
@@ -209,6 +252,43 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
       },
     };
     restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META]);
+
+    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
+    const cas = createCasStore(casDir);
+
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
+      agent: async () => "",
+      overrides: { developer: async () => "stub-root-hash" },
+    });
+    const gen = run(
+      makeThread("task"),
+      {
+        cas,
+        extract: stubExtract,
+      },
+    );
+    const first = await gen.next();
+    expect(first.done).toBe(false);
+    if (first.done) {
+      throw new Error("expected yield");
+    }
+    expect(first.value.role).toBe("preparer");
+    expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
+  });
+
+  test("structured extraction also accepts tool_calls extraction path", async () => {
+    const EXPECT_PREPARER_META: PreparerMeta = {
+      repoPath: "/home/user/repos/tool-call",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: {
+        packageManager: "bun",
+        testCommand: "bun test",
+        lintCommand: null,
+        buildCommand: "bun run build",
+      },
+    };
+    restoreFetch = installMockToolCallCompletions([EXPECT_PREPARER_META]);
 
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
