@@ -5,7 +5,7 @@ import {
   type LlmProvider,
   ok,
   type Result,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-runtime";
 
 /** OpenAI chat completion message shape (passed to `/chat/completions`). */
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };

@@ -1,5 +1,5 @@
-import type { Moderator, ModeratorContext } from "@uncaged/workflow";
-import { END } from "@uncaged/workflow";
+import type { Moderator, ModeratorContext } from "@uncaged/workflow-runtime";
+import { END } from "@uncaged/workflow-runtime";
 
 import type { DevelopMeta } from "./roles.js";
 

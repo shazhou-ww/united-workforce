@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-runtime";
 
 export type SpawnCliError =
   | { kind: "non_zero_exit"; exitCode: number | null; stdout: string; stderr: string }

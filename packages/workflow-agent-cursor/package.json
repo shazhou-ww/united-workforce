@@ -8,7 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:*",
     "@uncaged/workflow-util-agent": "workspace:*",
     "zod": "^4.0.0"
   }

@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCasStore, START, type ThreadContext } from "@uncaged/workflow";
+import { createCasStore } from "@uncaged/workflow";
+import { START, type ThreadContext } from "@uncaged/workflow-runtime";
 
 import { createLlmAdapter } from "../src/create-llm-adapter.js";
 

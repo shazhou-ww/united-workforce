@@ -1,4 +1,4 @@
-import type { ExtractFn } from "@uncaged/workflow";
+import type { ExtractFn } from "@uncaged/workflow-runtime";
 
 export type CursorAgentConfig = {
   model: string | null;

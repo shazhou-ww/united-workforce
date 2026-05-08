@@ -1,5 +1,5 @@
-import type { AgentContext } from "@uncaged/workflow";
 import { getContentMerklePayload } from "@uncaged/workflow";
+import type { AgentContext } from "@uncaged/workflow-runtime";
 
 async function resolveStepText(ctx: AgentContext, contentHash: string): Promise<string> {
   const text = await getContentMerklePayload(ctx.cas, contentHash);

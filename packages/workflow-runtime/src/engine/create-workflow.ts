@@ -1,4 +1,4 @@
-import type { CasStore } from "../cas/index.js";
+import type { CasStore } from "../cas/types.js";
 import {
   type AgentBinding,
   type AgentContext,
@@ -131,7 +131,7 @@ async function advanceOneRound<M extends RoleMeta>(
 
 /**
  * Binds pure role definitions + moderator to runtime agents.
- * Assign with `export const run = createWorkflow(def, binding)` via `@uncaged/workflow`,
+ * Assign with `export const run = createWorkflow(def, binding)` via `@uncaged/workflow-runtime`,
  * which supplies {@link ResolveRoleMetaFn}.
  */
 export function createWorkflow<M extends RoleMeta>(

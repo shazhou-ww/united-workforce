@@ -1,4 +1,4 @@
-import type { RoleDefinition } from "@uncaged/workflow";
+import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 
 const toolchainSchema = z.object({

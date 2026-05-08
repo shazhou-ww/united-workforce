@@ -1,4 +1,4 @@
-import type { AgentFn, ExtractContext } from "@uncaged/workflow";
+import type { AgentFn, ExtractContext } from "@uncaged/workflow-runtime";
 import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 import * as z from "zod/v4";
 
