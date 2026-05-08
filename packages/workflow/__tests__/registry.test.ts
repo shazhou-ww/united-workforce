@@ -132,6 +132,65 @@ workflows:
     expect(r.value.config.providers.dashscope?.apiKey).toBe("secret-key");
     expect(r.value.config.models.extract).toBe("dashscope/qwen-plus");
     expect(r.value.config.models.default).toBe("dashscope/qwen-turbo");
+    expect(r.value.config.supervisorInterval).toBe(3);
+  });
+
+  test("defaults supervisorInterval to 3 when omitted", () => {
+    const yaml = `
+config:
+  maxDepth: 0
+  providers:
+    p:
+      baseUrl: https://example.com
+      apiKey: k
+  models:
+    default: p/m
+workflows: {}
+`;
+    const r = parseWorkflowRegistryYaml(yaml);
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.value.config === null) {
+      return;
+    }
+    expect(r.value.config.supervisorInterval).toBe(3);
+  });
+
+  test("parses explicit supervisorInterval", () => {
+    const yaml = `
+config:
+  maxDepth: 0
+  supervisorInterval: 7
+  providers:
+    p:
+      baseUrl: https://example.com
+      apiKey: k
+  models:
+    default: p/m
+workflows: {}
+`;
+    const r = parseWorkflowRegistryYaml(yaml);
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.value.config === null) {
+      return;
+    }
+    expect(r.value.config.supervisorInterval).toBe(7);
+  });
+
+  test("parse errors when supervisorInterval is negative", () => {
+    const yaml = `
+config:
+  maxDepth: 0
+  supervisorInterval: -1
+  providers:
+    p:
+      baseUrl: https://example.com
+      apiKey: k
+  models:
+    default: p/m
+workflows: {}
+`;
+    const r = parseWorkflowRegistryYaml(yaml);
+    expect(r.ok).toBe(false);
   });
 
   test("parses config apiKey env: prefix from process.env", () => {

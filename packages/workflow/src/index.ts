@@ -47,6 +47,7 @@ export {
   type ParsedThreadStartRecord,
   type PrefilledDiskStep,
   parseThreadDataJsonl,
+  type SupervisorDecision,
   selectForkHistoricalSteps,
   type ThreadPauseGate,
   tryParseRoleStepRecord,

@@ -96,6 +96,98 @@ async function writeExtractRegistryConfig(storageRoot: string): Promise<void> {
   await writeFile(join(storageRoot, "workflow.yaml"), EXTRACT_REGISTRY_YAML, "utf8");
 }
 
+const SUPERVISOR_INTERVAL_REGISTRY_YAML = `config:
+  maxDepth: 3
+  supervisorInterval: 2
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    extract: stub/model
+    supervisor: stub/supervisor-cheap
+workflows: {}
+`;
+
+const SUPERVISOR_LONG_INTERVAL_REGISTRY_YAML = `config:
+  maxDepth: 3
+  supervisorInterval: 10
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    extract: stub/model
+    supervisor: stub/supervisor-cheap
+workflows: {}
+`;
+
+async function writeRegistryYaml(storageRoot: string, yaml: string): Promise<void> {
+  await writeFile(join(storageRoot, "workflow.yaml"), yaml, "utf8");
+}
+
+/** Extract rounds use tool_calls; supervisor uses plain `content` (no tools). */
+function installMockExtractThenSupervisor(params: {
+  extractArgs: ReadonlyArray<Record<string, unknown>>;
+  supervisorContent: string;
+  onSupervisorCall?: () => void;
+}): () => void {
+  const origFetch = globalThis.fetch;
+  let extractI = 0;
+  const mockFetch = async (
+    _input: Parameters<typeof fetch>[0],
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+    const tools = body.tools;
+    const hasTools = Array.isArray(tools) && tools.length > 0;
+    if (hasTools) {
+      const args =
+        params.extractArgs[extractI] ?? params.extractArgs[params.extractArgs.length - 1];
+      if (args === undefined) {
+        throw new Error("installMockExtractThenSupervisor: empty extractArgs");
+      }
+      extractI += 1;
+      const firstTool = tools[0] as Record<string, unknown>;
+      const fn = firstTool.function as Record<string, unknown> | undefined;
+      const toolName = typeof fn?.name === "string" ? fn.name : "extract";
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                tool_calls: [
+                  {
+                    type: "function",
+                    function: {
+                      name: toolName,
+                      arguments: JSON.stringify(args),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    params.onSupervisorCall?.();
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: params.supervisorContent } }],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: origFetch.preconnect.bind(origFetch),
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
+
 const demoWorkflow = createWorkflow<DemoMeta>(
   {
     roles: {
@@ -620,6 +712,104 @@ describe("executeThread", () => {
       expect(roleRec.meta).toEqual({ leafPayload: "needle-from-leaf" });
     } finally {
       globalThis.fetch = origFetch;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("supervisor stops thread when interval elapses and model returns stop", async () => {
+    restoreFetch = installMockExtractThenSupervisor({
+      extractArgs: [{ plan: "do-it", files: ["a.ts"] }, { diff: "+ok" }],
+      supervisorContent: "stop",
+    });
+
+    const root = await mkdtemp(join(tmpdir(), "wf-engine-sup-stop-"));
+    try {
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const hash = "C9NMV6V2TQT81";
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
+      await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeRegistryYaml(root, SUPERVISOR_INTERVAL_REGISTRY_YAML);
+      const cas = createCasStore(join(root, "cas"));
+
+      const logger = createLogger({ sink: { kind: "file", path: infoPath } });
+      const ac = new AbortController();
+
+      const result = await executeThread(
+        demoWorkflow,
+        "demo-flow",
+        { prompt: "supervisor-stop-case", steps: [] },
+        {
+          maxRounds: 20,
+          depth: 0,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
+          storageRoot: root,
+        },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
+        logger,
+      );
+
+      expect(result.returnCode).toBe(0);
+      expect(result.summary).toBe("completed: supervisor stopped thread");
+
+      const dataText = await readFile(dataPath, "utf8");
+      const lines = dataText
+        .trim()
+        .split("\n")
+        .filter((l) => l !== "");
+      expect(lines.length).toBe(3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("supervisor is not invoked before supervisorInterval rounds", async () => {
+    let supervisorCalls = 0;
+    restoreFetch = installMockExtractThenSupervisor({
+      extractArgs: [{ plan: "do-it", files: ["a.ts"] }, { diff: "+ok" }],
+      supervisorContent: "stop",
+      onSupervisorCall: () => {
+        supervisorCalls += 1;
+      },
+    });
+
+    const root = await mkdtemp(join(tmpdir(), "wf-engine-sup-skip-"));
+    try {
+      const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
+      const hash = "C9NMV6V2TQT81";
+      const dataPath = join(root, "logs", hash, `${threadId}.data.jsonl`);
+      const infoPath = join(root, "logs", hash, `${threadId}.info.jsonl`);
+      await mkdir(join(root, "logs", hash), { recursive: true });
+      await writeRegistryYaml(root, SUPERVISOR_LONG_INTERVAL_REGISTRY_YAML);
+      const cas = createCasStore(join(root, "cas"));
+
+      const logger = createLogger({ sink: { kind: "file", path: infoPath } });
+      const ac = new AbortController();
+
+      const result = await executeThread(
+        demoWorkflow,
+        "demo-flow",
+        { prompt: "no-supervisor-yet", steps: [] },
+        {
+          maxRounds: 20,
+          depth: 0,
+          signal: ac.signal,
+          awaitAfterEachYield: async () => {},
+          forkSourceThreadId: null,
+          prefilledDiskSteps: null,
+          storageRoot: root,
+        },
+        { threadId, hash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
+        logger,
+      );
+
+      expect(supervisorCalls).toBe(0);
+      expect(result.returnCode).toBe(0);
+      expect(result.summary).toBe("completed: moderator returned END");
+    } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
