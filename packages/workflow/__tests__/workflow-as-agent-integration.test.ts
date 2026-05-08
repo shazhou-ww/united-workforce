@@ -4,19 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
-import { createCasStore } from "../src/cas.js";
-import { createWorkflow } from "../src/create-workflow.js";
-import { executeThread } from "../src/engine.js";
-import { createExtract } from "../src/extract-fn.js";
-import { hashWorkflowBundleBytes } from "../src/hash.js";
-import { createLogger } from "../src/logger.js";
-import { getContentMerklePayload, parseMerkleNode } from "../src/merkle.js";
+import { createCasStore } from "../src/cas/cas.js";
+import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
+import { getContentMerklePayload, parseMerkleNode } from "../src/cas/merkle.js";
+import { createWorkflow } from "../src/engine/create-workflow.js";
+import { executeThread } from "../src/engine/engine.js";
+import { createExtract } from "../src/extract/extract-fn.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
   writeWorkflowRegistry,
-} from "../src/registry.js";
+} from "../src/registry/registry.js";
 import { END } from "../src/types.js";
+import { createLogger } from "../src/util/logger.js";
 import { workflowAsAgent } from "../src/workflow-as-agent.js";
 
 const callerMetaSchema = z.object({ done: z.literal(true) });

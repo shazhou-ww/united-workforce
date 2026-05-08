@@ -1,3 +1,4 @@
+import { err, ok, type Result } from "../util/result.js";
 import type {
   ExtractProviderConfig,
   WorkflowConfig,
@@ -5,7 +6,6 @@ import type {
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
 } from "./registry-types.js";
-import { err, ok, type Result } from "./result.js";
 
 function resolveRegistryApiKey(raw: string): Result<string, Error> {
   if (raw.startsWith("env:")) {

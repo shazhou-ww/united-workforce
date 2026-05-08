@@ -1,8 +1,7 @@
 import type * as z from "zod/v4";
-
+import { getContentMerklePayload } from "../cas/merkle.js";
+import type { ExtractContext, LlmProvider } from "../types.js";
 import { llmExtractWithRetry } from "./llm-extract.js";
-import { getContentMerklePayload } from "./merkle.js";
-import type { ExtractContext, LlmProvider } from "./types.js";
 
 export type ExtractFn = <T extends Record<string, unknown>>(
   schema: z.ZodType<T>,

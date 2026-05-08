@@ -3,14 +3,14 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createCasStore } from "../src/cas.js";
-import { hashWorkflowBundleBytes } from "../src/hash.js";
-import { parseMerkleNode } from "../src/merkle.js";
+import { createCasStore } from "../src/cas/cas.js";
+import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
+import { parseMerkleNode } from "../src/cas/merkle.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
   writeWorkflowRegistry,
-} from "../src/registry.js";
+} from "../src/registry/registry.js";
 import { type AgentContext, START } from "../src/types.js";
 import { workflowAsAgent } from "../src/workflow-as-agent.js";
 

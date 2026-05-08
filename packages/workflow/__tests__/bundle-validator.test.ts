@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { validateWorkflowBundle } from "../src/bundle-validator.js";
+import { validateWorkflowBundle } from "../src/bundle/bundle-validator.js";
 
 const minimalDescriptor = `export const descriptor = { description: "x", roles: {} };
 `;

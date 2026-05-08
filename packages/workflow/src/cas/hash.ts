@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 import XXH from "xxhashjs";
 
-import { encodeUint64AsCrockford } from "./base32.js";
+import { encodeUint64AsCrockford } from "../util/base32.js";
 
 function digestToUint64(digest: { toString(radix?: number): string }): bigint {
   const hex = digest.toString(16).padStart(16, "0");

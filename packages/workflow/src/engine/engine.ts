@@ -1,17 +1,17 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import type { CasStore } from "./cas.js";
-import type { LogFn } from "./logger.js";
-import { getContentMerklePayload, putStepMerkleNode, putThreadMerkleNode } from "./merkle.js";
-import { normalizeRefsField } from "./refs-field.js";
+import type { CasStore } from "../cas/cas.js";
+import { getContentMerklePayload, putStepMerkleNode, putThreadMerkleNode } from "../cas/merkle.js";
 import type {
   ThreadInput,
   WorkflowCompletion,
   WorkflowFn,
   WorkflowFnOptions,
   WorkflowResult,
-} from "./types.js";
+} from "../types.js";
+import type { LogFn } from "../util/logger.js";
+import { normalizeRefsField } from "../util/refs-field.js";
 
 export type ExecuteThreadIo = {
   threadId: string;

@@ -4,7 +4,7 @@ import {
   buildForkPlan,
   parseThreadDataJsonl,
   selectForkHistoricalSteps,
-} from "../src/fork-thread.js";
+} from "../src/engine/fork-thread.js";
 
 const sampleDataJsonl = `{"name":"demo","hash":"C9NMV6V2TQT81","threadId":"01AAA1111111111111111111","parameters":{"prompt":"hi","options":{"maxRounds":5}},"timestamp":100}
 {"role":"planner","contentHash":"HP0000000000000000000001","meta":{},"refs":[],"timestamp":101}

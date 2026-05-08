@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 
-import { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "../src/storage-root.js";
+import { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "../src/util/storage-root.js";
 
 describe("getGlobalCasDir", () => {
   test("joins cas segment under explicit storage root", () => {

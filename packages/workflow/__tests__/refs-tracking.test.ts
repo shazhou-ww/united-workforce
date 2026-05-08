@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
-import { createCasStore } from "../src/cas.js";
-import { createWorkflow } from "../src/create-workflow.js";
-import { executeThread } from "../src/engine.js";
-import { createExtract } from "../src/extract-fn.js";
-import { buildForkPlan, parseThreadDataJsonl } from "../src/fork-thread.js";
-import { createLogger } from "../src/logger.js";
+import { createCasStore } from "../src/cas/cas.js";
+import { createWorkflow } from "../src/engine/create-workflow.js";
+import { executeThread } from "../src/engine/engine.js";
+import { buildForkPlan, parseThreadDataJsonl } from "../src/engine/fork-thread.js";
+import { createExtract } from "../src/extract/extract-fn.js";
 import { END } from "../src/types.js";
+import { createLogger } from "../src/util/logger.js";
 
 const phaseSchema = z.object({
   hash: z.string(),

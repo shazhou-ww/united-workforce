@@ -3,7 +3,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createLogger } from "../src/logger.js";
+import { createLogger } from "../src/util/logger.js";
 
 describe("createLogger", () => {
   test("writes JSONL records to a file sink", async () => {

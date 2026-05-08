@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "./result.js";
+import { err, ok, type Result } from "../util/result.js";
 
 /** JSON Schema fragment describing one role's `meta` shape (subset supported by code generation). */
 export type WorkflowRoleSchema = Record<string, unknown>;

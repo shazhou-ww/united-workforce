@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createThreadPauseGate } from "../src/thread-pause-gate.js";
+import { createThreadPauseGate } from "../src/engine/thread-pause-gate.js";
 
 describe("createThreadPauseGate", () => {
   test("pause blocks awaitAfterYield until resume", async () => {

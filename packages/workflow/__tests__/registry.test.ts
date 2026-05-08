@@ -10,7 +10,7 @@ import {
   rollbackWorkflowToHistoryHash,
   unregisterWorkflow,
   writeWorkflowRegistry,
-} from "../src/registry.js";
+} from "../src/registry/registry.js";
 
 describe("workflow registry", () => {
   test("roundtrips through workflow.yaml", async () => {

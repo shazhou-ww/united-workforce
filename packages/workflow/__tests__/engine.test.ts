@@ -4,18 +4,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
-import { createCasStore } from "../src/cas.js";
-import { createWorkflow } from "../src/create-workflow.js";
-import { executeThread } from "../src/engine.js";
-import { createExtract } from "../src/extract-fn.js";
-import { createLogger } from "../src/logger.js";
+import { createCasStore } from "../src/cas/cas.js";
 import {
   createContentMerkleNode,
   getContentMerklePayload,
   parseMerkleNode,
   serializeMerkleNode,
-} from "../src/merkle.js";
+} from "../src/cas/merkle.js";
+import { createWorkflow } from "../src/engine/create-workflow.js";
+import { executeThread } from "../src/engine/engine.js";
+import { createExtract } from "../src/extract/extract-fn.js";
 import { END, type LlmProvider } from "../src/types.js";
+import { createLogger } from "../src/util/logger.js";
 
 const plannerMetaSchema = z.object({
   plan: z.string(),

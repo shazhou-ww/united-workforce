@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod/v4";
 
-import { createCasStore } from "../src/cas.js";
-import { createContentMerkleNode, serializeMerkleNode } from "../src/merkle.js";
-import { reactExtract } from "../src/react-extract.js";
+import { createCasStore } from "../src/cas/cas.js";
+import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
+import { reactExtract } from "../src/extract/react-extract.js";
 import type { LlmProvider } from "../src/types.js";
 
 const metaSchema = z.object({ seen: z.string() });
