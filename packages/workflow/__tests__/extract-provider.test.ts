@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { getExtractProvider } from "../src/extract-provider.js";
 
 describe("getExtractProvider", () => {
-  test("returns provider when config.extract is present", async () => {
+  test("returns provider when config.models.extract is present", async () => {
     const root = await mkdtemp(join(tmpdir(), "wf-ext-prov-ok-"));
     try {
       await mkdir(root, { recursive: true });
@@ -14,10 +14,13 @@ describe("getExtractProvider", () => {
         join(root, "workflow.yaml"),
         `config:
   maxDepth: 3
-  extract:
-    baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
-    model: qwen-plus
-    apiKey: literal-key
+  providers:
+    dashscope:
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKey: literal-key
+  models:
+    default: dashscope/qwen-turbo
+    extract: dashscope/qwen-plus
 workflows: {}
 `,
         "utf8",
@@ -61,10 +64,13 @@ workflows: {}
         join(root, "workflow.yaml"),
         `config:
   maxDepth: 1
-  extract:
-    baseUrl: https://example.com
-    model: m
-    apiKey: env:WF_GET_EXTRACT_PROVIDER_KEY
+  providers:
+    p:
+      baseUrl: https://example.com
+      apiKey: env:WF_GET_EXTRACT_PROVIDER_KEY
+  models:
+    default: p/other-model
+    extract: p/m
 workflows: {}
 `,
         "utf8",

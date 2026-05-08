@@ -29,6 +29,11 @@ export {
   type ThreadMerklePayload,
 } from "./cas/index.js";
 export {
+  type ProviderConfig,
+  type ResolvedModel,
+  resolveModel,
+} from "./config/index.js";
+export {
   buildForkPlan,
   createThreadPauseGate,
   createWorkflow,
@@ -60,7 +65,6 @@ export {
 } from "./extract/index.js";
 export { getExtractProvider } from "./extract-provider.js";
 export {
-  type ExtractProviderConfig,
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
   parseWorkflowRegistryYaml,

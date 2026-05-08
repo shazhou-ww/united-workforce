@@ -1,3 +1,4 @@
+import { resolveModel } from "./config/index.js";
 import type { WorkflowConfig } from "./registry/index.js";
 import { readWorkflowRegistry } from "./registry/index.js";
 import type { LlmProvider } from "./types.js";
@@ -12,7 +13,7 @@ export function getWorkflowAsAgentMaxDepth(config: WorkflowConfig | null): numbe
   return config.maxDepth;
 }
 
-/** Loads `config.extract` from workflow.yaml (apiKey already resolved at registry parse time). */
+/** Loads the LLM provider for scene `extract` from workflow.yaml (`config.models` + `config.providers`; apiKey resolved at registry parse time). */
 export async function getExtractProvider(
   storageRoot: string | undefined,
 ): Promise<Result<LlmProvider, string>> {
@@ -25,7 +26,11 @@ export async function getExtractProvider(
   if (cfg === null) {
     return err("workflow registry has no global config section");
   }
-  const ex = cfg.extract;
+  const resolved = resolveModel(cfg, "extract");
+  if (!resolved.ok) {
+    return resolved;
+  }
+  const ex = resolved.value;
   return ok({
     baseUrl: ex.baseUrl,
     apiKey: ex.apiKey,

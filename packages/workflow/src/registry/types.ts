@@ -1,3 +1,5 @@
+import type { ProviderConfig } from "../config/index.js";
+
 export type WorkflowHistoryEntry = {
   hash: string;
   timestamp: number;
@@ -9,16 +11,10 @@ export type WorkflowRegistryEntry = {
   history: WorkflowHistoryEntry[];
 };
 
-/** LLM provider settings under `config.extract` in workflow.yaml (apiKey resolved after parse). */
-export type ExtractProviderConfig = {
-  baseUrl: string;
-  model: string;
-  apiKey: string;
-};
-
 export type WorkflowConfig = {
   maxDepth: number;
-  extract: ExtractProviderConfig;
+  providers: Record<string, ProviderConfig>;
+  models: Record<string, string>;
 };
 
 export type WorkflowRegistryFile = {
