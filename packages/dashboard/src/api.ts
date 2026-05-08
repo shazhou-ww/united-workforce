@@ -1,5 +1,18 @@
 const BASE = "/api";
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText })) as { error: string };
+    throw new Error(err.error || `API ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) {
@@ -44,6 +57,22 @@ export function listRunningThreads(): Promise<{ threads: ThreadSummary[] }> {
 
 export function getThread(id: string): Promise<{ records: ThreadRecord[] }> {
   return fetchJson(`/threads/${id}`);
+}
+
+export function runThread(workflow: string, prompt: string, maxRounds: number = 10): Promise<{ threadId: string }> {
+  return postJson("/threads", { workflow, prompt, maxRounds });
+}
+
+export function killThread(threadId: string): Promise<{ ok: boolean }> {
+  return postJson(`/threads/${threadId}/kill`, {});
+}
+
+export function pauseThread(threadId: string): Promise<{ ok: boolean }> {
+  return postJson(`/threads/${threadId}/pause`, {});
+}
+
+export function resumeThread(threadId: string): Promise<{ ok: boolean }> {
+  return postJson(`/threads/${threadId}/resume`, {});
 }
 
 export function getHealth(): Promise<{ ok: boolean }> {
