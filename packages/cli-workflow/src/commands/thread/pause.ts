@@ -2,14 +2,14 @@ import { join } from "node:path";
 
 import { err, type Result } from "@uncaged/workflow";
 
-import { readTextFileIfExists } from "./fs-utils.js";
+import { readTextFileIfExists } from "../../fs-utils.js";
 import {
   resolveRunningHashForThread,
   sendWorkerTcpCommand,
   type WorkerCtl,
-} from "./worker-spawn.js";
+} from "../../worker-spawn.js";
 
-export async function cmdResume(
+export async function cmdPause(
   storageRoot: string,
   threadId: string,
 ): Promise<Result<void, string>> {
@@ -37,7 +37,7 @@ export async function cmdResume(
 
   return await sendWorkerTcpCommand(
     ctl.port,
-    { type: "resume", threadId },
+    { type: "pause", threadId },
     { awaitResponseLine: true },
   );
 }

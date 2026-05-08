@@ -4,13 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { getGlobalCasDir, getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow";
-import { cmdAdd } from "../src/cmd-add.js";
-import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/cmd-cas.js";
-import { cmdHistory } from "../src/cmd-history.js";
-import { cmdList, formatListLines } from "../src/cmd-list.js";
-import { cmdRemove } from "../src/cmd-remove.js";
-import { cmdRollback } from "../src/cmd-rollback.js";
-import { cmdShow } from "../src/cmd-show.js";
+import { cmdCasGet } from "../src/commands/cas/get.js";
+import { cmdCasList } from "../src/commands/cas/list.js";
+import { cmdCasPut } from "../src/commands/cas/put.js";
+import { cmdCasRm } from "../src/commands/cas/rm.js";
+import { cmdAdd } from "../src/commands/workflow/add.js";
+import { cmdHistory } from "../src/commands/workflow/history.js";
+import { cmdList, formatListLines } from "../src/commands/workflow/list.js";
+import { cmdRemove } from "../src/commands/workflow/rm.js";
+import { cmdRollback } from "../src/commands/workflow/rollback.js";
+import { cmdShow } from "../src/commands/workflow/show.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
 const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };

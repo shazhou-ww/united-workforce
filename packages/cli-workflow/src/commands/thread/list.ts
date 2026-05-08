@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "@uncaged/workflow";
 
-import { listHistoricalThreads } from "./thread-scan.js";
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { listHistoricalThreads } from "../../thread-scan.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdThreads(
   storageRoot: string,

@@ -8,8 +8,8 @@ import {
   type Result,
   readWorkflowRegistry,
 } from "@uncaged/workflow";
-import { ensureWorkerForHash, sendWorkerTcpCommand } from "./worker-spawn.js";
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { ensureWorkerForHash, sendWorkerTcpCommand } from "../../worker-spawn.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdRun(
   storageRoot: string,

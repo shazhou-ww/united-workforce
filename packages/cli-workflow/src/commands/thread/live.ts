@@ -12,10 +12,10 @@ import {
   type WorkflowCompletion,
 } from "@uncaged/workflow";
 
-import { printCliError, printCliLine } from "./cli-output.js";
-import { pathExists } from "./fs-utils.js";
-import type { ParsedLiveArgv } from "./live-argv.js";
-import { findLatestThreadDataPath, resolveThreadDataPath } from "./thread-scan.js";
+import { printCliError, printCliLine } from "../../cli-output.js";
+import { pathExists } from "../../fs-utils.js";
+import type { ParsedLiveArgv } from "../../live-argv.js";
+import { findLatestThreadDataPath, resolveThreadDataPath } from "../../thread-scan.js";
 
 export const LIVE_CONTENT_MAX_LINES = 10;
 

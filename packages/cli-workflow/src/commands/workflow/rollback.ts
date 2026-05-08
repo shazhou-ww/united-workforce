@@ -10,8 +10,8 @@ import {
   writeWorkflowRegistry,
 } from "@uncaged/workflow";
 
-import { pathExists } from "./fs-utils.js";
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { pathExists } from "../../fs-utils.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdRollback(
   storageRoot: string,

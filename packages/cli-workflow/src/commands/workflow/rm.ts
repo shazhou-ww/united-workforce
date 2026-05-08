@@ -7,7 +7,7 @@ import {
   writeWorkflowRegistry,
 } from "@uncaged/workflow";
 
-import { validateCliWorkflowName } from "./workflow-name.js";
+import { validateCliWorkflowName } from "../../workflow-name.js";
 
 export async function cmdRemove(storageRoot: string, name: string): Promise<Result<void, string>> {
   const nameOk = validateCliWorkflowName(name);
