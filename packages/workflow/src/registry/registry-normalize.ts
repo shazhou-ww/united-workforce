@@ -1,11 +1,13 @@
-import type { ProviderConfig } from "../config/index.js";
-import { err, ok, type Result } from "../util/index.js";
+import { type ProviderConfig, splitProviderModelRef } from "../config/index.js";
+import { createLogger, err, ok, type Result } from "../util/index.js";
 import type {
   WorkflowConfig,
   WorkflowHistoryEntry,
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
 } from "./types.js";
+
+const registryNormalizeLog = createLogger({ sink: { kind: "stderr" } });
 
 function resolveRegistryApiKey(raw: string, ctx: string): Result<string, Error> {
   if (raw.startsWith("env:")) {
@@ -20,22 +22,6 @@ function resolveRegistryApiKey(raw: string, ctx: string): Result<string, Error> 
     return ok(value);
   }
   return ok(raw);
-}
-
-function parseModelProviderRef(
-  ref: string,
-  ctx: string,
-): Result<{ providerName: string; modelName: string }, Error> {
-  const idx = ref.indexOf("/");
-  if (idx <= 0 || idx === ref.length - 1) {
-    return err(new Error(`${ctx}: expected providerName/modelName, got "${ref}"`));
-  }
-  const providerName = ref.slice(0, idx);
-  const modelName = ref.slice(idx + 1);
-  if (providerName === "" || modelName === "") {
-    return err(new Error(`${ctx}: expected providerName/modelName, got "${ref}"`));
-  }
-  return ok({ providerName, modelName });
 }
 
 function normalizeProviderEntry(name: string, entryRaw: unknown): Result<ProviderConfig, Error> {
@@ -96,9 +82,9 @@ function normalizeModels(
       return err(new Error(`config.models.${scene} must be a non-empty string (provider/model)`));
     }
     const ctx = `config.models.${scene}`;
-    const parsed = parseModelProviderRef(refRaw, ctx);
+    const parsed = splitProviderModelRef(refRaw);
     if (!parsed.ok) {
-      return parsed;
+      return err(new Error(`${ctx}: ${parsed.error}`));
     }
     if (!providerKeys.has(parsed.value.providerName)) {
       return err(
@@ -108,6 +94,12 @@ function normalizeModels(
       );
     }
     models[scene] = refRaw;
+  }
+  if (!Object.hasOwn(models, "default")) {
+    registryNormalizeLog(
+      "Z2KP9NWQ",
+      'registry config: models mapping has no "default" key; scenes without explicit model mappings may fail at resolveModel',
+    );
   }
   return ok(models);
 }
