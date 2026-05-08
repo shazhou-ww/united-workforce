@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getThread, killThread, pauseThread, resumeThread } from "../api.ts";
 import { useFetch } from "../hooks.ts";
+import { useSSE } from "../use-sse.ts";
 
 type Props = {
   threadId: string;
@@ -8,8 +9,22 @@ type Props = {
 };
 
 export function ThreadDetail({ threadId, onBack }: Props) {
+  const sse = useSSE(threadId);
   const { status, data, error } = useFetch(() => getThread(threadId), [threadId]);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const recordsEndRef = useRef<HTMLDivElement>(null);
+
+  const liveActive = sse.connected && !sse.completed;
+  const records = liveActive
+    ? sse.records
+    : status === "ok"
+      ? data.records
+      : ([] as typeof sse.records);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the rendered record list grows
+  useEffect(() => {
+    recordsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [records.length]);
 
   async function handleAction(action: "kill" | "pause" | "resume") {
     setActionStatus(`${action}ing...`);
@@ -61,20 +76,34 @@ export function ThreadDetail({ threadId, onBack }: Props) {
         </div>
       </div>
 
-      <h2 className="text-xl font-semibold mb-2 font-mono">{threadId}</h2>
+      <h2 className="text-xl font-semibold mb-2 font-mono flex items-center gap-2 flex-wrap">
+        <span>{threadId}</span>
+        {sse.connected && (
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded"
+            style={{ background: "var(--color-success)", color: "var(--color-bg)" }}
+          >
+            Live
+          </span>
+        )}
+      </h2>
       {actionStatus && (
         <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
           {actionStatus}
         </p>
       )}
 
-      {status === "loading" && <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>}
-      {status === "error" && <p style={{ color: "var(--color-error)" }}>Error: {error}</p>}
-      {status === "ok" && (
+      {status === "loading" && !liveActive && records.length === 0 && (
+        <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>
+      )}
+      {status === "error" && !liveActive && (
+        <p style={{ color: "var(--color-error)" }}>Error: {error}</p>
+      )}
+      {(status === "ok" || liveActive || records.length > 0) && (
         <div className="space-y-3">
-          {data.records.map((r) => (
+          {records.map((r, i) => (
             <div
-              key={`${r.type}:${r.role ?? ""}:${r.timestamp ?? 0}:${String(r.content ?? "")}`}
+              key={i}
               className="p-3 rounded border text-sm"
               style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
             >
@@ -90,7 +119,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
                     {r.role}
                   </span>
                 )}
-                {r.timestamp && (
+                {r.timestamp !== null && (
                   <span className="text-xs ml-auto" style={{ color: "var(--color-text-muted)" }}>
                     {new Date(r.timestamp).toLocaleTimeString()}
                   </span>
@@ -106,6 +135,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
               )}
             </div>
           ))}
+          <div ref={recordsEndRef} aria-hidden />
         </div>
       )}
     </div>
