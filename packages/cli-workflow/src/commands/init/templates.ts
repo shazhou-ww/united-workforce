@@ -7,6 +7,7 @@ export function templatePackageJson(templateName: string): string {
       type: "module",
       dependencies: {
         "@uncaged/workflow": "^0.1.0",
+        "@uncaged/workflow-runtime": "^0.1.0",
         zod: "^4.0.0",
       },
     },
@@ -31,7 +32,7 @@ export function templateTsconfigJson(): string {
 }
 
 export function templateRolesTs(): string {
-  return `import type { RoleDefinition } from "@uncaged/workflow";
+  return `import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 
 export const HELLO_TEMPLATE_DESCRIPTION =
@@ -58,7 +59,7 @@ export const greeterRole: RoleDefinition<HelloTemplateMeta["greeter"]> = {
 }
 
 export function templateModeratorTs(): string {
-  return `import { END, type Moderator, type ModeratorContext } from "@uncaged/workflow";
+  return `import { END, type Moderator, type ModeratorContext } from "@uncaged/workflow-runtime";
 
 import type { HelloTemplateMeta } from "./roles.js";
 
@@ -74,7 +75,7 @@ export const helloTemplateModerator: Moderator<HelloTemplateMeta> = (
 }
 
 export function templateIndexTs(): string {
-  return `import type { WorkflowDefinition } from "@uncaged/workflow";
+  return `import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
 import { helloTemplateModerator } from "./moderator.js";
 import {

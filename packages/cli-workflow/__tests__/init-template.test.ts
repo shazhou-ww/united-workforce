@@ -51,6 +51,7 @@ describe("init template", () => {
     };
     expect(pkg.type).toBe("module");
     expect(pkg.dependencies["@uncaged/workflow"]).toBeDefined();
+    expect(pkg.dependencies["@uncaged/workflow-runtime"]).toBeDefined();
     expect(pkg.dependencies.zod).toBeDefined();
     expect(pkg.name).toContain("review-pr");
 

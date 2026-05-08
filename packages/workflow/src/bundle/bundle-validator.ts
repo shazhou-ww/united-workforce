@@ -38,7 +38,7 @@ function isAllowedImportSpecifier(spec: string): boolean {
   if (spec.startsWith(".") || spec.startsWith("/") || spec.startsWith("file:")) {
     return false;
   }
-  if (spec === "@uncaged/workflow") {
+  if (spec === "@uncaged/workflow" || spec === "@uncaged/workflow-runtime") {
     return true;
   }
   return isBuiltin(spec);
