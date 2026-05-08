@@ -2,21 +2,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parseDocument, stringify } from "yaml";
-import { err, ok, type Result } from "../util/result.js";
+import { err, ok, type Result } from "../util/index.js";
 import { normalizeWorkflowRegistryRoot } from "./registry-normalize.js";
-import type {
-  WorkflowHistoryEntry,
-  WorkflowRegistryEntry,
-  WorkflowRegistryFile,
-} from "./registry-types.js";
-
-export type {
-  ExtractProviderConfig,
-  WorkflowConfig,
-  WorkflowHistoryEntry,
-  WorkflowRegistryEntry,
-  WorkflowRegistryFile,
-} from "./registry-types.js";
+import type { WorkflowHistoryEntry, WorkflowRegistryEntry, WorkflowRegistryFile } from "./types.js";
 
 export function workflowRegistryPath(storageRoot: string): string {
   return join(storageRoot, "workflow.yaml");

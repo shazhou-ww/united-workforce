@@ -10,6 +10,11 @@ import type {
   Program,
   VariableDeclaration,
 } from "acorn";
+import * as acorn from "acorn";
+
+import { err, ok, type Result } from "../util/index.js";
+
+import type { WorkflowBundleValidationInput } from "./types.js";
 
 /** Acorn Node with index-access for property traversal. */
 type AcornNode = Node & { [key: string]: unknown };
@@ -21,17 +26,6 @@ type AcornNode = Node & { [key: string]: unknown };
 function narrowNode<T extends Node>(node: Node): T {
   return node as unknown as T;
 }
-
-import * as acorn from "acorn";
-
-import { err, ok, type Result } from "../util/result.js";
-
-export type WorkflowBundleValidationInput = {
-  /** Absolute or relative path (used for `.esm.js` suffix checks). */
-  filePath: string;
-  /** UTF-8 source of the bundle. */
-  source: string;
-};
 
 function endsWithEsmJs(path: string): boolean {
   return path.endsWith(".esm.js");

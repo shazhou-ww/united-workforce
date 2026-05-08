@@ -1,8 +1,12 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import type { CasStore } from "../cas/cas.js";
-import { getContentMerklePayload, putStepMerkleNode, putThreadMerkleNode } from "../cas/merkle.js";
+import {
+  type CasStore,
+  getContentMerklePayload,
+  putStepMerkleNode,
+  putThreadMerkleNode,
+} from "../cas/index.js";
 import type {
   ThreadInput,
   WorkflowCompletion,
@@ -10,41 +14,9 @@ import type {
   WorkflowFnOptions,
   WorkflowResult,
 } from "../types.js";
-import type { LogFn } from "../util/logger.js";
-import { normalizeRefsField } from "../util/refs-field.js";
+import { type LogFn, normalizeRefsField } from "../util/index.js";
 
-export type ExecuteThreadIo = {
-  threadId: string;
-  hash: string;
-  dataJsonlPath: string;
-  infoJsonlPath: string;
-  cas: CasStore;
-};
-
-/** One persisted role line in `.data.jsonl` (engine adds these for fork replay before running the generator). */
-export type PrefilledDiskStep = {
-  role: string;
-  contentHash: string;
-  meta: Record<string, unknown>;
-  refs: string[];
-  timestamp: number;
-};
-
-export type ExecuteThreadOptions = {
-  maxRounds: number;
-  /** Passed to the bundle as `WorkflowFnOptions.depth`. */
-  depth: number;
-  signal: AbortSignal;
-  /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */
-  awaitAfterEachYield: () => Promise<void>;
-  /** When non-null, written into the start record so tooling can trace lineage. */
-  forkSourceThreadId: string | null;
-  /**
-   * Written to `.data.jsonl` immediately after the start record, before the generator runs.
-   * Must match `input.steps` length and order when present.
-   */
-  prefilledDiskSteps: PrefilledDiskStep[] | null;
-};
+import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
   const line = `${JSON.stringify(record)}\n`;

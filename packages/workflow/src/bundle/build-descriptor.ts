@@ -1,7 +1,7 @@
 import * as z from "zod/v4";
 
 import type { RoleMeta, WorkflowDefinition } from "../types.js";
-import type { WorkflowDescriptor, WorkflowRoleSchema } from "./workflow-descriptor.js";
+import type { WorkflowDescriptor, WorkflowRoleSchema } from "./types.js";
 
 function stripJsonSchemaMeta(json: Record<string, unknown>): WorkflowRoleSchema {
   const { $schema: _drop, ...rest } = json;

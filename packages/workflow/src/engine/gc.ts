@@ -1,16 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type CasStore, createCasStore } from "../cas/cas.js";
-import { err, ok, type Result } from "../util/result.js";
-import { getGlobalCasDir } from "../util/storage-root.js";
+import { type CasStore, createCasStore } from "../cas/index.js";
+import { err, getGlobalCasDir, ok, type Result } from "../util/index.js";
 import { parseThreadDataJsonl } from "./fork-thread.js";
-
-export type GcResult = {
-  scannedThreads: number;
-  activeRefs: number;
-  deletedEntries: number;
-  deletedHashes: string[];
-};
+import type { GcResult } from "./types.js";
 
 async function listThreadDataJsonlPaths(storageRoot: string): Promise<Result<string[], string>> {
   const logsRoot = join(storageRoot, "logs");

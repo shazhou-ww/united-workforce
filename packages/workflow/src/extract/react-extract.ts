@@ -1,16 +1,11 @@
 import type * as z from "zod/v4";
 
-import type { CasStore } from "../cas/cas.js";
+import type { CasStore } from "../cas/index.js";
 import type { LlmProvider } from "../types.js";
-import { err, ok, type Result } from "../util/result.js";
-import { extractFunctionToolFromZodSchema } from "./llm-extract.js";
+import { err, ok, type Result } from "../util/index.js";
 
-export type ReactExtractArgs<T extends Record<string, unknown>> = {
-  text: string;
-  schema: z.ZodType<T>;
-  provider: LlmProvider;
-  cas: CasStore;
-};
+import { extractFunctionToolFromZodSchema } from "./llm-extract.js";
+import type { ReactExtractArgs } from "./types.js";
 
 const MAX_REACT_ROUNDS = 10;
 

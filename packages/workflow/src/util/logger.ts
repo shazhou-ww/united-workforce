@@ -1,6 +1,7 @@
 import { appendFileSync } from "node:fs";
 
 import { CROCKFORD_BASE32_ALPHABET } from "./base32.js";
+import type { CreateLoggerOptions, LogFn } from "./types.js";
 
 const TAG_LENGTH = 8;
 
@@ -21,14 +22,6 @@ function assertValidLogTag(tag: string): void {
     }
   }
 }
-
-export type LoggerSink = { kind: "stderr" } | { kind: "file"; path: string };
-
-export type CreateLoggerOptions = {
-  sink: LoggerSink;
-};
-
-export type LogFn = (tag: string, content: string) => void;
 
 /** Append one JSONL log record: `{ tag, content, timestamp }` per RFC-001. */
 export function createLogger(options: CreateLoggerOptions): LogFn {

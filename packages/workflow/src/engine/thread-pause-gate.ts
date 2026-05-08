@@ -1,11 +1,6 @@
-import { err, ok, type Result } from "../util/result.js";
+import { err, ok, type Result } from "../util/index.js";
 
-export type ThreadPauseGate = {
-  awaitAfterYield: () => Promise<void>;
-  pause: () => Result<void, string>;
-  resume: () => Result<void, string>;
-  isPaused: () => boolean;
-};
+import type { ThreadPauseGate } from "./types.js";
 
 /**
  * Pause/resume gate for workflow threads: after each generator yield the engine awaits

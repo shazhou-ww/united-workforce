@@ -1,18 +1,7 @@
-import type { RoleOutput, WorkflowCompletion } from "../types.js";
-import { normalizeRefsField } from "../util/refs-field.js";
-import { err, ok, type Result } from "../util/result.js";
+import type { WorkflowCompletion } from "../types.js";
+import { err, normalizeRefsField, ok, type Result } from "../util/index.js";
 
-/** Role steps replayed from `.data.jsonl`, including persisted timestamps. */
-export type ForkHistoricalStep = RoleOutput & { timestamp: number };
-
-export type ParsedThreadStartRecord = {
-  workflowName: string;
-  hash: string;
-  threadId: string;
-  prompt: string;
-  maxRounds: number;
-  depth: number;
-};
+import type { ForkHistoricalStep, ForkPlan, ParsedThreadStartRecord } from "./types.js";
 
 /** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). Omits `rootHash` when absent. */
 export function tryParseWorkflowResultRecord(
@@ -227,15 +216,6 @@ export function selectForkHistoricalSteps(
   }
   return ok(roleSteps.slice(0, idx + 1));
 }
-
-export type ForkPlan = {
-  workflowName: string;
-  hash: string;
-  sourceThreadId: string;
-  prompt: string;
-  runOptions: { maxRounds: number; depth: number };
-  historicalSteps: ForkHistoricalStep[];
-};
 
 /**
  * Read `.data.jsonl` text and compute fork payload for the worker `run` command.

@@ -1,8 +1,7 @@
-import { readWorkflowRegistry } from "./registry/registry.js";
-import type { WorkflowConfig } from "./registry/registry-types.js";
+import type { WorkflowConfig } from "./registry/index.js";
+import { readWorkflowRegistry } from "./registry/index.js";
 import type { LlmProvider } from "./types.js";
-import { err, ok, type Result } from "./util/result.js";
-import { getDefaultWorkflowStorageRoot } from "./util/storage-root.js";
+import { err, getDefaultWorkflowStorageRoot, ok, type Result } from "./util/index.js";
 
 const DEFAULT_WORKFLOW_AS_AGENT_MAX_DEPTH = 3;
 
