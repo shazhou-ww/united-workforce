@@ -1,29 +1,11 @@
 import type { CommandEntry, DispatchFn } from "./cli-command-types.js";
-import { printCliError, printCliLine, printCliWarn } from "./cli-output.js";
+import { printCliError, printCliLine } from "./cli-output.js";
 import { getCommandRegistry } from "./cli-registry.js";
 import { formatCliUsage as formatCliUsageWithGroups } from "./cli-usage.js";
-import { createCasDispatcher, dispatchGc } from "./commands/cas/index.js";
+import { createCasDispatcher } from "./commands/cas/index.js";
 import { createInitDispatcher } from "./commands/init/index.js";
-import {
-  createThreadDispatcher,
-  dispatchFork,
-  dispatchKill,
-  dispatchLive,
-  dispatchPause,
-  dispatchPs,
-  dispatchResume,
-  dispatchRun,
-  dispatchThreadList,
-} from "./commands/thread/index.js";
-import {
-  createWorkflowDispatcher,
-  dispatchAdd,
-  dispatchHistory,
-  dispatchList,
-  dispatchRemove,
-  dispatchRollback,
-  dispatchShow,
-} from "./commands/workflow/index.js";
+import { createThreadDispatcher, dispatchLive, dispatchRun } from "./commands/thread/index.js";
+import { createWorkflowDispatcher } from "./commands/workflow/index.js";
 import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "./skill.js";
 
 export type { CommandEntry, CommandGroup, DispatchFn } from "./cli-command-types.js";
@@ -54,15 +36,11 @@ function dispatchGroup(
   return entry.handler(storageRoot, argv.slice(1));
 }
 
-function printDeprecation(oldCmd: string, newCmd: string): void {
-  printCliWarn(`⚠ "${oldCmd}" is deprecated, use "${newCmd}" instead`);
-}
-
 export function formatCliUsage(): string {
   return formatCliUsageWithGroups(getCommandRegistry(), getSkillTopics());
 }
 
-const dispatchWorkflow = createWorkflowDispatcher({ dispatchGroup, printDeprecation });
+const dispatchWorkflow = createWorkflowDispatcher({ dispatchGroup });
 const dispatchThread = createThreadDispatcher({ dispatchGroup });
 const dispatchCas = createCasDispatcher({ dispatchGroup });
 const dispatchInit = createInitDispatcher({ dispatchGroup });
@@ -85,41 +63,14 @@ async function dispatchSkill(_storageRoot: string, argv: string[]): Promise<numb
   return showSkillDocOrIndex(argv[0]);
 }
 
-async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
-  printCliWarn('⚠ "help" is deprecated, use "skill" instead');
-  const skillIdx = argv.indexOf("--skill");
-  if (skillIdx !== -1) {
-    return showSkillDocOrIndex(argv[skillIdx + 1]);
-  }
-  printCliLine(formatCliUsage());
-  return 0;
-}
-
 const COMMAND_TABLE: Record<string, DispatchFn> = {
   workflow: dispatchWorkflow,
   thread: dispatchThread,
   cas: dispatchCas,
   init: dispatchInit,
-  help: dispatchHelp,
   skill: dispatchSkill,
   run: dispatchRun,
   live: dispatchLive,
-};
-
-const DEPRECATED_ALIASES: Record<string, { newCmd: string; handler: DispatchFn }> = {
-  add: { newCmd: "workflow add", handler: dispatchAdd },
-  list: { newCmd: "workflow list", handler: dispatchList },
-  show: { newCmd: "workflow show", handler: dispatchShow },
-  remove: { newCmd: "workflow rm", handler: dispatchRemove },
-  ps: { newCmd: "thread ps", handler: dispatchPs },
-  kill: { newCmd: "thread kill", handler: dispatchKill },
-  pause: { newCmd: "thread pause", handler: dispatchPause },
-  resume: { newCmd: "thread resume", handler: dispatchResume },
-  threads: { newCmd: "thread list", handler: dispatchThreadList },
-  fork: { newCmd: "thread fork", handler: dispatchFork },
-  gc: { newCmd: "cas gc", handler: dispatchGc },
-  history: { newCmd: "workflow history", handler: dispatchHistory },
-  rollback: { newCmd: "workflow rollback", handler: dispatchRollback },
 };
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {
@@ -137,12 +88,6 @@ export async function runCli(storageRoot: string, argv: string[]): Promise<numbe
   const dispatch = COMMAND_TABLE[command];
   if (dispatch !== undefined) {
     return dispatch(storageRoot, rest);
-  }
-
-  const deprecated = DEPRECATED_ALIASES[command];
-  if (deprecated !== undefined) {
-    printDeprecation(command, deprecated.newCmd);
-    return deprecated.handler(storageRoot, rest);
   }
 
   printCliError(`${formatCliUsage()}\n\nerror: unknown command ${command}`);

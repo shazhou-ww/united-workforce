@@ -15,7 +15,7 @@ Run \`uncaged-workflow skill develop\` for thread ID lookup, CAS commands, and m
 
 ## Reading phase details
 
-Each planner phase has a content-hash and title. Read full details with \`uncaged-workflow cas get <THREAD_ID> <HASH>\`.
+Each planner phase has a content-hash and title. Read full details with \`uncaged-workflow cas get <HASH>\`.
 
 The thread ID (26-char Crockford Base32) appears in the first message. If unsure, run \`uncaged-workflow thread list\`.
 

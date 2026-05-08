@@ -14,7 +14,6 @@ export {
   type CasStore,
   createCasStore,
   createContentMerkleNode,
-  createThreadCas,
   getContentMerklePayload,
   hashString,
   hashWorkflowBundleBytes,

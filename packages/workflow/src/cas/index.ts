@@ -1,4 +1,4 @@
-export { createCasStore, createThreadCas } from "./cas.js";
+export { createCasStore } from "./cas.js";
 export { hashString, hashWorkflowBundleBytes } from "./hash.js";
 export {
   createContentMerkleNode,

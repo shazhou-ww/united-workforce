@@ -142,7 +142,7 @@ export const WORKFLOW_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
 };
 
 export function createWorkflowDispatcher(deps: WorkflowDispatchDeps) {
-  const { dispatchGroup, printDeprecation } = deps;
+  const { dispatchGroup } = deps;
   return async function dispatchWorkflow(storageRoot: string, argv: string[]): Promise<number> {
     const result = dispatchGroup("workflow", WORKFLOW_SUBCOMMAND_TABLE, storageRoot, argv);
     if (result !== null) {
@@ -150,7 +150,6 @@ export function createWorkflowDispatcher(deps: WorkflowDispatchDeps) {
     }
     const sub = argv[0];
     if (sub === "remove") {
-      printDeprecation("workflow remove", "workflow rm");
       return dispatchRemove(storageRoot, argv.slice(1));
     }
     printCliError(`${usageText()}\n\nerror: unknown workflow subcommand: ${sub}`);

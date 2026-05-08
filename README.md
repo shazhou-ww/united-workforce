@@ -48,7 +48,7 @@ uncaged-workflow run solve-issue --prompt "Fix bug #42"
 ## CLI Usage
 
 ```bash
-uncaged-workflow help              # Show all commands
+uncaged-workflow                   # Print full command usage (exits with status 1)
 uncaged-workflow workflow list     # List registered workflows
 uncaged-workflow run <name>        # Start a workflow thread
 uncaged-workflow thread list       # List all threads
@@ -56,7 +56,7 @@ uncaged-workflow thread show <id>  # Inspect a thread
 uncaged-workflow skill             # Agent-consumable reference docs
 ```
 
-See `uncaged-workflow help` for the full command reference.
+Run `uncaged-workflow` with no arguments to print usage, or `uncaged-workflow skill cli` for the full CLI skill reference.
 
 ## Development
 

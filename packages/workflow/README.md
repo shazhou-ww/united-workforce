@@ -27,7 +27,7 @@ import { createWorkflow, readWorkflowRegistry, executeThread } from "@uncaged/wo
 | **Types** | `WorkflowDefinition`, `WorkflowFn`, `AgentFn`, `AgentBinding`, `Moderator`, `RoleDefinition`, `ThreadContext`, `LlmProvider`, `Result` shape via `ok` / `err`, `START` / `END` |
 | **Bundle** | `buildDescriptor`, `extractBundleExports`, `validateWorkflowBundle`, `validateWorkflowDescriptor`, `WorkflowDescriptor`, `WorkflowRoleDescriptor` |
 | **Registry** | `readWorkflowRegistry`, `writeWorkflowRegistry`, `registerWorkflowVersion`, `workflowRegistryPath`, YAML helpers |
-| **CAS** | `createCasStore`, `createThreadCas`, Merkle helpers (`putStepMerkleNode`, `getContentMerklePayload`, …), `hashWorkflowBundleBytes` |
+| **CAS** | `createCasStore`, Merkle helpers (`putStepMerkleNode`, `getContentMerklePayload`, …), `hashWorkflowBundleBytes` |
 | **Engine** | `createWorkflow`, `executeThread`, `parseThreadDataJsonl`, fork helpers, `garbageCollectCas` |
 | **Extract / LLM tools** | `llmExtract`, `reactExtract`, `createExtract`, `getExtractProvider` |
 | **Agent bridge** | `workflowAsAgent` — expose a registered workflow as an agent-backed role |

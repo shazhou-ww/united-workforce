@@ -18,7 +18,7 @@ Run \`uncaged-workflow skill develop\` for thread ID lookup, CAS commands, and m
 
 ## Storing phase details — MANDATORY
 
-For each phase, store its full detail text in CAS via \`uncaged-workflow cas put <THREAD_ID> '<content>'\`. The command prints a content-hash — use that as the phase identifier.
+For each phase, store its full detail text in CAS via \`uncaged-workflow cas put '<content>'\`. The command prints a content-hash — use that as the phase identifier.
 
 The thread ID (26-char Crockford Base32) appears in the first message. If unsure, run \`uncaged-workflow thread list\`.
 
