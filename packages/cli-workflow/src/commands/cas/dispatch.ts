@@ -30,10 +30,9 @@ export async function dispatchGc(storageRoot: string, argv: string[]): Promise<n
 }
 
 export async function dispatchCasGet(storageRoot: string, rest: string[]): Promise<number> {
-  const threadId = rest[0];
-  const hash = rest[1];
-  if (threadId === undefined || hash === undefined || rest.length > 2) {
-    printCliError(`${usageText()}\n\nerror: cas get requires <thread-id> <hash>`);
+  const hash = rest[0];
+  if (hash === undefined || rest.length > 1) {
+    printCliError(`${usageText()}\n\nerror: cas get requires <hash>`);
     return 1;
   }
   const result = await cmdCasGet(storageRoot, hash);
@@ -46,10 +45,9 @@ export async function dispatchCasGet(storageRoot: string, rest: string[]): Promi
 }
 
 export async function dispatchCasPut(storageRoot: string, rest: string[]): Promise<number> {
-  const threadId = rest[0];
-  const content = rest[1];
-  if (threadId === undefined || content === undefined || rest.length > 2) {
-    printCliError(`${usageText()}\n\nerror: cas put requires <thread-id> <content>`);
+  const content = rest[0];
+  if (content === undefined || rest.length > 1) {
+    printCliError(`${usageText()}\n\nerror: cas put requires <content>`);
     return 1;
   }
   const result = await cmdCasPut(storageRoot, content);
@@ -62,9 +60,8 @@ export async function dispatchCasPut(storageRoot: string, rest: string[]): Promi
 }
 
 export async function dispatchCasList(storageRoot: string, rest: string[]): Promise<number> {
-  const threadId = rest[0];
-  if (threadId === undefined || rest.length > 1) {
-    printCliError(`${usageText()}\n\nerror: cas list requires <thread-id>`);
+  if (rest.length > 0) {
+    printCliError(`${usageText()}\n\nerror: cas list takes no arguments`);
     return 1;
   }
   const result = await cmdCasList(storageRoot);
@@ -79,10 +76,9 @@ export async function dispatchCasList(storageRoot: string, rest: string[]): Prom
 }
 
 export async function dispatchCasRm(storageRoot: string, rest: string[]): Promise<number> {
-  const threadId = rest[0];
-  const hash = rest[1];
-  if (threadId === undefined || hash === undefined || rest.length > 2) {
-    printCliError(`${usageText()}\n\nerror: cas rm requires <thread-id> <hash>`);
+  const hash = rest[0];
+  if (hash === undefined || rest.length > 1) {
+    printCliError(`${usageText()}\n\nerror: cas rm requires <hash>`);
     return 1;
   }
   const result = await cmdCasRm(storageRoot, hash);
@@ -97,20 +93,20 @@ export async function dispatchCasRm(storageRoot: string, rest: string[]): Promis
 export const CAS_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
   get: {
     handler: dispatchCasGet,
-    args: "<thread-id> <hash>",
-    description: "Retrieve content by hash from a thread's CAS",
+    args: "<hash>",
+    description: "Retrieve content by hash from CAS",
   },
   put: {
     handler: dispatchCasPut,
-    args: "<thread-id> <content>",
-    description: "Store content in a thread's CAS, returns hash",
+    args: "<content>",
+    description: "Store content in CAS, prints hash",
   },
   list: {
     handler: dispatchCasList,
-    args: "<thread-id>",
-    description: "List all CAS entries for a thread",
+    args: "",
+    description: "List all hashes in CAS",
   },
-  rm: { handler: dispatchCasRm, args: "<thread-id> <hash>", description: "Remove a CAS entry" },
+  rm: { handler: dispatchCasRm, args: "<hash>", description: "Remove a CAS entry by hash" },
   gc: { handler: dispatchGc, args: "", description: "Garbage-collect unreferenced CAS entries" },
 };
 
