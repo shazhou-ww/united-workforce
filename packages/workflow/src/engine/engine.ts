@@ -2,12 +2,14 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type {
   LlmProvider,
-  ThreadInput,
+  RoleOutput,
+  ThreadContext,
   WorkflowCompletion,
   WorkflowFn,
-  WorkflowFnOptions,
+  WorkflowRuntime,
   WorkflowResult,
 } from "@uncaged/workflow-runtime";
+import { START } from "@uncaged/workflow-runtime";
 import {
   type CasStore,
   getContentMerklePayload,
@@ -103,7 +105,7 @@ async function finalizeAbortedThread(params: {
 
 async function maybeSupervisorHaltsThread(params: {
   workflowConfig: WorkflowConfig;
-  input: ThreadInput;
+  thread: ThreadContext;
   written: number;
   recentSupervisorSteps: readonly { role: string; summary: string }[];
   logger: LogFn;
@@ -118,7 +120,7 @@ async function maybeSupervisorHaltsThread(params: {
   }
   const sup = await runSupervisor({
     config: params.workflowConfig,
-    prompt: params.input.prompt,
+    prompt: params.thread.start.content,
     recentSteps: params.recentSupervisorSteps,
     logger: params.logger,
   });
@@ -143,8 +145,8 @@ async function driveWorkflowGenerator(params: {
   fn: WorkflowFn;
   workflowName: string;
   workflowConfig: WorkflowConfig;
-  input: ThreadInput;
-  bundleOptions: WorkflowFnOptions;
+  thread: ThreadContext;
+  runtime: WorkflowRuntime;
   executeOptions: ExecuteThreadOptions;
   dataJsonlPath: string;
   threadId: string;
@@ -156,8 +158,8 @@ async function driveWorkflowGenerator(params: {
     fn,
     workflowName,
     workflowConfig,
-    input,
-    bundleOptions,
+    thread,
+    runtime,
     executeOptions,
     dataJsonlPath,
     threadId,
@@ -165,9 +167,9 @@ async function driveWorkflowGenerator(params: {
     cas,
     stepMerkleHashes,
   } = params;
-  const gen = fn(input, bundleOptions);
+  const gen = fn(thread, runtime);
   let written = 0;
-  const recentSupervisorSteps: { role: string; summary: string }[] = input.steps.map((s) => ({
+  const recentSupervisorSteps: { role: string; summary: string }[] = thread.steps.map((s) => ({
     role: s.role,
     summary: JSON.stringify(s.meta),
   }));
@@ -267,7 +269,7 @@ async function driveWorkflowGenerator(params: {
 
     const supervised = await maybeSupervisorHaltsThread({
       workflowConfig,
-      input,
+      thread,
       written,
       recentSupervisorSteps,
       logger,
@@ -289,7 +291,7 @@ async function driveWorkflowGenerator(params: {
 export async function executeThread(
   fn: WorkflowFn,
   workflowName: string,
-  input: ThreadInput,
+  input: { prompt: string; steps: RoleOutput[] },
   options: ExecuteThreadOptions,
   io: ExecuteThreadIo,
   logger: LogFn,
@@ -371,10 +373,25 @@ export async function executeThread(
     throw new Error(registryRuntime.error);
   }
 
-  const bundleOptions: WorkflowFnOptions = {
+  const thread: ThreadContext = {
     threadId: io.threadId,
-    maxRounds: options.maxRounds,
     depth: options.depth,
+    start: {
+      role: START,
+      content: input.prompt,
+      meta: { maxRounds: options.maxRounds },
+      timestamp: nowMs,
+    },
+    steps: input.steps.map((out, i) => ({
+      role: out.role,
+      contentHash: out.contentHash,
+      meta: out.meta,
+      refs: out.refs,
+      timestamp: prefilled?.[i]?.timestamp ?? nowMs + i,
+    })),
+  };
+
+  const runtime: WorkflowRuntime = {
     cas: io.cas,
     extract: registryRuntime.value.extract,
   };
@@ -383,8 +400,8 @@ export async function executeThread(
     fn,
     workflowName,
     workflowConfig: registryRuntime.value.workflowConfig,
-    input,
-    bundleOptions,
+    thread,
+    runtime,
     executeOptions: options,
     dataJsonlPath: io.dataJsonlPath,
     threadId: io.threadId,

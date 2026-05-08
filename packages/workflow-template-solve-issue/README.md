@@ -2,7 +2,7 @@
 
 Reference **solve-issue** workflow template: prepare a repo, delegate implementation to the **develop** workflow, then submit (e.g. open a PR).
 
-`createSolveIssueRun` wires the `developer` role to `workflowAsAgent("develop")` by default; `binding.overrides.developer` wins if you pass one (for tests or custom hosts).
+This package exports a pure `WorkflowDefinition` (`solveIssueWorkflowDefinition`). Workflow instantiation (`createWorkflow(definition, binding)`) and any role-specific agent wiring (for example delegating `developer` to `workflowAsAgent("develop")`) are done in the workflow instance layer.
 
 ## Install
 
@@ -15,9 +15,10 @@ In this monorepo: `workspace:*` for this package and `@uncaged/workflow`.
 ## Usage
 
 ```typescript
-import { createSolveIssueRun, solveIssueWorkflowDefinition } from "@uncaged/workflow-template-solve-issue";
+import { createWorkflow } from "@uncaged/workflow";
+import { solveIssueWorkflowDefinition } from "@uncaged/workflow-template-solve-issue";
 
-const run = createSolveIssueRun(binding);
+const run = createWorkflow(solveIssueWorkflowDefinition, binding);
 ```
 
 ## Roles
@@ -41,7 +42,6 @@ Also exported: `preparerRole`, `developerRole`, `submitterRole` and their Zod me
 
 | Export | Description |
 |--------|-------------|
-| `createSolveIssueRun` | Merges `developer` override with `workflowAsAgent("develop")`, then `createWorkflow` |
 | `solveIssueWorkflowDefinition` | `description`, `roles`, `solveIssueModerator` |
 | `solveIssueModerator` | Linear `Moderator<SolveIssueMeta>` |
 | `buildSolveIssueDescriptor` | Descriptor helper for bundles |

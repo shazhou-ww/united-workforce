@@ -304,7 +304,7 @@ describe("executeThread", () => {
     }
   });
 
-  test("pre-filled ThreadInput.steps skips roles already present", async () => {
+  test("pre-filled input.steps skips roles already present", async () => {
     restoreFetch = installMockChatCompletions([{ diff: "+ok" }]);
 
     const root = await mkdtemp(join(tmpdir(), "wf-engine-fork-"));

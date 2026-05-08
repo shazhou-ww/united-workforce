@@ -1,5 +1,4 @@
-import { createWorkflow, workflowAsAgent } from "@uncaged/workflow";
-import type { AgentBinding, WorkflowDefinition, WorkflowFn } from "@uncaged/workflow-runtime";
+import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
 import { solveIssueModerator } from "./moderator.js";
 import { SOLVE_ISSUE_WORKFLOW_DESCRIPTION, type SolveIssueMeta, solveIssueRoles } from "./roles.js";
@@ -31,22 +30,3 @@ export const solveIssueWorkflowDefinition: WorkflowDefinition<SolveIssueMeta> = 
   roles: solveIssueRoles,
   moderator: solveIssueModerator,
 };
-
-/**
- * Build the solve-issue {@link WorkflowFn}.
- *
- * The `developer` role always delegates to the registered `develop` workflow via
- * {@link workflowAsAgent}; if the caller supplies their own `developer` override in
- * `binding.overrides`, it takes precedence so tests and custom hosts can stub it.
- */
-export function createSolveIssueRun(binding: AgentBinding): WorkflowFn {
-  const developerOverride = binding.overrides?.developer ?? workflowAsAgent("develop");
-  const mergedBinding: AgentBinding = {
-    agent: binding.agent,
-    overrides: {
-      ...(binding.overrides ?? {}),
-      developer: developerOverride,
-    },
-  };
-  return createWorkflow(solveIssueWorkflowDefinition, mergedBinding);
-}

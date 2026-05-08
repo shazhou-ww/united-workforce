@@ -72,11 +72,11 @@ export const descriptor = {
     },
   },
 };
-export async function* run(input, options) {
-  const cas = options.cas;
+export async function* run(thread, runtime) {
+  const cas = runtime.cas;
   const h = await putContentMerkleNode(cas, "child-body");
   yield { role: "agent", contentHash: h, meta: {}, refs: [h] };
-  return { returnCode: 0, summary: "child-done:" + input.prompt };
+  return { returnCode: 0, summary: "child-done:" + thread.start.content };
 }
 `;
 

@@ -23,7 +23,7 @@ export type PrefilledDiskStep = {
 
 export type ExecuteThreadOptions = {
   maxRounds: number;
-  /** Passed to the bundle as `WorkflowFnOptions.depth`. */
+  /** Passed to the bundle thread context as `ThreadContext.depth`. */
   depth: number;
   signal: AbortSignal;
   /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */

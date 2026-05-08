@@ -21,11 +21,10 @@ export type {
   RoleStep,
   StartStep,
   ThreadContext,
-  ThreadInput,
   WorkflowCompletion,
   WorkflowDefinition,
   WorkflowFn,
-  WorkflowFnOptions,
+  WorkflowRuntime,
   WorkflowResult,
 } from "./types.js";
 export { END, START } from "./types.js";

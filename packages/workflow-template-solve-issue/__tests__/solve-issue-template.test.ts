@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCasStore, createExtract } from "@uncaged/workflow";
+import { createCasStore, createExtract, createWorkflow } from "@uncaged/workflow";
 import {
   END,
   type ModeratorContext,
@@ -12,7 +12,7 @@ import {
 } from "@uncaged/workflow-runtime";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
-import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
+import { solveIssueModerator, solveIssueWorkflowDefinition } from "../src/index.js";
 import type { PreparerMeta, SubmitterMeta } from "../src/roles/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
@@ -123,6 +123,20 @@ const stubExtract = createExtract({
   model: "test",
 });
 
+function makeThread(prompt: string) {
+  return {
+    threadId: "01TEST000000000000000000TR",
+    depth: 0,
+    start: {
+      role: START,
+      content: prompt,
+      meta: { maxRounds: 20 },
+      timestamp: Date.now(),
+    },
+    steps: [],
+  };
+}
+
 describe("solveIssueModerator", () => {
   test("routes initial → preparer → developer → submitter → END", () => {
     expect(solveIssueModerator(makeCtx(20, []))).toBe("preparer");
@@ -169,7 +183,7 @@ describe("solveIssueModerator", () => {
   });
 });
 
-describe("createSolveIssueRun", () => {
+describe("solveIssueWorkflowDefinition + createWorkflow", () => {
   let restoreFetch: (() => void) | null = null;
   let casDir: string | undefined;
 
@@ -199,17 +213,13 @@ describe("createSolveIssueRun", () => {
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
-    // Override developer so the test does not spin up a child workflow.
-    const run = createSolveIssueRun({
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
       agent: async () => "",
       overrides: { developer: async () => "stub-root-hash" },
     });
     const gen = run(
-      { prompt: "task", steps: [] },
+      makeThread("task"),
       {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
         cas,
         extract: stubExtract,
       },
@@ -246,7 +256,7 @@ describe("createSolveIssueRun", () => {
     const cas = createCasStore(casDir);
 
     const calls: string[] = [];
-    const run = createSolveIssueRun({
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
       agent: async () => {
         calls.push("default");
         return "";
@@ -267,11 +277,8 @@ describe("createSolveIssueRun", () => {
       },
     });
     const gen = run(
-      { prompt: "task", steps: [] },
+      makeThread("task"),
       {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
         cas,
         extract: stubExtract,
       },
@@ -288,56 +295,6 @@ describe("createSolveIssueRun", () => {
     expect(calls).toEqual(["submitter"]);
   });
 
-  test("developer defaults to workflowAsAgent override (caller override still wins)", async () => {
-    const PREPARER_META: PreparerMeta = {
-      repoPath: "/tmp/r",
-      defaultBranch: "main",
-      conventions: null,
-      toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
-    };
-    const DEVELOPER_META: DeveloperMeta = {
-      branch: "feat/y",
-      commitSha: "def5678",
-      filesChanged: ["b.ts"],
-      summary: "more work",
-    };
-    restoreFetch = installMockChatCompletions([PREPARER_META, DEVELOPER_META]);
-
-    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
-    const cas = createCasStore(casDir);
-
-    let developerInvocations = 0;
-    const run = createSolveIssueRun({
-      agent: async () => "",
-      overrides: {
-        developer: async () => {
-          developerInvocations += 1;
-          return "stub-root-hash";
-        },
-      },
-    });
-    const gen = run(
-      { prompt: "task", steps: [] },
-      {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
-        cas,
-        extract: stubExtract,
-      },
-    );
-    // preparer
-    await gen.next();
-    // developer (caller override should be invoked, NOT workflowAsAgent default)
-    const devYield = await gen.next();
-    expect(devYield.done).toBe(false);
-    if (devYield.done) {
-      throw new Error("expected yield");
-    }
-    expect(devYield.value.role).toBe("developer");
-    expect(devYield.value.meta).toEqual(DEVELOPER_META);
-    expect(developerInvocations).toBe(1);
-  });
 });
 
 describe("buildSolveIssueDescriptor", () => {

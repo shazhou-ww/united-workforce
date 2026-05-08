@@ -3,14 +3,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCasStore } from "@uncaged/workflow";
-import { START, type ThreadContext } from "@uncaged/workflow-runtime";
+import { START, type AgentContext } from "@uncaged/workflow-runtime";
 
 import { createLlmAdapter } from "../src/create-llm-adapter.js";
 
 const casDir = mkdtempSync(join(tmpdir(), "wf-llm-adapter-cas-"));
 const testCas = createCasStore(casDir);
 
-function makeCtx(userContent: string): ThreadContext {
+function makeCtx(userContent: string): AgentContext {
   return {
     start: {
       role: START,

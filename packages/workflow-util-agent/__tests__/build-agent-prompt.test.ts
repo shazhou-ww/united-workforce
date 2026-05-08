@@ -3,11 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCasStore, putContentMerkleNode } from "@uncaged/workflow";
-import { START, type ThreadContext } from "@uncaged/workflow-runtime";
+import { START, type AgentContext } from "@uncaged/workflow-runtime";
 
 import { buildAgentPrompt } from "../src/index.js";
 
-function startTask(content: string): ThreadContext["start"] {
+function startTask(content: string): AgentContext["start"] {
   return {
     role: START,
     content,
@@ -29,7 +29,7 @@ describe("buildAgentPrompt", () => {
 
   test("includes system prompt and full task; omits tools when there are no steps", async () => {
     const cas = createCasStore(casRoot);
-    const ctx: ThreadContext = {
+    const ctx: AgentContext = {
       start: startTask("fix the bug"),
       depth: 0,
       steps: [],
@@ -47,7 +47,7 @@ describe("buildAgentPrompt", () => {
   test("single step shows full content and meta, and includes tools", async () => {
     const cas = createCasStore(casRoot);
     const onlyHash = await putContentMerkleNode(cas, "only step full body");
-    const ctx: ThreadContext = {
+    const ctx: AgentContext = {
       start: startTask("user task"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
@@ -77,7 +77,7 @@ describe("buildAgentPrompt", () => {
     const cas = createCasStore(casRoot);
     const plannerHash = await putContentMerkleNode(cas, "PLANNER_SECRET_FULL_TEXT");
     const coderHash = await putContentMerkleNode(cas, "last step full content");
-    const ctx: ThreadContext = {
+    const ctx: AgentContext = {
       start: startTask("first message full: task content here"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
@@ -118,7 +118,7 @@ describe("buildAgentPrompt", () => {
     const ha = await putContentMerkleNode(cas, "HIDDEN_A");
     const hb = await putContentMerkleNode(cas, "HIDDEN_B_MIDDLE");
     const hc = await putContentMerkleNode(cas, "VISIBLE_LAST");
-    const ctx: ThreadContext = {
+    const ctx: AgentContext = {
       start: startTask("start"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
