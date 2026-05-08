@@ -12,6 +12,7 @@ import {
   type WorkflowCompletion,
 } from "@uncaged/workflow";
 
+import { dimGreyLine, highlightLiveRole } from "../../cli-color.js";
 import { printCliError, printCliLine } from "../../cli-output.js";
 import { pathExists } from "../../fs-utils.js";
 import type { ParsedLiveArgv } from "../../live-argv.js";
@@ -32,24 +33,6 @@ export function formatLiveTimeLabel(timestampMs: number): string {
   const mm = String(d.getMinutes()).padStart(2, "0");
   const ss = String(d.getSeconds()).padStart(2, "0");
   return `${hh}:${mm}:${ss}`;
-}
-
-function shouldUseColor(): boolean {
-  return process.stdout.isTTY === true && process.env.NO_COLOR === undefined;
-}
-
-function highlightLiveRole(name: string): string {
-  if (!shouldUseColor()) {
-    return name;
-  }
-  return `\x1b[1m\x1b[36m${name}\x1b[0m`;
-}
-
-function dimGreyLine(line: string): string {
-  if (!shouldUseColor()) {
-    return line;
-  }
-  return `\x1b[2m\x1b[90m${line}\x1b[0m`;
 }
 
 export function formatLiveDebugLine(timestampMs: number, tag: string, message: string): string {

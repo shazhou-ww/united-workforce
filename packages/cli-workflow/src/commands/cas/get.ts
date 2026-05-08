@@ -2,7 +2,6 @@ import { createCasStore, err, getGlobalCasDir, ok, type Result } from "@uncaged/
 
 export async function cmdCasGet(
   storageRoot: string,
-  _threadId: string,
   hash: string,
 ): Promise<Result<string, string>> {
   const cas = createCasStore(getGlobalCasDir(storageRoot));

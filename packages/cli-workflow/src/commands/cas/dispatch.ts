@@ -36,7 +36,7 @@ export async function dispatchCasGet(storageRoot: string, rest: string[]): Promi
     printCliError(`${usageText()}\n\nerror: cas get requires <thread-id> <hash>`);
     return 1;
   }
-  const result = await cmdCasGet(storageRoot, threadId, hash);
+  const result = await cmdCasGet(storageRoot, hash);
   if (!result.ok) {
     printCliError(result.error);
     return 1;
@@ -52,7 +52,7 @@ export async function dispatchCasPut(storageRoot: string, rest: string[]): Promi
     printCliError(`${usageText()}\n\nerror: cas put requires <thread-id> <content>`);
     return 1;
   }
-  const result = await cmdCasPut(storageRoot, threadId, content);
+  const result = await cmdCasPut(storageRoot, content);
   if (!result.ok) {
     printCliError(result.error);
     return 1;
@@ -67,7 +67,7 @@ export async function dispatchCasList(storageRoot: string, rest: string[]): Prom
     printCliError(`${usageText()}\n\nerror: cas list requires <thread-id>`);
     return 1;
   }
-  const result = await cmdCasList(storageRoot, threadId);
+  const result = await cmdCasList(storageRoot);
   if (!result.ok) {
     printCliError(result.error);
     return 1;
@@ -85,7 +85,7 @@ export async function dispatchCasRm(storageRoot: string, rest: string[]): Promis
     printCliError(`${usageText()}\n\nerror: cas rm requires <thread-id> <hash>`);
     return 1;
   }
-  const result = await cmdCasRm(storageRoot, threadId, hash);
+  const result = await cmdCasRm(storageRoot, hash);
   if (!result.ok) {
     printCliError(result.error);
     return 1;

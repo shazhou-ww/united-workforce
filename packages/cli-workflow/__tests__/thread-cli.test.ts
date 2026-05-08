@@ -232,7 +232,7 @@ describe("cli thread commands", () => {
     const runningPath = join(dirname(dataPath), `${threadId}.running`);
     await waitUntilRunningFileAbsent(runningPath, 120);
 
-    const put = await cmdCasPut(storageRoot, threadId, "keep-after-thread-rm");
+    const put = await cmdCasPut(storageRoot, "keep-after-thread-rm");
     expect(put.ok).toBe(true);
     if (!put.ok) {
       return;

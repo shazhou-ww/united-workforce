@@ -3,6 +3,23 @@ import { join } from "node:path";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
 
+function parseFirstJsonLineObject(text: string): Record<string, unknown> | null {
+  const firstLine = text.split("\n")[0];
+  if (firstLine === undefined || firstLine.trim() === "") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(firstLine) as unknown;
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object") {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
+}
+
 export type RunningThreadRow = {
   threadId: string;
   hash: string;
@@ -20,20 +37,11 @@ async function readThreadStartTimestampMs(dataPath: string): Promise<number | nu
   if (text === null) {
     return null;
   }
-  const firstLine = text.split("\n")[0];
-  if (firstLine === undefined || firstLine.trim() === "") {
+  const parsed = parseFirstJsonLineObject(text);
+  if (parsed === null) {
     return null;
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(firstLine) as unknown;
-  } catch {
-    return null;
-  }
-  if (parsed === null || typeof parsed !== "object") {
-    return null;
-  }
-  const ts = (parsed as Record<string, unknown>).timestamp;
+  const ts = parsed.timestamp;
   return typeof ts === "number" && Number.isFinite(ts) ? ts : null;
 }
 
@@ -42,20 +50,11 @@ async function readWorkflowNameFromDataJsonl(dataPath: string): Promise<string |
   if (text === null) {
     return null;
   }
-  const firstLine = text.split("\n")[0];
-  if (firstLine === undefined || firstLine.trim() === "") {
+  const parsed = parseFirstJsonLineObject(text);
+  if (parsed === null) {
     return null;
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(firstLine) as unknown;
-  } catch {
-    return null;
-  }
-  if (parsed === null || typeof parsed !== "object") {
-    return null;
-  }
-  const name = (parsed as Record<string, unknown>).name;
+  const name = parsed.name;
   return typeof name === "string" ? name : null;
 }
 

@@ -1,16 +1,9 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow";
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { pathExists } from "./fs-utils.js";
 
 export type BundleFileSource = { kind: "text"; text: string } | { kind: "path"; path: string };
 

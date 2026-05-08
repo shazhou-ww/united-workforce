@@ -1,5 +1,6 @@
 export { cmdKill, cmdPause, cmdResume } from "./control.js";
-export { cmdFork, parseForkArgv } from "./fork.js";
+export { cmdFork } from "./fork.js";
+export { parseForkArgv } from "./fork-argv.js";
 export { cmdThreads } from "./list.js";
 export type { LiveRoleRow } from "./live.js";
 export {

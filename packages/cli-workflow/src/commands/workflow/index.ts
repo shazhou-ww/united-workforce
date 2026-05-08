@@ -1,5 +1,7 @@
-export type { CmdAddSuccess, ParsedAddArgv } from "./add.js";
-export { cmdAdd, formatAddSuccess, parseAddArgv } from "./add.js";
+export type { CmdAddSuccess } from "./add.js";
+export { cmdAdd, formatAddSuccess } from "./add.js";
+export type { ParsedAddArgv } from "./add-argv.js";
+export { parseAddArgv } from "./add-argv.js";
 export { cmdHistory } from "./history.js";
 export { cmdList, formatListLines } from "./list.js";
 export { cmdRemove } from "./rm.js";

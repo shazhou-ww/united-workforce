@@ -402,7 +402,7 @@ export const run = async function* (input, options) {
   });
 
   test("cas put/get/list/rm use global cas dir (thread id not required for storage)", async () => {
-    const put = await cmdCasPut(storageRoot, "nonexistent-thread-id", "phase doc");
+    const put = await cmdCasPut(storageRoot, "phase doc");
     expect(put.ok).toBe(true);
     if (!put.ok) {
       return;
@@ -411,24 +411,24 @@ export const run = async function* (input, options) {
     const blobPath = join(getGlobalCasDir(storageRoot), `${hash}.txt`);
     expect(await readFile(blobPath, "utf8")).toBe("phase doc");
 
-    const got = await cmdCasGet(storageRoot, "other-thread", hash);
+    const got = await cmdCasGet(storageRoot, hash);
     expect(got.ok).toBe(true);
     if (!got.ok) {
       return;
     }
     expect(got.value).toBe("phase doc");
 
-    const listed = await cmdCasList(storageRoot, "another-thread");
+    const listed = await cmdCasList(storageRoot);
     expect(listed.ok).toBe(true);
     if (!listed.ok) {
       return;
     }
     expect(listed.value).toContain(hash);
 
-    const removed = await cmdCasRm(storageRoot, "rm-thread", hash);
+    const removed = await cmdCasRm(storageRoot, hash);
     expect(removed.ok).toBe(true);
 
-    const missing = await cmdCasGet(storageRoot, "after-rm", hash);
+    const missing = await cmdCasGet(storageRoot, hash);
     expect(missing.ok).toBe(false);
   });
 
