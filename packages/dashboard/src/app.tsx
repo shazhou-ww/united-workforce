@@ -5,12 +5,10 @@ import { StatusBar } from "./components/status-bar.tsx";
 import { ThreadDetail } from "./components/thread-detail.tsx";
 import { ThreadList } from "./components/thread-list.tsx";
 import { WorkflowList } from "./components/workflow-list.tsx";
-
-type View = "threads" | "workflows";
+import { useHashRoute } from "./use-hash-route.ts";
 
 export function App() {
-  const [view, setView] = useState<View>("threads");
-  const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  const { view, threadId, setView, setThreadId } = useHashRoute();
   const [showRun, setShowRun] = useState(false);
 
   return (
@@ -19,9 +17,9 @@ export function App() {
       <main className="flex-1 overflow-hidden flex flex-col">
         <StatusBar onRun={() => setShowRun(true)} />
         <div className="flex-1 overflow-auto p-6">
-          {view === "threads" && !selectedThread && <ThreadList onSelect={setSelectedThread} />}
-          {view === "threads" && selectedThread && (
-            <ThreadDetail threadId={selectedThread} onBack={() => setSelectedThread(null)} />
+          {view === "threads" && threadId === null && <ThreadList onSelect={setThreadId} />}
+          {view === "threads" && threadId !== null && (
+            <ThreadDetail threadId={threadId} onBack={() => setThreadId(null)} />
           )}
           {view === "workflows" && <WorkflowList />}
         </div>
@@ -31,8 +29,7 @@ export function App() {
           onClose={() => setShowRun(false)}
           onCreated={(id) => {
             setShowRun(false);
-            setView("threads");
-            setSelectedThread(id);
+            setThreadId(id);
           }}
         />
       )}
