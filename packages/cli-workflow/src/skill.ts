@@ -229,10 +229,3 @@ uncaged-workflow live --latest
 Bundles are immutable and identified by XXH64 hash. Re-registering a workflow with a new bundle creates a new version. Use \`workflow history\` and \`workflow rollback\` to manage versions.
 `;
 }
-
-// ── Legacy compat ──────────────────────────────────────────────────────
-
-/** @deprecated Use formatSkillTopic("cli") instead */
-export function formatSkillDoc(): string {
-  return formatSkillCli();
-}

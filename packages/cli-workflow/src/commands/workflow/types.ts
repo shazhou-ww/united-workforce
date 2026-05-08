@@ -14,5 +14,4 @@ export type CmdAddSuccess = {
 
 export type WorkflowDispatchDeps = {
   dispatchGroup: DispatchGroupFn;
-  printDeprecation: (oldCmd: string, newCmd: string) => void;
 };

@@ -62,6 +62,3 @@ export function createCasStore(casDir: string): CasStore {
     },
   };
 }
-
-/** @deprecated Use {@link createCasStore} — CAS is global, not per-thread. */
-export const createThreadCas = createCasStore;

@@ -1,21 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { formatCliUsage, runCli } from "../src/cli-dispatch.js";
-import {
-  formatSkillDoc,
-  formatSkillIndex,
-  formatSkillTopic,
-  getSkillTopics,
-} from "../src/skill.js";
+import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "../src/skill.js";
 
 const STORAGE_ROOT = "/tmp/help-test-storage";
 
-describe("help command", () => {
-  test("help returns 0", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help"]);
-    expect(code).toBe(0);
-  });
-
-  test("no args prints usage (not red) and returns 1", async () => {
+describe("runCli usage", () => {
+  test("no args prints usage and returns 1", async () => {
     const code = await runCli(STORAGE_ROOT, []);
     expect(code).toBe(1);
   });
@@ -66,13 +56,6 @@ describe("--help flag on groups", () => {
 
   test("init --help returns 0", async () => {
     const code = await runCli(STORAGE_ROOT, ["init", "--help"]);
-    expect(code).toBe(0);
-  });
-});
-
-describe("legacy help --skill compat", () => {
-  test("help --skill still works (lists topics)", async () => {
-    const code = await runCli(STORAGE_ROOT, ["help", "--skill"]);
     expect(code).toBe(0);
   });
 });
@@ -128,8 +111,13 @@ describe("formatCliUsage", () => {
   });
 });
 
-describe("formatSkillTopic('cli') — legacy formatSkillDoc", () => {
-  const doc = formatSkillDoc();
+const cliSkillDoc = formatSkillTopic("cli");
+if (cliSkillDoc === null) {
+  throw new Error("BUG: cli skill topic missing");
+}
+
+describe("formatSkillTopic('cli')", () => {
+  const doc = cliSkillDoc;
 
   test("contains title", () => {
     expect(doc).toContain("# uncaged-workflow CLI Reference");

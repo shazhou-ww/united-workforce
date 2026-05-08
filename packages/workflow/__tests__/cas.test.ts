@@ -3,14 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createCasStore, createThreadCas } from "../src/cas/cas.js";
+import { createCasStore } from "../src/cas/cas.js";
 import { hashString } from "../src/cas/hash.js";
-
-describe("cas module exports", () => {
-  test("createThreadCas is a deprecated alias of createCasStore", () => {
-    expect(createThreadCas).toBe(createCasStore);
-  });
-});
 
 describe("createCasStore", () => {
   let casDir: string;
