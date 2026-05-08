@@ -5,6 +5,14 @@ import { err, ok, type Result } from "@uncaged/workflow";
 
 import { pathExists } from "../../fs-utils.js";
 
+import {
+  templateIndexTs,
+  templateModeratorTs,
+  templatePackageJson,
+  templateRolesTs,
+  templateTsconfigJson,
+} from "./templates.js";
+
 export type CmdInitTemplateSuccess = {
   templatePath: string;
 };
@@ -65,108 +73,6 @@ async function findWorkflowWorkspaceRoot(startDir: string): Promise<Result<strin
     }
     dir = parent;
   }
-}
-
-function templatePackageJson(templateName: string): string {
-  return `${JSON.stringify(
-    {
-      name: `template-${templateName}`,
-      version: "0.0.0",
-      private: true,
-      type: "module",
-      dependencies: {
-        "@uncaged/workflow": "^0.1.0",
-        zod: "^4.0.0",
-      },
-    },
-    null,
-    2,
-  )}\n`;
-}
-
-function templateTsconfigJson(): string {
-  return `${JSON.stringify(
-    {
-      extends: "../../tsconfig.json",
-      compilerOptions: {
-        rootDir: "src",
-        outDir: "dist",
-      },
-      include: ["src/**/*.ts"],
-    },
-    null,
-    2,
-  )}\n`;
-}
-
-function templateRolesTs(): string {
-  return `import type { RoleDefinition } from "@uncaged/workflow";
-import * as z from "zod/v4";
-
-export const HELLO_TEMPLATE_DESCRIPTION =
-  "Minimal starter template: one greeter role, then END.";
-
-export type HelloTemplateMeta = {
-  greeter: {
-    message: string;
-  };
-};
-
-const greeterMetaSchema = z.object({
-  message: z.string(),
-});
-
-export const greeterRole: RoleDefinition<HelloTemplateMeta["greeter"]> = {
-  description: "Says hello — replace with your first role.",
-  systemPrompt: "You are a helpful assistant. Reply with one short friendly sentence.",
-  extractPrompt: "Extract the assistant's greeting as message.",
-  schema: greeterMetaSchema,
-  extractRefs: null,
-};
-`;
-}
-
-function templateModeratorTs(): string {
-  return `import { END, type Moderator, type ModeratorContext } from "@uncaged/workflow";
-
-import type { HelloTemplateMeta } from "./roles.js";
-
-export const helloTemplateModerator: Moderator<HelloTemplateMeta> = (
-  ctx: ModeratorContext<HelloTemplateMeta>,
-) => {
-  if (ctx.steps.length === 0) {
-    return "greeter";
-  }
-  return END;
-};
-`;
-}
-
-function templateIndexTs(): string {
-  return `import type { WorkflowDefinition } from "@uncaged/workflow";
-
-import { helloTemplateModerator } from "./moderator.js";
-import {
-  HELLO_TEMPLATE_DESCRIPTION,
-  type HelloTemplateMeta,
-  greeterRole,
-} from "./roles.js";
-
-export {
-  HELLO_TEMPLATE_DESCRIPTION,
-  type HelloTemplateMeta,
-  greeterRole,
-} from "./roles.js";
-export { helloTemplateModerator } from "./moderator.js";
-
-export const helloTemplateWorkflowDefinition: WorkflowDefinition<HelloTemplateMeta> = {
-  description: HELLO_TEMPLATE_DESCRIPTION,
-  roles: {
-    greeter: greeterRole,
-  },
-  moderator: helloTemplateModerator,
-};
-`;
 }
 
 export async function cmdInitTemplate(

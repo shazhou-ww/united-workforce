@@ -86,6 +86,7 @@ async function dispatchSkill(_storageRoot: string, argv: string[]): Promise<numb
 }
 
 async function dispatchHelp(_storageRoot: string, argv: string[]): Promise<number> {
+  printCliWarn('⚠ "help" is deprecated, use "skill" instead');
   const skillIdx = argv.indexOf("--skill");
   if (skillIdx !== -1) {
     return showSkillDocOrIndex(argv[skillIdx + 1]);
