@@ -57,6 +57,17 @@ export function formatCliUsage(
   );
   lines.push("");
 
+  lines.push("Server:");
+  lines.push(
+    ...formatUsageCommandLines([
+      {
+        prefix: "serve [--port N] [--host ADDR]",
+        description: "Start HTTP API server (default: 127.0.0.1:7860)",
+      },
+    ]),
+  );
+  lines.push("");
+
   lines.push("Reference:");
   const skillTopicNames = skillTopics.map((t) => t.name).join(", ");
   lines.push(
