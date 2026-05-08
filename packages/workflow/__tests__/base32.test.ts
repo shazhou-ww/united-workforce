@@ -5,7 +5,7 @@ import {
   decodeCrockfordToUint64,
   encodeCrockfordBase32Bits,
   encodeUint64AsCrockford,
-} from "../src/base32.js";
+} from "../src/util/base32.js";
 
 describe("Crockford Base32", () => {
   test("roundtrip 64-bit hash encoding", () => {

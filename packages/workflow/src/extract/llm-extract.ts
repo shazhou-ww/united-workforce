@@ -1,7 +1,6 @@
 import * as z from "zod/v4";
-
-import { err, ok, type Result } from "./result.js";
-import type { LlmProvider } from "./types.js";
+import type { LlmProvider } from "../types.js";
+import { err, ok, type Result } from "../util/result.js";
 
 export type LlmExtractArgs<T> = {
   text: string;

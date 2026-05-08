@@ -1,10 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-
-import { type CasStore, createCasStore } from "./cas.js";
+import { type CasStore, createCasStore } from "../cas/cas.js";
+import { err, ok, type Result } from "../util/result.js";
+import { getGlobalCasDir } from "../util/storage-root.js";
 import { parseThreadDataJsonl } from "./fork-thread.js";
-import { err, ok, type Result } from "./result.js";
-import { getGlobalCasDir } from "./storage-root.js";
 
 export type GcResult = {
   scannedThreads: number;

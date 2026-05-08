@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { createContentMerkleNode, parseMerkleNode, serializeMerkleNode } from "../src/merkle.js";
+import {
+  createContentMerkleNode,
+  parseMerkleNode,
+  serializeMerkleNode,
+} from "../src/cas/merkle.js";
 
 describe("merkle", () => {
   test("content node roundtrips through YAML", () => {

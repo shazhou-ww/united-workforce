@@ -5,9 +5,9 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createCasStore } from "../src/cas.js";
-import { createContentMerkleNode, serializeMerkleNode } from "../src/merkle.js";
-import { getWorkerHostScriptPath } from "../src/worker-entry-path.js";
+import { createCasStore } from "../src/cas/cas.js";
+import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
+import { getWorkerHostScriptPath } from "../src/engine/worker-entry-path.js";
 
 const bundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
 

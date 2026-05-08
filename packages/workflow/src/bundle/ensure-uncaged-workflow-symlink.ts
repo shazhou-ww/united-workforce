@@ -2,9 +2,9 @@ import { mkdir, readlink, symlink, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** This module lives in `@uncaged/workflow/src`; parent dir is the package root. */
+/** This module lives in `@uncaged/workflow/src/bundle`; grandparent dir is the package root. */
 function installedWorkflowPackageDir(): string {
-  return fileURLToPath(new URL("..", import.meta.url));
+  return fileURLToPath(new URL("../..", import.meta.url));
 }
 
 /**

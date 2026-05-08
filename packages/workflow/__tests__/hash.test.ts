@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
-
-import { decodeCrockfordToUint64 } from "../src/base32.js";
-import { hashWorkflowBundleBytes } from "../src/hash.js";
+import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
+import { decodeCrockfordToUint64 } from "../src/util/base32.js";
 
 describe("hashWorkflowBundleBytes", () => {
   test("matches XXH64 reference for empty input", () => {

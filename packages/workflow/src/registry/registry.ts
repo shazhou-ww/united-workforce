@@ -2,14 +2,13 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parseDocument, stringify } from "yaml";
-
+import { err, ok, type Result } from "../util/result.js";
 import { normalizeWorkflowRegistryRoot } from "./registry-normalize.js";
 import type {
   WorkflowHistoryEntry,
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
 } from "./registry-types.js";
-import { err, ok, type Result } from "./result.js";
 
 export type {
   ExtractProviderConfig,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateWorkflowDescriptor } from "../src/workflow-descriptor.js";
+import { validateWorkflowDescriptor } from "../src/bundle/workflow-descriptor.js";
 
 describe("validateWorkflowDescriptor", () => {
   // 1. Valid minimal descriptor

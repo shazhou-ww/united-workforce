@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { err, ok } from "../src/result.js";
+import { err, ok } from "../src/util/result.js";
 
 describe("result helpers", () => {
   test("ok wraps value", () => {

@@ -24,7 +24,7 @@ function narrowNode<T extends Node>(node: Node): T {
 
 import * as acorn from "acorn";
 
-import { err, ok, type Result } from "./result.js";
+import { err, ok, type Result } from "../util/result.js";
 
 export type WorkflowBundleValidationInput = {
   /** Absolute or relative path (used for `.esm.js` suffix checks). */

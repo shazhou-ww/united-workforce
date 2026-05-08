@@ -1,6 +1,6 @@
-import { normalizeRefsField } from "./refs-field.js";
-import { err, ok, type Result } from "./result.js";
-import type { RoleOutput, WorkflowCompletion } from "./types.js";
+import type { RoleOutput, WorkflowCompletion } from "../types.js";
+import { normalizeRefsField } from "../util/refs-field.js";
+import { err, ok, type Result } from "../util/result.js";
 
 /** Role steps replayed from `.data.jsonl`, including persisted timestamps. */
 export type ForkHistoricalStep = RoleOutput & { timestamp: number };

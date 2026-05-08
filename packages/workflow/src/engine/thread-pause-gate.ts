@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "./result.js";
+import { err, ok, type Result } from "../util/result.js";
 
 export type ThreadPauseGate = {
   awaitAfterYield: () => Promise<void>;

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod/v4";
 
-import { buildDescriptor } from "../src/build-descriptor.js";
+import { buildDescriptor } from "../src/bundle/build-descriptor.js";
+import { validateWorkflowDescriptor } from "../src/bundle/workflow-descriptor.js";
 import { END } from "../src/types.js";
-import { validateWorkflowDescriptor } from "../src/workflow-descriptor.js";
 
 describe("buildDescriptor", () => {
   test("produces a descriptor that validates and includes JSON schemas per role", () => {

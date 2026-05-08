@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { decodeCrockfordBase32Bits } from "../src/base32.js";
-import { generateUlid } from "../src/ulid.js";
+import { decodeCrockfordBase32Bits } from "../src/util/base32.js";
+import { generateUlid } from "../src/util/ulid.js";
 
 describe("generateUlid", () => {
   test("length and decodable Crockford payload", () => {

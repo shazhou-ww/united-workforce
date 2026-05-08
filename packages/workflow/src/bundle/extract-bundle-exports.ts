@@ -1,7 +1,7 @@
+import type { WorkflowFn } from "../types.js";
+import { err, ok, type Result } from "../util/result.js";
 import { importWorkflowBundleModule } from "./bundle-import-env.js";
 import { ensureUncagedWorkflowSymlink } from "./ensure-uncaged-workflow-symlink.js";
-import { err, ok, type Result } from "./result.js";
-import type { WorkflowFn } from "./types.js";
 import type { WorkflowDescriptor } from "./workflow-descriptor.js";
 import { validateWorkflowDescriptor } from "./workflow-descriptor.js";
 
