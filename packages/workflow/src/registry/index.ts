@@ -11,7 +11,6 @@ export {
   writeWorkflowRegistry,
 } from "./registry.js";
 export type {
-  ExtractProviderConfig,
   WorkflowConfig,
   WorkflowHistoryEntry,
   WorkflowRegistryEntry,

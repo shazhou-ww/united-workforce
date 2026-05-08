@@ -105,10 +105,13 @@ describe("workflow registry", () => {
     const yaml = `
 config:
   maxDepth: 3
-  extract:
-    baseUrl: https://example.com/v1
-    model: qwen-plus
-    apiKey: secret-key
+  providers:
+    dashscope:
+      baseUrl: https://example.com/v1
+      apiKey: secret-key
+  models:
+    default: dashscope/qwen-turbo
+    extract: dashscope/qwen-plus
 workflows:
   solve-issue:
     hash: SPVR4BDMSGC1W
@@ -125,9 +128,10 @@ workflows:
       return;
     }
     expect(r.value.config.maxDepth).toBe(3);
-    expect(r.value.config.extract.baseUrl).toBe("https://example.com/v1");
-    expect(r.value.config.extract.model).toBe("qwen-plus");
-    expect(r.value.config.extract.apiKey).toBe("secret-key");
+    expect(r.value.config.providers.dashscope?.baseUrl).toBe("https://example.com/v1");
+    expect(r.value.config.providers.dashscope?.apiKey).toBe("secret-key");
+    expect(r.value.config.models.extract).toBe("dashscope/qwen-plus");
+    expect(r.value.config.models.default).toBe("dashscope/qwen-turbo");
   });
 
   test("parses config apiKey env: prefix from process.env", () => {
@@ -137,10 +141,13 @@ workflows:
       const yaml = `
 config:
   maxDepth: 1
-  extract:
-    baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
-    model: qwen-plus
-    apiKey: env:WF_REGISTRY_TEST_API_KEY
+  providers:
+    dashscope:
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKey: env:WF_REGISTRY_TEST_API_KEY
+  models:
+    default: dashscope/qwen-plus
+    extract: dashscope/qwen-plus
 workflows: {}
 `;
       const r = parseWorkflowRegistryYaml(yaml);
@@ -148,7 +155,7 @@ workflows: {}
       if (!r.ok) {
         return;
       }
-      expect(r.value.config?.extract.apiKey).toBe("from-env");
+      expect(r.value.config?.providers.dashscope?.apiKey).toBe("from-env");
     } finally {
       if (prev === undefined) {
         delete process.env.WF_REGISTRY_TEST_API_KEY;
@@ -165,10 +172,12 @@ workflows: {}
       const yaml = `
 config:
   maxDepth: 1
-  extract:
-    baseUrl: https://example.com
-    model: m
-    apiKey: env:WF_REGISTRY_TEST_API_KEY_UNSET
+  providers:
+    p:
+      baseUrl: https://example.com
+      apiKey: env:WF_REGISTRY_TEST_API_KEY_UNSET
+  models:
+    default: p/m
 workflows: {}
 `;
       const r = parseWorkflowRegistryYaml(yaml);

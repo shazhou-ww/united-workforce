@@ -140,10 +140,15 @@ describe("workflowAsAgent", () => {
         ...reg.value,
         config: {
           maxDepth: 2,
-          extract: {
-            baseUrl: "http://127.0.0.1:9",
-            model: "m",
-            apiKey: "k",
+          providers: {
+            local: {
+              baseUrl: "http://127.0.0.1:9",
+              apiKey: "k",
+            },
+          },
+          models: {
+            default: "local/m",
+            extract: "local/m",
           },
         },
       };
