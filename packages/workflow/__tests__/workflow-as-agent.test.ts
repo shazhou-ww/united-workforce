@@ -155,6 +155,7 @@ workflows: {}
         ...reg.value,
         config: {
           maxDepth: 2,
+          supervisorInterval: 3,
           providers: {
             local: {
               baseUrl: "http://127.0.0.1:9",

@@ -9,7 +9,7 @@ import {
 } from "../cas/index.js";
 import { resolveModel } from "../config/index.js";
 import { createExtract } from "../extract/index.js";
-import { readWorkflowRegistry } from "../registry/index.js";
+import { readWorkflowRegistry, type WorkflowConfig } from "../registry/index.js";
 import type {
   LlmProvider,
   ThreadInput,
@@ -20,12 +20,18 @@ import type {
 } from "../types.js";
 import { err, type LogFn, normalizeRefsField, ok, type Result } from "../util/index.js";
 
+import { runSupervisor } from "./supervisor.js";
 import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
 
-async function resolveExtractRuntime(
-  storageRoot: string,
-): Promise<
-  Result<{ extract: ReturnType<typeof createExtract>; llmProvider: LlmProvider }, string>
+async function resolveEngineRegistryRuntime(storageRoot: string): Promise<
+  Result<
+    {
+      extract: ReturnType<typeof createExtract>;
+      llmProvider: LlmProvider;
+      workflowConfig: WorkflowConfig;
+    },
+    string
+  >
 > {
   const reg = await readWorkflowRegistry(storageRoot);
   if (!reg.ok) {
@@ -45,7 +51,7 @@ async function resolveExtractRuntime(
     apiKey: ex.apiKey,
     model: ex.model,
   };
-  return ok({ extract: createExtract(llmProvider), llmProvider });
+  return ok({ extract: createExtract(llmProvider), llmProvider, workflowConfig: cfg });
 }
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
@@ -79,9 +85,66 @@ async function finalizeThreadResult(params: {
   };
 }
 
+async function finalizeAbortedThread(params: {
+  cas: CasStore;
+  workflowName: string;
+  threadId: string;
+  stepMerkleHashes: string[];
+  logger: LogFn;
+  abortLogTag: string;
+}): Promise<WorkflowResult> {
+  params.logger(params.abortLogTag, `thread ${params.threadId} aborted`);
+  return finalizeThreadResult({
+    cas: params.cas,
+    workflowName: params.workflowName,
+    threadId: params.threadId,
+    stepMerkleHashes: params.stepMerkleHashes,
+    completion: { returnCode: 130, summary: "thread aborted" },
+  });
+}
+
+async function maybeSupervisorHaltsThread(params: {
+  workflowConfig: WorkflowConfig;
+  input: ThreadInput;
+  written: number;
+  recentSupervisorSteps: readonly { role: string; summary: string }[];
+  logger: LogFn;
+  threadId: string;
+  cas: CasStore;
+  workflowName: string;
+  stepMerkleHashes: string[];
+}): Promise<WorkflowResult | null> {
+  const interval = params.workflowConfig.supervisorInterval;
+  if (interval <= 0 || params.written % interval !== 0) {
+    return null;
+  }
+  const sup = await runSupervisor({
+    config: params.workflowConfig,
+    prompt: params.input.prompt,
+    recentSteps: params.recentSupervisorSteps,
+    logger: params.logger,
+  });
+  if (!sup.ok) {
+    params.logger("K6PW9NYT", `supervisor skipped: ${sup.error}`);
+    return null;
+  }
+  if (sup.value !== "stop") {
+    return null;
+  }
+  params.logger("M4QX8VHN", `thread ${params.threadId} stopped by supervisor`);
+  return finalizeThreadResult({
+    cas: params.cas,
+    workflowName: params.workflowName,
+    threadId: params.threadId,
+    stepMerkleHashes: params.stepMerkleHashes,
+    completion: { returnCode: 0, summary: "completed: supervisor stopped thread" },
+  });
+}
+
 async function driveWorkflowGenerator(params: {
   fn: WorkflowFn;
   workflowName: string;
+  workflowConfig: WorkflowConfig;
   input: ThreadInput;
   bundleOptions: WorkflowFnOptions;
   executeOptions: ExecuteThreadOptions;
@@ -94,6 +157,7 @@ async function driveWorkflowGenerator(params: {
   const {
     fn,
     workflowName,
+    workflowConfig,
     input,
     bundleOptions,
     executeOptions,
@@ -105,16 +169,20 @@ async function driveWorkflowGenerator(params: {
   } = params;
   const gen = fn(input, bundleOptions);
   let written = 0;
+  const recentSupervisorSteps: { role: string; summary: string }[] = input.steps.map((s) => ({
+    role: s.role,
+    summary: JSON.stringify(s.meta),
+  }));
 
   while (true) {
     if (executeOptions.signal.aborted) {
-      logger("V8JX4NP2", `thread ${threadId} aborted`);
-      return await finalizeThreadResult({
+      return await finalizeAbortedThread({
         cas,
         workflowName,
         threadId,
         stepMerkleHashes,
-        completion: { returnCode: 130, summary: "thread aborted" },
+        logger,
+        abortLogTag: "V8JX4NP2",
       });
     }
 
@@ -172,6 +240,11 @@ async function driveWorkflowGenerator(params: {
 
     logger("N7BW4YHQ", `thread ${threadId} wrote role ${step.role}`);
 
+    recentSupervisorSteps.push({
+      role: step.role,
+      summary: JSON.stringify(step.meta),
+    });
+
     await Promise.race([
       executeOptions.awaitAfterEachYield(),
       new Promise<void>((resolve) => {
@@ -184,14 +257,29 @@ async function driveWorkflowGenerator(params: {
     ]);
 
     if (executeOptions.signal.aborted) {
-      logger("V8JX4NP4", `thread ${threadId} aborted`);
-      return await finalizeThreadResult({
+      return await finalizeAbortedThread({
         cas,
         workflowName,
         threadId,
         stepMerkleHashes,
-        completion: { returnCode: 130, summary: "thread aborted" },
+        logger,
+        abortLogTag: "V8JX4NP4",
       });
+    }
+
+    const supervised = await maybeSupervisorHaltsThread({
+      workflowConfig,
+      input,
+      written,
+      recentSupervisorSteps,
+      logger,
+      threadId,
+      cas,
+      workflowName,
+      stepMerkleHashes,
+    });
+    if (supervised !== null) {
+      return supervised;
     }
   }
 }
@@ -280,9 +368,9 @@ export async function executeThread(
     });
   }
 
-  const extractRuntime = await resolveExtractRuntime(options.storageRoot);
-  if (!extractRuntime.ok) {
-    throw new Error(extractRuntime.error);
+  const registryRuntime = await resolveEngineRegistryRuntime(options.storageRoot);
+  if (!registryRuntime.ok) {
+    throw new Error(registryRuntime.error);
   }
 
   const bundleOptions: WorkflowFnOptions = {
@@ -290,13 +378,14 @@ export async function executeThread(
     maxRounds: options.maxRounds,
     depth: options.depth,
     cas: io.cas,
-    extract: extractRuntime.value.extract,
-    llmProvider: extractRuntime.value.llmProvider,
+    extract: registryRuntime.value.extract,
+    llmProvider: registryRuntime.value.llmProvider,
   };
 
   return await driveWorkflowGenerator({
     fn,
     workflowName,
+    workflowConfig: registryRuntime.value.workflowConfig,
     input,
     bundleOptions,
     executeOptions: options,

@@ -13,6 +13,8 @@ export type WorkflowRegistryEntry = {
 
 export type WorkflowConfig = {
   maxDepth: number;
+  /** Run supervisor LLM every N completed role rounds (0 = disabled). Default from YAML: 3. */
+  supervisorInterval: number;
   providers: Record<string, ProviderConfig>;
   models: Record<string, string>;
 };

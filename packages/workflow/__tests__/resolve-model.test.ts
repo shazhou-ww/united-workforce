@@ -6,6 +6,7 @@ import type { WorkflowConfig } from "../src/registry/index.js";
 function sampleConfig(): WorkflowConfig {
   return {
     maxDepth: 3,
+    supervisorInterval: 3,
     providers: {
       dashscope: {
         baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -50,6 +51,7 @@ describe("resolveModel", () => {
   test("errs when scene missing and no default", () => {
     const config: WorkflowConfig = {
       maxDepth: 1,
+      supervisorInterval: 3,
       providers: {
         p: { baseUrl: "https://x", apiKey: "k" },
       },
@@ -69,6 +71,7 @@ describe("resolveModel", () => {
   test("errs when provider is unknown", () => {
     const config: WorkflowConfig = {
       maxDepth: 1,
+      supervisorInterval: 3,
       providers: {
         p: { baseUrl: "https://x", apiKey: "k" },
       },
@@ -87,6 +90,7 @@ describe("resolveModel", () => {
   test("errs on invalid model reference shape", () => {
     const config: WorkflowConfig = {
       maxDepth: 1,
+      supervisorInterval: 3,
       providers: {
         p: { baseUrl: "https://x", apiKey: "k" },
       },

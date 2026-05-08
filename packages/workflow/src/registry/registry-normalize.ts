@@ -110,10 +110,22 @@ function normalizeWorkflowConfig(raw: unknown): Result<WorkflowConfig, Error> {
   }
   const c = raw as Record<string, unknown>;
   const maxDepth = c.maxDepth;
+  const supervisorIntervalRaw = c.supervisorInterval;
   const providersRaw = c.providers;
   const modelsRaw = c.models;
   if (typeof maxDepth !== "number" || !Number.isInteger(maxDepth) || maxDepth < 0) {
     return err(new Error("config.maxDepth must be a non-negative integer"));
+  }
+  let supervisorInterval = 3;
+  if (supervisorIntervalRaw !== undefined) {
+    if (
+      typeof supervisorIntervalRaw !== "number" ||
+      !Number.isInteger(supervisorIntervalRaw) ||
+      supervisorIntervalRaw < 0
+    ) {
+      return err(new Error("config.supervisorInterval must be a non-negative integer"));
+    }
+    supervisorInterval = supervisorIntervalRaw;
   }
   const providersResult = normalizeProviders(providersRaw);
   if (!providersResult.ok) {
@@ -125,6 +137,7 @@ function normalizeWorkflowConfig(raw: unknown): Result<WorkflowConfig, Error> {
   }
   return ok({
     maxDepth,
+    supervisorInterval,
     providers: providersResult.value,
     models: modelsResult.value,
   });

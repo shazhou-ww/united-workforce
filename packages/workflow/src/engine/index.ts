@@ -17,6 +17,7 @@ export type {
   GcResult,
   ParsedThreadStartRecord,
   PrefilledDiskStep,
+  SupervisorDecision,
   ThreadPauseGate,
 } from "./types.js";
 export { getWorkerHostScriptPath } from "./worker-entry-path.js";
