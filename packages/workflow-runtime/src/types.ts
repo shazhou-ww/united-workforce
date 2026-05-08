@@ -1,11 +1,32 @@
 import type * as z from "zod/v4";
 
-import type { CasStore } from "./cas/index.js";
-import type { ExtractFn } from "./extract/types.js";
-
 /** Sentinel values for automaton control flow. */
 export const START = "__start__" as const;
 export const END = "__end__" as const;
+
+export type CasStore = {
+  put(content: string): Promise<string>;
+  get(hash: string): Promise<string | null>;
+  delete(hash: string): Promise<void>;
+  list(): Promise<string[]>;
+};
+
+/** JSON Schema fragment describing one role's `meta` shape (subset supported by code generation). */
+export type WorkflowRoleSchema = Record<string, unknown>;
+
+export type WorkflowRoleDescriptor = {
+  description: string;
+  schema: WorkflowRoleSchema;
+};
+
+/** Workflow metadata exported as `export const descriptor` from `.esm.js` bundles. */
+export type WorkflowDescriptor = {
+  description: string;
+  roles: Record<string, WorkflowRoleDescriptor>;
+};
+
+/** Expected success/failure outcome without throwing for recoverable errors. */
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 /** Maps role names → their meta types. Single generic drives all inference. */
 export type RoleMeta = Record<string, Record<string, unknown>>;
@@ -96,6 +117,12 @@ export type ExtractContext<M extends RoleMeta = RoleMeta> = AgentContext<M> & {
   agentContent: string;
 };
 
+export type ExtractFn = <T extends Record<string, unknown>>(
+  schema: z.ZodType<T>,
+  prompt: string,
+  ctx: ExtractContext,
+) => Promise<T>;
+
 /** Raw string output from an LLM/CLI adapter; meta is extracted by the engine. */
 export type AgentFn = (ctx: AgentContext) => Promise<string>;
 
@@ -131,3 +158,8 @@ export type WorkflowDefinition<M extends RoleMeta> = {
   roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
   moderator: Moderator<M>;
 };
+
+/** Internal outcome of advancing one moderator round inside {@link createWorkflow}. */
+export type AdvanceOutcome<M extends RoleMeta> =
+  | { kind: "complete"; completion: WorkflowCompletion }
+  | { kind: "yield"; output: RoleOutput; step: RoleStep<M> };

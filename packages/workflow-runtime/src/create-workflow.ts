@@ -1,10 +1,10 @@
 import type * as z from "zod/v4";
 
-import type { CasStore } from "../cas/types.js";
 import {
   type AgentBinding,
   type AgentContext,
   type AgentFn,
+  type CasStore,
   END,
   type ExtractContext,
   type ModeratorContext,
@@ -18,8 +18,7 @@ import {
   type WorkflowDefinition,
   type WorkflowFn,
   type WorkflowRuntime,
-} from "../types.js";
-import { mergeRefsWithContentHash } from "../util/index.js";
+} from "./types.js";
 
 function isRoleNext<M extends RoleMeta>(
   next: (keyof M & string) | typeof END,
@@ -97,10 +96,11 @@ async function advanceOneRound<M extends RoleMeta>(
   );
 
   const contentHash = await putContentBlob(runtime.cas, raw);
-  const refs = mergeRefsWithContentHash(
-    resolveExtractedRefs(roleDef as unknown as RoleDefinition<Record<string, unknown>>, meta),
-    contentHash,
+  const refsFromMeta = resolveExtractedRefs(
+    roleDef as unknown as RoleDefinition<Record<string, unknown>>,
+    meta,
   );
+  const refs = refsFromMeta.includes(contentHash) ? refsFromMeta : [...refsFromMeta, contentHash];
 
   const step = {
     role: next,

@@ -1,20 +1,16 @@
-export type {
-  WorkflowDescriptor,
-  WorkflowRoleDescriptor,
-  WorkflowRoleSchema,
-} from "./bundle/types.js";
-export { validateWorkflowDescriptor } from "./bundle/workflow-descriptor.js";
-export type { CasStore } from "./cas/index.js";
-export { createWorkflow } from "./engine/index.js";
-export type { ExtractFn } from "./extract/index.js";
+export { createWorkflow } from "./create-workflow.js";
+export { err, ok } from "./result.js";
 export type {
   AgentBinding,
   AgentContext,
   AgentFn,
+  CasStore,
   ExtractContext,
+  ExtractFn,
   LlmProvider,
   Moderator,
   ModeratorContext,
+  Result,
   RoleDefinition,
   RoleMeta,
   RoleOutput,
@@ -23,10 +19,11 @@ export type {
   ThreadContext,
   WorkflowCompletion,
   WorkflowDefinition,
+  WorkflowDescriptor,
   WorkflowFn,
   WorkflowResult,
+  WorkflowRoleDescriptor,
+  WorkflowRoleSchema,
   WorkflowRuntime,
 } from "./types.js";
 export { END, START } from "./types.js";
-export type { Result } from "./util/index.js";
-export { err, ok } from "./util/index.js";
