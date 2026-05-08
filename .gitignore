@@ -3,3 +3,4 @@ dist/
 bun.lock
 *.tgz
 tsconfig.tsbuildinfo
+.npmrc
