@@ -24,8 +24,8 @@ export type {
   WorkflowCompletion,
   WorkflowDefinition,
   WorkflowFn,
-  WorkflowRuntime,
   WorkflowResult,
+  WorkflowRuntime,
 } from "./types.js";
 export { END, START } from "./types.js";
 export type { Result } from "./util/index.js";

@@ -89,7 +89,6 @@ export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & 
     name: string;
     systemPrompt: string;
   };
-  cas: CasStore;
 };
 
 /** Phase 3: Extractor runs — has agent output; the extraction instruction is a separate argument to the extract function. */

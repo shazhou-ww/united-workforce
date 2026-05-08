@@ -4,7 +4,8 @@ import { useFetch } from "../hooks.ts";
 export function WorkflowList() {
   const { status, data, error } = useFetch(() => listWorkflows(), []);
 
-  if (status === "loading") return <p style={{ color: "var(--color-text-muted)" }}>Loading workflows...</p>;
+  if (status === "loading")
+    return <p style={{ color: "var(--color-text-muted)" }}>Loading workflows...</p>;
   if (status === "error") return <p style={{ color: "var(--color-error)" }}>Error: {error}</p>;
 
   const workflows = data.workflows;
@@ -28,7 +29,10 @@ export function WorkflowList() {
                   {w.versions} version{w.versions !== 1 ? "s" : ""}
                 </span>
               </div>
-              <code className="text-xs mt-1 block font-mono" style={{ color: "var(--color-accent)" }}>
+              <code
+                className="text-xs mt-1 block font-mono"
+                style={{ color: "var(--color-accent)" }}
+              >
                 {w.currentHash}
               </code>
             </div>

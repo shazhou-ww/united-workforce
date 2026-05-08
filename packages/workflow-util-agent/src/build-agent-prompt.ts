@@ -1,13 +1,4 @@
-import { getContentMerklePayload } from "@uncaged/workflow";
 import type { AgentContext } from "@uncaged/workflow-runtime";
-
-async function resolveStepText(ctx: AgentContext, contentHash: string): Promise<string> {
-  const text = await getContentMerklePayload(ctx.cas, contentHash);
-  if (text === null) {
-    throw new Error(`buildAgentPrompt: missing CAS blob for ${contentHash}`);
-  }
-  return text;
-}
 
 /** Builds the full agent prompt: system instructions plus summarized thread history. */
 export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
@@ -24,12 +15,10 @@ export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
 
   if (steps.length === 1) {
     const s = steps[0];
-    const body = await resolveStepText(ctx, s.contentHash);
     lines.push("");
     lines.push(`## Step: ${s.role}`);
     lines.push("");
-    lines.push(body);
-    lines.push("");
+    lines.push(`ContentHash: ${s.contentHash}`);
     lines.push(`Meta: ${JSON.stringify(s.meta)}`);
   } else {
     lines.push("");
@@ -41,12 +30,10 @@ export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
       lines.push(`Summary: ${JSON.stringify(s.meta)}`);
     }
     const last = steps[steps.length - 1];
-    const lastBody = await resolveStepText(ctx, last.contentHash);
     lines.push("");
     lines.push(`## Latest Step: ${last.role}`);
     lines.push("");
-    lines.push(lastBody);
-    lines.push("");
+    lines.push(`ContentHash: ${last.contentHash}`);
     lines.push(`Meta: ${JSON.stringify(last.meta)}`);
   }
 

@@ -8,7 +8,8 @@ type Props = {
 export function ThreadList({ onSelect }: Props) {
   const { status, data, error } = useFetch(() => listThreads(), []);
 
-  if (status === "loading") return <p style={{ color: "var(--color-text-muted)" }}>Loading threads...</p>;
+  if (status === "loading")
+    return <p style={{ color: "var(--color-text-muted)" }}>Loading threads...</p>;
   if (status === "error") return <p style={{ color: "var(--color-error)" }}>Error: {error}</p>;
 
   const threads = data.threads;
@@ -22,6 +23,7 @@ export function ThreadList({ onSelect }: Props) {
         <div className="space-y-2">
           {threads.map((t) => (
             <button
+              type="button"
               key={t.threadId}
               onClick={() => onSelect(t.threadId)}
               className="w-full text-left p-4 rounded-lg border transition-colors hover:border-[var(--color-accent-dim)]"

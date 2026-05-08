@@ -26,6 +26,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <button
+          type="button"
           onClick={onBack}
           className="text-sm hover:underline"
           style={{ color: "var(--color-accent)" }}
@@ -34,6 +35,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
         </button>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => handleAction("pause")}
             className="px-3 py-1 text-xs rounded border"
             style={{ borderColor: "var(--color-warning)", color: "var(--color-warning)" }}
@@ -41,6 +43,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
             ⏸ Pause
           </button>
           <button
+            type="button"
             onClick={() => handleAction("resume")}
             className="px-3 py-1 text-xs rounded border"
             style={{ borderColor: "var(--color-success)", color: "var(--color-success)" }}
@@ -48,6 +51,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
             ▶ Resume
           </button>
           <button
+            type="button"
             onClick={() => handleAction("kill")}
             className="px-3 py-1 text-xs rounded border"
             style={{ borderColor: "var(--color-error)", color: "var(--color-error)" }}
@@ -68,9 +72,9 @@ export function ThreadDetail({ threadId, onBack }: Props) {
       {status === "error" && <p style={{ color: "var(--color-error)" }}>Error: {error}</p>}
       {status === "ok" && (
         <div className="space-y-3">
-          {data.records.map((r, i) => (
+          {data.records.map((r) => (
             <div
-              key={i}
+              key={`${r.type}:${r.role ?? ""}:${r.timestamp ?? 0}:${String(r.content ?? "")}`}
               className="p-3 rounded border text-sm"
               style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
             >
@@ -93,7 +97,10 @@ export function ThreadDetail({ threadId, onBack }: Props) {
                 )}
               </div>
               {r.content && (
-                <pre className="whitespace-pre-wrap text-xs mt-1" style={{ color: "var(--color-text)" }}>
+                <pre
+                  className="whitespace-pre-wrap text-xs mt-1"
+                  style={{ color: "var(--color-text)" }}
+                >
                   {typeof r.content === "string" ? r.content : JSON.stringify(r.content, null, 2)}
                 </pre>
               )}

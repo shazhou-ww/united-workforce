@@ -60,8 +60,9 @@ export function createLiveRoutes(storageRoot: string): Hono {
     if (dataPath === null) {
       return c.json({ error: `thread not found: ${threadId}` }, 404);
     }
+    const resolvedDataPath = dataPath;
 
-    const infoPath = join(dirname(dataPath), `${threadId}.info.jsonl`);
+    const infoPath = join(dirname(resolvedDataPath), `${threadId}.info.jsonl`);
 
     return streamSSE(c, async (stream) => {
       const dataState: PumpState = { contentOffset: 0, carry: "" };
@@ -71,7 +72,7 @@ export function createLiveRoutes(storageRoot: string): Hono {
       async function pumpData(): Promise<boolean> {
         let text: string;
         try {
-          text = await readFile(dataPath, "utf8");
+          text = await readFile(resolvedDataPath, "utf8");
         } catch {
           return false;
         }
@@ -131,7 +132,7 @@ export function createLiveRoutes(storageRoot: string): Hono {
       const controller = new AbortController();
       let completed = false;
 
-      const dataWatcher = watch(dataPath, async () => {
+      const dataWatcher = watch(resolvedDataPath, async () => {
         if (completed) return;
         const finished = await pumpData();
         if (finished) {

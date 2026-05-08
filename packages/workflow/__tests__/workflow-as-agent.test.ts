@@ -34,7 +34,6 @@ function makeAgentCtx(params: {
       name: "caller",
       systemPrompt: "caller",
     },
-    cas: createCasStore(join(params.storageRoot, "agent-ctx-cas")),
   };
 }
 

@@ -72,7 +72,9 @@ function buildToolCallResponse(args: Record<string, unknown>): Response {
   });
 }
 
-function installMockToolCallCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
+function installMockToolCallCompletions(
+  sequence: ReadonlyArray<Record<string, unknown>>,
+): () => void {
   const origFetch = globalThis.fetch;
   let i = 0;
   const mockFetch = async (
@@ -160,11 +162,16 @@ function submitterStep(meta: SubmitterMeta): RoleStep<SolveIssueMeta> {
   };
 }
 
-const stubExtract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "",
-  model: "test",
-});
+function createStubExtract(casDir: string) {
+  return createExtract(
+    {
+      baseUrl: "http://127.0.0.1:9",
+      apiKey: "",
+      model: "test",
+    },
+    { cas: createCasStore(casDir) },
+  );
+}
 
 function makeThread(prompt: string) {
   return {
@@ -260,13 +267,10 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
       agent: async () => "",
       overrides: { developer: async () => "stub-root-hash" },
     });
-    const gen = run(
-      makeThread("task"),
-      {
-        cas,
-        extract: stubExtract,
-      },
-    );
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
     const first = await gen.next();
     expect(first.done).toBe(false);
     if (first.done) {
@@ -297,13 +301,10 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
       agent: async () => "",
       overrides: { developer: async () => "stub-root-hash" },
     });
-    const gen = run(
-      makeThread("task"),
-      {
-        cas,
-        extract: stubExtract,
-      },
-    );
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
     const first = await gen.next();
     expect(first.done).toBe(false);
     if (first.done) {
@@ -356,13 +357,10 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
         },
       },
     });
-    const gen = run(
-      makeThread("task"),
-      {
-        cas,
-        extract: stubExtract,
-      },
-    );
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
     await gen.next();
     expect(calls).toEqual(["preparer"]);
 
@@ -374,7 +372,6 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
     await gen.next();
     expect(calls).toEqual(["submitter"]);
   });
-
 });
 
 describe("buildSolveIssueDescriptor", () => {

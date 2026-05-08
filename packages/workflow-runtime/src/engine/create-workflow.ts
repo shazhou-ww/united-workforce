@@ -80,7 +80,6 @@ async function advanceOneRound<M extends RoleMeta>(
   const agentCtx: AgentContext<M> = {
     ...modCtx,
     currentRole: { name: next, systemPrompt: roleDef.systemPrompt },
-    cas: runtime.cas,
   };
 
   const agent = agentForRole(binding, next);

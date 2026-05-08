@@ -6,8 +6,8 @@ import type {
   ThreadContext,
   WorkflowCompletion,
   WorkflowFn,
-  WorkflowRuntime,
   WorkflowResult,
+  WorkflowRuntime,
 } from "@uncaged/workflow-runtime";
 import { START } from "@uncaged/workflow-runtime";
 import {
@@ -24,7 +24,10 @@ import { err, type LogFn, normalizeRefsField, ok, type Result } from "../util/in
 import { runSupervisor } from "./supervisor.js";
 import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
 
-async function resolveEngineRegistryRuntime(storageRoot: string): Promise<
+async function resolveEngineRegistryRuntime(
+  storageRoot: string,
+  cas: CasStore,
+): Promise<
   Result<
     {
       extract: ReturnType<typeof createExtract>;
@@ -51,7 +54,7 @@ async function resolveEngineRegistryRuntime(storageRoot: string): Promise<
     apiKey: ex.apiKey,
     model: ex.model,
   };
-  return ok({ extract: createExtract(llmProvider), workflowConfig: cfg });
+  return ok({ extract: createExtract(llmProvider, { cas }), workflowConfig: cfg });
 }
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
@@ -368,7 +371,7 @@ export async function executeThread(
     });
   }
 
-  const registryRuntime = await resolveEngineRegistryRuntime(options.storageRoot);
+  const registryRuntime = await resolveEngineRegistryRuntime(options.storageRoot, io.cas);
   if (!registryRuntime.ok) {
     throw new Error(registryRuntime.error);
   }

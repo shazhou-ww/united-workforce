@@ -41,10 +41,15 @@ export function RunDialog({ onClose, onCreated }: Props) {
         <h3 className="text-lg font-semibold mb-4">Run Thread</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm block mb-1" style={{ color: "var(--color-text-muted)" }}>
+            <label
+              htmlFor="run-workflow"
+              className="text-sm block mb-1"
+              style={{ color: "var(--color-text-muted)" }}
+            >
               Workflow
             </label>
             <select
+              id="run-workflow"
               value={workflow}
               onChange={(e) => setWorkflow(e.target.value)}
               className="w-full px-3 py-2 rounded border text-sm"
@@ -64,10 +69,15 @@ export function RunDialog({ onClose, onCreated }: Props) {
             </select>
           </div>
           <div>
-            <label className="text-sm block mb-1" style={{ color: "var(--color-text-muted)" }}>
+            <label
+              htmlFor="run-prompt"
+              className="text-sm block mb-1"
+              style={{ color: "var(--color-text-muted)" }}
+            >
               Prompt
             </label>
             <textarea
+              id="run-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
@@ -81,10 +91,15 @@ export function RunDialog({ onClose, onCreated }: Props) {
             />
           </div>
           <div>
-            <label className="text-sm block mb-1" style={{ color: "var(--color-text-muted)" }}>
+            <label
+              htmlFor="run-max-rounds"
+              className="text-sm block mb-1"
+              style={{ color: "var(--color-text-muted)" }}
+            >
               Max Rounds
             </label>
             <input
+              id="run-max-rounds"
               type="number"
               value={maxRounds}
               onChange={(e) => setMaxRounds(Number(e.target.value))}
@@ -98,7 +113,11 @@ export function RunDialog({ onClose, onCreated }: Props) {
               }}
             />
           </div>
-          {error && <p className="text-sm" style={{ color: "var(--color-error)" }}>{error}</p>}
+          {error && (
+            <p className="text-sm" style={{ color: "var(--color-error)" }}>
+              {error}
+            </p>
+          )}
           <div className="flex gap-2 justify-end">
             <button
               type="button"

@@ -1,12 +1,17 @@
 import type { ExtractContext, ExtractFn, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
-import { getContentMerklePayload } from "../cas/index.js";
+import { type CasStore, getContentMerklePayload } from "../cas/index.js";
 import { reactExtract } from "./react-extract.js";
+
+export type ExtractDeps = {
+  cas: CasStore;
+};
 
 /** Builds the user-side extraction prompt (thread + agent output + instruction). */
 export async function buildExtractUserContent(
   ctx: ExtractContext,
   prompt: string,
+  deps: ExtractDeps,
 ): Promise<string> {
   const lines: string[] = [];
   lines.push(`## Role: ${ctx.currentRole.name}`);
@@ -18,7 +23,7 @@ export async function buildExtractUserContent(
   if (ctx.steps.length > 0) {
     lines.push("## Thread History");
     for (const step of ctx.steps) {
-      const body = await getContentMerklePayload(ctx.cas, step.contentHash);
+      const body = await getContentMerklePayload(deps.cas, step.contentHash);
       if (body === null) {
         throw new Error(`extract: missing CAS blob for step ${step.role}: ${step.contentHash}`);
       }
@@ -44,14 +49,14 @@ export async function buildExtractUserContent(
  * Merkle DAG and a schema-shaped `extract` tool); the loop also accepts a plain-JSON
  * assistant reply as a short-circuit, which covers the legacy "single" extraction path.
  */
-export function createExtract(provider: LlmProvider): ExtractFn {
+export function createExtract(provider: LlmProvider, deps: ExtractDeps): ExtractFn {
   return async <T extends Record<string, unknown>>(
     schema: z.ZodType<T>,
     prompt: string,
     ctx: ExtractContext,
   ): Promise<T> => {
-    const text = await buildExtractUserContent(ctx, prompt);
-    const result = await reactExtract({ text, schema, provider, cas: ctx.cas });
+    const text = await buildExtractUserContent(ctx, prompt, deps);
+    const result = await reactExtract({ text, schema, provider, cas: deps.cas });
     if (!result.ok) {
       throw new Error(`extract failed: ${result.error}`);
     }

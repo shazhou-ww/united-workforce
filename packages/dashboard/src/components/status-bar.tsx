@@ -16,6 +16,7 @@ export function StatusBar({ onRun }: Props) {
       <div className="flex items-center gap-4">
         <span style={{ color: "var(--color-text-muted)" }}>Local API: 127.0.0.1:7860</span>
         <button
+          type="button"
           onClick={onRun}
           className="px-3 py-1 rounded text-xs font-medium"
           style={{ background: "var(--color-accent)", color: "#fff" }}
