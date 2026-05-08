@@ -1,14 +1,18 @@
 import { join } from "node:path";
 
-import { extractBundleExports } from "./bundle/extract-bundle-exports.js";
-import { createCasStore } from "./cas/cas.js";
-import { type ExecuteThreadIo, executeThread } from "./engine/engine.js";
+import { extractBundleExports } from "./bundle/index.js";
+import { createCasStore } from "./cas/index.js";
+import type { ExecuteThreadIo } from "./engine/index.js";
+import { executeThread } from "./engine/index.js";
 import { getWorkflowAsAgentMaxDepth } from "./extract-provider.js";
-import { getRegisteredWorkflow, readWorkflowRegistry } from "./registry/registry.js";
+import { getRegisteredWorkflow, readWorkflowRegistry } from "./registry/index.js";
 import type { AgentContext, AgentFn, ThreadInput } from "./types.js";
-import { createLogger } from "./util/logger.js";
-import { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./util/storage-root.js";
-import { generateUlid } from "./util/ulid.js";
+import {
+  createLogger,
+  generateUlid,
+  getDefaultWorkflowStorageRoot,
+  getGlobalCasDir,
+} from "./util/index.js";
 
 export type WorkflowAsAgentOptions = {
   /** When `null`, uses `getDefaultWorkflowStorageRoot()`. */

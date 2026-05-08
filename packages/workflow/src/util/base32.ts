@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "./result.js";
+import { err, ok } from "./result.js";
+import type { Result } from "./types.js";
 
 /** Crockford Base32 alphabet (no I, L, O, U) — exactly 32 symbols. */
 export const CROCKFORD_BASE32_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";

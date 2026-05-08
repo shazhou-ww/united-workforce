@@ -1,14 +1,6 @@
 import { parse, stringify } from "yaml";
 
-import type { CasStore } from "./cas.js";
-
-export type MerkleNodeType = "content" | "step" | "thread";
-
-export type MerkleNode = {
-  type: MerkleNodeType;
-  payload: string | Record<string, unknown>;
-  children: string[];
-};
+import type { CasStore, MerkleNode, StepMerklePayload, ThreadMerklePayload } from "./types.js";
 
 export function serializeMerkleNode(node: MerkleNode): string {
   return stringify(
@@ -52,20 +44,6 @@ export function parseMerkleNode(yamlText: string): MerkleNode {
 export function createContentMerkleNode(payload: string): MerkleNode {
   return { type: "content", payload, children: [] };
 }
-
-export type StepMerklePayload = {
-  role: string;
-  meta: Record<string, unknown>;
-};
-
-export type ThreadMerklePayload = {
-  workflow: string;
-  threadId: string;
-  result: {
-    returnCode: number;
-    summary: string;
-  };
-};
 
 /** Serializes a step Merkle node (role + meta + content child) and stores it in CAS. */
 export async function putStepMerkleNode(

@@ -1,7 +1,6 @@
-import type { CasStore } from "../cas/cas.js";
-import { putContentMerkleNode } from "../cas/merkle.js";
-import { buildExtractUserContent, type ExtractFn } from "../extract/extract-fn.js";
-import { reactExtract } from "../extract/react-extract.js";
+import type { CasStore } from "../cas/index.js";
+import { putContentMerkleNode } from "../cas/index.js";
+import { buildExtractUserContent, type ExtractFn, reactExtract } from "../extract/index.js";
 import {
   type AgentBinding,
   type AgentContext,
@@ -20,7 +19,7 @@ import {
   type WorkflowFn,
   type WorkflowFnOptions,
 } from "../types.js";
-import { mergeRefsWithContentHash } from "../util/refs-field.js";
+import { mergeRefsWithContentHash } from "../util/index.js";
 
 function isRoleNext<M extends RoleMeta>(
   next: (keyof M & string) | typeof END,

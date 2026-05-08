@@ -1,19 +1,9 @@
 import type { WorkflowFn } from "../types.js";
-import { err, ok, type Result } from "../util/result.js";
+import { err, ok, type Result } from "../util/index.js";
 import { importWorkflowBundleModule } from "./bundle-import-env.js";
 import { ensureUncagedWorkflowSymlink } from "./ensure-uncaged-workflow-symlink.js";
-import type { WorkflowDescriptor } from "./workflow-descriptor.js";
+import type { ExtractBundleExportsOptions, ExtractedBundleExports } from "./types.js";
 import { validateWorkflowDescriptor } from "./workflow-descriptor.js";
-
-export type ExtractedBundleExports = {
-  run: WorkflowFn;
-  descriptor: WorkflowDescriptor;
-};
-
-export type ExtractBundleExportsOptions = {
-  /** When set, ensures `node_modules/@uncaged/workflow` exists under this root before import. */
-  storageRoot: string | null;
-};
 
 /** Load a workflow `.esm.js` bundle and read its named exports (`run`, `descriptor`). */
 export async function extractBundleExports(

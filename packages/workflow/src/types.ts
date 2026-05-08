@@ -1,6 +1,6 @@
 import type * as z from "zod/v4";
 
-import type { CasStore } from "./cas/cas.js";
+import type { CasStore } from "./cas/index.js";
 
 /** Sentinel values for automaton control flow. */
 export const START = "__start__" as const;

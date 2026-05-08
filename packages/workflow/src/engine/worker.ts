@@ -1,17 +1,20 @@
 import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
-import { importWorkflowBundleModule } from "../bundle/bundle-import-env.js";
-import { ensureUncagedWorkflowSymlink } from "../bundle/ensure-uncaged-workflow-symlink.js";
-import { createCasStore } from "../cas/cas.js";
+import { ensureUncagedWorkflowSymlink, importWorkflowBundleModule } from "../bundle/index.js";
+import { createCasStore } from "../cas/index.js";
 import type { RoleOutput, WorkflowFn, WorkflowResult } from "../types.js";
-import { createLogger } from "../util/logger.js";
-import { normalizeRefsField } from "../util/refs-field.js";
-import { err, ok, type Result } from "../util/result.js";
-import { getGlobalCasDir } from "../util/storage-root.js";
-import type { PrefilledDiskStep } from "./engine.js";
-import { type ExecuteThreadIo, executeThread } from "./engine.js";
-import { createThreadPauseGate, type ThreadPauseGate } from "./thread-pause-gate.js";
+import {
+  createLogger,
+  err,
+  getGlobalCasDir,
+  normalizeRefsField,
+  ok,
+  type Result,
+} from "../util/index.js";
+import { executeThread } from "./engine.js";
+import { createThreadPauseGate } from "./thread-pause-gate.js";
+import type { ExecuteThreadIo, PrefilledDiskStep, ThreadPauseGate } from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
 

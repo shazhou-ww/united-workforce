@@ -1,18 +1,6 @@
-import { err, ok, type Result } from "../util/result.js";
+import { err, ok, type Result } from "../util/index.js";
 
-/** JSON Schema fragment describing one role's `meta` shape (subset supported by code generation). */
-export type WorkflowRoleSchema = Record<string, unknown>;
-
-export type WorkflowRoleDescriptor = {
-  description: string;
-  schema: WorkflowRoleSchema;
-};
-
-/** Workflow metadata exported as `export const descriptor` from `.esm.js` bundles. */
-export type WorkflowDescriptor = {
-  description: string;
-  roles: Record<string, WorkflowRoleDescriptor>;
-};
+import type { WorkflowDescriptor, WorkflowRoleDescriptor, WorkflowRoleSchema } from "./types.js";
 
 export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescriptor, string> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {

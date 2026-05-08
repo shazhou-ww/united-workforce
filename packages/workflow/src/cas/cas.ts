@@ -2,13 +2,7 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/pro
 import { join } from "node:path";
 
 import { hashString } from "./hash.js";
-
-export type CasStore = {
-  put(content: string): Promise<string>;
-  get(hash: string): Promise<string | null>;
-  delete(hash: string): Promise<void>;
-  list(): Promise<string[]>;
-};
+import type { CasStore } from "./types.js";
 
 export function createCasStore(casDir: string): CasStore {
   async function ensureDir(): Promise<void> {
