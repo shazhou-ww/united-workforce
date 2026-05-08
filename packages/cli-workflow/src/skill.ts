@@ -126,13 +126,13 @@ uncaged-workflow thread list
 
 ## CAS (Content-Addressable Storage)
 
-Store and retrieve content by hash, scoped to the current thread.
+Store and retrieve content by hash in workflow storage (global CAS directory).
 
 | Operation | Command |
 |-----------|---------|
-| **Store** | \`uncaged-workflow cas put <THREAD_ID> '<content>'\` → prints hash |
-| **Read** | \`uncaged-workflow cas get <THREAD_ID> <HASH>\` → prints content |
-| **List** | \`uncaged-workflow cas list <THREAD_ID>\` |
+| **Store** | \`uncaged-workflow cas put '<content>'\` → prints hash |
+| **Read** | \`uncaged-workflow cas get <HASH>\` → prints content |
+| **List** | \`uncaged-workflow cas list\` |
 
 CAS is the **only** supported way to persist structured data (phase plans, review notes, etc.) within a thread. Do not use temp files.
 
