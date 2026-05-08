@@ -1,9 +1,0 @@
-{
-  "name": "@uncaged/workflow-examples",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@uncaged/workflow": "workspace:*",
-    "zod": "^4.0.0"
-  }
-}

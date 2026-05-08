@@ -2,8 +2,7 @@
   "name": "@uncaged/workflow-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "examples"
+    "packages/*"
   ],
   "scripts": {
     "check": "bunx tsc --build && biome check .",
