@@ -77,6 +77,83 @@ describe("serve /api/cas", () => {
   });
 });
 
+describe("serve error handling", () => {
+  test("POST /api/threads with invalid JSON body → 400", async () => {
+    const { fetch } = buildApp("/tmp/uncaged-serve-test-nonexistent");
+    const res = await fetch("/api/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not json",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("invalid JSON body");
+  });
+
+  test("POST /api/cas with invalid JSON body → 400", async () => {
+    const { fetch } = buildApp("/tmp/uncaged-serve-test-nonexistent");
+    const res = await fetch("/api/cas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not json",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("invalid JSON body");
+  });
+
+  test("POST /api/threads with missing required fields → 400", async () => {
+    const { fetch } = buildApp("/tmp/uncaged-serve-test-nonexistent");
+    const res = await fetch("/api/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ foo: "bar" }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("required");
+  });
+
+  test("global error handler returns 500 with JSON", async () => {
+    const app = createApp("/tmp/uncaged-serve-test-nonexistent");
+    app.get("/test-error", () => {
+      throw new Error("boom");
+    });
+    const res = await app.fetch(new Request("http://localhost/test-error"));
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Internal server error");
+  });
+});
+
+describe("serve security", () => {
+  test("CORS headers present on responses", async () => {
+    const app = createApp("/tmp/uncaged-serve-test-nonexistent");
+    const res2 = await app.fetch(
+      new Request("http://localhost/healthz", {
+        headers: { Origin: "http://localhost:5173" },
+      }),
+    );
+    expect(res2.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5173");
+  });
+
+  test("POST with body > 1MB → 413", async () => {
+    const { fetch } = buildApp("/tmp/uncaged-serve-test-nonexistent");
+    const largeBody = "x".repeat(1_048_577);
+    const res = await fetch("/api/cas", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": String(largeBody.length),
+      },
+      body: largeBody,
+    });
+    expect(res.status).toBe(413);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Payload too large");
+  });
+});
+
 describe("serve CAS round-trip", () => {
   const tmpDir = `/tmp/uncaged-serve-cas-test-${Date.now()}`;
 
