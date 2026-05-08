@@ -2,7 +2,7 @@
 
 Reference **develop** workflow template: plan phases, implement in a loop, review, test, then commit.
 
-Export a `WorkflowDefinition` and `createDevelopRun` so a host can bind agents/LLM and run the same graph the bundled `.esm.js` would use. Use `buildDevelopDescriptor()` when assembling `descriptor` metadata for a bundle.
+Export a pure `WorkflowDefinition` (`developWorkflowDefinition`) and role/moderator pieces. Workflow instantiation (`createWorkflow(definition, binding)`) happens in the workflow instance layer, not in this template package.
 
 ## Install
 
@@ -15,10 +15,10 @@ In this monorepo: `workspace:*` for `@uncaged/workflow-template-develop` and `@u
 ## Usage
 
 ```typescript
-import { createDevelopRun, developWorkflowDefinition } from "@uncaged/workflow-template-develop";
+import { createWorkflow } from "@uncaged/workflow";
+import { developWorkflowDefinition } from "@uncaged/workflow-template-develop";
 
-const run = createDevelopRun(binding, extract, llmProvider);
-// run(...) executes the develop moderator graph with your AgentBinding
+const run = createWorkflow(developWorkflowDefinition, binding);
 ```
 
 ## Roles
@@ -46,7 +46,6 @@ Also exported: role factories/meta schemas (`plannerRole`, `coderRole`, …), `D
 
 | Export | Description |
 |--------|-------------|
-| `createDevelopRun` | `createWorkflow(developWorkflowDefinition, …)` factory |
 | `developWorkflowDefinition` | `description`, `roles`, `developModerator` |
 | `developModerator` | `Moderator<DevelopMeta>` |
 | `buildDevelopDescriptor` | `buildDescriptor({ … })` for bundle metadata |

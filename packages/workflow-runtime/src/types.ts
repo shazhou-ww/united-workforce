@@ -17,9 +17,6 @@ export type LlmProvider = {
   model: string;
 };
 
-/** How the engine runs meta extraction for a role after the agent phase. */
-export type ExtractMode = "single" | "react";
-
 /** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
 export type RoleOutput = {
   role: string;
@@ -41,30 +38,18 @@ export type WorkflowResult = WorkflowCompletion & {
   rootHash: string;
 };
 
-/** Input to a workflow — prompt plus optional historical steps for fork/resume. */
-export type ThreadInput = {
-  prompt: string;
-  steps: RoleOutput[];
-};
-
-/** Options passed to a workflow bundle's `run` export (engine-provided). */
-export type WorkflowFnOptions = {
-  threadId: string;
-  maxRounds: number;
-  /** Nesting depth for workflow-as-agent chains; root threads use `0`. */
-  depth: number;
+/** Runtime dependencies passed to a workflow bundle's `run` export (engine-provided). */
+export type WorkflowRuntime = {
   /** Global CAS store for Merkle content blobs (role step bodies). */
   cas: CasStore;
   /** Structured meta extraction; resolved from workflow.yaml `extract` scene by the engine. */
   extract: ExtractFn;
-  /** Provider for `extractMode: "react"` roles; same backing config as `extract`. */
-  llmProvider: LlmProvider | null;
 };
 
 /** Bundle contract — named export `run` is a function returning an AsyncGenerator. */
 export type WorkflowFn = (
-  input: ThreadInput,
-  options: WorkflowFnOptions,
+  thread: ThreadContext,
+  runtime: WorkflowRuntime,
 ) => AsyncGenerator<RoleOutput, WorkflowCompletion>;
 
 /** Engine start frame: initial prompt + thread identity. */
@@ -86,14 +71,17 @@ export type RoleStep<M extends RoleMeta> = {
   };
 }[keyof M & string];
 
-/** Phase 1: Moderator decides next role. */
-export type ModeratorContext<M extends RoleMeta = RoleMeta> = {
+/** Thread runtime context shared by moderator/agent/extractor phases. */
+export type ThreadContext<M extends RoleMeta = RoleMeta> = {
   threadId: string;
-  /** Same as `WorkflowFnOptions.depth` for the active thread. */
+  /** Nesting depth for workflow-as-agent chains; root threads use `0`. */
   depth: number;
   start: StartStep;
   steps: RoleStep<M>[];
 };
+
+/** Phase 1: Moderator decides next role. */
+export type ModeratorContext<M extends RoleMeta = RoleMeta> = ThreadContext<M>;
 
 /** Phase 2: Agent executes — knows its role and prompt. */
 export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & {
@@ -101,16 +89,12 @@ export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & 
     name: string;
     systemPrompt: string;
   };
-  cas: CasStore;
 };
 
 /** Phase 3: Extractor runs — has agent output; the extraction instruction is a separate argument to the extract function. */
 export type ExtractContext<M extends RoleMeta = RoleMeta> = AgentContext<M> & {
   agentContent: string;
 };
-
-/** Alias — most external consumers see the agent-phase context. */
-export type ThreadContext<M extends RoleMeta = RoleMeta> = AgentContext<M>;
 
 /** Raw string output from an LLM/CLI adapter; meta is extracted by the engine. */
 export type AgentFn = (ctx: AgentContext) => Promise<string>;
@@ -129,7 +113,6 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
   schema: z.ZodType<Meta>;
   /** When non-null, produces CAS hashes to persist on this role's steps (see `RoleOutput.refs`). */
   extractRefs: ((meta: Meta) => string[]) | null;
-  extractMode: ExtractMode;
 };
 
 /**
@@ -148,10 +131,3 @@ export type WorkflowDefinition<M extends RoleMeta> = {
   roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
   moderator: Moderator<M>;
 };
-
-/** Engine-injected meta extraction for workflow loops (single + react modes). */
-export type ResolveRoleMetaFn<M extends RoleMeta = RoleMeta> = (
-  roleDef: RoleDefinition<Record<string, unknown>>,
-  extractCtx: ExtractContext<M>,
-  options: WorkflowFnOptions,
-) => Promise<Record<string, unknown>>;

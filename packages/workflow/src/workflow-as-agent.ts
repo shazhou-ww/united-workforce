@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { AgentContext, AgentFn, ThreadInput } from "@uncaged/workflow-runtime";
+import type { AgentContext, AgentFn } from "@uncaged/workflow-runtime";
 import { extractBundleExports } from "./bundle/index.js";
 import { createCasStore } from "./cas/index.js";
 import type { ExecuteThreadIo } from "./engine/index.js";
@@ -36,7 +36,7 @@ function resolveWorkflowAsAgentStorageRoot(options: WorkflowAsAgentOptions | nul
 
 /**
  * Returns an {@link AgentFn} that runs another registered workflow in a new thread,
- * using the parent thread's initial prompt (`ctx.start.content`) as the child {@link ThreadInput.prompt}.
+ * using the parent thread's initial prompt (`ctx.start.content`) as the child prompt.
  */
 export function workflowAsAgent(
   workflowName: string,
@@ -68,7 +68,7 @@ export function workflowAsAgent(
       return `ERROR: ${bundleExportsResult.error}`;
     }
 
-    const input: ThreadInput = {
+    const input = {
       prompt: ctx.start.content,
       steps: [],
     };

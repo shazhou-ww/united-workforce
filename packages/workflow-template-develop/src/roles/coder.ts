@@ -31,5 +31,4 @@ export const coderRole: RoleDefinition<CoderMeta> = {
     "Extract completedPhase: the planner phase hash finished this round (exact hash string from the plan). If multiple phases were finished in one round, use the last finished phase hash. Extract filesChanged and a summary of the work.",
   schema: coderMetaSchema,
   extractRefs: (meta) => [meta.completedPhase],
-  extractMode: "single",
 };

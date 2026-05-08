@@ -59,7 +59,6 @@ export {
   type LlmError,
   llmErrorToCause,
   llmExtract,
-  llmExtractWithRetry,
   type ReactExtractArgs,
   reactExtract,
 } from "./extract/index.js";

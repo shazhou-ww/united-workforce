@@ -32,5 +32,4 @@ export const committerRole: RoleDefinition<CommitterMeta> = {
     "Extract the commit result: committed (with branch and SHA), recoverable failure, or unrecoverable failure. Include error details and log references if applicable.",
   schema: committerMetaSchema,
   extractRefs: null,
-  extractMode: "single",
 };

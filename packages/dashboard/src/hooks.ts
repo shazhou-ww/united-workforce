@@ -30,6 +30,7 @@ export function useFetch<T>(fetcher: () => Promise<T>, deps: unknown[] = []): Fe
     return () => {
       cancelled = true;
     };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: this helper intentionally accepts caller-provided dependency arrays
   }, deps);
 
   return state;

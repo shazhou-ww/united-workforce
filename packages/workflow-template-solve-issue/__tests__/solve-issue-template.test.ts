@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCasStore, createExtract } from "@uncaged/workflow";
+import { createCasStore, createExtract, createWorkflow } from "@uncaged/workflow";
 import {
   END,
   type ModeratorContext,
@@ -12,7 +12,7 @@ import {
 } from "@uncaged/workflow-runtime";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
-import { createSolveIssueRun, solveIssueModerator } from "../src/index.js";
+import { solveIssueModerator, solveIssueWorkflowDefinition } from "../src/index.js";
 import type { PreparerMeta, SubmitterMeta } from "../src/roles/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
@@ -23,46 +23,7 @@ function jsonResponse(payload: Record<string, unknown>): Response {
   });
 }
 
-function readToolListFromBody(init: RequestInit | undefined): readonly Record<string, unknown>[] {
-  if (init === undefined || init.body === undefined || init.body === null) {
-    return [];
-  }
-  const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-  const tools = body.tools;
-  if (!Array.isArray(tools)) {
-    return [];
-  }
-  return tools.filter((t): t is Record<string, unknown> => t !== null && typeof t === "object");
-}
-
-function singleToolName(tools: readonly Record<string, unknown>[]): string {
-  if (tools.length === 0) {
-    return "extract";
-  }
-  const fn = tools[0].function as Record<string, unknown> | undefined;
-  return typeof fn?.name === "string" ? fn.name : "extract";
-}
-
-function buildSingleModeResponse(args: Record<string, unknown>, toolName: string): Response {
-  return jsonResponse({
-    choices: [
-      {
-        message: {
-          tool_calls: [
-            {
-              type: "function",
-              function: { name: toolName, arguments: JSON.stringify(args) },
-            },
-          ],
-        },
-      },
-    ],
-  });
-}
-
-function buildReactModeResponse(args: Record<string, unknown>): Response {
-  // reactExtract accepts a plain-JSON assistant message and validates it
-  // directly against the schema, so we skip the cas_get / extract tool dance.
+function buildPlainJsonResponse(args: Record<string, unknown>): Response {
   return jsonResponse({
     choices: [{ message: { content: JSON.stringify(args) } }],
   });
@@ -73,18 +34,59 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   let i = 0;
   const mockFetch = async (
     _input: Parameters<typeof fetch>[0],
-    init?: RequestInit,
+    _init?: RequestInit,
   ): Promise<Response> => {
     const args = sequence[i] ?? sequence[sequence.length - 1];
     if (args === undefined) {
       throw new Error("installMockChatCompletions: empty sequence");
     }
     i += 1;
-    const tools = readToolListFromBody(init);
-    if (tools.length > 1) {
-      return buildReactModeResponse(args);
+    return buildPlainJsonResponse(args);
+  };
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: origFetch.preconnect.bind(origFetch),
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
+
+function buildToolCallResponse(args: Record<string, unknown>): Response {
+  return jsonResponse({
+    choices: [
+      {
+        message: {
+          tool_calls: [
+            {
+              id: "tc_extract_1",
+              type: "function",
+              function: {
+                name: "extract",
+                arguments: JSON.stringify(args),
+              },
+            },
+          ],
+        },
+      },
+    ],
+  });
+}
+
+function installMockToolCallCompletions(
+  sequence: ReadonlyArray<Record<string, unknown>>,
+): () => void {
+  const origFetch = globalThis.fetch;
+  let i = 0;
+  const mockFetch = async (
+    _input: Parameters<typeof fetch>[0],
+    _init?: RequestInit,
+  ): Promise<Response> => {
+    const args = sequence[i] ?? sequence[sequence.length - 1];
+    if (args === undefined) {
+      throw new Error("installMockToolCallCompletions: empty sequence");
     }
-    return buildSingleModeResponse(args, singleToolName(tools));
+    i += 1;
+    return buildToolCallResponse(args);
   };
   globalThis.fetch = Object.assign(mockFetch, {
     preconnect: origFetch.preconnect.bind(origFetch),
@@ -160,17 +162,30 @@ function submitterStep(meta: SubmitterMeta): RoleStep<SolveIssueMeta> {
   };
 }
 
-const stubExtract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "",
-  model: "test",
-});
+function createStubExtract(casDir: string) {
+  return createExtract(
+    {
+      baseUrl: "http://127.0.0.1:9",
+      apiKey: "",
+      model: "test",
+    },
+    { cas: createCasStore(casDir) },
+  );
+}
 
-const stubLlmProvider = {
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "",
-  model: "test",
-};
+function makeThread(prompt: string) {
+  return {
+    threadId: "01TEST000000000000000000TR",
+    depth: 0,
+    start: {
+      role: START,
+      content: prompt,
+      meta: { maxRounds: 20 },
+      timestamp: Date.now(),
+    },
+    steps: [],
+  };
+}
 
 describe("solveIssueModerator", () => {
   test("routes initial → preparer → developer → submitter → END", () => {
@@ -218,7 +233,7 @@ describe("solveIssueModerator", () => {
   });
 });
 
-describe("createSolveIssueRun", () => {
+describe("solveIssueWorkflowDefinition + createWorkflow", () => {
   let restoreFetch: (() => void) | null = null;
   let casDir: string | undefined;
 
@@ -248,22 +263,48 @@ describe("createSolveIssueRun", () => {
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
-    // Override developer so the test does not spin up a child workflow.
-    const run = createSolveIssueRun({
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
       agent: async () => "",
       overrides: { developer: async () => "stub-root-hash" },
     });
-    const gen = run(
-      { prompt: "task", steps: [] },
-      {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
-        cas,
-        extract: stubExtract,
-        llmProvider: stubLlmProvider,
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
+    const first = await gen.next();
+    expect(first.done).toBe(false);
+    if (first.done) {
+      throw new Error("expected yield");
+    }
+    expect(first.value.role).toBe("preparer");
+    expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
+  });
+
+  test("structured extraction also accepts tool_calls extraction path", async () => {
+    const EXPECT_PREPARER_META: PreparerMeta = {
+      repoPath: "/home/user/repos/tool-call",
+      defaultBranch: "main",
+      conventions: null,
+      toolchain: {
+        packageManager: "bun",
+        testCommand: "bun test",
+        lintCommand: null,
+        buildCommand: "bun run build",
       },
-    );
+    };
+    restoreFetch = installMockToolCallCompletions([EXPECT_PREPARER_META]);
+
+    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
+    const cas = createCasStore(casDir);
+
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
+      agent: async () => "",
+      overrides: { developer: async () => "stub-root-hash" },
+    });
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
     const first = await gen.next();
     expect(first.done).toBe(false);
     if (first.done) {
@@ -296,7 +337,7 @@ describe("createSolveIssueRun", () => {
     const cas = createCasStore(casDir);
 
     const calls: string[] = [];
-    const run = createSolveIssueRun({
+    const run = createWorkflow(solveIssueWorkflowDefinition, {
       agent: async () => {
         calls.push("default");
         return "";
@@ -316,17 +357,10 @@ describe("createSolveIssueRun", () => {
         },
       },
     });
-    const gen = run(
-      { prompt: "task", steps: [] },
-      {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
-        cas,
-        extract: stubExtract,
-        llmProvider: stubLlmProvider,
-      },
-    );
+    const gen = run(makeThread("task"), {
+      cas,
+      extract: createStubExtract(casDir),
+    });
     await gen.next();
     expect(calls).toEqual(["preparer"]);
 
@@ -337,58 +371,6 @@ describe("createSolveIssueRun", () => {
     calls.length = 0;
     await gen.next();
     expect(calls).toEqual(["submitter"]);
-  });
-
-  test("developer defaults to workflowAsAgent override (caller override still wins)", async () => {
-    const PREPARER_META: PreparerMeta = {
-      repoPath: "/tmp/r",
-      defaultBranch: "main",
-      conventions: null,
-      toolchain: { packageManager: null, testCommand: null, lintCommand: null, buildCommand: null },
-    };
-    const DEVELOPER_META: DeveloperMeta = {
-      branch: "feat/y",
-      commitSha: "def5678",
-      filesChanged: ["b.ts"],
-      summary: "more work",
-    };
-    restoreFetch = installMockChatCompletions([PREPARER_META, DEVELOPER_META]);
-
-    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
-    const cas = createCasStore(casDir);
-
-    let developerInvocations = 0;
-    const run = createSolveIssueRun({
-      agent: async () => "",
-      overrides: {
-        developer: async () => {
-          developerInvocations += 1;
-          return "stub-root-hash";
-        },
-      },
-    });
-    const gen = run(
-      { prompt: "task", steps: [] },
-      {
-        threadId: "01TEST000000000000000000TR",
-        maxRounds: 20,
-        depth: 0,
-        cas,
-        extract: stubExtract,
-        llmProvider: stubLlmProvider,
-      },
-    );
-    // preparer
-    await gen.next();
-    // developer (caller override should be invoked, NOT workflowAsAgent default)
-    const devYield = await gen.next();
-    expect(devYield.done).toBe(false);
-    if (devYield.done) {
-      throw new Error("expected yield");
-    }
-    expect(devYield.value.role).toBe("developer");
-    expect(devYield.value.meta).toEqual(DEVELOPER_META);
-    expect(developerInvocations).toBe(1);
   });
 });
 

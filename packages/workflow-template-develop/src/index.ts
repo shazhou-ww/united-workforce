@@ -1,5 +1,4 @@
-import { createWorkflow } from "@uncaged/workflow";
-import type { AgentBinding, WorkflowDefinition, WorkflowFn } from "@uncaged/workflow-runtime";
+import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
 import { developModerator } from "./moderator.js";
 import { DEVELOP_WORKFLOW_DESCRIPTION, type DevelopMeta, developRoles } from "./roles.js";
@@ -36,7 +35,3 @@ export const developWorkflowDefinition: WorkflowDefinition<DevelopMeta> = {
   roles: developRoles,
   moderator: developModerator,
 };
-
-export function createDevelopRun(binding: AgentBinding): WorkflowFn {
-  return createWorkflow(developWorkflowDefinition, binding);
-}

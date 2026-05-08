@@ -1,21 +1,8 @@
-import type {
-  AgentBinding,
-  RoleMeta,
-  WorkflowDefinition,
-  WorkflowFn,
-} from "@uncaged/workflow-runtime";
-import { createWorkflow as createWorkflowRuntime } from "@uncaged/workflow-runtime";
-
-import { resolveRoleMeta } from "./resolve-role-meta.js";
-
 /**
- * Binds pure role definitions + moderator to runtime agents.
- * Assign with `export const run = createWorkflow(def, binding)`.
- * The engine supplies {@link WorkflowFnOptions.extract} and {@link WorkflowFnOptions.llmProvider} from workflow.yaml.
+ * Re-export of {@link createWorkflow} from `@uncaged/workflow-runtime`.
+ *
+ * The runtime's `createWorkflow` already binds role definitions + agents to a workflow loop
+ * and delegates structured meta extraction to `WorkflowRuntime.extract`, which the engine
+ * supplies (resolved from the `extract` scene in workflow.yaml).
  */
-export function createWorkflow<M extends RoleMeta>(
-  def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
-  binding: AgentBinding,
-): WorkflowFn {
-  return createWorkflowRuntime(def, binding, resolveRoleMeta);
-}
+export { createWorkflow } from "@uncaged/workflow-runtime";

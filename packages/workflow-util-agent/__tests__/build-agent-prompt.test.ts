@@ -1,13 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createCasStore, putContentMerkleNode } from "@uncaged/workflow";
-import { START, type ThreadContext } from "@uncaged/workflow-runtime";
+import { describe, expect, test } from "bun:test";
+import { type AgentContext, START } from "@uncaged/workflow-runtime";
 
 import { buildAgentPrompt } from "../src/index.js";
 
-function startTask(content: string): ThreadContext["start"] {
+function startTask(content: string): AgentContext["start"] {
   return {
     role: START,
     content,
@@ -17,25 +13,13 @@ function startTask(content: string): ThreadContext["start"] {
 }
 
 describe("buildAgentPrompt", () => {
-  let casRoot: string;
-
-  beforeEach(async () => {
-    casRoot = await mkdtemp(join(tmpdir(), "wf-build-prompt-cas-"));
-  });
-
-  afterEach(async () => {
-    await rm(casRoot, { recursive: true, force: true });
-  });
-
   test("includes system prompt and full task; omits tools when there are no steps", async () => {
-    const cas = createCasStore(casRoot);
-    const ctx: ThreadContext = {
+    const ctx: AgentContext = {
       start: startTask("fix the bug"),
       depth: 0,
       steps: [],
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: START, systemPrompt: "You are an agent." },
-      cas,
     };
     const text = await buildAgentPrompt(ctx);
     expect(text).toContain("You are an agent.");
@@ -44,15 +28,13 @@ describe("buildAgentPrompt", () => {
     expect(text).not.toContain("## Tools");
   });
 
-  test("single step shows full content and meta, and includes tools", async () => {
-    const cas = createCasStore(casRoot);
-    const onlyHash = await putContentMerkleNode(cas, "only step full body");
-    const ctx: ThreadContext = {
+  test("single step shows hash and meta, and includes tools", async () => {
+    const onlyHash = "01HASHSINGLESTEP0000000001";
+    const ctx: AgentContext = {
       start: startTask("user task"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "Be helpful." },
-      cas,
       steps: [
         {
           role: "coder",
@@ -67,22 +49,20 @@ describe("buildAgentPrompt", () => {
     expect(text).toContain("## Task");
     expect(text).toContain("user task");
     expect(text).toContain("## Step: coder");
-    expect(text).toContain("only step full body");
+    expect(text).toContain(`ContentHash: ${onlyHash}`);
     expect(text).toContain('Meta: {"files":["a.ts"]}');
     expect(text).toContain("## Tools");
     expect(text).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
   });
 
-  test("two or more steps: previous steps are meta-only; latest step is full", async () => {
-    const cas = createCasStore(casRoot);
-    const plannerHash = await putContentMerkleNode(cas, "PLANNER_SECRET_FULL_TEXT");
-    const coderHash = await putContentMerkleNode(cas, "last step full content");
-    const ctx: ThreadContext = {
+  test("two or more steps: previous steps are meta-only; latest step includes hash", async () => {
+    const plannerHash = "01HASHPLANNER0000000000001";
+    const coderHash = "01HASHCODER0000000000000001";
+    const ctx: AgentContext = {
       start: startTask("first message full: task content here"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "System." },
-      cas,
       steps: [
         {
           role: "planner",
@@ -105,25 +85,22 @@ describe("buildAgentPrompt", () => {
     expect(text).toContain("## Previous Steps");
     expect(text).toContain("### Step 1: planner");
     expect(text).toContain('Summary: {"plan":"short"}');
-    expect(text).not.toContain("PLANNER_SECRET_FULL_TEXT");
     expect(text).toContain("## Latest Step: coder");
-    expect(text).toContain("last step full content");
+    expect(text).toContain(`ContentHash: ${coderHash}`);
     expect(text).toContain('Meta: {"done":true}');
     expect(text).toContain("## Tools");
     expect(text).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
   });
 
-  test("middle steps show meta summary only, not full content", async () => {
-    const cas = createCasStore(casRoot);
-    const ha = await putContentMerkleNode(cas, "HIDDEN_A");
-    const hb = await putContentMerkleNode(cas, "HIDDEN_B_MIDDLE");
-    const hc = await putContentMerkleNode(cas, "VISIBLE_LAST");
-    const ctx: ThreadContext = {
+  test("middle steps show meta summary only and latest shows hash", async () => {
+    const ha = "01HASHA00000000000000000001";
+    const hb = "01HASHB00000000000000000001";
+    const hc = "01HASHC00000000000000000001";
+    const ctx: AgentContext = {
       start: startTask("start"),
       depth: 0,
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "c", systemPrompt: "S" },
-      cas,
       steps: [
         {
           role: "a",
@@ -149,11 +126,9 @@ describe("buildAgentPrompt", () => {
       ],
     };
     const text = await buildAgentPrompt(ctx);
-    expect(text).not.toContain("HIDDEN_A");
-    expect(text).not.toContain("HIDDEN_B_MIDDLE");
     expect(text).toContain('Summary: {"n":1}');
     expect(text).toContain('Summary: {"n":2}');
-    expect(text).toContain("VISIBLE_LAST");
+    expect(text).toContain(`ContentHash: ${hc}`);
     expect(text).toContain("## Latest Step: c");
   });
 });

@@ -1,12 +1,17 @@
 import type { ExtractContext, ExtractFn, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
-import { getContentMerklePayload } from "../cas/index.js";
-import { llmExtractWithRetry } from "./llm-extract.js";
+import { type CasStore, getContentMerklePayload } from "../cas/index.js";
+import { reactExtract } from "./react-extract.js";
+
+export type ExtractDeps = {
+  cas: CasStore;
+};
 
 /** Builds the user-side extraction prompt (thread + agent output + instruction). */
 export async function buildExtractUserContent(
   ctx: ExtractContext,
   prompt: string,
+  deps: ExtractDeps,
 ): Promise<string> {
   const lines: string[] = [];
   lines.push(`## Role: ${ctx.currentRole.name}`);
@@ -18,7 +23,7 @@ export async function buildExtractUserContent(
   if (ctx.steps.length > 0) {
     lines.push("## Thread History");
     for (const step of ctx.steps) {
-      const body = await getContentMerklePayload(ctx.cas, step.contentHash);
+      const body = await getContentMerklePayload(deps.cas, step.contentHash);
       if (body === null) {
         throw new Error(`extract: missing CAS blob for step ${step.role}: ${step.contentHash}`);
       }
@@ -39,18 +44,21 @@ export async function buildExtractUserContent(
 
 /**
  * Create an ExtractFn backed by an LLM provider.
- * Builds prompt text from {@link ExtractContext} plus `prompt` and calls structured extraction.
+ *
+ * Internally runs a multi-turn ReAct loop with two tools (`cas_get` for traversing the
+ * Merkle DAG and a schema-shaped `extract` tool); the loop also accepts a plain-JSON
+ * assistant reply as a short-circuit, which covers the legacy "single" extraction path.
  */
-export function createExtract(provider: LlmProvider): ExtractFn {
+export function createExtract(provider: LlmProvider, deps: ExtractDeps): ExtractFn {
   return async <T extends Record<string, unknown>>(
     schema: z.ZodType<T>,
     prompt: string,
     ctx: ExtractContext,
   ): Promise<T> => {
-    const text = await buildExtractUserContent(ctx, prompt);
-    const result = await llmExtractWithRetry({ text, schema, provider });
+    const text = await buildExtractUserContent(ctx, prompt, deps);
+    const result = await reactExtract({ text, schema, provider, cas: deps.cas });
     if (!result.ok) {
-      throw new Error(`extract failed: ${JSON.stringify(result.error)}`);
+      throw new Error(`extract failed: ${result.error}`);
     }
     return result.value;
   };

@@ -1,3 +1,5 @@
+import type * as z from "zod/v4";
+
 import type { CasStore } from "../cas/types.js";
 import {
   type AgentBinding,
@@ -6,17 +8,16 @@ import {
   END,
   type ExtractContext,
   type ModeratorContext,
-  type ResolveRoleMetaFn,
   type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
   type RoleStep,
   START,
-  type ThreadInput,
+  type ThreadContext,
   type WorkflowCompletion,
   type WorkflowDefinition,
   type WorkflowFn,
-  type WorkflowFnOptions,
+  type WorkflowRuntime,
 } from "../types.js";
 import { mergeRefsWithContentHash } from "../util/index.js";
 
@@ -55,20 +56,13 @@ type AdvanceOutcome<M extends RoleMeta> =
 async function advanceOneRound<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  resolveRoleMeta: ResolveRoleMetaFn<M>,
   params: {
-    start: ModeratorContext<M>["start"];
-    steps: RoleStep<M>[];
-    options: WorkflowFnOptions;
+    thread: ModeratorContext<M>;
+    runtime: WorkflowRuntime;
   },
 ): Promise<AdvanceOutcome<M>> {
-  const { start, steps, options } = params;
-  const modCtx: ModeratorContext<M> = {
-    threadId: options.threadId,
-    depth: options.depth,
-    start,
-    steps,
-  };
+  const { thread, runtime } = params;
+  const modCtx: ModeratorContext<M> = thread;
 
   const next = def.moderator(modCtx);
   if (!isRoleNext(next)) {
@@ -86,7 +80,6 @@ async function advanceOneRound<M extends RoleMeta>(
   const agentCtx: AgentContext<M> = {
     ...modCtx,
     currentRole: { name: next, systemPrompt: roleDef.systemPrompt },
-    cas: options.cas,
   };
 
   const agent = agentForRole(binding, next);
@@ -97,13 +90,13 @@ async function advanceOneRound<M extends RoleMeta>(
     agentContent: raw,
   };
 
-  const meta = await resolveRoleMeta(
-    roleDef as unknown as RoleDefinition<Record<string, unknown>>,
-    extractCtx,
-    options,
+  const meta = await runtime.extract(
+    roleDef.schema as z.ZodType<Record<string, unknown>>,
+    roleDef.extractPrompt,
+    extractCtx as unknown as ExtractContext,
   );
 
-  const contentHash = await putContentBlob(options.cas, raw);
+  const contentHash = await putContentBlob(runtime.cas, raw);
   const refs = mergeRefsWithContentHash(
     resolveExtractedRefs(roleDef as unknown as RoleDefinition<Record<string, unknown>>, meta),
     contentHash,
@@ -131,47 +124,36 @@ async function advanceOneRound<M extends RoleMeta>(
 
 /**
  * Binds pure role definitions + moderator to runtime agents.
- * Assign with `export const run = createWorkflow(def, binding)` via `@uncaged/workflow-runtime`,
- * which supplies {@link ResolveRoleMetaFn}.
+ * Assign with `export const run = createWorkflow(def, binding)`.
+ *
+ * Structured meta extraction is delegated to {@link WorkflowRuntime.extract}, which the
+ * engine resolves from the workflow registry's `extract` scene.
  */
 export function createWorkflow<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  resolveRoleMeta: ResolveRoleMetaFn<M>,
 ): WorkflowFn {
   return async function* workflowLoop(
-    input: ThreadInput,
-    options: WorkflowFnOptions,
+    thread: ThreadContext,
+    runtime: WorkflowRuntime,
   ): AsyncGenerator<RoleOutput, WorkflowCompletion> {
-    const nowMs = Date.now();
-    const start: ModeratorContext<M>["start"] = {
-      role: START,
-      content: input.prompt,
-      meta: { maxRounds: options.maxRounds },
-      timestamp: nowMs,
-    };
-
-    const baseTs = Date.now();
-    let steps: RoleStep<M>[] = input.steps.map((out, i) => ({
-      role: out.role,
-      contentHash: out.contentHash,
-      meta: out.meta,
-      refs: out.refs,
-      timestamp: baseTs + i,
-    })) as RoleStep<M>[];
+    if (thread.start.role !== START) {
+      throw new Error(`workflow loop expected start role to be ${START}`);
+    }
+    const maxRounds = thread.start.meta.maxRounds;
+    let currentThread = thread as ModeratorContext<M>;
 
     while (true) {
-      if (steps.length >= options.maxRounds) {
+      if (currentThread.steps.length >= maxRounds) {
         return {
           returnCode: 0,
-          summary: `completed: reached maxRounds (${options.maxRounds})`,
+          summary: `completed: reached maxRounds (${maxRounds})`,
         };
       }
 
-      const outcome = await advanceOneRound(def, binding, resolveRoleMeta, {
-        start,
-        steps,
-        options,
+      const outcome = await advanceOneRound(def, binding, {
+        thread: currentThread,
+        runtime,
       });
 
       if (outcome.kind === "complete") {
@@ -179,7 +161,10 @@ export function createWorkflow<M extends RoleMeta>(
       }
 
       yield outcome.output;
-      steps = [...steps, outcome.step];
+      currentThread = {
+        ...currentThread,
+        steps: [...currentThread.steps, outcome.step],
+      };
     }
   };
 }

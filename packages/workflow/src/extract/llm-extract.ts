@@ -92,20 +92,6 @@ function readToolArgumentsJson(parsed: unknown, previewSource: string): Result<s
   return ok(argsRaw);
 }
 
-function isRetryableExtractError(error: LlmError): boolean {
-  return error.kind === "schema_validation_failed" || error.kind === "tool_arguments_invalid_json";
-}
-
-function describeRetryHint(error: LlmError): string {
-  if (error.kind === "schema_validation_failed") {
-    return `Schema validation failed: ${error.message}`;
-  }
-  if (error.kind === "tool_arguments_invalid_json") {
-    return `Tool arguments were not valid JSON: ${error.message}`;
-  }
-  return JSON.stringify(error);
-}
-
 export function llmErrorToCause(error: LlmError): Error {
   switch (error.kind) {
     case "http_error":
@@ -205,41 +191,4 @@ async function performLlmExtract<T>(
 /** Single LLM extract attempt over OpenAI-compatible chat completions with forced tool call. */
 export async function llmExtract<T>(options: LlmExtractArgs<T>): Promise<Result<T, LlmError>> {
   return performLlmExtract({ ...options, userContent: options.text });
-}
-
-/**
- * Runs extract up to two times: on the first schema/tool-args parse failure, resends the agent
- * output plus the error so the model can correct the tool call.
- */
-export async function llmExtractWithRetry<T>(
-  options: LlmExtractArgs<T>,
-): Promise<Result<T, LlmError>> {
-  const first = await performLlmExtract({
-    ...options,
-    userContent: options.text,
-  });
-  if (first.ok) {
-    return first;
-  }
-  if (!isRetryableExtractError(first.error)) {
-    return first;
-  }
-
-  const hint = describeRetryHint(first.error);
-  const correction = `The previous extraction attempt failed.
-
-${hint}
-
-Respond again with a single tool call whose \`arguments\` JSON strictly matches the schema.`;
-
-  const secondContent = `${options.text}
-
----
-
-${correction}`;
-
-  return performLlmExtract({
-    ...options,
-    userContent: secondContent,
-  });
 }

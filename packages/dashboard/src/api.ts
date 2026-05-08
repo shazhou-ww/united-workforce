@@ -7,7 +7,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText })) as { error: string };
+    const err = (await res.json().catch(() => ({ error: res.statusText }))) as { error: string };
     throw new Error(err.error || `API ${res.status}`);
   }
   return res.json() as Promise<T>;
@@ -59,7 +59,11 @@ export function getThread(id: string): Promise<{ records: ThreadRecord[] }> {
   return fetchJson(`/threads/${id}`);
 }
 
-export function runThread(workflow: string, prompt: string, maxRounds: number = 10): Promise<{ threadId: string }> {
+export function runThread(
+  workflow: string,
+  prompt: string,
+  maxRounds: number = 10,
+): Promise<{ threadId: string }> {
   return postJson("/threads", { workflow, prompt, maxRounds });
 }
 
