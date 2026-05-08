@@ -93,6 +93,21 @@ describe("workflowAsAgent", () => {
   test("runs registered workflow and returns child thread root CAS hash", async () => {
     const root = await mkdtemp(join(tmpdir(), "wf-waa-ok-"));
     try {
+      await mkdir(root, { recursive: true });
+      await writeFile(
+        join(root, "workflow.yaml"),
+        `config:
+  maxDepth: 3
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    default: stub/m
+workflows: {}
+`,
+        "utf8",
+      );
       await installChildWorkflow(root);
       const agent = workflowAsAgent("child-wf", { storageRoot: root });
       const out = await agent(

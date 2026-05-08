@@ -7,16 +7,46 @@ import {
   putStepMerkleNode,
   putThreadMerkleNode,
 } from "../cas/index.js";
+import { resolveModel } from "../config/index.js";
+import { createExtract } from "../extract/index.js";
+import { readWorkflowRegistry } from "../registry/index.js";
 import type {
+  LlmProvider,
   ThreadInput,
   WorkflowCompletion,
   WorkflowFn,
   WorkflowFnOptions,
   WorkflowResult,
 } from "../types.js";
-import { type LogFn, normalizeRefsField } from "../util/index.js";
+import { err, type LogFn, normalizeRefsField, ok, type Result } from "../util/index.js";
 
 import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
+
+async function resolveExtractRuntime(
+  storageRoot: string,
+): Promise<
+  Result<{ extract: ReturnType<typeof createExtract>; llmProvider: LlmProvider }, string>
+> {
+  const reg = await readWorkflowRegistry(storageRoot);
+  if (!reg.ok) {
+    return err(reg.error.message);
+  }
+  const cfg = reg.value.config;
+  if (cfg === null) {
+    return err("workflow registry has no global config section");
+  }
+  const resolved = resolveModel(cfg, "extract");
+  if (!resolved.ok) {
+    return resolved;
+  }
+  const ex = resolved.value;
+  const llmProvider: LlmProvider = {
+    baseUrl: ex.baseUrl,
+    apiKey: ex.apiKey,
+    model: ex.model,
+  };
+  return ok({ extract: createExtract(llmProvider), llmProvider });
+}
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
   const line = `${JSON.stringify(record)}\n`;
@@ -250,11 +280,18 @@ export async function executeThread(
     });
   }
 
+  const extractRuntime = await resolveExtractRuntime(options.storageRoot);
+  if (!extractRuntime.ok) {
+    throw new Error(extractRuntime.error);
+  }
+
   const bundleOptions: WorkflowFnOptions = {
     threadId: io.threadId,
     maxRounds: options.maxRounds,
     depth: options.depth,
     cas: io.cas,
+    extract: extractRuntime.value.extract,
+    llmProvider: extractRuntime.value.llmProvider,
   };
 
   return await driveWorkflowGenerator({

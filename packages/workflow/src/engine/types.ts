@@ -33,6 +33,8 @@ export type ExecuteThreadOptions = {
    * Must match `input.steps` length and order when present.
    */
   prefilledDiskSteps: PrefilledDiskStep[] | null;
+  /** Workspace root containing `workflow.yaml`; used to resolve the `extract` scene for meta extraction. */
+  storageRoot: string;
 };
 
 /** Role steps replayed from `.data.jsonl`, including persisted timestamps. */

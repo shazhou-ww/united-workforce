@@ -9,7 +9,6 @@ import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
 import { getContentMerklePayload, parseMerkleNode } from "../src/cas/merkle.js";
 import { createWorkflow } from "../src/engine/create-workflow.js";
 import { executeThread } from "../src/engine/engine.js";
-import { createExtract } from "../src/extract/extract-fn.js";
 import {
   readWorkflowRegistry,
   registerWorkflowVersion,
@@ -76,11 +75,16 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   };
 }
 
-const parentExtract = createExtract({
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "test",
-  model: "test",
-});
+const PARENT_REGISTRY_WITH_CONFIG = `config:
+  maxDepth: 3
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    default: stub/m
+workflows: {}
+`;
 
 const childBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
 
@@ -131,6 +135,8 @@ describe("workflowAsAgent integration", () => {
 
     const root = await mkdtemp(join(tmpdir(), "wf-waa-int-"));
     try {
+      await mkdir(root, { recursive: true });
+      await writeFile(join(root, "workflow.yaml"), PARENT_REGISTRY_WITH_CONFIG, "utf8");
       const { hash: childHash } = await installChildWorkflow(root);
 
       const parentWorkflow = createWorkflow<ParentMeta>(
@@ -148,8 +154,6 @@ describe("workflowAsAgent integration", () => {
           moderator: (ctx) => (ctx.steps.length === 0 ? "caller" : END),
         },
         { agent: workflowAsAgent("child-wf", { storageRoot: root }) },
-        parentExtract,
-        null,
       );
 
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";
@@ -173,6 +177,7 @@ describe("workflowAsAgent integration", () => {
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: null,
           prefilledDiskSteps: null,
+          storageRoot: root,
         },
         { threadId, hash: parentHash, dataJsonlPath: dataPath, infoJsonlPath: infoPath, cas },
         logger,

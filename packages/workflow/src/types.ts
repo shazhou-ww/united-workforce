@@ -1,6 +1,7 @@
 import type * as z from "zod/v4";
 
 import type { CasStore } from "./cas/index.js";
+import type { ExtractFn } from "./extract/types.js";
 
 /** Sentinel values for automaton control flow. */
 export const START = "__start__" as const;
@@ -54,6 +55,10 @@ export type WorkflowFnOptions = {
   depth: number;
   /** Global CAS store for Merkle content blobs (role step bodies). */
   cas: CasStore;
+  /** Structured meta extraction; resolved from workflow.yaml `extract` scene by the engine. */
+  extract: ExtractFn;
+  /** Provider for `extractMode: "react"` roles; same backing config as `extract`. */
+  llmProvider: LlmProvider | null;
 };
 
 /** Bundle contract — named export `run` is a function returning an AsyncGenerator. */

@@ -9,6 +9,17 @@ import { createCasStore } from "../src/cas/cas.js";
 import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
 import { getWorkerHostScriptPath } from "../src/engine/worker-entry-path.js";
 
+const WORKER_REGISTRY_YAML = `config:
+  maxDepth: 3
+  providers:
+    stub:
+      baseUrl: http://127.0.0.1:9
+      apiKey: test
+  models:
+    default: stub/model
+workflows: {}
+`;
+
 const bundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
 
 export const descriptor = {
@@ -89,6 +100,7 @@ describe("worker process", () => {
     try {
       const hash = "C9NMV6V2TQT81";
       await mkdir(join(root, "bundles"), { recursive: true });
+      await writeFile(join(root, "workflow.yaml"), WORKER_REGISTRY_YAML, "utf8");
       const bundlePath = join(root, "bundles", `${hash}.esm.js`);
       await writeFile(bundlePath, bundleSource, "utf8");
 
@@ -136,6 +148,7 @@ describe("worker process", () => {
     try {
       const hash = "C9NMV6V2TQT81";
       await mkdir(join(root, "bundles"), { recursive: true });
+      await writeFile(join(root, "workflow.yaml"), WORKER_REGISTRY_YAML, "utf8");
       const bundlePath = join(root, "bundles", `${hash}.esm.js`);
       await writeFile(bundlePath, bundleSource, "utf8");
 

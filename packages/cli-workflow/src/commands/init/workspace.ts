@@ -107,7 +107,7 @@ Init 生成的骨架：\`templates/\` 下放可复用定义，\`workflows/\` 下
 2. **编写 RoleDefinition**：为每个角色写 Zod \`schema\`，补齐 \`systemPrompt\` / \`extractPrompt\` / \`description\`。
 3. **编写 Moderator**：根据 \`ctx.steps\` 与业务状态返回下一个角色名或 \`END\`。
 4. **组装 WorkflowDefinition**：在模板 \`index\` 中导出 definition（以及必要的角色 / moderator 导出）。
-5. **实例化**：在 workflow 包中使用 \`createWorkflow(def, binding, extract)\`（或项目约定的封装）绑定 **AgentFn** / **ExtractFn**。
+5. **实例化**：在 workflow 包中使用 \`createWorkflow(def, binding)\`（或项目约定的封装）绑定 **AgentFn**；**ExtractFn** 由引擎从 **workflow.yaml** 注入 \`WorkflowFnOptions\`。
 6. **构建**：打包为单个 **.esm.js** bundle，使用 **uncaged-workflow add** 注册。
 
 ## 4. 编码规范
