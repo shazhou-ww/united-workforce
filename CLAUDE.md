@@ -97,6 +97,36 @@ type WorkflowEntry = {
 
 Workflow bundles (`.esm.js`) follow the same rule: export `const run` and `const descriptor`, not `export default`.
 
+### Folder Module Discipline
+
+Every folder under `src/` is a **module boundary**. Four rules:
+
+| # | Rule | Rationale |
+|---|------|-----------|
+| 1 | **Every folder exports via `index.ts`** | Single entry point for the module |
+| 2 | **Types live in `types.ts`** | Each folder's type definitions go in `<folder>/types.ts`, not scattered across files |
+| 3 | **Single export source** | Only `index.ts` may re-export. No file may re-export from another module's internals. Cross-module imports must go through `index.ts` — never reach past it to import a specific file |
+| 4 | **`index.ts` is pure re-exports** | No type definitions, no function implementations — only `export { ... } from` statements |
+
+```typescript
+// ✅ Good — import through module boundary
+import { createCasStore } from "../cas/index.js";
+import type { CasStore } from "../cas/index.js";
+
+// ❌ Bad — reaching past index.ts
+import { createCasStore } from "../cas/cas.js";
+
+// ❌ Bad — re-exporting from non-index file
+// in engine/engine.ts:
+export { createCasStore } from "../cas/cas.js";
+
+// ❌ Bad — types defined in index.ts
+// in cas/index.ts:
+export type CasStore = { ... };  // should be in cas/types.ts
+```
+
+**Exception**: The package-level `src/index.ts` is the public API surface and re-exports from folder `index.ts` files. Files that remain at `src/` root (e.g. `types.ts`, `workflow-as-agent.ts`) are not inside a folder module and follow normal rules.
+
 ## Naming
 
 | Type | Style | Example |
@@ -197,9 +227,8 @@ Test files (`__tests__/**`) are exempt.
 ### Commands
 
 ```bash
-bun run check       # biome check (lint + format)
+bun run check       # tsc --build + biome check
 bun run format      # biome format --write
-bun run build       # full build
 bun test            # run tests
 ```
 
