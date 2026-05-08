@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { END } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
-
 import { createCasStore } from "../src/cas/cas.js";
 import { hashWorkflowBundleBytes } from "../src/cas/hash.js";
 import { getContentMerklePayload, parseMerkleNode } from "../src/cas/merkle.js";
@@ -14,7 +14,6 @@ import {
   registerWorkflowVersion,
   writeWorkflowRegistry,
 } from "../src/registry/registry.js";
-import { END } from "../src/types.js";
 import { createLogger } from "../src/util/logger.js";
 import { workflowAsAgent } from "../src/workflow-as-agent.js";
 
@@ -153,7 +152,7 @@ describe("workflowAsAgent integration", () => {
           },
           moderator: (ctx) => (ctx.steps.length === 0 ? "caller" : END),
         },
-        { agent: workflowAsAgent("child-wf", { storageRoot: root }) },
+        { agent: workflowAsAgent("child-wf", { storageRoot: root }), overrides: null },
       );
 
       const threadId = "01KQXKW18CT8G75T53R8F4G7YG";

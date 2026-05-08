@@ -1,4 +1,4 @@
-import type { WorkflowFn } from "../types.js";
+import type { WorkflowFn } from "@uncaged/workflow-runtime";
 import { err, ok, type Result } from "../util/index.js";
 import { importWorkflowBundleModule } from "./bundle-import-env.js";
 import { ensureUncagedWorkflowSymlink } from "./ensure-uncaged-workflow-symlink.js";

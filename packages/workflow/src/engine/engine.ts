@@ -1,6 +1,13 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-
+import type {
+  LlmProvider,
+  ThreadInput,
+  WorkflowCompletion,
+  WorkflowFn,
+  WorkflowFnOptions,
+  WorkflowResult,
+} from "@uncaged/workflow-runtime";
 import {
   type CasStore,
   getContentMerklePayload,
@@ -10,14 +17,6 @@ import {
 import { resolveModel } from "../config/index.js";
 import { createExtract } from "../extract/index.js";
 import { readWorkflowRegistry, type WorkflowConfig } from "../registry/index.js";
-import type {
-  LlmProvider,
-  ThreadInput,
-  WorkflowCompletion,
-  WorkflowFn,
-  WorkflowFnOptions,
-  WorkflowResult,
-} from "../types.js";
 import { err, type LogFn, normalizeRefsField, ok, type Result } from "../util/index.js";
 
 import { runSupervisor } from "./supervisor.js";

@@ -2,13 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { END } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
-
 import { createCasStore } from "../src/cas/cas.js";
 import { createWorkflow } from "../src/engine/create-workflow.js";
 import { executeThread } from "../src/engine/engine.js";
 import { buildForkPlan, parseThreadDataJsonl } from "../src/engine/fork-thread.js";
-import { END } from "../src/types.js";
 import { createLogger } from "../src/util/logger.js";
 
 const phaseSchema = z.object({
@@ -102,6 +101,7 @@ const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
   },
   {
     agent: async () => "plan-output",
+    overrides: null,
   },
 );
 

@@ -1,9 +1,7 @@
+import type { ExtractContext, ExtractFn, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
-
 import { getContentMerklePayload } from "../cas/index.js";
-import type { ExtractContext, LlmProvider } from "../types.js";
 import { llmExtractWithRetry } from "./llm-extract.js";
-import type { ExtractFn } from "./types.js";
 
 /** Builds the user-side extraction prompt (thread + agent output + instruction). */
 export async function buildExtractUserContent(

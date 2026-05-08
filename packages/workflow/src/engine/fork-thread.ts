@@ -1,4 +1,4 @@
-import type { WorkflowCompletion } from "../types.js";
+import type { WorkflowCompletion } from "@uncaged/workflow-runtime";
 import { err, normalizeRefsField, ok, type Result } from "../util/index.js";
 
 import type { ForkHistoricalStep, ForkPlan, ParsedThreadStartRecord } from "./types.js";

@@ -17,6 +17,7 @@
     "types": ["bun-types"]
   },
   "references": [
+    { "path": "packages/workflow-runtime" },
     { "path": "packages/workflow" },
     { "path": "packages/workflow-agent-llm" },
     { "path": "packages/workflow-agent-cursor" },

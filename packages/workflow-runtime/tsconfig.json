@@ -1,5 +1,4 @@
 {
-  "references": [{ "path": "../workflow-runtime" }],
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
@@ -18,5 +17,5 @@
     "rootDir": "src",
     "types": ["bun-types"]
   },
-  "include": ["src/**/*.ts", "xxhashjs.d.ts"]
+  "include": ["src/**/*.ts"]
 }

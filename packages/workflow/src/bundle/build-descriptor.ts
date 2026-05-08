@@ -1,6 +1,5 @@
+import type { RoleMeta, WorkflowDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
-
-import type { RoleMeta, WorkflowDefinition } from "../types.js";
 import type { WorkflowDescriptor, WorkflowRoleSchema } from "./types.js";
 
 function stripJsonSchemaMeta(json: Record<string, unknown>): WorkflowRoleSchema {

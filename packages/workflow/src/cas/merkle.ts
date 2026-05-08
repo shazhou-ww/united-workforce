@@ -77,10 +77,9 @@ export async function putThreadMerkleNode(
   return store.put(serializeMerkleNode(node));
 }
 
-/** Serializes a content Merkle node and stores it in CAS; returns its hash. */
+/** Stores agent/content text via CAS; {@link createCasStore} wraps raw strings as merkle content nodes. */
 export async function putContentMerkleNode(store: CasStore, content: string): Promise<string> {
-  const yamlText = serializeMerkleNode(createContentMerkleNode(content));
-  return store.put(yamlText);
+  return store.put(content);
 }
 
 /** Loads a CAS blob and returns the payload string for a `content` Merkle node. */

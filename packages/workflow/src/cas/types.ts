@@ -1,9 +1,4 @@
-export type CasStore = {
-  put(content: string): Promise<string>;
-  get(hash: string): Promise<string | null>;
-  delete(hash: string): Promise<void>;
-  list(): Promise<string[]>;
-};
+export type { CasStore } from "@uncaged/workflow-runtime";
 
 export type MerkleNodeType = "content" | "step" | "thread";
 

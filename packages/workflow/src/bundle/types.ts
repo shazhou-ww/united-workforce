@@ -1,18 +1,10 @@
-import type { WorkflowFn } from "../types.js";
+import type { WorkflowDescriptor, WorkflowFn } from "@uncaged/workflow-runtime";
 
-/** JSON Schema fragment describing one role's `meta` shape (subset supported by code generation). */
-export type WorkflowRoleSchema = Record<string, unknown>;
-
-export type WorkflowRoleDescriptor = {
-  description: string;
-  schema: WorkflowRoleSchema;
-};
-
-/** Workflow metadata exported as `export const descriptor` from `.esm.js` bundles. */
-export type WorkflowDescriptor = {
-  description: string;
-  roles: Record<string, WorkflowRoleDescriptor>;
-};
+export type {
+  WorkflowDescriptor,
+  WorkflowRoleDescriptor,
+  WorkflowRoleSchema,
+} from "@uncaged/workflow-runtime";
 
 export type WorkflowBundleValidationInput = {
   /** Absolute or relative path (used for `.esm.js` suffix checks). */

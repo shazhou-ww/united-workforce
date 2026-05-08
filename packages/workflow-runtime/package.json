@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow",
+  "name": "@uncaged/workflow-runtime",
   "version": "0.2.0",
   "type": "module",
   "main": "src/index.ts",
@@ -7,17 +7,10 @@
   "scripts": {
     "test": "bun test"
   },
-  "dependencies": {
-    "@uncaged/workflow-runtime": "workspace:*",
-    "acorn": "^8.16.0",
-    "xxhashjs": "^0.2.2",
-    "yaml": "^2.8.4"
-  },
   "peerDependencies": {
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/acorn": "^6.0.4",
     "zod": "^4.0.0"
   }
 }

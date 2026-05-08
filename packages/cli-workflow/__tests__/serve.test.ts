@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow";
+
 import { createApp } from "../src/commands/serve/app.js";
+
+function casStoredForm(raw: string): string {
+  return serializeMerkleNode(createContentMerkleNode(raw));
+}
 
 function buildApp(storageRoot: string) {
   const app = createApp(storageRoot);
@@ -89,7 +95,7 @@ describe("serve CAS round-trip", () => {
     const getRes = await fetch(`/api/cas/${putBody.hash}`);
     expect(getRes.status).toBe(200);
     const getBody = (await getRes.json()) as { content: string };
-    expect(getBody.content).toBe("hello world");
+    expect(getBody.content).toBe(casStoredForm("hello world"));
 
     // cleanup
     const delRes = await fetch(`/api/cas/${putBody.hash}`, { method: "DELETE" });
