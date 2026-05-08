@@ -1,4 +1,5 @@
-import { getThread } from "../api.ts";
+import { useState } from "react";
+import { getThread, killThread, pauseThread, resumeThread } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 
 type Props = {
@@ -8,17 +9,60 @@ type Props = {
 
 export function ThreadDetail({ threadId, onBack }: Props) {
   const { status, data, error } = useFetch(() => getThread(threadId), [threadId]);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+
+  async function handleAction(action: "kill" | "pause" | "resume") {
+    setActionStatus(`${action}ing...`);
+    try {
+      const fn = action === "kill" ? killThread : action === "pause" ? pauseThread : resumeThread;
+      await fn(threadId);
+      setActionStatus(`${action} sent ✓`);
+    } catch (e) {
+      setActionStatus(`${action} failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="text-sm mb-4 hover:underline"
-        style={{ color: "var(--color-accent)" }}
-      >
-        ← Back to threads
-      </button>
-      <h2 className="text-xl font-semibold mb-4 font-mono">{threadId}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={onBack}
+          className="text-sm hover:underline"
+          style={{ color: "var(--color-accent)" }}
+        >
+          ← Back to threads
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleAction("pause")}
+            className="px-3 py-1 text-xs rounded border"
+            style={{ borderColor: "var(--color-warning)", color: "var(--color-warning)" }}
+          >
+            ⏸ Pause
+          </button>
+          <button
+            onClick={() => handleAction("resume")}
+            className="px-3 py-1 text-xs rounded border"
+            style={{ borderColor: "var(--color-success)", color: "var(--color-success)" }}
+          >
+            ▶ Resume
+          </button>
+          <button
+            onClick={() => handleAction("kill")}
+            className="px-3 py-1 text-xs rounded border"
+            style={{ borderColor: "var(--color-error)", color: "var(--color-error)" }}
+          >
+            ✕ Kill
+          </button>
+        </div>
+      </div>
+
+      <h2 className="text-xl font-semibold mb-2 font-mono">{threadId}</h2>
+      {actionStatus && (
+        <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+          {actionStatus}
+        </p>
+      )}
 
       {status === "loading" && <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>}
       {status === "error" && <p style={{ color: "var(--color-error)" }}>Error: {error}</p>}
