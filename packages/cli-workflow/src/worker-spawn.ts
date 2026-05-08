@@ -237,6 +237,30 @@ export async function sendWorkerTcpCommand(
   });
 }
 
+export async function readWorkerCtl(
+  storageRoot: string,
+  hash: string,
+): Promise<Result<WorkerCtl, string>> {
+  const ctlPath = join(storageRoot, "workers", `${hash}.json`);
+  const ctlText = await readTextFileIfExists(ctlPath);
+  if (ctlText === null) {
+    return err(`worker control file missing for bundle hash ${hash}`);
+  }
+
+  let ctl: WorkerCtl;
+  try {
+    ctl = JSON.parse(ctlText) as WorkerCtl;
+  } catch {
+    return err(`corrupt worker control file: ${ctlPath}`);
+  }
+
+  if (typeof ctl.port !== "number" || ctl.port <= 0) {
+    return err(`invalid worker control file: ${ctlPath}`);
+  }
+
+  return ok(ctl);
+}
+
 export async function resolveRunningHashForThread(
   storageRoot: string,
   threadId: string,
