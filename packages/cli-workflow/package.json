@@ -10,7 +10,6 @@
     "yaml": "^2.8.4"
   },
   "scripts": {
-    "build": "echo 'TODO'",
     "test": "bun test"
   }
 }
