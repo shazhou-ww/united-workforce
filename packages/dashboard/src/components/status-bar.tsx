@@ -1,12 +1,47 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getHealth } from "../api.ts";
-import { useFetch } from "../hooks.ts";
+
+type HealthStatus = "connected" | "disconnected" | "reconnecting";
 
 type Props = {
   onRun: () => void;
 };
 
+function statusLabel(status: HealthStatus): { text: string; color: string } {
+  if (status === "connected") {
+    return { text: "● Connected", color: "var(--color-success)" };
+  }
+  if (status === "reconnecting") {
+    return { text: "● Reconnecting...", color: "var(--color-warning, #f59e0b)" };
+  }
+  return { text: "● Offline", color: "var(--color-error)" };
+}
+
 export function StatusBar({ onRun }: Props) {
-  const health = useFetch(() => getHealth(), []);
+  const [status, setStatus] = useState<HealthStatus>("disconnected");
+  const wasConnectedRef = useRef(false);
+
+  const checkHealth = useCallback(async () => {
+    try {
+      await getHealth();
+      wasConnectedRef.current = true;
+      setStatus("connected");
+    } catch {
+      if (wasConnectedRef.current) {
+        setStatus("reconnecting");
+      } else {
+        setStatus("disconnected");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkHealth();
+    const interval = setInterval(checkHealth, 10_000);
+    return () => clearInterval(interval);
+  }, [checkHealth]);
+
+  const label = statusLabel(status);
 
   return (
     <div
@@ -24,15 +59,7 @@ export function StatusBar({ onRun }: Props) {
           ▶ Run Thread
         </button>
       </div>
-      <span>
-        {health.status === "loading" && "⏳ Connecting..."}
-        {health.status === "ok" && (
-          <span style={{ color: "var(--color-success)" }}>● Connected</span>
-        )}
-        {health.status === "error" && (
-          <span style={{ color: "var(--color-error)" }}>● Offline</span>
-        )}
-      </span>
+      <span style={{ color: label.color }}>{label.text}</span>
     </div>
   );
 }
