@@ -1,4 +1,4 @@
-import type { ParsedAddArgv } from "../src/commands/workflow/add-argv.js";
+import type { ParsedAddArgv } from "../src/commands/workflow/index.js";
 
 export function addCliArgs(name: string, filePath: string): ParsedAddArgv {
   return { name, filePath, typesPath: null };

@@ -13,7 +13,7 @@ import {
   LIVE_CONTENT_MAX_LINES,
   type LiveRoleRow,
   renderLiveRoleStepLines,
-} from "../src/commands/thread/live.js";
+} from "../src/commands/thread/index.js";
 import { parseLiveArgv } from "../src/live-argv.js";
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));

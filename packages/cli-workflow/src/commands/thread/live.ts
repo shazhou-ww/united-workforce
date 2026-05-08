@@ -17,15 +17,9 @@ import { printCliError, printCliLine } from "../../cli-output.js";
 import { pathExists } from "../../fs-utils.js";
 import type { ParsedLiveArgv } from "../../live-argv.js";
 import { findLatestThreadDataPath, resolveThreadDataPath } from "../../thread-scan.js";
+import type { LiveRoleRow } from "./types.js";
 
 export const LIVE_CONTENT_MAX_LINES = 10;
-
-export type LiveRoleRow = {
-  role: string;
-  content: string;
-  meta: Record<string, unknown>;
-  timestamp: number;
-};
 
 export function formatLiveTimeLabel(timestampMs: number): string {
   const d = new Date(timestampMs);

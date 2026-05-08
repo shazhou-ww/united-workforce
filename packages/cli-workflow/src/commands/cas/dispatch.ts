@@ -1,4 +1,4 @@
-import type { CommandEntry, DispatchGroupFn } from "../../cli-command-types.js";
+import type { CommandEntry } from "../../cli-command-types.js";
 import { printCliError, printCliLine } from "../../cli-output.js";
 import { formatCliUsage, USAGE_SKILL_TOPIC_ROWS } from "../../cli-usage.js";
 import { getCommandGroupsForUsage } from "../../cli-usage-context.js";
@@ -7,6 +7,7 @@ import { cmdCasGet } from "./get.js";
 import { cmdCasList } from "./list.js";
 import { cmdCasPut } from "./put.js";
 import { cmdCasRm } from "./rm.js";
+import type { CasDispatchDeps } from "./types.js";
 
 function usageText(): string {
   return formatCliUsage(getCommandGroupsForUsage(), USAGE_SKILL_TOPIC_ROWS);
@@ -110,7 +111,7 @@ export const CAS_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
   gc: { handler: dispatchGc, args: "", description: "Garbage-collect unreferenced CAS entries" },
 };
 
-export function createCasDispatcher(deps: { dispatchGroup: DispatchGroupFn }) {
+export function createCasDispatcher(deps: CasDispatchDeps) {
   const { dispatchGroup } = deps;
   return async function dispatchCas(storageRoot: string, argv: string[]): Promise<number> {
     const result = dispatchGroup("cas", CAS_SUBCOMMAND_TABLE, storageRoot, argv);

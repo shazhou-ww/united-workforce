@@ -1,4 +1,4 @@
-import type { CommandEntry, DispatchGroupFn } from "../../cli-command-types.js";
+import type { CommandEntry } from "../../cli-command-types.js";
 import { printCliError, printCliLine, printCliWarn } from "../../cli-output.js";
 import { formatCliUsage, USAGE_SKILL_TOPIC_ROWS } from "../../cli-usage.js";
 import { getCommandGroupsForUsage } from "../../cli-usage-context.js";
@@ -9,6 +9,7 @@ import { cmdList, formatListLines } from "./list.js";
 import { cmdRemove } from "./rm.js";
 import { cmdRollback } from "./rollback.js";
 import { cmdShow, formatShowYaml } from "./show.js";
+import type { WorkflowDispatchDeps } from "./types.js";
 
 function usageText(): string {
   return formatCliUsage(getCommandGroupsForUsage(), USAGE_SKILL_TOPIC_ROWS);
@@ -138,11 +139,6 @@ export const WORKFLOW_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
     args: "<name> [hash]",
     description: "Rollback a workflow to a previous version",
   },
-};
-
-type WorkflowDispatchDeps = {
-  dispatchGroup: DispatchGroupFn;
-  printDeprecation: (oldCmd: string, newCmd: string) => void;
 };
 
 export function createWorkflowDispatcher(deps: WorkflowDispatchDeps) {

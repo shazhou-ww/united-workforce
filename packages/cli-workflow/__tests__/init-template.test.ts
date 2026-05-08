@@ -4,8 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { runCli } from "../src/cli-dispatch.js";
-import { cmdInitTemplate } from "../src/commands/init/template.js";
-import { cmdInitWorkspace } from "../src/commands/init/workspace.js";
+import { cmdInitTemplate, cmdInitWorkspace } from "../src/commands/init/index.js";
 import { pathExists } from "../src/fs-utils.js";
 
 describe("init template", () => {

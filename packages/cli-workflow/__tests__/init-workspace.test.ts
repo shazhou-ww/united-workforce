@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { formatCliUsage, runCli } from "../src/cli-dispatch.js";
-import { cmdInitWorkspace } from "../src/commands/init/workspace.js";
+import { cmdInitWorkspace } from "../src/commands/init/index.js";
 import { pathExists } from "../src/fs-utils.js";
 
 describe("init workspace", () => {

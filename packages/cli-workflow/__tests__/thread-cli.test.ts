@@ -5,14 +5,18 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getGlobalCasDir } from "@uncaged/workflow";
-import { cmdCasPut } from "../src/commands/cas/put.js";
-import { cmdKill, cmdPause, cmdResume } from "../src/commands/thread/control.js";
-import { cmdThreads } from "../src/commands/thread/list.js";
-import { cmdPs } from "../src/commands/thread/ps.js";
-import { cmdThreadRemove } from "../src/commands/thread/rm.js";
-import { cmdRun } from "../src/commands/thread/run.js";
-import { cmdThreadShow } from "../src/commands/thread/show.js";
-import { cmdAdd } from "../src/commands/workflow/add.js";
+import { cmdCasPut } from "../src/commands/cas/index.js";
+import {
+  cmdKill,
+  cmdPause,
+  cmdPs,
+  cmdResume,
+  cmdRun,
+  cmdThreadRemove,
+  cmdThreadShow,
+  cmdThreads,
+} from "../src/commands/thread/index.js";
+import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 

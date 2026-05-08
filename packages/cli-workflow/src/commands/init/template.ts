@@ -12,10 +12,7 @@ import {
   templateRolesTs,
   templateTsconfigJson,
 } from "./templates.js";
-
-export type CmdInitTemplateSuccess = {
-  templatePath: string;
-};
+import type { CmdInitTemplateSuccess } from "./types.js";
 
 function validateWorkspaceSegment(name: string): Result<void, string> {
   if (name.length === 0) {

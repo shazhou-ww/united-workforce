@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { err, ok, type Result } from "@uncaged/workflow";
 
 import { pathExists } from "../../fs-utils.js";
-
-export type CmdInitWorkspaceSuccess = {
-  rootPath: string;
-};
+import type { CmdInitWorkspaceSuccess } from "./types.js";
 
 function validateWorkspaceSegment(name: string): Result<void, string> {
   if (name.length === 0) {

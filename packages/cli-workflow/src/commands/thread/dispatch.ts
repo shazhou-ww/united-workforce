@@ -1,4 +1,4 @@
-import type { CommandEntry, DispatchGroupFn } from "../../cli-command-types.js";
+import type { CommandEntry } from "../../cli-command-types.js";
 import { printCliError, printCliLine } from "../../cli-output.js";
 import { formatCliUsage, USAGE_SKILL_TOPIC_ROWS } from "../../cli-usage.js";
 import { getCommandGroupsForUsage } from "../../cli-usage-context.js";
@@ -13,6 +13,7 @@ import { cmdPs } from "./ps.js";
 import { cmdThreadRemove } from "./rm.js";
 import { cmdRun } from "./run.js";
 import { cmdThreadShow } from "./show.js";
+import type { ThreadDispatchDeps } from "./types.js";
 
 function usageText(): string {
   return formatCliUsage(getCommandGroupsForUsage(), USAGE_SKILL_TOPIC_ROWS);
@@ -191,7 +192,7 @@ export const THREAD_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
   resume: { handler: dispatchResume, args: "<thread-id>", description: "Resume a paused thread" },
 };
 
-export function createThreadDispatcher(deps: { dispatchGroup: DispatchGroupFn }) {
+export function createThreadDispatcher(deps: ThreadDispatchDeps) {
   const { dispatchGroup } = deps;
   return async function dispatchThread(storageRoot: string, argv: string[]): Promise<number> {
     const result = dispatchGroup("thread", THREAD_SUBCOMMAND_TABLE, storageRoot, argv);

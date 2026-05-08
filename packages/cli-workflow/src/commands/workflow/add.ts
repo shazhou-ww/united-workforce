@@ -17,12 +17,7 @@ import {
 import { storeWorkflowBundleArtifacts } from "../../bundle-store.js";
 import { validateCliWorkflowName } from "../../workflow-name.js";
 
-import type { ParsedAddArgv } from "./add-argv.js";
-
-export type CmdAddSuccess = {
-  hash: string;
-  warnings: ReadonlyArray<string>;
-};
+import type { CmdAddSuccess, ParsedAddArgv } from "./types.js";
 
 function isEsmBundle(path: string): boolean {
   return path.endsWith(".esm.js");

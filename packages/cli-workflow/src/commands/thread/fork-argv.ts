@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "@uncaged/workflow";
 
-export function parseForkArgv(
-  argv: string[],
-): Result<{ threadId: string; fromRole: string | null }, string> {
+import type { ParsedForkArgv } from "./types.js";
+
+export function parseForkArgv(argv: string[]): Result<ParsedForkArgv, string> {
   if (argv.length === 0) {
     return err("fork requires <thread-id>");
   }
