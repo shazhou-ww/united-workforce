@@ -26,7 +26,6 @@ async function resolveEngineRegistryRuntime(storageRoot: string): Promise<
   Result<
     {
       extract: ReturnType<typeof createExtract>;
-      llmProvider: LlmProvider;
       workflowConfig: WorkflowConfig;
     },
     string
@@ -50,7 +49,7 @@ async function resolveEngineRegistryRuntime(storageRoot: string): Promise<
     apiKey: ex.apiKey,
     model: ex.model,
   };
-  return ok({ extract: createExtract(llmProvider), llmProvider, workflowConfig: cfg });
+  return ok({ extract: createExtract(llmProvider), workflowConfig: cfg });
 }
 
 async function appendDataLine(path: string, record: unknown): Promise<void> {
@@ -378,7 +377,6 @@ export async function executeThread(
     depth: options.depth,
     cas: io.cas,
     extract: registryRuntime.value.extract,
-    llmProvider: registryRuntime.value.llmProvider,
   };
 
   return await driveWorkflowGenerator({

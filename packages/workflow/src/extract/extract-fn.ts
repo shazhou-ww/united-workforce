@@ -1,7 +1,7 @@
 import type { ExtractContext, ExtractFn, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
 import { getContentMerklePayload } from "../cas/index.js";
-import { llmExtractWithRetry } from "./llm-extract.js";
+import { reactExtract } from "./react-extract.js";
 
 /** Builds the user-side extraction prompt (thread + agent output + instruction). */
 export async function buildExtractUserContent(
@@ -39,7 +39,10 @@ export async function buildExtractUserContent(
 
 /**
  * Create an ExtractFn backed by an LLM provider.
- * Builds prompt text from {@link ExtractContext} plus `prompt` and calls structured extraction.
+ *
+ * Internally runs a multi-turn ReAct loop with two tools (`cas_get` for traversing the
+ * Merkle DAG and a schema-shaped `extract` tool); the loop also accepts a plain-JSON
+ * assistant reply as a short-circuit, which covers the legacy "single" extraction path.
  */
 export function createExtract(provider: LlmProvider): ExtractFn {
   return async <T extends Record<string, unknown>>(
@@ -48,9 +51,9 @@ export function createExtract(provider: LlmProvider): ExtractFn {
     ctx: ExtractContext,
   ): Promise<T> => {
     const text = await buildExtractUserContent(ctx, prompt);
-    const result = await llmExtractWithRetry({ text, schema, provider });
+    const result = await reactExtract({ text, schema, provider, cas: ctx.cas });
     if (!result.ok) {
-      throw new Error(`extract failed: ${JSON.stringify(result.error)}`);
+      throw new Error(`extract failed: ${result.error}`);
     }
     return result.value;
   };

@@ -203,7 +203,6 @@ Each role has:
 | \`extractPrompt\` | string | Instruction for extracting structured meta |
 | \`schema\` | ZodSchema | Validates the extracted meta |
 | \`extractRefs\` | fn or null | Extracts CAS hashes from meta for DAG linking |
-| \`extractMode\` | "single" | Extraction mode |
 
 ## Development Workflow
 

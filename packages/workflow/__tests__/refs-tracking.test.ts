@@ -27,41 +27,17 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   const origFetch = globalThis.fetch;
   let i = 0;
   const mockFetch = async (
-    input: Parameters<typeof fetch>[0],
-    init?: RequestInit,
+    _input: Parameters<typeof fetch>[0],
+    _init?: RequestInit,
   ): Promise<Response> => {
     const args = sequence[i] ?? sequence[sequence.length - 1];
     if (args === undefined) {
       throw new Error("installMockChatCompletions: empty sequence");
     }
     i += 1;
-    void input;
-    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-    const tools = body.tools;
-    const firstTool =
-      Array.isArray(tools) && tools.length > 0 && tools[0] !== null && typeof tools[0] === "object"
-        ? (tools[0] as Record<string, unknown>)
-        : null;
-    const fn =
-      firstTool !== null ? (firstTool.function as Record<string, unknown> | undefined) : undefined;
-    const toolName = typeof fn?.name === "string" ? fn.name : "extract";
     return new Response(
       JSON.stringify({
-        choices: [
-          {
-            message: {
-              tool_calls: [
-                {
-                  type: "function",
-                  function: {
-                    name: toolName,
-                    arguments: JSON.stringify(args),
-                  },
-                },
-              ],
-            },
-          },
-        ],
+        choices: [{ message: { content: JSON.stringify(args) } }],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -94,7 +70,6 @@ const refsDemoWorkflow = createWorkflow<RefsDemoMeta>(
         extractPrompt: "Extract phases with CAS hashes.",
         schema: plannerMetaSchema,
         extractRefs: (meta) => meta.phases.map((p) => p.hash),
-        extractMode: "single",
       },
     },
     moderator: (ctx) => (ctx.steps.length === 0 ? "planner" : END),

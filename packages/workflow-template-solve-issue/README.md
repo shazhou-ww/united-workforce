@@ -17,7 +17,7 @@ In this monorepo: `workspace:*` for this package and `@uncaged/workflow`.
 ```typescript
 import { createSolveIssueRun, solveIssueWorkflowDefinition } from "@uncaged/workflow-template-solve-issue";
 
-const run = createSolveIssueRun(binding, extract, llmProvider);
+const run = createSolveIssueRun(binding);
 ```
 
 ## Roles

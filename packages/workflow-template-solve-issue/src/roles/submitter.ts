@@ -40,5 +40,4 @@ export const submitterRole: RoleDefinition<SubmitterMeta> = {
   extractPrompt: SUBMITTER_EXTRACT_PROMPT,
   schema: submitterMetaSchema,
   extractRefs: null,
-  extractMode: "single",
 };

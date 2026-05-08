@@ -1,3 +1,5 @@
+import type * as z from "zod/v4";
+
 import type { CasStore } from "../cas/types.js";
 import {
   type AgentBinding,
@@ -6,7 +8,6 @@ import {
   END,
   type ExtractContext,
   type ModeratorContext,
-  type ResolveRoleMetaFn,
   type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
@@ -55,7 +56,6 @@ type AdvanceOutcome<M extends RoleMeta> =
 async function advanceOneRound<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  resolveRoleMeta: ResolveRoleMetaFn<M>,
   params: {
     start: ModeratorContext<M>["start"];
     steps: RoleStep<M>[];
@@ -97,10 +97,10 @@ async function advanceOneRound<M extends RoleMeta>(
     agentContent: raw,
   };
 
-  const meta = await resolveRoleMeta(
-    roleDef as unknown as RoleDefinition<Record<string, unknown>>,
-    extractCtx,
-    options,
+  const meta = await options.extract(
+    roleDef.schema as unknown as z.ZodType<Record<string, unknown>>,
+    roleDef.extractPrompt,
+    extractCtx as unknown as ExtractContext,
   );
 
   const contentHash = await putContentBlob(options.cas, raw);
@@ -131,13 +131,14 @@ async function advanceOneRound<M extends RoleMeta>(
 
 /**
  * Binds pure role definitions + moderator to runtime agents.
- * Assign with `export const run = createWorkflow(def, binding)` via `@uncaged/workflow-runtime`,
- * which supplies {@link ResolveRoleMetaFn}.
+ * Assign with `export const run = createWorkflow(def, binding)`.
+ *
+ * Structured meta extraction is delegated to {@link WorkflowFnOptions.extract}, which the
+ * engine resolves from the workflow registry's `extract` scene.
  */
 export function createWorkflow<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
   binding: AgentBinding,
-  resolveRoleMeta: ResolveRoleMetaFn<M>,
 ): WorkflowFn {
   return async function* workflowLoop(
     input: ThreadInput,
@@ -168,7 +169,7 @@ export function createWorkflow<M extends RoleMeta>(
         };
       }
 
-      const outcome = await advanceOneRound(def, binding, resolveRoleMeta, {
+      const outcome = await advanceOneRound(def, binding, {
         start,
         steps,
         options,

@@ -17,9 +17,6 @@ export type LlmProvider = {
   model: string;
 };
 
-/** How the engine runs meta extraction for a role after the agent phase. */
-export type ExtractMode = "single" | "react";
-
 /** What each generator yield produces — one role's output (engine adds `timestamp` when persisting). */
 export type RoleOutput = {
   role: string;
@@ -57,8 +54,6 @@ export type WorkflowFnOptions = {
   cas: CasStore;
   /** Structured meta extraction; resolved from workflow.yaml `extract` scene by the engine. */
   extract: ExtractFn;
-  /** Provider for `extractMode: "react"` roles; same backing config as `extract`. */
-  llmProvider: LlmProvider | null;
 };
 
 /** Bundle contract — named export `run` is a function returning an AsyncGenerator. */
@@ -129,7 +124,6 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
   schema: z.ZodType<Meta>;
   /** When non-null, produces CAS hashes to persist on this role's steps (see `RoleOutput.refs`). */
   extractRefs: ((meta: Meta) => string[]) | null;
-  extractMode: ExtractMode;
 };
 
 /**
@@ -148,10 +142,3 @@ export type WorkflowDefinition<M extends RoleMeta> = {
   roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
   moderator: Moderator<M>;
 };
-
-/** Engine-injected meta extraction for workflow loops (single + react modes). */
-export type ResolveRoleMetaFn<M extends RoleMeta = RoleMeta> = (
-  roleDef: RoleDefinition<Record<string, unknown>>,
-  extractCtx: ExtractContext<M>,
-  options: WorkflowFnOptions,
-) => Promise<Record<string, unknown>>;

@@ -23,5 +23,4 @@ export const testerRole: RoleDefinition<TesterMeta> = {
     "Extract the verification result: passed with summary details, or failed with details of what broke.",
   schema: testerMetaSchema,
   extractRefs: null,
-  extractMode: "single",
 };

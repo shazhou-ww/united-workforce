@@ -32,8 +32,7 @@ describe("submitterRole", () => {
     expect(submitterRole.systemPrompt).toContain("pull request");
   });
 
-  test("uses single extract mode without refs", () => {
-    expect(submitterRole.extractMode).toBe("single");
+  test("has no refs extractor", () => {
     expect(submitterRole.extractRefs).toBeNull();
   });
 });

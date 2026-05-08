@@ -57,6 +57,7 @@ type ChatMessage =
       content: string | null;
       tool_calls: ToolCall[];
     }
+  | { role: "assistant"; content: string }
   | { role: "tool"; tool_call_id: string; content: string };
 
 type AssistantTurn<T> =
@@ -111,10 +112,14 @@ function normalizeToolCalls(toolCallsRaw: unknown[]): Result<ToolCall[], string>
   return ok(toolCalls);
 }
 
+type AssistantTurnOrCorrection<T extends Record<string, unknown>> =
+  | AssistantTurn<T>
+  | { kind: "plain_json_invalid"; rawContent: string; correction: string };
+
 function classifyAssistantTurn<T extends Record<string, unknown>>(
   messageObj: Record<string, unknown>,
   schema: z.ZodType<T>,
-): Result<AssistantTurn<T>, string> {
+): Result<AssistantTurnOrCorrection<T>, string> {
   const toolCallsRaw = messageObj.tool_calls;
   if (!Array.isArray(toolCallsRaw) || toolCallsRaw.length === 0) {
     const content = messageObj.content;
@@ -123,11 +128,20 @@ function classifyAssistantTurn<T extends Record<string, unknown>>(
     }
     const jsonParsed = tryParseJsonContent(content);
     if (jsonParsed === null) {
-      return err("no_tool_calls_and_content_not_json");
+      return ok({
+        kind: "plain_json_invalid",
+        rawContent: content,
+        correction:
+          "Your previous reply was not valid JSON and contained no tool calls. Reply with a single JSON object that matches the schema, or call the extract tool with the structured arguments.",
+      });
     }
     const validated = schema.safeParse(jsonParsed);
     if (!validated.success) {
-      return err(`schema_validation_failed:${validated.error.message}`);
+      return ok({
+        kind: "plain_json_invalid",
+        rawContent: content,
+        correction: `Your previous JSON reply did not satisfy the schema: ${validated.error.message}. Reply again with a JSON object that matches the schema, or call the extract tool with the structured arguments.`,
+      });
     }
     return ok({ kind: "plain_json", value: validated.data });
   }
@@ -296,6 +310,12 @@ export async function reactExtract<T extends Record<string, unknown>>(
     const turn = classified.value;
     if (turn.kind === "plain_json") {
       return ok(turn.value);
+    }
+
+    if (turn.kind === "plain_json_invalid") {
+      messages.push({ role: "assistant", content: turn.rawContent });
+      messages.push({ role: "user", content: turn.correction });
+      continue;
     }
 
     messages.push({

@@ -48,5 +48,4 @@ export const plannerRole: RoleDefinition<PlannerMeta> = {
     "Extract the implementation phases from the agent's output. Each phase has a hash (the CAS content-hash returned by the cas put command) and a title (one-line summary).",
   schema: plannerMetaSchema,
   extractRefs: (meta) => meta.phases.map((p) => p.hash),
-  extractMode: "single",
 };

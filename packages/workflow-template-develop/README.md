@@ -17,7 +17,7 @@ In this monorepo: `workspace:*` for `@uncaged/workflow-template-develop` and `@u
 ```typescript
 import { createDevelopRun, developWorkflowDefinition } from "@uncaged/workflow-template-develop";
 
-const run = createDevelopRun(binding, extract, llmProvider);
+const run = createDevelopRun(binding);
 // run(...) executes the develop moderator graph with your AgentBinding
 ```
 

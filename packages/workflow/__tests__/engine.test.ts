@@ -33,41 +33,17 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   const origFetch = globalThis.fetch;
   let i = 0;
   const mockFetch = async (
-    input: Parameters<typeof fetch>[0],
-    init?: RequestInit,
+    _input: Parameters<typeof fetch>[0],
+    _init?: RequestInit,
   ): Promise<Response> => {
     const args = sequence[i] ?? sequence[sequence.length - 1];
     if (args === undefined) {
       throw new Error("installMockChatCompletions: empty sequence");
     }
     i += 1;
-    void input;
-    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-    const tools = body.tools;
-    const firstTool =
-      Array.isArray(tools) && tools.length > 0 && tools[0] !== null && typeof tools[0] === "object"
-        ? (tools[0] as Record<string, unknown>)
-        : null;
-    const fn =
-      firstTool !== null ? (firstTool.function as Record<string, unknown> | undefined) : undefined;
-    const toolName = typeof fn?.name === "string" ? fn.name : "extract";
     return new Response(
       JSON.stringify({
-        choices: [
-          {
-            message: {
-              tool_calls: [
-                {
-                  type: "function",
-                  function: {
-                    name: toolName,
-                    arguments: JSON.stringify(args),
-                  },
-                },
-              ],
-            },
-          },
-        ],
+        choices: [{ message: { content: JSON.stringify(args) } }],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -125,7 +101,7 @@ async function writeRegistryYaml(storageRoot: string, yaml: string): Promise<voi
   await writeFile(join(storageRoot, "workflow.yaml"), yaml, "utf8");
 }
 
-/** Extract rounds use tool_calls; supervisor uses plain `content` (no tools). */
+/** Extract rounds reply with schema-shaped JSON in `content`; supervisor uses plain `content` (no tools advertised). */
 function installMockExtractThenSupervisor(params: {
   extractArgs: ReadonlyArray<Record<string, unknown>>;
   supervisorContent: string;
@@ -147,26 +123,9 @@ function installMockExtractThenSupervisor(params: {
         throw new Error("installMockExtractThenSupervisor: empty extractArgs");
       }
       extractI += 1;
-      const firstTool = tools[0] as Record<string, unknown>;
-      const fn = firstTool.function as Record<string, unknown> | undefined;
-      const toolName = typeof fn?.name === "string" ? fn.name : "extract";
       return new Response(
         JSON.stringify({
-          choices: [
-            {
-              message: {
-                tool_calls: [
-                  {
-                    type: "function",
-                    function: {
-                      name: toolName,
-                      arguments: JSON.stringify(args),
-                    },
-                  },
-                ],
-              },
-            },
-          ],
+          choices: [{ message: { content: JSON.stringify(args) } }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
@@ -196,7 +155,6 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         extractPrompt: "Extract plan text and affected files list.",
         schema: plannerMetaSchema,
         extractRefs: null,
-        extractMode: "single",
       },
       coder: {
         description: "Demo coder",
@@ -204,7 +162,6 @@ const demoWorkflow = createWorkflow<DemoMeta>(
         extractPrompt: "Extract the code diff summary.",
         schema: coderMetaSchema,
         extractRefs: null,
-        extractMode: "single",
       },
     },
     moderator: (ctx) => {
@@ -553,7 +510,7 @@ describe("executeThread", () => {
     }
   });
 
-  test("extractMode react traverses CAS DAG via cas_get during extraction", async () => {
+  test("extract traverses CAS DAG via cas_get during extraction", async () => {
     const dagMetaSchema = z.object({ leafPayload: z.string() });
     type DagDemoMeta = { walker: z.infer<typeof dagMetaSchema> };
 
@@ -663,7 +620,6 @@ describe("executeThread", () => {
                 "Set leafPayload to the string payload of the content Merkle node under the root.",
               schema: dagMetaSchema,
               extractRefs: null,
-              extractMode: "react",
             },
           },
           moderator: (ctx) => (ctx.steps.length === 0 ? "walker" : END),

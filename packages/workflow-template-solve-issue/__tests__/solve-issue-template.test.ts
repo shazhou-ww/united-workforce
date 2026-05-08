@@ -23,46 +23,7 @@ function jsonResponse(payload: Record<string, unknown>): Response {
   });
 }
 
-function readToolListFromBody(init: RequestInit | undefined): readonly Record<string, unknown>[] {
-  if (init === undefined || init.body === undefined || init.body === null) {
-    return [];
-  }
-  const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-  const tools = body.tools;
-  if (!Array.isArray(tools)) {
-    return [];
-  }
-  return tools.filter((t): t is Record<string, unknown> => t !== null && typeof t === "object");
-}
-
-function singleToolName(tools: readonly Record<string, unknown>[]): string {
-  if (tools.length === 0) {
-    return "extract";
-  }
-  const fn = tools[0].function as Record<string, unknown> | undefined;
-  return typeof fn?.name === "string" ? fn.name : "extract";
-}
-
-function buildSingleModeResponse(args: Record<string, unknown>, toolName: string): Response {
-  return jsonResponse({
-    choices: [
-      {
-        message: {
-          tool_calls: [
-            {
-              type: "function",
-              function: { name: toolName, arguments: JSON.stringify(args) },
-            },
-          ],
-        },
-      },
-    ],
-  });
-}
-
-function buildReactModeResponse(args: Record<string, unknown>): Response {
-  // reactExtract accepts a plain-JSON assistant message and validates it
-  // directly against the schema, so we skip the cas_get / extract tool dance.
+function buildPlainJsonResponse(args: Record<string, unknown>): Response {
   return jsonResponse({
     choices: [{ message: { content: JSON.stringify(args) } }],
   });
@@ -73,18 +34,14 @@ function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unkno
   let i = 0;
   const mockFetch = async (
     _input: Parameters<typeof fetch>[0],
-    init?: RequestInit,
+    _init?: RequestInit,
   ): Promise<Response> => {
     const args = sequence[i] ?? sequence[sequence.length - 1];
     if (args === undefined) {
       throw new Error("installMockChatCompletions: empty sequence");
     }
     i += 1;
-    const tools = readToolListFromBody(init);
-    if (tools.length > 1) {
-      return buildReactModeResponse(args);
-    }
-    return buildSingleModeResponse(args, singleToolName(tools));
+    return buildPlainJsonResponse(args);
   };
   globalThis.fetch = Object.assign(mockFetch, {
     preconnect: origFetch.preconnect.bind(origFetch),
@@ -165,12 +122,6 @@ const stubExtract = createExtract({
   apiKey: "",
   model: "test",
 });
-
-const stubLlmProvider = {
-  baseUrl: "http://127.0.0.1:9",
-  apiKey: "",
-  model: "test",
-};
 
 describe("solveIssueModerator", () => {
   test("routes initial → preparer → developer → submitter → END", () => {
@@ -261,7 +212,6 @@ describe("createSolveIssueRun", () => {
         depth: 0,
         cas,
         extract: stubExtract,
-        llmProvider: stubLlmProvider,
       },
     );
     const first = await gen.next();
@@ -324,7 +274,6 @@ describe("createSolveIssueRun", () => {
         depth: 0,
         cas,
         extract: stubExtract,
-        llmProvider: stubLlmProvider,
       },
     );
     await gen.next();
@@ -375,7 +324,6 @@ describe("createSolveIssueRun", () => {
         depth: 0,
         cas,
         extract: stubExtract,
-        llmProvider: stubLlmProvider,
       },
     );
     // preparer

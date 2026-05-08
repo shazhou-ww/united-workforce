@@ -33,5 +33,4 @@ export const developerRole: RoleDefinition<DeveloperMeta> = {
   extractPrompt: DEVELOPER_EXTRACT_PROMPT,
   schema: developerMetaSchema,
   extractRefs: () => [],
-  extractMode: "react",
 };
