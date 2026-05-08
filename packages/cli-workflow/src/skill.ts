@@ -1,4 +1,4 @@
-import { getCommandRegistry } from "./cli-dispatch.js";
+import { getCommandRegistry } from "./cli-registry.js";
 
 type SkillTopic = {
   name: string;
