@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createCasStore, getGlobalCasDir, putContentMerkleNode } from "@uncaged/workflow";
+import { createCasStore, putContentMerkleNode } from "@uncaged/workflow-cas";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import {
   formatLiveDebugLine,

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 /** Validates a single path segment for workspace / template names (no separators, not `.` / `..`). */
 export function validateWorkspaceSegment(name: string): Result<void, string> {

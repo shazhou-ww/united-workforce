@@ -2,12 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  createCasStore,
-  createExtract,
-  createWorkflow,
-  validateWorkflowDescriptor,
-} from "@uncaged/workflow";
+import { createCasStore } from "@uncaged/workflow-cas";
+import { createExtract } from "@uncaged/workflow-execute";
+import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
+import { createWorkflow } from "@uncaged/workflow-runtime";
 import { END, type ModeratorContext, type RoleStep, START } from "@uncaged/workflow-runtime";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";

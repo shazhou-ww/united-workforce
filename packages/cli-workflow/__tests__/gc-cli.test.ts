@@ -4,12 +4,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createCasStore,
-  garbageCollectCas,
-  getGlobalCasDir,
-  putContentMerkleNode,
-} from "@uncaged/workflow";
+import { createCasStore, putContentMerkleNode } from "@uncaged/workflow-cas";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
+import { garbageCollectCas } from "@uncaged/workflow-execute";
 import { cmdThreadRemove } from "../src/commands/thread/index.js";
 import { pathExists } from "../src/fs-utils.js";
 

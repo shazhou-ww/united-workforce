@@ -3,7 +3,8 @@ import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { join } from "node:path";
 
-import { err, getWorkerHostScriptPath, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { getWorkerHostScriptPath } from "@uncaged/workflow-execute";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
 

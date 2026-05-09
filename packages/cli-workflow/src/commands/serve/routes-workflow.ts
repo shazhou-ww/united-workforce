@@ -2,7 +2,7 @@ import {
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
   readWorkflowRegistry,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-register";
 import { Hono } from "hono";
 
 export function createWorkflowRoutes(storageRoot: string): Hono {

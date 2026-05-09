@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { pathExists } from "./fs-utils.js";
 

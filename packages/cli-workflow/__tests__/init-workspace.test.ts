@@ -46,7 +46,7 @@ describe("init workspace", () => {
       dependencies: Record<string, string>;
     };
     expect(wfPkg.type).toBe("module");
-    expect(wfPkg.dependencies["@uncaged/workflow"]).toBeDefined();
+    expect(wfPkg.dependencies["@uncaged/workflow-runtime"]).toBeDefined();
     expect(wfPkg.dependencies.zod).toBeDefined();
 
     const tsconfig = JSON.parse(await readFile(join(root, "tsconfig.json"), "utf8")) as {

@@ -1,0 +1,21 @@
+{
+  "name": "@uncaged/workflow-reactor",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@uncaged/workflow-protocol": "workspace:*"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "zod": "^4.0.0",
+    "typescript": "^5.8.3"
+  }
+}

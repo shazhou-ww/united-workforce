@@ -1,4 +1,4 @@
-import type { Result } from "@uncaged/workflow";
+import type { Result } from "@uncaged/workflow-protocol";
 
 import {
   readWorkerCtl,

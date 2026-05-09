@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import type { ParsedAddArgv } from "./types.js";
 

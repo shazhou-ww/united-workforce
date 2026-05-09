@@ -1,14 +1,12 @@
 import { join } from "node:path";
 
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import {
-  err,
   getRegisteredWorkflow,
-  ok,
-  type Result,
   readWorkflowRegistry,
   rollbackWorkflowToHistoryHash,
   writeWorkflowRegistry,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-register";
 
 import { pathExists } from "../../fs-utils.js";
 import { validateCliWorkflowName } from "../../workflow-name.js";

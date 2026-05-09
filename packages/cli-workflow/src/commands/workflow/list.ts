@@ -1,11 +1,9 @@
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import {
-  err,
   listRegisteredWorkflowNames,
-  ok,
-  type Result,
   readWorkflowRegistry,
   type WorkflowRegistryFile,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-register";
 
 export async function cmdList(storageRoot: string): Promise<Result<WorkflowRegistryFile, string>> {
   const reg = await readWorkflowRegistry(storageRoot);

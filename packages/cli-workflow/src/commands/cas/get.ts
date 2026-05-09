@@ -1,4 +1,6 @@
-import { createCasStore, err, getGlobalCasDir, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
+import { createCasStore } from "@uncaged/workflow-cas";
 
 export async function cmdCasGet(
   storageRoot: string,

@@ -1,10 +1,5 @@
-import {
-  err,
-  getRegisteredWorkflow,
-  ok,
-  type Result,
-  readWorkflowRegistry,
-} from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow-register";
 
 import { validateCliWorkflowName } from "../../workflow-name.js";
 

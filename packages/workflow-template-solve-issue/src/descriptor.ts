@@ -1,4 +1,4 @@
-import { buildDescriptor } from "@uncaged/workflow";
+import { buildDescriptor } from "@uncaged/workflow-register";
 
 import { solveIssueModerator } from "./moderator.js";
 import { SOLVE_ISSUE_WORKFLOW_DESCRIPTION, solveIssueRoles } from "./roles.js";

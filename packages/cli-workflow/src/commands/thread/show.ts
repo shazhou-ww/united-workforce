@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { readTextFileIfExists } from "../../fs-utils.js";
 import { resolveThreadDataPath } from "../../thread-scan.js";

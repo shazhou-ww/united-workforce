@@ -2,14 +2,22 @@
   "name": "@uncaged/workflow-template-solve-issue",
   "version": "0.2.0",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    }
+  },
   "scripts": {
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow": "workspace:*",
+    "@uncaged/workflow-register": "workspace:*",
     "@uncaged/workflow-runtime": "workspace:*",
     "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@uncaged/workflow-cas": "workspace:*",
+    "@uncaged/workflow-execute": "workspace:*"
   }
 }
