@@ -9,7 +9,10 @@ function refsFromBlob(content: string): string[] {
       return [];
     }
     const rec = raw as Record<string, unknown>;
-    const refs = rec.refs;
+    let refs = rec.refs;
+    if (!Array.isArray(refs) && Array.isArray(rec.children)) {
+      refs = rec.children;
+    }
     if (!Array.isArray(refs)) {
       return [];
     }
