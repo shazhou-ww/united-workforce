@@ -1,8 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-
-import { parseDocument, stringify } from "yaml";
 import { err, ok, type Result } from "@uncaged/workflow-util";
+import { parseDocument, stringify } from "yaml";
 import { normalizeWorkflowRegistryRoot } from "./registry-normalize.js";
 import type { WorkflowHistoryEntry, WorkflowRegistryEntry, WorkflowRegistryFile } from "./types.js";
 

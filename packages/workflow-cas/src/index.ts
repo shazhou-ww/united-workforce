@@ -10,8 +10,10 @@ export {
   putThreadMerkleNode,
   serializeMerkleNode,
 } from "./merkle.js";
+export type { ParsedCasThreadNode } from "./nodes.js";
 export {
   isCasNodeYaml,
+  parseCasThreadNode,
   putContentNodeWithRefs,
   putStartNode,
   putStateNode,

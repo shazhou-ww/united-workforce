@@ -1,8 +1,5 @@
 {
-  "references": [
-    { "path": "../workflow-protocol" },
-    { "path": "../workflow-util" }
-  ],
+  "references": [{ "path": "../workflow-protocol" }, { "path": "../workflow-util" }],
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],

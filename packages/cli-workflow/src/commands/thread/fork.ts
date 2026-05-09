@@ -1,8 +1,7 @@
 import { join } from "node:path";
-
+import { buildForkPlan } from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import { generateUlid } from "@uncaged/workflow-util";
-import { buildForkPlan } from "@uncaged/workflow-execute";
 
 import { pathExists, readTextFileIfExists } from "../../fs-utils.js";
 import { resolveThreadDataPath } from "../../thread-scan.js";

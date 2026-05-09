@@ -7,7 +7,11 @@ const testExtract: ExtractFn = async <T extends Record<string, unknown>>(
   _schema: z.ZodType<T>,
   _prompt: string,
   _ctx: ExtractContext,
-): Promise<T> => ({ workspace: "/tmp" }) as unknown as T;
+): Promise<{ meta: T; contentPayload: string; refs: string[] }> => ({
+  meta: { workspace: "/tmp" } as unknown as T,
+  contentPayload: "",
+  refs: [],
+});
 
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config", () => {

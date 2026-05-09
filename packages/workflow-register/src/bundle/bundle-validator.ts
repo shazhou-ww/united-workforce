@@ -1,4 +1,5 @@
 import { isBuiltin } from "node:module";
+import { err, ok, type Result } from "@uncaged/workflow-util";
 import type {
   CallExpression,
   ExportAllDeclaration,
@@ -11,8 +12,6 @@ import type {
   VariableDeclaration,
 } from "acorn";
 import * as acorn from "acorn";
-
-import { err, ok, type Result } from "@uncaged/workflow-util";
 
 import type { WorkflowBundleValidationInput } from "./types.js";
 

@@ -1,11 +1,10 @@
 import { watch } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-
-import type { CasStore, WorkflowCompletion } from "@uncaged/workflow-protocol";
-import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import { tryParseRoleStepRecord, tryParseWorkflowResultRecord } from "@uncaged/workflow-execute";
+import type { CasStore, WorkflowCompletion } from "@uncaged/workflow-protocol";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import { dimGreyLine, highlightLiveRole } from "../../cli-color.js";
 import { printCliError, printCliLine } from "../../cli-output.js";

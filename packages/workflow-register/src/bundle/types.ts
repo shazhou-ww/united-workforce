@@ -2,9 +2,9 @@ import type { WorkflowDescriptor, WorkflowFn } from "@uncaged/workflow-protocol"
 
 export type {
   WorkflowDescriptor,
+  WorkflowFn,
   WorkflowRoleDescriptor,
   WorkflowRoleSchema,
-  WorkflowFn,
 } from "@uncaged/workflow-protocol";
 
 export type WorkflowBundleValidationInput = {

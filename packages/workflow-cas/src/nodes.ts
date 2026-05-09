@@ -1,8 +1,107 @@
-import type { ContentMerkleNode, StartNode, StateNode } from "@uncaged/workflow-protocol";
+import type {
+  ContentMerkleNode,
+  StartNode,
+  StartNodePayload,
+  StateNode,
+  StateNodePayload,
+} from "@uncaged/workflow-protocol";
 import { parse, stringify } from "yaml";
 
 import { collectRefs } from "./collect-refs.js";
 import type { CasStore } from "./types.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStartPayload(value: unknown): value is StartNodePayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.name === "string" &&
+    typeof value.hash === "string" &&
+    typeof value.maxRounds === "number" &&
+    typeof value.depth === "number"
+  );
+}
+
+function isStatePayload(value: unknown): value is StateNodePayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const compact = value.compact;
+  if (!(compact === null || typeof compact === "string")) {
+    return false;
+  }
+  const ancestors = value.ancestors;
+  if (!Array.isArray(ancestors) || !ancestors.every((h) => typeof h === "string")) {
+    return false;
+  }
+  const meta = value.meta;
+  if (!isRecord(meta)) {
+    return false;
+  }
+  return (
+    typeof value.role === "string" &&
+    typeof value.start === "string" &&
+    typeof value.content === "string" &&
+    typeof value.timestamp === "number"
+  );
+}
+
+/** Parses a YAML CAS blob into a typed RFC v3 thread node (or legacy content layout with `children`). */
+export function parseCasThreadNode(yamlText: string): ParsedCasThreadNode | null {
+  let raw: unknown;
+  try {
+    raw = parse(yamlText) as unknown;
+  } catch {
+    return null;
+  }
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const type = raw.type;
+  if (type !== "start" && type !== "state" && type !== "content") {
+    return null;
+  }
+
+  let refsRaw: unknown = raw.refs;
+  if (refsRaw === undefined && type === "content") {
+    refsRaw = raw.children;
+  }
+  if (!Array.isArray(refsRaw) || !refsRaw.every((r) => typeof r === "string")) {
+    return null;
+  }
+  const refs = refsRaw as string[];
+
+  if (type === "content") {
+    if (typeof raw.payload !== "string") {
+      return null;
+    }
+    const node: ContentMerkleNode = { type: "content", payload: raw.payload, refs: [...refs] };
+    return { kind: "content", node };
+  }
+
+  if (type === "start") {
+    if (!isStartPayload(raw.payload)) {
+      return null;
+    }
+    const node: StartNode = { type: "start", payload: raw.payload, refs: [...refs] };
+    return { kind: "start", node };
+  }
+
+  if (!isStatePayload(raw.payload)) {
+    return null;
+  }
+  const node: StateNode = { type: "state", payload: raw.payload, refs: [...refs] };
+  return { kind: "state", node };
+}
+
+export type ParsedCasThreadNode =
+  | { kind: "start"; node: StartNode }
+  | { kind: "state"; node: StateNode }
+  | { kind: "content"; node: ContentMerkleNode };
 
 /** YAML-serialize a CAS node carrying `{type, payload, refs}` (RFC v3 thread storage format). */
 export function serializeCasNode(node: StartNode | StateNode | ContentMerkleNode): string {

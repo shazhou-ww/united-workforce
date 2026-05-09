@@ -21,15 +21,13 @@ export type {
   ThreadPauseGate,
 } from "./engine/types.js";
 export { getWorkerHostScriptPath } from "./engine/worker-entry-path.js";
+export type { ExtractFn, LlmError, LlmExtractArgs } from "./extract/index.js";
 export {
   buildExtractUserContent,
   createExtract,
   type ExtractThreadContext,
-} from "./extract/index.js";
-export {
   extractFunctionToolFromZodSchema,
   llmErrorToCause,
   llmExtract,
 } from "./extract/index.js";
-export type { ExtractFn, LlmError, LlmExtractArgs } from "./extract/index.js";
-export { workflowAsAgent, type WorkflowAsAgentOptions } from "./workflow-as-agent.js";
+export { type WorkflowAsAgentOptions, workflowAsAgent } from "./workflow-as-agent.js";

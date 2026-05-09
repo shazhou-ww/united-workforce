@@ -1,6 +1,6 @@
 import type { ProviderConfig } from "@uncaged/workflow-protocol";
-import { splitProviderModelRef } from "../config/index.js";
 import { createLogger, err, ok, type Result } from "@uncaged/workflow-util";
+import { splitProviderModelRef } from "../config/index.js";
 import type {
   WorkflowConfig,
   WorkflowHistoryEntry,

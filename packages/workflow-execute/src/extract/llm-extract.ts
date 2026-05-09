@@ -1,6 +1,5 @@
-import * as z from "zod/v4";
-
 import { err, ok, type Result } from "@uncaged/workflow-util";
+import * as z from "zod/v4";
 
 import type { LlmError, LlmExtractArgs } from "./types.js";
 

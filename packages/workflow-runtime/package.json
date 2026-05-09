@@ -8,6 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@uncaged/workflow-cas": "workspace:*",
     "@uncaged/workflow-protocol": "workspace:*"
   },
   "peerDependencies": {

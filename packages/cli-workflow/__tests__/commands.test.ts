@@ -2,10 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow-cas";
 import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow-register";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/commands/cas/index.js";
 import {
   cmdAdd,

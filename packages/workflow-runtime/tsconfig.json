@@ -18,7 +18,5 @@
     "types": ["bun-types"]
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../workflow-protocol" }
-  ]
+  "references": [{ "path": "../workflow-cas" }, { "path": "../workflow-protocol" }]
 }

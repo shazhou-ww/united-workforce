@@ -1,3 +1,4 @@
+import { putContentNodeWithRefs } from "@uncaged/workflow-cas";
 import type * as z from "zod/v4";
 
 import {
@@ -5,7 +6,6 @@ import {
   type AgentBinding,
   type AgentContext,
   type AgentFn,
-  type CasStore,
   END,
   type ExtractContext,
   type ModeratorContext,
@@ -38,8 +38,16 @@ function resolveExtractedRefs(
   return extractRefsFn(meta as Record<string, unknown>);
 }
 
-async function putContentBlob(store: CasStore, raw: string): Promise<string> {
-  return store.put(raw);
+function mergeUniqueHashes(a: readonly string[], b: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const h of [...a, ...b]) {
+    if (!seen.has(h)) {
+      seen.add(h);
+      out.push(h);
+    }
+  }
+  return out;
 }
 
 function agentForRole(binding: AgentBinding, roleName: string): AgentFn {
@@ -86,23 +94,29 @@ async function advanceOneRound<M extends RoleMeta>(
     agentContent: raw,
   };
 
-  const meta = await runtime.extract(
+  const extracted = await runtime.extract(
     roleDef.schema as z.ZodType<Record<string, unknown>>,
     roleDef.extractPrompt,
     extractCtx as unknown as ExtractContext,
   );
 
-  const contentHash = await putContentBlob(runtime.cas, raw);
   const refsFromMeta = resolveExtractedRefs(
     roleDef as unknown as RoleDefinition<Record<string, unknown>>,
-    meta,
+    extracted.meta,
   );
-  const refs = refsFromMeta.includes(contentHash) ? refsFromMeta : [...refsFromMeta, contentHash];
+  const artifactRefs = mergeUniqueHashes(extracted.refs, refsFromMeta);
+
+  const contentHash = await putContentNodeWithRefs(
+    runtime.cas,
+    extracted.contentPayload,
+    artifactRefs,
+  );
+  const refs = artifactRefs.includes(contentHash) ? artifactRefs : [...artifactRefs, contentHash];
 
   const step = {
     role: next,
     contentHash,
-    meta,
+    meta: extracted.meta,
     refs,
     timestamp: Date.now(),
   } as RoleStep<M>;

@@ -1,7 +1,12 @@
-import type { ExtractContext, ExtractFn, LlmProvider } from "@uncaged/workflow-runtime";
-import type * as z from "zod/v4";
 import { type CasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
+import type {
+  ExtractContext,
+  ExtractFn,
+  ExtractResult,
+  LlmProvider,
+} from "@uncaged/workflow-runtime";
+import type * as z from "zod/v4";
 import { extractFunctionToolFromZodSchema } from "./llm-extract.js";
 
 export type ExtractDeps = {
@@ -121,7 +126,7 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
     schema: z.ZodType<T>,
     prompt: string,
     ctx: ExtractContext,
-  ): Promise<T> => {
+  ): Promise<ExtractResult<T>> => {
     const text = await buildExtractUserContent(ctx, prompt, deps);
     const result = await reactor({
       thread: { cas: deps.cas },
@@ -131,6 +136,10 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
     if (!result.ok) {
       throw new Error(`extract failed: ${result.error}`);
     }
-    return result.value;
+    return {
+      meta: result.value,
+      contentPayload: ctx.agentContent,
+      refs: [],
+    };
   };
 }

@@ -1,6 +1,5 @@
-import type * as z from "zod/v4";
-
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import type * as z from "zod/v4";
 
 import type {
   ChatMessage,

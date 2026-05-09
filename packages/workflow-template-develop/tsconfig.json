@@ -6,8 +6,5 @@
     "composite": true
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../workflow-register" },
-    { "path": "../workflow-runtime" }
-  ]
+  "references": [{ "path": "../workflow-register" }, { "path": "../workflow-runtime" }]
 }

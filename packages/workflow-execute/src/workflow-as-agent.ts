@@ -1,17 +1,20 @@
 import { join } from "node:path";
-import type { AgentContext, AgentFn } from "@uncaged/workflow-runtime";
-import { extractBundleExports } from "@uncaged/workflow-register";
 import { createCasStore } from "@uncaged/workflow-cas";
-import type { ExecuteThreadIo } from "./engine/index.js";
-import { executeThread } from "./engine/index.js";
 import type { WorkflowConfig } from "@uncaged/workflow-register";
-import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow-register";
+import {
+  extractBundleExports,
+  getRegisteredWorkflow,
+  readWorkflowRegistry,
+} from "@uncaged/workflow-register";
+import type { AgentContext, AgentFn } from "@uncaged/workflow-runtime";
 import {
   createLogger,
   generateUlid,
   getDefaultWorkflowStorageRoot,
   getGlobalCasDir,
 } from "@uncaged/workflow-util";
+import type { ExecuteThreadIo } from "./engine/index.js";
+import { executeThread } from "./engine/index.js";
 
 const DEFAULT_WORKFLOW_AS_AGENT_MAX_DEPTH = 3;
 

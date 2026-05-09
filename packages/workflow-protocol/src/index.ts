@@ -3,7 +3,9 @@
 export type {
   ContentMerkleNode,
   StartNode,
+  StartNodePayload,
   StateNode,
+  StateNodePayload,
 } from "./cas-types.js";
 
 export type {
@@ -14,6 +16,7 @@ export type {
   CasStore,
   ExtractContext,
   ExtractFn,
+  ExtractResult,
   LlmProvider,
   Moderator,
   ModeratorContext,

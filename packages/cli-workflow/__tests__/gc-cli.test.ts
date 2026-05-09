@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCasStore, putContentMerkleNode } from "@uncaged/workflow-cas";
-import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { garbageCollectCas } from "@uncaged/workflow-execute";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdThreadRemove } from "../src/commands/thread/index.js";
 import { pathExists } from "../src/fs-utils.js";
 

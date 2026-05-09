@@ -5,8 +5,13 @@ import { join } from "node:path";
 import { createCasStore } from "@uncaged/workflow-cas";
 import { createExtract } from "@uncaged/workflow-execute";
 import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
-import { createWorkflow } from "@uncaged/workflow-runtime";
-import { END, type ModeratorContext, type RoleStep, START } from "@uncaged/workflow-runtime";
+import {
+  createWorkflow,
+  END,
+  type ModeratorContext,
+  type RoleStep,
+  START,
+} from "@uncaged/workflow-runtime";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
 import { solveIssueModerator, solveIssueWorkflowDefinition } from "../src/index.js";

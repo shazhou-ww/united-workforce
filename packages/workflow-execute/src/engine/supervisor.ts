@@ -1,10 +1,9 @@
-import * as z from "zod/v4";
-
-import { resolveModel } from "@uncaged/workflow-register";
-import { extractFunctionToolFromZodSchema } from "../extract/index.js";
 import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
 import type { WorkflowConfig } from "@uncaged/workflow-register";
+import { resolveModel } from "@uncaged/workflow-register";
 import { err, type LogFn, ok, type Result } from "@uncaged/workflow-util";
+import * as z from "zod/v4";
+import { extractFunctionToolFromZodSchema } from "../extract/index.js";
 
 import type { SupervisorDecision } from "./types.js";
 
