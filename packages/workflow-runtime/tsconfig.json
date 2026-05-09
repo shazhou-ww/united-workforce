@@ -17,5 +17,8 @@
     "rootDir": "src",
     "types": ["bun-types"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../workflow-protocol" }
+  ]
 }

@@ -2,8 +2,12 @@
   "name": "@uncaged/workflow-execute",
   "version": "0.2.0",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    }
+  },
   "scripts": {
     "test": "bun test"
   },

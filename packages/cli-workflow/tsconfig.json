@@ -17,6 +17,13 @@
     "rootDir": "src",
     "types": ["bun-types"]
   },
-  "references": [{ "path": "../workflow-runtime" }, { "path": "../workflow" }],
+  "references": [
+    { "path": "../workflow-runtime" },
+    { "path": "../workflow-protocol" },
+    { "path": "../workflow-util" },
+    { "path": "../workflow-cas" },
+    { "path": "../workflow-execute" },
+    { "path": "../workflow-register" }
+  ],
   "include": ["src/**/*.ts"]
 }

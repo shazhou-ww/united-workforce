@@ -8,7 +8,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow": "workspace:*",
     "@uncaged/workflow-runtime": "workspace:*"
   }
 }

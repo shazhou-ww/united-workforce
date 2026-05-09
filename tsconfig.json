@@ -19,7 +19,12 @@
   },
   "references": [
     { "path": "packages/workflow-runtime" },
-    { "path": "packages/workflow" },
+    { "path": "packages/workflow-protocol" },
+    { "path": "packages/workflow-util" },
+    { "path": "packages/workflow-cas" },
+    { "path": "packages/workflow-reactor" },
+    { "path": "packages/workflow-register" },
+    { "path": "packages/workflow-execute" },
     { "path": "packages/workflow-agent-llm" },
     { "path": "packages/workflow-agent-cursor" },
     { "path": "packages/workflow-agent-hermes" },
