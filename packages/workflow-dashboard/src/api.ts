@@ -52,13 +52,31 @@ export type ThreadSummary = {
   status: string | null;
 };
 
-export type ThreadRecord = {
-  type: string;
-  role: string | null;
-  content: string | null;
-  timestamp: number | null;
-  [key: string]: unknown;
+export type ThreadStartRecord = {
+  type: "thread-start";
+  workflow: string;
+  prompt: string | null;
+  threadId: string;
+  status: string;
+  timestamp: null;
 };
+
+export type RoleRecord = {
+  type: "role";
+  role: string;
+  content: string;
+  timestamp: number | null;
+  meta: Record<string, unknown>;
+};
+
+export type WorkflowResultRecord = {
+  type: "workflow-result";
+  returnCode: number;
+  content: string;
+  timestamp: number | null;
+};
+
+export type ThreadRecord = ThreadStartRecord | RoleRecord | WorkflowResultRecord;
 
 // ── Gateway endpoints ───────────────────────────────────────────────
 

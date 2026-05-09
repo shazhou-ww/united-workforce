@@ -45,19 +45,11 @@ async function buildThreadDetailRecords(
   const records: unknown[] = [
     {
       type: "thread-start",
-      role: null,
-      content: [
-        `workflow: ${workflowName ?? "unknown"}`,
-        `thread: ${resolved.threadId}`,
-        `status: ${resolved.source}`,
-        prompt !== null ? `\nprompt: ${prompt}` : null,
-      ].filter(Boolean).join("\n"),
-      timestamp: null,
+      workflow: workflowName ?? "unknown",
+      prompt: prompt ?? null,
       threadId: resolved.threadId,
-      bundleHash: resolved.bundleHash,
-      head: resolved.head,
-      start: resolved.start,
-      source: resolved.source,
+      status: resolved.source,
+      timestamp: null,
     },
   ];
 
@@ -69,7 +61,7 @@ async function buildThreadDetailRecords(
       const returnCode = fr.payload.meta.returnCode;
       const summary = fr.payload.meta.summary;
       if (typeof returnCode === "number" && typeof summary === "string") {
-        records.push({ type: "workflow-result", role: null, content: summary, timestamp: null, returnCode });
+        records.push({ type: "workflow-result", returnCode, content: summary, timestamp: fr.payload.timestamp });
       }
       continue;
     }
