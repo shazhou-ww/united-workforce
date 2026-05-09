@@ -11,6 +11,7 @@ import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
+import { readWorkerCtl } from "./worker-spawn.js";
 
 async function readWorkflowNameFromStartHash(
   storageRoot: string,
@@ -217,6 +218,16 @@ export async function resolveThreadListStatus(
     return "completed";
   }
   if (runningMarkerPresent) {
+    const ctlResult = await readWorkerCtl(storageRoot, row.hash);
+    if (ctlResult.ok) {
+      try {
+        process.kill(ctlResult.value.pid, 0);
+        return "running";
+      } catch {
+        // Worker PID is dead but .running marker remains — crashed thread
+        return "failed";
+      }
+    }
     return "running";
   }
   return "active";
