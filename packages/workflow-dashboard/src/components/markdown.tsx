@@ -100,8 +100,9 @@ export function Markdown({ content }: { content: string }) {
               </blockquote>
             );
           },
-        }}
-      />
+        }}>
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
