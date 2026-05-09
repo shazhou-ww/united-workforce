@@ -5,8 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [
-    { "path": "../workflow-protocol" },
-    { "path": "../workflow-util" }
-  ]
+  "references": [{ "path": "../workflow-protocol" }, { "path": "../workflow-util" }]
 }

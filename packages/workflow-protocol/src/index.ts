@@ -1,40 +1,46 @@
 // ── Types ──────────────────────────────────────────────────────────
 
 export type {
-	Result,
-	CasStore,
-	WorkflowRoleSchema,
-	WorkflowRoleDescriptor,
-	WorkflowDescriptor,
-	RoleMeta,
-	RoleOutput,
-	StartStep,
-	RoleStep,
-	ThreadContext,
-	ModeratorContext,
-	AgentContext,
-	ExtractContext,
-	WorkflowCompletion,
-	WorkflowResult,
-	LlmProvider,
-	ProviderConfig,
-	ResolvedModel,
-	WorkflowConfig,
-	ExtractFn,
-	AgentFn,
-	AgentBinding,
-	WorkflowRuntime,
-	WorkflowFn,
-	RoleDefinition,
-	Moderator,
-	WorkflowDefinition,
-	AdvanceOutcome,
+  ContentMerkleNode,
+  StartNode,
+  StateNode,
+} from "./cas-types.js";
+
+export type {
+  AdvanceOutcome,
+  AgentBinding,
+  AgentContext,
+  AgentFn,
+  CasStore,
+  ExtractContext,
+  ExtractFn,
+  LlmProvider,
+  Moderator,
+  ModeratorContext,
+  ProviderConfig,
+  ResolvedModel,
+  Result,
+  RoleDefinition,
+  RoleMeta,
+  RoleOutput,
+  RoleStep,
+  StartStep,
+  ThreadContext,
+  WorkflowCompletion,
+  WorkflowConfig,
+  WorkflowDefinition,
+  WorkflowDescriptor,
+  WorkflowFn,
+  WorkflowResult,
+  WorkflowRoleDescriptor,
+  WorkflowRoleSchema,
+  WorkflowRuntime,
 } from "./types.js";
 
 // ── Constants ──────────────────────────────────────────────────────
 
-export { START, END } from "./types.js";
+export { END, START } from "./types.js";
 
 // ── Constructor functions ──────────────────────────────────────────
 
-export { ok, err } from "./result.js";
+export { err, ok } from "./result.js";

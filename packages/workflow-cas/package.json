@@ -2,6 +2,9 @@
   "name": "@uncaged/workflow-cas",
   "version": "0.1.0",
   "type": "module",
+  "scripts": {
+    "test": "bun test"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
