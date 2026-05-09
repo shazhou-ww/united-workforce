@@ -1,7 +1,7 @@
-import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
-import type { RoleOutput, WorkflowFn, WorkflowResult } from "@uncaged/workflow-runtime";
+import type { RoleOutput, WorkflowFn } from "@uncaged/workflow-runtime";
 import { ensureUncagedWorkflowSymlink, importWorkflowBundleModule } from "@uncaged/workflow-register";
 import { createCasStore } from "@uncaged/workflow-cas";
 import {
@@ -364,13 +364,11 @@ async function main(): Promise<void> {
 
     const threadId = cmd.threadId;
     const runningPath = join(storageRoot, "logs", hash, `${threadId}.running`);
-    const dataJsonlPath = join(storageRoot, "logs", hash, `${threadId}.data.jsonl`);
     const infoJsonlPath = join(storageRoot, "logs", hash, `${threadId}.info.jsonl`);
 
     const io: ExecuteThreadIo = {
       threadId,
       hash,
-      dataJsonlPath,
       infoJsonlPath,
       cas,
     };
@@ -387,7 +385,6 @@ async function main(): Promise<void> {
 
     try {
       await mkdir(dirname(runningPath), { recursive: true });
-      await mkdir(dirname(dataJsonlPath), { recursive: true });
       await writeFile(runningPath, "", "utf8");
 
       const logger = createLogger({ sink: { kind: "file", path: infoJsonlPath } });
@@ -407,7 +404,7 @@ async function main(): Promise<void> {
         });
       }
 
-      const runResult = await executeThread(
+      await executeThread(
         workflowFn,
         cmd.workflowName,
         { prompt: cmd.prompt, steps: cmd.steps },
@@ -422,12 +419,9 @@ async function main(): Promise<void> {
         io,
         logger,
       );
-      await appendFile(dataJsonlPath, `${JSON.stringify(runResult)}\n`, "utf8");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);
-      const failure: WorkflowResult = { returnCode: 1, summary: message, rootHash: "" };
-      await appendFile(dataJsonlPath, `${JSON.stringify(failure)}\n`, "utf8").catch(() => {});
     } finally {
       threads.delete(threadId);
       await unlink(runningPath).catch(() => {});

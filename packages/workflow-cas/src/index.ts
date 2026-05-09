@@ -10,6 +10,13 @@ export {
   putThreadMerkleNode,
   serializeMerkleNode,
 } from "./merkle.js";
+export {
+  isCasNodeYaml,
+  putContentNodeWithRefs,
+  putStartNode,
+  putStateNode,
+  serializeCasNode,
+} from "./nodes.js";
 export { findReachableHashes } from "./reachable.js";
 export type {
   CasStore,

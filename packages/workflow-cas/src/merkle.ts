@@ -82,7 +82,12 @@ export async function putContentMerkleNode(store: CasStore, content: string): Pr
   return store.put(content);
 }
 
-/** Loads a CAS blob and returns the payload string for a `content` Merkle node. */
+/**
+ * Loads a CAS blob and returns the payload string for a `content` node.
+ *
+ * Accepts both the legacy `{type:content, payload, children}` Merkle layout
+ * and the RFC v3 `{type:content, payload, refs}` content node layout.
+ */
 export async function getContentMerklePayload(
   store: CasStore,
   hash: string,
@@ -91,9 +96,13 @@ export async function getContentMerklePayload(
   if (yamlText === null) {
     return null;
   }
-  const node = parseMerkleNode(yamlText);
-  if (node.type !== "content" || typeof node.payload !== "string") {
+  const raw = parse(yamlText) as unknown;
+  if (raw === null || typeof raw !== "object") {
     return null;
   }
-  return node.payload;
+  const rec = raw as Record<string, unknown>;
+  if (rec.type !== "content" || typeof rec.payload !== "string") {
+    return null;
+  }
+  return rec.payload;
 }

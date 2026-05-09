@@ -1,5 +1,5 @@
-import type { RoleOutput } from "@uncaged/workflow-runtime";
 import type { CasStore } from "@uncaged/workflow-cas";
+import type { RoleOutput } from "@uncaged/workflow-runtime";
 import type { Result } from "@uncaged/workflow-util";
 
 export type SupervisorDecision = "continue" | "stop";
@@ -7,7 +7,6 @@ export type SupervisorDecision = "continue" | "stop";
 export type ExecuteThreadIo = {
   threadId: string;
   hash: string;
-  dataJsonlPath: string;
   infoJsonlPath: string;
   cas: CasStore;
 };

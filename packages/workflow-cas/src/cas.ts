@@ -3,10 +3,14 @@ import { join } from "node:path";
 
 import { hashString } from "./hash.js";
 import { createContentMerkleNode, parseMerkleNode, serializeMerkleNode } from "./merkle.js";
+import { isCasNodeYaml } from "./nodes.js";
 import type { CasStore } from "./types.js";
 
 /** Raw strings become content merkle YAML; already-valid merkle documents pass through. */
 function normalizeCasPutContent(content: string): string {
+  if (isCasNodeYaml(content)) {
+    return content;
+  }
   try {
     parseMerkleNode(content);
     return content;

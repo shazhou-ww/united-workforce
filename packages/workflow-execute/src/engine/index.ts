@@ -9,6 +9,13 @@ export {
 } from "./fork-thread.js";
 export { garbageCollectCas } from "./gc.js";
 export { createThreadPauseGate } from "./thread-pause-gate.js";
+export type { ThreadHistoryEntry, ThreadIndex, ThreadIndexEntry } from "./threads-index.js";
+export {
+  appendThreadHistoryEntry,
+  getBundleDir,
+  removeThreadEntry,
+  upsertThreadEntry,
+} from "./threads-index.js";
 export type {
   ExecuteThreadIo,
   ExecuteThreadOptions,

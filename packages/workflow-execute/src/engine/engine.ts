@@ -1,5 +1,18 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import {
+  type CasStore,
+  getContentMerklePayload,
+  putContentNodeWithRefs,
+  putStartNode,
+  putStateNode,
+} from "@uncaged/workflow-cas";
+import type { StateNode } from "@uncaged/workflow-protocol";
+import {
+  readWorkflowRegistry,
+  resolveModel,
+  type WorkflowConfig,
+} from "@uncaged/workflow-register";
 import type {
   LlmProvider,
   RoleOutput,
@@ -9,20 +22,37 @@ import type {
   WorkflowResult,
   WorkflowRuntime,
 } from "@uncaged/workflow-runtime";
-import { START } from "@uncaged/workflow-runtime";
-import {
-  type CasStore,
-  getContentMerklePayload,
-  putStepMerkleNode,
-  putThreadMerkleNode,
-} from "@uncaged/workflow-cas";
-import { resolveModel } from "@uncaged/workflow-register";
-import { createExtract } from "../extract/index.js";
-import { readWorkflowRegistry, type WorkflowConfig } from "@uncaged/workflow-register";
-import { err, type LogFn, normalizeRefsField, ok, type Result } from "@uncaged/workflow-util";
+import { END, START } from "@uncaged/workflow-runtime";
+import { err, type LogFn, ok, type Result } from "@uncaged/workflow-util";
 
+import { createExtract } from "../extract/index.js";
 import { runSupervisor } from "./supervisor.js";
+import {
+  appendThreadHistoryEntry,
+  getBundleDir,
+  removeThreadEntry,
+  upsertThreadEntry,
+} from "./threads-index.js";
 import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
+
+/** Cap for {@link StateNode}.payload.ancestors: 1 parent + 10 skip-list. */
+const ANCESTORS_CAP = 11;
+
+type ChainState = {
+  /** State hash of the most recently written {@link StateNode}, or `null` before the first step. */
+  parentStateHash: string | null;
+  /** Ancestors recorded on the most recently written {@link StateNode}. */
+  parentAncestors: readonly string[];
+};
+
+const EMPTY_CHAIN: ChainState = { parentStateHash: null, parentAncestors: [] };
+
+function computeAncestors(chain: ChainState): string[] {
+  if (chain.parentStateHash === null) {
+    return [];
+  }
+  return [chain.parentStateHash, ...chain.parentAncestors].slice(0, ANCESTORS_CAP);
+}
 
 async function resolveEngineRegistryRuntime(
   storageRoot: string,
@@ -57,51 +87,108 @@ async function resolveEngineRegistryRuntime(
   return ok({ extract: createExtract(llmProvider, { cas }), workflowConfig: cfg });
 }
 
-async function appendDataLine(path: string, record: unknown): Promise<void> {
-  const line = `${JSON.stringify(record)}\n`;
-  await appendFile(path, line, "utf8");
+async function appendStateForStep(params: {
+  cas: CasStore;
+  startHash: string;
+  chain: ChainState;
+  role: string;
+  contentHash: string;
+  meta: Record<string, unknown>;
+  refs: readonly string[];
+  timestamp: number;
+}): Promise<{ stateHash: string; chain: ChainState }> {
+  const text = await getContentMerklePayload(params.cas, params.contentHash);
+  if (text === null) {
+    throw new Error(
+      `role step ${params.role}: CAS blob missing for contentHash ${params.contentHash}`,
+    );
+  }
+  const artifactRefs = params.refs.filter((r) => r !== params.contentHash);
+  const contentHash = await putContentNodeWithRefs(params.cas, text, artifactRefs);
+  const ancestors = computeAncestors(params.chain);
+  const payload: StateNode["payload"] = {
+    role: params.role,
+    meta: params.meta,
+    start: params.startHash,
+    content: contentHash,
+    ancestors,
+    compact: null,
+    timestamp: params.timestamp,
+  };
+  const stateHash = await putStateNode(params.cas, payload);
+  return {
+    stateHash,
+    chain: { parentStateHash: stateHash, parentAncestors: ancestors },
+  };
 }
 
-async function finalizeThreadResult(params: {
+async function appendEndState(params: {
   cas: CasStore;
-  workflowName: string;
+  startHash: string;
+  chain: ChainState;
+  completion: WorkflowCompletion;
+  timestamp: number;
+}): Promise<string> {
+  const contentHash = await putContentNodeWithRefs(params.cas, params.completion.summary, []);
+  const ancestors = computeAncestors(params.chain);
+  const payload: StateNode["payload"] = {
+    role: END,
+    meta: { returnCode: params.completion.returnCode, summary: params.completion.summary },
+    start: params.startHash,
+    content: contentHash,
+    ancestors,
+    compact: null,
+    timestamp: params.timestamp,
+  };
+  return putStateNode(params.cas, payload);
+}
+
+async function finalizeThread(params: {
+  cas: CasStore;
+  bundleDir: string;
   threadId: string;
-  stepMerkleHashes: readonly string[];
+  startHash: string;
+  chain: ChainState;
   completion: WorkflowCompletion;
 }): Promise<WorkflowResult> {
-  const rootHash = await putThreadMerkleNode(
-    params.cas,
-    {
-      workflow: params.workflowName,
-      threadId: params.threadId,
-      result: {
-        returnCode: params.completion.returnCode,
-        summary: params.completion.summary,
-      },
-    },
-    params.stepMerkleHashes,
-  );
+  const ts = Date.now();
+  const endHash = await appendEndState({
+    cas: params.cas,
+    startHash: params.startHash,
+    chain: params.chain,
+    completion: params.completion,
+    timestamp: ts,
+  });
+  await removeThreadEntry(params.bundleDir, params.threadId);
+  await appendThreadHistoryEntry(params.bundleDir, {
+    threadId: params.threadId,
+    head: endHash,
+    start: params.startHash,
+    completedAt: ts,
+  });
   return {
     returnCode: params.completion.returnCode,
     summary: params.completion.summary,
-    rootHash,
+    rootHash: endHash,
   };
 }
 
 async function finalizeAbortedThread(params: {
   cas: CasStore;
-  workflowName: string;
+  bundleDir: string;
   threadId: string;
-  stepMerkleHashes: string[];
+  startHash: string;
+  chain: ChainState;
   logger: LogFn;
   abortLogTag: string;
 }): Promise<WorkflowResult> {
   params.logger(params.abortLogTag, `thread ${params.threadId} aborted`);
-  return finalizeThreadResult({
+  return finalizeThread({
     cas: params.cas,
-    workflowName: params.workflowName,
+    bundleDir: params.bundleDir,
     threadId: params.threadId,
-    stepMerkleHashes: params.stepMerkleHashes,
+    startHash: params.startHash,
+    chain: params.chain,
     completion: { returnCode: 130, summary: "thread aborted" },
   });
 }
@@ -114,8 +201,9 @@ async function maybeSupervisorHaltsThread(params: {
   logger: LogFn;
   threadId: string;
   cas: CasStore;
-  workflowName: string;
-  stepMerkleHashes: string[];
+  bundleDir: string;
+  startHash: string;
+  chain: ChainState;
 }): Promise<WorkflowResult | null> {
   const interval = params.workflowConfig.supervisorInterval;
   if (interval <= 0 || params.written % interval !== 0) {
@@ -135,41 +223,55 @@ async function maybeSupervisorHaltsThread(params: {
     return null;
   }
   params.logger("M4QX8VHN", `thread ${params.threadId} stopped by supervisor`);
-  return finalizeThreadResult({
+  return finalizeThread({
     cas: params.cas,
-    workflowName: params.workflowName,
+    bundleDir: params.bundleDir,
     threadId: params.threadId,
-    stepMerkleHashes: params.stepMerkleHashes,
+    startHash: params.startHash,
+    chain: params.chain,
     completion: { returnCode: 0, summary: "completed: supervisor stopped thread" },
+  });
+}
+
+async function publishHead(params: {
+  bundleDir: string;
+  threadId: string;
+  startHash: string;
+  headHash: string;
+}): Promise<void> {
+  await upsertThreadEntry(params.bundleDir, params.threadId, {
+    head: params.headHash,
+    start: params.startHash,
+    updatedAt: Date.now(),
   });
 }
 
 async function driveWorkflowGenerator(params: {
   fn: WorkflowFn;
-  workflowName: string;
   workflowConfig: WorkflowConfig;
   thread: ThreadContext;
   runtime: WorkflowRuntime;
   executeOptions: ExecuteThreadOptions;
-  dataJsonlPath: string;
   threadId: string;
   logger: LogFn;
   cas: CasStore;
-  stepMerkleHashes: string[];
+  bundleDir: string;
+  startHash: string;
+  chain: ChainState;
 }): Promise<WorkflowResult> {
   const {
     fn,
-    workflowName,
     workflowConfig,
     thread,
     runtime,
     executeOptions,
-    dataJsonlPath,
     threadId,
     logger,
     cas,
-    stepMerkleHashes,
+    bundleDir,
+    startHash,
   } = params;
+  let chain: ChainState = params.chain;
   const gen = fn(thread, runtime);
   let written = 0;
   const recentSupervisorSteps: { role: string; summary: string }[] = thread.steps.map((s) => ({
@@ -181,9 +283,10 @@ async function driveWorkflowGenerator(params: {
     if (executeOptions.signal.aborted) {
       return await finalizeAbortedThread({
         cas,
-        workflowName,
+        bundleDir,
         threadId,
-        stepMerkleHashes,
+        startHash,
+        chain,
         logger,
         abortLogTag: "V8JX4NP2",
       });
@@ -191,11 +294,12 @@ async function driveWorkflowGenerator(params: {
 
     if (written >= executeOptions.maxRounds) {
       logger("R3CW7YBQ", `thread ${threadId} stopped at maxRounds=${executeOptions.maxRounds}`);
-      return await finalizeThreadResult({
+      return await finalizeThread({
         cas,
-        workflowName,
+        bundleDir,
         threadId,
-        stepMerkleHashes,
+        startHash,
+        chain,
         completion: {
           returnCode: 0,
           summary: `completed: reached maxRounds (${executeOptions.maxRounds})`,
@@ -207,39 +311,31 @@ async function driveWorkflowGenerator(params: {
 
     if (iterResult.done) {
       logger("F3HN8QKP", `thread ${threadId} generator finished`);
-      const completion = iterResult.value;
-      return await finalizeThreadResult({
+      return await finalizeThread({
         cas,
-        workflowName,
+        bundleDir,
         threadId,
-        stepMerkleHashes,
-        completion,
+        startHash,
+        chain,
+        completion: iterResult.value,
       });
     }
 
     written++;
     const step = iterResult.value;
-    const resolved = await getContentMerklePayload(cas, step.contentHash);
-    if (resolved === null) {
-      throw new Error(
-        `role step ${step.role}: CAS blob missing for contentHash ${step.contentHash}`,
-      );
-    }
     const ts = Date.now();
-    await appendDataLine(dataJsonlPath, {
+    const written_ = await appendStateForStep({
+      cas,
+      startHash,
+      chain,
       role: step.role,
       contentHash: step.contentHash,
       meta: step.meta,
-      refs: normalizeRefsField(step.refs),
+      refs: step.refs,
       timestamp: ts,
     });
-
-    const stepNodeHash = await putStepMerkleNode(
-      cas,
-      { role: step.role, meta: step.meta },
-      step.contentHash,
-    );
-    stepMerkleHashes.push(stepNodeHash);
+    chain = written_.chain;
+    await publishHead({ bundleDir, threadId, startHash, headHash: written_.stateHash });
 
     logger("N7BW4YHQ", `thread ${threadId} wrote role ${step.role}`);
 
@@ -262,9 +358,10 @@ async function driveWorkflowGenerator(params: {
     if (executeOptions.signal.aborted) {
       return await finalizeAbortedThread({
         cas,
-        workflowName,
+        bundleDir,
         threadId,
-        stepMerkleHashes,
+        startHash,
+        chain,
         logger,
         abortLogTag: "V8JX4NP4",
       });
@@ -278,8 +375,9 @@ async function driveWorkflowGenerator(params: {
       logger,
       threadId,
       cas,
-      workflowName,
-      stepMerkleHashes,
+      bundleDir,
+      startHash,
+      chain,
     });
     if (supervised !== null) {
       return supervised;
@@ -288,8 +386,16 @@ async function driveWorkflowGenerator(params: {
 }
 
 /**
- * Execute a workflow thread: drive the bundle's AsyncGenerator, RFC-001 `.data.jsonl` records,
- * debug lines via `logger` to `.info.jsonl`.
+ * Execute a workflow thread by driving the bundle's `AsyncGenerator`.
+ *
+ * Persistence layout (RFC v3 — CAS-based thread storage):
+ * - Thread chain is written as immutable CAS blobs: a single {@link StartNode}
+ *   plus one {@link StateNode} per role step (including a final `__end__`
+ *   state on completion / abort / `maxRounds`).
+ * - The active thread head is published in `<bundleDir>/threads.json`; on
+ *   completion it is removed and a record is appended to
+ *   `<bundleDir>/history/{YYYY-MM-DD}.jsonl`.
+ * - Debug logging continues to flow through `logger` to `.info.jsonl`.
  */
 export async function executeThread(
   fn: WorkflowFn,
@@ -299,7 +405,6 @@ export async function executeThread(
   io: ExecuteThreadIo,
   logger: LogFn,
 ): Promise<WorkflowResult> {
-  await mkdir(dirname(io.dataJsonlPath), { recursive: true });
   await mkdir(dirname(io.infoJsonlPath), { recursive: true });
 
   const prefilled = options.prefilledDiskSteps;
@@ -309,61 +414,63 @@ export async function executeThread(
     );
   }
 
-  const nowMs = Date.now();
-  const startRecord: Record<string, unknown> = {
-    name: workflowName,
-    hash: io.hash,
-    threadId: io.threadId,
-    parameters: {
-      prompt: input.prompt,
-      options: {
-        maxRounds: options.maxRounds,
-        depth: options.depth,
-      },
-    },
-    timestamp: nowMs,
-  };
-  if (options.forkSourceThreadId !== null) {
-    startRecord.forkFrom = { threadId: options.forkSourceThreadId };
-  }
+  const bundleDir = getBundleDir(options.storageRoot, io.hash);
 
-  await appendDataLine(io.dataJsonlPath, startRecord);
+  const promptHash = await io.cas.put(input.prompt);
+  const startHash = await putStartNode(
+    io.cas,
+    {
+      name: workflowName,
+      hash: io.hash,
+      maxRounds: options.maxRounds,
+      depth: options.depth,
+    },
+    promptHash,
+  );
+
+  await publishHead({
+    bundleDir,
+    threadId: io.threadId,
+    startHash,
+    headHash: startHash,
+  });
 
   logger("T9HQ2KHM", `thread ${io.threadId} started for workflow ${workflowName}`);
 
-  const stepMerkleHashes: string[] = [];
+  let chain: ChainState = EMPTY_CHAIN;
 
   if (prefilled !== null) {
     for (const row of prefilled) {
-      const prefilledPayload = await getContentMerklePayload(io.cas, row.contentHash);
-      if (prefilledPayload === null) {
-        throw new Error(
-          `prefilled step ${row.role}: CAS blob missing for contentHash ${row.contentHash}`,
-        );
-      }
-      await appendDataLine(io.dataJsonlPath, {
+      const written = await appendStateForStep({
+        cas: io.cas,
+        startHash,
+        chain,
         role: row.role,
         contentHash: row.contentHash,
         meta: row.meta,
-        refs: normalizeRefsField(row.refs),
+        refs: row.refs,
         timestamp: row.timestamp,
       });
-      const stepNodeHash = await putStepMerkleNode(
-        io.cas,
-        { role: row.role, meta: row.meta },
-        row.contentHash,
-      );
-      stepMerkleHashes.push(stepNodeHash);
+      chain = written.chain;
+      await publishHead({
+        bundleDir,
+        threadId: io.threadId,
+        startHash,
+        headHash: written.stateHash,
+      });
     }
   }
 
+  const nowMs = Date.now();
+
   if (options.maxRounds <= 0) {
     logger("R3CW7YBQ", `thread ${io.threadId} stopped at maxRounds=${options.maxRounds}`);
-    return await finalizeThreadResult({
+    return await finalizeThread({
       cas: io.cas,
-      workflowName,
+      bundleDir,
       threadId: io.threadId,
-      stepMerkleHashes,
+      startHash,
+      chain,
       completion: {
         returnCode: 0,
         summary: `completed: reached maxRounds (${options.maxRounds})`,
@@ -401,15 +508,15 @@ export async function executeThread(
 
   return await driveWorkflowGenerator({
     fn,
-    workflowName,
     workflowConfig: registryRuntime.value.workflowConfig,
     thread,
     runtime,
     executeOptions: options,
-    dataJsonlPath: io.dataJsonlPath,
     threadId: io.threadId,
     logger,
     cas: io.cas,
-    stepMerkleHashes,
+    bundleDir,
+    startHash,
+    chain,
   });
 }

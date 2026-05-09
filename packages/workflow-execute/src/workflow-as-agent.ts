@@ -74,13 +74,11 @@ export function workflowAsAgent(
     };
 
     const childThreadId = generateUlid(Date.now());
-    const dataJsonlPath = join(storageRoot, "logs", entry.hash, `${childThreadId}.data.jsonl`);
     const infoJsonlPath = join(storageRoot, "logs", entry.hash, `${childThreadId}.info.jsonl`);
 
     const io: ExecuteThreadIo = {
       threadId: childThreadId,
       hash: entry.hash,
-      dataJsonlPath,
       infoJsonlPath,
       cas: createCasStore(getGlobalCasDir(storageRoot)),
     };

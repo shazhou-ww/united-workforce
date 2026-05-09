@@ -75,7 +75,7 @@ export async function runSupervisor(
   });
 
   if (!result.ok) {
-    args.logger("R9CW4PLM", `supervisor failed: ${result.error}`);
+    args.logger("R9CW4PHM", `supervisor failed: ${result.error}`);
     return err(`supervisor: ${result.error}`);
   }
 
