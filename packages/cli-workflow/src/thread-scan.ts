@@ -94,6 +94,10 @@ export type HistoricalThreadRow = {
   threadId: string;
   hash: string;
   workflowName: string | null;
+  /** Active entry from `threads.json` vs completed line from `history/*.jsonl`. */
+  source: "active" | "history";
+  /** `updatedAt` for active threads; `completedAt` for history (ms since epoch). */
+  activityTs: number;
 };
 
 export type ResolvedThreadRecord = {
@@ -243,7 +247,13 @@ export async function listHistoricalThreads(
       if (workflowNameFilter !== null && workflowName !== workflowNameFilter) {
         continue;
       }
-      out.push({ threadId, hash: bundleHash, workflowName });
+      out.push({
+        threadId,
+        hash: bundleHash,
+        workflowName,
+        source: "active",
+        activityTs: entry.updatedAt,
+      });
     }
 
     const histDir = join(bundleDir, "history");
@@ -271,7 +281,13 @@ export async function listHistoricalThreads(
         if (workflowNameFilter !== null && workflowName !== workflowNameFilter) {
           continue;
         }
-        out.push({ threadId: e.threadId, hash: bundleHash, workflowName });
+        out.push({
+          threadId: e.threadId,
+          hash: bundleHash,
+          workflowName,
+          source: "history",
+          activityTs: e.completedAt,
+        });
       }
     }
   }

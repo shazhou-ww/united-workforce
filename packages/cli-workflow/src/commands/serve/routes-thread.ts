@@ -1,9 +1,12 @@
-import { createCasStore } from "@uncaged/workflow-cas";
+import { join } from "node:path";
+import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
 import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { Hono } from "hono";
 
+import { pathExists } from "../../fs-utils.js";
+import type { ResolvedThreadRecord } from "../../thread-scan.js";
 import {
   listHistoricalThreads,
   listRunningThreads,
@@ -12,13 +15,76 @@ import {
 import { cmdKill, cmdPause, cmdResume } from "../thread/control.js";
 import { cmdRun } from "../thread/run.js";
 
+async function buildThreadDetailRecords(
+  storageRoot: string,
+  resolved: ResolvedThreadRecord,
+): Promise<unknown[]> {
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const frames = await walkStateFramesNewestFirst(cas, resolved.head);
+  const chronological = [...frames].reverse();
+
+  const records: unknown[] = [
+    {
+      type: "thread-start",
+      threadId: resolved.threadId,
+      bundleHash: resolved.bundleHash,
+      head: resolved.head,
+      start: resolved.start,
+      source: resolved.source,
+    },
+  ];
+
+  for (const fr of chronological) {
+    if (fr.payload.role === FORK_BRANCH_ROLE) {
+      continue;
+    }
+    if (fr.payload.role === END) {
+      const returnCode = fr.payload.meta.returnCode;
+      const summary = fr.payload.meta.summary;
+      if (typeof returnCode === "number" && typeof summary === "string") {
+        records.push({ type: "workflow-result", returnCode, summary });
+      }
+      continue;
+    }
+    const payloadText = await getContentMerklePayload(cas, fr.payload.content);
+    const content =
+      payloadText !== null
+        ? payloadText
+        : `(content not in CAS; contentHash=${fr.payload.content})`;
+    records.push({
+      type: "role",
+      role: fr.payload.role,
+      contentHash: fr.payload.content,
+      content,
+      meta: fr.payload.meta,
+      timestamp: fr.payload.timestamp,
+    });
+  }
+
+  return records;
+}
+
 export function createThreadRoutes(storageRoot: string): Hono {
   const app = new Hono();
 
   app.get("/", async (c) => {
     const nameFilter = c.req.query("workflow") ?? null;
     const rows = await listHistoricalThreads(storageRoot, nameFilter);
-    return c.json({ threads: rows });
+    const threads = await Promise.all(
+      rows.map(async (r) => {
+        const runningPath = join(storageRoot, "logs", r.hash, `${r.threadId}.running`);
+        const isRunning = await pathExists(runningPath);
+        const status = r.source === "history" ? "completed" : isRunning ? "running" : "active";
+        return {
+          threadId: r.threadId,
+          workflow: r.workflowName,
+          hash: r.hash,
+          startedAt: new Date(r.activityTs).toISOString(),
+          status,
+        };
+      }),
+    );
+    return c.json({ threads });
   });
 
   app.get("/running", async (c) => {
@@ -32,42 +98,7 @@ export function createThreadRoutes(storageRoot: string): Hono {
     if (resolved === null) {
       return c.json({ error: `thread not found: ${threadId}` }, 404);
     }
-
-    const cas = createCasStore(getGlobalCasDir(storageRoot));
-    const frames = await walkStateFramesNewestFirst(cas, resolved.head);
-    const chronological = [...frames].reverse();
-
-    const records: unknown[] = [
-      {
-        type: "thread-start",
-        threadId: resolved.threadId,
-        bundleHash: resolved.bundleHash,
-        head: resolved.head,
-        start: resolved.start,
-        source: resolved.source,
-      },
-    ];
-
-    for (const fr of chronological) {
-      if (fr.payload.role === FORK_BRANCH_ROLE) {
-        continue;
-      }
-      if (fr.payload.role === END) {
-        const returnCode = fr.payload.meta.returnCode;
-        const summary = fr.payload.meta.summary;
-        if (typeof returnCode === "number" && typeof summary === "string") {
-          records.push({ type: "workflow-result", returnCode, summary });
-        }
-        continue;
-      }
-      records.push({
-        role: fr.payload.role,
-        contentHash: fr.payload.content,
-        meta: fr.payload.meta,
-        timestamp: fr.payload.timestamp,
-      });
-    }
-
+    const records = await buildThreadDetailRecords(storageRoot, resolved);
     return c.json({ threadId, records });
   });
 

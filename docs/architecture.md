@@ -189,11 +189,15 @@ type WorkflowFn = (
 ├── cas/                           # Global content-addressed blobs (see getGlobalCasDir)
 ├── bundles/
 │   ├── C9NMV6V2TQT81.esm.js       # Crockford Base32 of XXH64
-│   └── C9NMV6V2TQT81.yaml         # Role descriptor sidecar (when present)
+│   ├── C9NMV6V2TQT81.yaml         # Role descriptor sidecar (when present)
+│   └── C9NMV6V2TQT81/             # Per-hash bundle dir (alongside or instead of loose files)
+│       ├── threads.json           # Active threads: threadId → { head, start, updatedAt }
+│       └── history/
+│           └── 2026-05-09.jsonl   # Completed threads (one JSON object per line)
 ├── logs/                          # One folder per bundle hash
 │   └── C9NMV6V2TQT81/
-│       ├── 01KQXKW…YG.data.jsonl  # Thread state
-│       └── 01KQXKW…YG.info.jsonl  # Debug log
+│       ├── 01KQXKW…YG.running     # Present while worker executes this thread (optional)
+│       └── 01KQXKW…YG.info.jsonl   # Debug log
 └── workflow.yaml                  # Registry
 ```
 
@@ -207,18 +211,13 @@ type WorkflowFn = (
 
 Managed by `@uncaged/workflow-register` (`readWorkflowRegistry`, `writeWorkflowRegistry`, …). Shape includes workflow entries and a top-level `config` section used for extract/supervisor model resolution.
 
-### Thread JSONL
+### Thread storage (CAS + index)
 
-**`.data.jsonl`** — Line 1: start record; following lines: role steps with CAS-backed content.
+Thread execution state is a chain of immutable CAS nodes (`StartNode`, `StateNode`, content Merkle blobs). Per bundle:
 
-```jsonc
-// Start record
-{ "name": "solve-issue", "hash": "C9NMV6V2TQT81", "threadId": "01KQXKW…",
-  "parameters": { "prompt": "Fix bug #3", "options": { "maxRounds": 5 } },
-  "timestamp": 1714963200000 }
-// Role output (engine persists contentHash + refs; body in ~/.uncaged/workflow/cas/)
-{ "role": "planner", "contentHash": "…", "meta": { "phases": [...] }, "refs": ["…"], "timestamp": ... }
-```
+- **`threads.json`** — only in-flight threads (`head`, `start`, `updatedAt`).
+- **`history/{YYYY-MM-DD}.jsonl`** — completed threads (`threadId`, `head`, `start`, `completedAt`).
+- **CAS (`cas/`)** — payloads and refs for replay, GC, and fork sharing.
 
 **`.info.jsonl`** — Structured debug log via `@uncaged/workflow-util` `createLogger`:
 

@@ -10,7 +10,7 @@ This monorepo implements a workflow engine that executes single-file ESM bundles
 |---------|-----------|
 | **Workflow** | A single-file ESM module that exports `run` (workflow function) and `descriptor` (metadata). Identified by its XXH64 hash (Crockford Base32). |
 | **Bundle** | The physical `.esm.js` file stored in `~/.uncaged/workflow/bundles/`. |
-| **Thread** | A single execution of a workflow, identified by a ULID. Persisted as `.data.jsonl` + `.info.jsonl`. |
+| **Thread** | A single execution of a workflow, identified by a ULID. State lives in CAS (linked nodes); active threads indexed in `threads.json`; completed rows in `history/*.jsonl`. Debug logs use `.info.jsonl`. |
 | **Role** | A named actor within a workflow. Each role produces output with typed `meta`. |
 | **Registry** | `workflow.yaml` — maps workflow names to current/historical bundle hashes. |
 

@@ -136,6 +136,7 @@ async function emitRecordsForHead(params: {
     await params.stream.writeSSE({
       event: "record",
       data: JSON.stringify({
+        type: "role",
         role: fr.payload.role,
         contentHash: fr.payload.content,
         content,
@@ -309,7 +310,7 @@ export function createLiveRoutes(storageRoot: string): Hono {
       const controller = new AbortController();
       let completed = false;
 
-      const dataWatcher = watch(threadsJsonPath, async () => {
+      const threadsJsonWatcher = watch(threadsJsonPath, async () => {
         if (completed) {
           return;
         }
@@ -334,7 +335,7 @@ export function createLiveRoutes(storageRoot: string): Hono {
 
       stream.onAbort(() => {
         completed = true;
-        dataWatcher.close();
+        threadsJsonWatcher.close();
         infoWatcher?.close();
       });
 
@@ -347,7 +348,7 @@ export function createLiveRoutes(storageRoot: string): Hono {
         stream.onAbort(() => resolve());
       });
 
-      dataWatcher.close();
+      threadsJsonWatcher.close();
       infoWatcher?.close();
     });
   });

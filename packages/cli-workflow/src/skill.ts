@@ -70,8 +70,8 @@ function formatSkillCli(): string {
 |---------|-------------|
 | **Workflow** | A single-file ESM bundle (\`.esm.js\`) that exports \`run\` and \`descriptor\`. Identified by name and XXH64 hash. |
 | **Bundle** | The physical \`.esm.js\` file stored in the bundles directory. Immutable once written. |
-| **Thread** | A single execution of a workflow, identified by a ULID. Persists state as JSONL files. |
-| **CAS** | Content-Addressable Storage. Per-thread key-value store keyed by content hash. |
+| **Thread** | A single execution of a workflow, identified by a ULID. CAS state chain; \`threads.json\` for active; \`history/*.jsonl\` when done; \`.info.jsonl\` for debug logs. |
+| **CAS** | Global content-addressable blob store (\`cas/\`), keyed by hash. |
 | **Registry** | \`workflow.yaml\` — maps workflow names to their current and historical bundle hashes. |
 
 ## Commands

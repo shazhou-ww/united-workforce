@@ -8,7 +8,7 @@ A workflow engine that executes single-file ESM bundles. Each workflow is a self
 |---------|-------------|
 | **Workflow** | A single-file ESM module exporting `run` (workflow function) and `descriptor` (metadata). Identified by its XXH64 hash. |
 | **Bundle** | The physical `.esm.js` file stored in `~/.uncaged/workflow/bundles/`. |
-| **Thread** | A single execution of a workflow, identified by a ULID. Persisted as `.data.jsonl` + `.info.jsonl`. |
+| **Thread** | A single execution of a workflow, identified by a ULID. CAS-backed chain plus `threads.json` / `history/*.jsonl`; `.info.jsonl` for debug logs. |
 | **Role** | A named actor within a workflow. Each role produces output with typed `meta`. Roles live inside template packages (`src/roles/`). |
 | **Registry** | `workflow.yaml` — maps workflow names to current/historical bundle hashes. |
 | **CAS** | Content-Addressed Storage — bundles are immutable and addressed by hash. |
