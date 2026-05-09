@@ -80,7 +80,7 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
 
       <h2 className="text-xl font-semibold mb-2 font-mono flex items-center gap-2 flex-wrap">
         <span>{threadId}</span>
-        {sse.connected && (
+        {sse.connected && !sse.completed && (
           <span
             className="text-xs font-medium px-2 py-0.5 rounded"
             style={{ background: "var(--color-success)", color: "var(--color-bg)" }}

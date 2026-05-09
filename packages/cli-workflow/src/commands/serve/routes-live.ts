@@ -1,4 +1,4 @@
-import { statSync, watch } from "node:fs";
+import { existsSync, statSync, watch } from "node:fs";
 import { join } from "node:path";
 import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import {
@@ -304,6 +304,12 @@ export function createLiveRoutes(storageRoot: string): Hono {
         // optional info file
       }
       if (done) {
+        return;
+      }
+
+      // If thread is not actively running, emit all records and close — don't keep SSE open
+      const runningPath = join(storageRoot, "logs", threadTarget.bundleHash, `${threadId}.running`);
+      if (!existsSync(runningPath)) {
         return;
       }
 
