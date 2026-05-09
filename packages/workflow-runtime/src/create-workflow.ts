@@ -1,6 +1,7 @@
 import type * as z from "zod/v4";
 
 import {
+  type AdvanceOutcome,
   type AgentBinding,
   type AgentContext,
   type AgentFn,
@@ -47,10 +48,6 @@ function agentForRole(binding: AgentBinding, roleName: string): AgentFn {
     overrides !== null ? overrides[roleName as keyof typeof overrides] : undefined;
   return overrideFn !== undefined ? overrideFn : binding.agent;
 }
-
-type AdvanceOutcome<M extends RoleMeta> =
-  | { kind: "complete"; completion: WorkflowCompletion }
-  | { kind: "yield"; output: RoleOutput; step: RoleStep<M> };
 
 async function advanceOneRound<M extends RoleMeta>(
   def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
