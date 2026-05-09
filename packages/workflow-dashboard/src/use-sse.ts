@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import type { ThreadRecord } from "./api.ts";
+import { getApiKey } from "./api.ts";
 
 export type UseSSEReturn = {
   records: ThreadRecord[];
@@ -58,10 +59,11 @@ function handleRecordEvent(ev: Event, ctx: RecordEventContext): void {
 
 function sseUrl(agent: string, threadId: string): string {
   const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "";
+  const key = getApiKey();
+  const keyParam = key ? `?key=${encodeURIComponent(key)}` : "";
   if (gatewayUrl) {
-    return `${gatewayUrl}/api/${agent}/threads/${encodeURIComponent(threadId)}/live`;
+    return `${gatewayUrl}/api/${agent}/threads/${encodeURIComponent(threadId)}/live${keyParam}`;
   }
-  // Local dev: use vite proxy
   return `/api/threads/${encodeURIComponent(threadId)}/live`;
 }
 

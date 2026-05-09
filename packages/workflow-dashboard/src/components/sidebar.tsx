@@ -8,9 +8,10 @@ type Props = {
   agent: string | null;
   onViewChange: (v: "threads" | "workflows") => void;
   onAgentChange: (a: string | null) => void;
+  onLogout: () => void;
 };
 
-export function Sidebar({ view, agent, onViewChange, onAgentChange }: Props) {
+export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: Props) {
   const { status, data } = useFetch(() => listAgents(), []);
   const [expanded, setExpanded] = useState(true);
 
@@ -97,6 +98,17 @@ export function Sidebar({ view, agent, onViewChange, onAgentChange }: Props) {
           </button>
         ))}
       </nav>
+
+      <div className="p-2 border-t" style={{ borderColor: "var(--color-border)" }}>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full text-left px-3 py-2 rounded text-xs transition-colors"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          🚪 Logout
+        </button>
+      </div>
     </aside>
   );
 }

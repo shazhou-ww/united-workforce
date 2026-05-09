@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { hasApiKey, clearApiKey } from "./api.ts";
+import { LoginPage } from "./components/login.tsx";
 import { RunDialog } from "./components/run-dialog.tsx";
 import { Sidebar } from "./components/sidebar.tsx";
 import { StatusBar } from "./components/status-bar.tsx";
@@ -8,12 +10,17 @@ import { WorkflowList } from "./components/workflow-list.tsx";
 import { useHashRoute } from "./use-hash-route.ts";
 
 export function App() {
+  const [authed, setAuthed] = useState(hasApiKey());
   const { view, agent, threadId, setView, setAgent, setThreadId } = useHashRoute();
   const [showRun, setShowRun] = useState(false);
 
+  if (!authed) {
+    return <LoginPage onLogin={() => setAuthed(true)} />;
+  }
+
   return (
     <div className="flex h-screen">
-      <Sidebar view={view} agent={agent} onViewChange={setView} onAgentChange={setAgent} />
+      <Sidebar view={view} agent={agent} onViewChange={setView} onAgentChange={setAgent} onLogout={() => { clearApiKey(); setAuthed(false); }} />
       <main className="flex-1 overflow-hidden flex flex-col">
         <StatusBar agent={agent} onRun={() => setShowRun(true)} />
         <div className="flex-1 overflow-auto p-6">

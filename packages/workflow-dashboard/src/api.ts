@@ -1,5 +1,31 @@
 const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "";
 
+export function getApiKey(): string | null {
+  try {
+    return localStorage.getItem("workflow-api-key");
+  } catch {
+    return null;
+  }
+}
+
+export function setApiKey(key: string): void {
+  localStorage.setItem("workflow-api-key", key);
+}
+
+export function clearApiKey(): void {
+  localStorage.removeItem("workflow-api-key");
+}
+
+export function hasApiKey(): boolean {
+  return getApiKey() !== null && getApiKey() !== "";
+}
+
+function authHeaders(): Record<string, string> {
+  const key = getApiKey();
+  if (key) return { Authorization: `Bearer ${key}` };
+  return {};
+}
+
 function agentBase(agent: string): string {
   if (GATEWAY_URL) {
     return `${GATEWAY_URL}/api/${agent}`;
@@ -11,7 +37,7 @@ function agentBase(agent: string): string {
 async function postJson<T>(base: string, path: string, body: unknown): Promise<T> {
   const res = await fetch(`${base}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -22,7 +48,7 @@ async function postJson<T>(base: string, path: string, body: unknown): Promise<T
 }
 
 async function fetchJson<T>(base: string, path: string): Promise<T> {
-  const res = await fetch(`${base}${path}`);
+  const res = await fetch(`${base}${path}`, { headers: authHeaders() });
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${path}`);
   }

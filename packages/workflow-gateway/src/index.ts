@@ -5,6 +5,7 @@ type Env = {
   Bindings: {
     ENDPOINTS: KVNamespace;
     GATEWAY_SECRET: string;
+    DASHBOARD_API_KEY: string;
   };
 };
 
@@ -20,6 +21,23 @@ const TTL_SECONDS = 300; // 5 min — offline if no heartbeat
 const app = new Hono<Env>();
 
 app.use("*", cors());
+
+// ── Dashboard API key auth (skip healthz + register) ─────────────
+app.use("/endpoints", async (c, next) => {
+  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
+  await next();
+});
+app.use("/api/*", async (c, next) => {
+  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
+  await next();
+});
+
+function checkDashboardAuth(c: { req: { header: (n: string) => string | undefined; query: (n: string) => string | undefined }; env: Env["Bindings"] }): boolean {
+  const bearer = c.req.header("Authorization")?.replace("Bearer ", "");
+  const query = c.req.query("key");
+  const key = bearer ?? query;
+  return key === c.env.DASHBOARD_API_KEY;
+}
 
 // ── Health ──────────────────────────────────────────────────────────
 app.get("/healthz", (c) => c.json({ ok: true }));
