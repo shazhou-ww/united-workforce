@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { AgentEndpoint } from "../api.ts";
 import { listAgents } from "../api.ts";
 import { useFetch } from "../hooks.ts";
@@ -14,6 +15,14 @@ export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: 
   const { status, data } = useFetch(() => listAgents(), []);
 
   const agents: AgentEndpoint[] = status === "ok" ? data : [];
+
+  // Auto-select first agent when none is selected
+  useEffect(() => {
+    if (agent === null && agents.length > 0) {
+      onAgentChange(agents[0].name);
+    }
+  }, [agent, agents, onAgentChange]);
+
   const viewItems = [
     { key: "threads" as const, label: "Threads", icon: "⚡" },
     { key: "workflows" as const, label: "Workflows", icon: "📦" },
@@ -59,14 +68,11 @@ export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: 
           ) : agents.length === 0 ? (
             <option value="">No agents online</option>
           ) : (
-            <>
-              <option value="">All agents</option>
-              {agents.map((a) => (
-                <option key={a.name} value={a.name}>
-                  {a.status === "online" ? "🟢" : "🔴"} {a.name}
-                </option>
-              ))}
-            </>
+            agents.map((a) => (
+              <option key={a.name} value={a.name}>
+                {a.status === "online" ? "🟢" : "🔴"} {a.name}
+              </option>
+            ))
           )}
         </select>
       </div>
