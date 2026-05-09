@@ -39,12 +39,13 @@ export async function registerWithGateway(
   name: string,
   tunnelUrl: string,
   secret: string,
+  agentToken: string,
 ): Promise<boolean> {
   try {
     const resp = await fetch(`${gatewayUrl}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, url: tunnelUrl, secret }),
+      body: JSON.stringify({ name, url: tunnelUrl, secret, agentToken }),
     });
     if (!resp.ok) {
       const body = await resp.text();
@@ -78,9 +79,10 @@ export function startHeartbeat(
   name: string,
   tunnelUrl: string,
   secret: string,
+  agentToken: string,
   intervalMs: number,
 ): ReturnType<typeof setInterval> {
   return setInterval(() => {
-    registerWithGateway(gatewayUrl, name, tunnelUrl, secret).catch(() => {});
+    registerWithGateway(gatewayUrl, name, tunnelUrl, secret, agentToken).catch(() => {});
   }, intervalMs);
 }

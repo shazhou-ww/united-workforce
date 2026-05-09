@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { hostname as osHostname } from "node:os";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import { serve } from "bun";
@@ -15,8 +16,8 @@ import type { ServeOptions } from "./types.js";
 const DEFAULT_GATEWAY_URL = "https://workflow-gateway.shazhou.workers.dev";
 const HEARTBEAT_INTERVAL_MS = 60_000;
 
-export function startServer(storageRoot: string, options: ServeOptions): void {
-  const app = createApp(storageRoot);
+export function startServer(storageRoot: string, options: ServeOptions, agentToken: string | null): void {
+  const app = createApp(storageRoot, agentToken);
 
   const server = serve({
     fetch: app.fetch,
@@ -93,7 +94,8 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
   }
 
   const options = parsed.value;
-  startServer(storageRoot, options);
+  const agentToken = options.noTunnel ? null : randomUUID();
+  startServer(storageRoot, options, agentToken);
 
   if (options.noTunnel) {
     printCliLine("tunnel disabled (--no-tunnel)");
@@ -120,6 +122,7 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
       options.name,
       tunnel.url,
       options.gatewaySecret,
+      agentToken!,
     );
     if (registered) {
       printCliLine(`registered with gateway as "${options.name}"`);
@@ -131,6 +134,7 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
       options.name,
       tunnel.url,
       options.gatewaySecret,
+      agentToken!,
       HEARTBEAT_INTERVAL_MS,
     );
 

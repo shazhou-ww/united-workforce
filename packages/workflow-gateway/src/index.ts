@@ -12,6 +12,7 @@ type Env = {
 type EndpointRecord = {
   name: string;
   url: string;
+  agentToken: string;
   registeredAt: number;
   lastHeartbeat: number;
 };
@@ -44,8 +45,8 @@ app.get("/healthz", (c) => c.json({ ok: true }));
 
 // ── Register / heartbeat ────────────────────────────────────────────
 app.post("/register", async (c) => {
-  const body = await c.req.json<{ name?: string; url?: string; secret?: string }>();
-  const { name, url, secret } = body;
+  const body = await c.req.json<{ name?: string; url?: string; secret?: string; agentToken?: string }>();
+  const { name, url, secret, agentToken } = body;
 
   if (!name || !url) {
     return c.json({ error: "name and url required" }, 400);
@@ -60,6 +61,7 @@ app.post("/register", async (c) => {
   const record: EndpointRecord = {
     name,
     url: url.replace(/\/+$/, ""), // strip trailing slash
+    agentToken: agentToken ?? existing?.agentToken ?? "",
     registeredAt: existing?.registeredAt ?? now,
     lastHeartbeat: now,
   };
@@ -119,9 +121,12 @@ app.all("/api/:agent/*", async (c) => {
   const pathAfterAgent = url.pathname.replace(`/api/${agent}`, "");
   const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
 
-  // Forward headers (skip host)
   const headers = new Headers(c.req.raw.headers);
   headers.delete("host");
+  headers.delete("Authorization"); // don't forward dashboard key to agent
+  if (record.agentToken) {
+    headers.set("X-Agent-Token", record.agentToken);
+  }
 
   try {
     const resp = await fetch(targetUrl, {
