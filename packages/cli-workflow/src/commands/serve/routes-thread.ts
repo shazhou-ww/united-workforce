@@ -42,7 +42,7 @@ async function buildThreadDetailRecords(
       const returnCode = fr.payload.meta.returnCode;
       const summary = fr.payload.meta.summary;
       if (typeof returnCode === "number" && typeof summary === "string") {
-        records.push({ type: "workflow-result", returnCode, summary });
+        records.push({ type: "workflow-result", role: null, content: summary, timestamp: null, returnCode });
       }
       continue;
     }

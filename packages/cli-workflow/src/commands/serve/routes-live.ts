@@ -118,7 +118,7 @@ async function emitRecordsForHead(params: {
         params.eventId.n++;
         await params.stream.writeSSE({
           event: "record",
-          data: JSON.stringify({ type: "workflow-result", ...wf }),
+          data: JSON.stringify({ type: "workflow-result", role: null, content: wf.summary, timestamp: null, returnCode: wf.returnCode }),
           id: String(params.eventId.n),
         });
         return true;
