@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { pathExists } from "../../fs-utils.js";
 import type { CmdInitWorkspaceSuccess } from "./types.js";
@@ -28,7 +28,7 @@ function workflowsPackageJson(): string {
       private: true,
       type: "module",
       dependencies: {
-        "@uncaged/workflow": "^0.1.0",
+        "@uncaged/workflow-runtime": "^0.1.0",
         zod: "^4.0.0",
       },
     },

@@ -6,7 +6,6 @@ export function templatePackageJson(templateName: string): string {
       private: true,
       type: "module",
       dependencies: {
-        "@uncaged/workflow": "^0.1.0",
         "@uncaged/workflow-runtime": "^0.1.0",
         zod: "^4.0.0",
       },

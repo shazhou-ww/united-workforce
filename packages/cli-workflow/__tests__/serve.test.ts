@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow";
+import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow-cas";
 
 import { createApp } from "../src/commands/serve/app.js";
 

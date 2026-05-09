@@ -38,7 +38,11 @@ function isAllowedImportSpecifier(spec: string): boolean {
   if (spec.startsWith(".") || spec.startsWith("/") || spec.startsWith("file:")) {
     return false;
   }
-  if (spec === "@uncaged/workflow" || spec === "@uncaged/workflow-runtime") {
+  if (
+    spec === "@uncaged/workflow" ||
+    spec === "@uncaged/workflow-runtime" ||
+    spec === "@uncaged/workflow-cas"
+  ) {
     return true;
   }
   return isBuiltin(spec);
@@ -294,7 +298,7 @@ function validateImportDeclaration(node: ImportDeclaration): string | null {
     return "only static string import specifiers are allowed";
   }
   if (!isAllowedImportSpecifier(spec)) {
-    return `disallowed import specifier "${spec}" (only Node built-ins and "@uncaged/workflow" are allowed)`;
+    return `disallowed import specifier "${spec}" (only Node built-ins and @uncaged/workflow-* packages are allowed)`;
   }
   return null;
 }
@@ -309,7 +313,7 @@ function validateExportSource(
     return staticMessage;
   }
   if (!isAllowedImportSpecifier(spec)) {
-    return `${disallowedPrefix} "${spec}" (only Node built-ins and "@uncaged/workflow" are allowed)`;
+    return `${disallowedPrefix} "${spec}" (only Node built-ins and @uncaged/workflow-* packages are allowed)`;
   }
   return null;
 }

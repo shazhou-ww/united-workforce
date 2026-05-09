@@ -3,13 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  createContentMerkleNode,
-  getGlobalCasDir,
-  getRegisteredWorkflow,
-  readWorkflowRegistry,
-  serializeMerkleNode,
-} from "@uncaged/workflow";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
+import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow-cas";
+import { getRegisteredWorkflow, readWorkflowRegistry } from "@uncaged/workflow-register";
 import { cmdCasGet, cmdCasList, cmdCasPut, cmdCasRm } from "../src/commands/cas/index.js";
 import {
   cmdAdd,
@@ -25,7 +21,7 @@ import { addCliArgs } from "./bundle-fixture.js";
 const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };
 `;
 
-const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
+const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
 `;
 
 function casStoredForm(raw: string): string {

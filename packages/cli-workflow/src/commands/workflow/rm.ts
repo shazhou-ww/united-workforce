@@ -1,11 +1,9 @@
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import {
-  err,
-  ok,
-  type Result,
   readWorkflowRegistry,
   unregisterWorkflow,
   writeWorkflowRegistry,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-register";
 
 import { validateCliWorkflowName } from "../../workflow-name.js";
 

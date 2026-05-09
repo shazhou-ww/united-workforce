@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCasStore, getContentMerklePayload, getGlobalCasDir } from "@uncaged/workflow";
+import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdFork, cmdRun } from "../src/commands/thread/index.js";
 import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists } from "../src/fs-utils.js";
@@ -10,7 +11,7 @@ import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
-const threeRoleBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow";
+const threeRoleBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
 
 export const descriptor = {
   description: "fork-cli",

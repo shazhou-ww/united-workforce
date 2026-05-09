@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { listHistoricalThreads } from "../../thread-scan.js";
 import { validateCliWorkflowName } from "../../workflow-name.js";

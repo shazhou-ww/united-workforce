@@ -1,7 +1,8 @@
 import { unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { err, garbageCollectCas, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { garbageCollectCas } from "@uncaged/workflow-execute";
 
 import { resolveThreadDataPath } from "../../thread-scan.js";
 

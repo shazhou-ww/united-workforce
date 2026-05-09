@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getGlobalCasDir } from "@uncaged/workflow";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdCasPut } from "../src/commands/cas/index.js";
 import {
   cmdKill,
@@ -21,7 +21,7 @@ import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
 import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
-const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow";
+const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
 `;
 
 const threadFixtureDescriptor = `export const descriptor = {

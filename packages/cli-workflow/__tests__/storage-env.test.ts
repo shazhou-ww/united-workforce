@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { getDefaultWorkflowStorageRoot } from "@uncaged/workflow";
+import { getDefaultWorkflowStorageRoot } from "@uncaged/workflow-util";
 import { resolveWorkflowStorageRoot } from "../src/storage-env.js";
 
 describe("resolveWorkflowStorageRoot", () => {

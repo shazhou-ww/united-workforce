@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@uncaged/workflow";
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 const WORKFLOW_NAME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 

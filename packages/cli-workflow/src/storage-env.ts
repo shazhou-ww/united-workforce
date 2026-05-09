@@ -1,4 +1,4 @@
-import { getDefaultWorkflowStorageRoot } from "@uncaged/workflow";
+import { getDefaultWorkflowStorageRoot } from "@uncaged/workflow-util";
 
 /**
  * Resolve storage root with env var override support.

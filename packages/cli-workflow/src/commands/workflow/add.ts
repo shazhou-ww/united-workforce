@@ -1,18 +1,16 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
+import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { hashWorkflowBundleBytes } from "@uncaged/workflow-cas";
 import {
-  err,
   extractBundleExports,
-  hashWorkflowBundleBytes,
-  ok,
-  type Result,
   readWorkflowRegistry,
   registerWorkflowVersion,
   stringifyWorkflowDescriptor,
   validateWorkflowBundle,
   writeWorkflowRegistry,
-} from "@uncaged/workflow";
+} from "@uncaged/workflow-register";
 
 import { storeWorkflowBundleArtifacts } from "../../bundle-store.js";
 import { validateCliWorkflowName } from "../../workflow-name.js";
