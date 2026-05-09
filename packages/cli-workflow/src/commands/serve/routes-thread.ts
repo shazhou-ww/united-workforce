@@ -27,10 +27,7 @@ async function readStartInfo(
   const promptHash = parsed.node.refs[0] ?? null;
   let prompt: string | null = null;
   if (promptHash !== null) {
-    const promptYaml = await cas.get(promptHash);
-    if (promptYaml !== null) {
-      prompt = promptYaml;
-    }
+    prompt = await getContentMerklePayload(cas, promptHash);
   }
   return { name, prompt };
 }
