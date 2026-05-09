@@ -15,15 +15,24 @@ import {
 import { cmdKill, cmdPause, cmdResume } from "../thread/control.js";
 import { cmdRun } from "../thread/run.js";
 
-async function readWorkflowName(
+async function readStartInfo(
   cas: ReturnType<typeof createCasStore>,
   startHash: string,
-): Promise<string | null> {
+): Promise<{ name: string | null; prompt: string | null }> {
   const raw = await cas.get(startHash);
-  if (raw === null) return null;
+  if (raw === null) return { name: null, prompt: null };
   const parsed = parseCasThreadNode(raw);
-  if (parsed === null || parsed.kind !== "start") return null;
-  return parsed.node.payload.name;
+  if (parsed === null || parsed.kind !== "start") return { name: null, prompt: null };
+  const name = parsed.node.payload.name;
+  const promptHash = parsed.node.refs[0] ?? null;
+  let prompt: string | null = null;
+  if (promptHash !== null) {
+    const promptYaml = await cas.get(promptHash);
+    if (promptYaml !== null) {
+      prompt = promptYaml;
+    }
+  }
+  return { name, prompt };
 }
 
 async function buildThreadDetailRecords(
@@ -34,7 +43,7 @@ async function buildThreadDetailRecords(
   const frames = await walkStateFramesNewestFirst(cas, resolved.head);
   const chronological = [...frames].reverse();
 
-  const workflowName = await readWorkflowName(cas, resolved.start);
+  const { name: workflowName, prompt } = await readStartInfo(cas, resolved.start);
 
   const records: unknown[] = [
     {
@@ -44,7 +53,8 @@ async function buildThreadDetailRecords(
         `workflow: ${workflowName ?? "unknown"}`,
         `thread: ${resolved.threadId}`,
         `status: ${resolved.source}`,
-      ].join("\n"),
+        prompt !== null ? `\nprompt: ${prompt}` : null,
+      ].filter(Boolean).join("\n"),
       timestamp: null,
       threadId: resolved.threadId,
       bundleHash: resolved.bundleHash,
