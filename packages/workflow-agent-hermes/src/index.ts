@@ -6,7 +6,6 @@ import { validateHermesAgentConfig } from "./validate-config.js";
 
 const HERMES_DEFAULT_MAX_TURNS = 90;
 
-export { buildAgentPrompt } from "@uncaged/workflow-util-agent";
 export type { HermesAgentConfig } from "./types.js";
 export { validateHermesAgentConfig } from "./validate-config.js";
 

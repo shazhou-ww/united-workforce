@@ -9,9 +9,6 @@ import { createThreadDispatcher, dispatchLive, dispatchRun } from "./commands/th
 import { createWorkflowDispatcher } from "./commands/workflow/index.js";
 import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "./skill.js";
 
-export type { CommandEntry, CommandGroup, DispatchFn } from "./cli-command-types.js";
-export { getCommandRegistry } from "./cli-registry.js";
-
 function dispatchGroup(
   tableName: string,
   table: Record<string, CommandEntry>,

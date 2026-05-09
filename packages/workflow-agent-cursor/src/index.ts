@@ -5,7 +5,6 @@ import * as z from "zod/v4";
 import type { CursorAgentConfig } from "./types.js";
 import { validateCursorAgentConfig } from "./validate-config.js";
 
-export { buildAgentPrompt } from "@uncaged/workflow-util-agent";
 export type { CursorAgentConfig } from "./types.js";
 export { validateCursorAgentConfig } from "./validate-config.js";
 
