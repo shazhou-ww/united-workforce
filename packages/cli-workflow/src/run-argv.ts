@@ -34,7 +34,7 @@ function parseFlagAt(argv: string[], index: number): Result<FlagOk, string> | nu
 export function parseRunArgv(argv: string[]): Result<ParsedRunArgv, string> {
   let name: string | undefined;
   let prompt = "";
-  let maxRounds = 5;
+  let maxRounds = 10;
 
   let i = 0;
   const first = argv[0];

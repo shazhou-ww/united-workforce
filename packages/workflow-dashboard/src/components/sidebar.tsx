@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { AgentEndpoint } from "../api.ts";
 import { listAgents } from "../api.ts";
 import { useFetch } from "../hooks.ts";
@@ -13,7 +12,6 @@ type Props = {
 
 export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: Props) {
   const { status, data } = useFetch(() => listAgents(), []);
-  const [expanded, setExpanded] = useState(true);
 
   const agents: AgentEndpoint[] = status === "ok" ? data : [];
   const viewItems = [
@@ -36,49 +34,41 @@ export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: 
       </div>
 
       {/* Agent selector */}
-      <div className="border-b" style={{ borderColor: "var(--color-border)" }}>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="w-full text-left px-4 py-2 text-xs font-medium"
+      <div className="px-4 py-3 border-b" style={{ borderColor: "var(--color-border)" }}>
+        <label
+          className="block text-xs font-medium mb-1"
           style={{ color: "var(--color-text-muted)" }}
+          htmlFor="agent-select"
         >
-          {expanded ? "▾" : "▸"} Agents
-          {agent && (
-            <span className="ml-2 text-xs" style={{ color: "var(--color-accent)" }}>
-              ({agent})
-            </span>
+          Agent
+        </label>
+        <select
+          id="agent-select"
+          className="w-full rounded px-2 py-1.5 text-xs"
+          style={{
+            background: "var(--color-bg)",
+            color: "var(--color-text)",
+            border: "1px solid var(--color-border)",
+          }}
+          value={agent ?? ""}
+          onChange={(e) => onAgentChange(e.target.value || null)}
+          disabled={status === "loading"}
+        >
+          {status === "loading" ? (
+            <option value="">Loading…</option>
+          ) : agents.length === 0 ? (
+            <option value="">No agents online</option>
+          ) : (
+            <>
+              <option value="">All agents</option>
+              {agents.map((a) => (
+                <option key={a.name} value={a.name}>
+                  {a.status === "online" ? "🟢" : "🔴"} {a.name}
+                </option>
+              ))}
+            </>
           )}
-        </button>
-        {expanded && (
-          <div className="px-2 pb-2 space-y-0.5">
-            {agents.length === 0 && (
-              <p className="text-xs px-2 py-1" style={{ color: "var(--color-text-muted)" }}>
-                {status === "loading" ? "Loading..." : "No agents online"}
-              </p>
-            )}
-            {agents.map((a) => (
-              <button
-                type="button"
-                key={a.name}
-                onClick={() => onAgentChange(a.name)}
-                className="w-full text-left px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-2"
-                style={{
-                  background: agent === a.name ? "var(--color-accent-dim)" : "transparent",
-                  color: agent === a.name ? "#fff" : "var(--color-text-muted)",
-                }}
-              >
-                <span
-                  className="inline-block w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background: a.status === "online" ? "var(--color-success)" : "var(--color-error)",
-                  }}
-                />
-                {a.name}
-              </button>
-            ))}
-          </div>
-        )}
+        </select>
       </div>
 
       {/* View navigation */}
