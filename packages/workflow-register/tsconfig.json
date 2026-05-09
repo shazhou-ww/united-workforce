@@ -1,0 +1,25 @@
+{
+  "references": [
+    { "path": "../workflow-protocol" },
+    { "path": "../workflow-util" }
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["bun-types"]
+  },
+  "include": ["src/**/*.ts"]
+}
