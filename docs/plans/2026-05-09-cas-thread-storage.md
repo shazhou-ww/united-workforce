@@ -54,31 +54,29 @@ CAS blob:
   payload: {
     role: "coder",
     meta: { ... },
+    start: "<start_hash>",
+    content: "<content_merkle_hash>",
+    ancestors: ["<parent_hash>", "<grandparent_hash>", ...],
+    compact: null,
     timestamp: 1234567890
   },
-  refs: [
-    <start_hash>,       // refs[0]: always the StartNode
-    <parent_hash>,      // refs[1]: previous StateNode (null for first step)
-    <content_hash>,     // refs[2]: content Merkle node (carries role artifact refs)
-    ...ancestors,       // refs[3..N]: skip-list of up to 10 ancestor StateNode hashes
-  ]
+  refs: [<start_hash>, <content_hash>, <parent_hash>, ...]
 }
 ```
 
-**Fixed ref positions:**
+**Payload is the source of truth.** Application code reads named fields from payload. `refs[]` is a **GC index** — automatically derived from payload by collecting all CAS hashes. GC only scans `refs[]` without understanding payload structure.
 
-| Index | Meaning | Nullable |
-|-------|---------|----------|
-| 0 | StartNode hash | No |
-| 1 | Parent StateNode hash | Yes (null for first step after start) |
-| 2 | Content Merkle node hash | No |
-| 3+ | Ancestor skip-list (≤ 10 most recent ancestors, newest first) | Optional |
-
-**Optional payload fields:**
+**Payload fields:**
 
 | Field | Type | Meaning |
 |-------|------|---------|
+| `role` | `string` | Role name, or `"__end__"` for completion |
+| `meta` | `object` | Structured metadata extracted from agent output |
+| `start` | `string` | StartNode hash |
+| `content` | `string` | Content Merkle node hash (carries role artifact refs) |
+| `ancestors` | `string[]` | `[parent, grandparent, ...]` — up to 11 entries (1 parent + 10 skip-list). Empty for first step after start. `ancestors[0]` is the direct parent. |
 | `compact` | `string \| null` | CAS hash of a compacted summary of all nodes before this one. When present, LLM context assembly can use this instead of walking the full chain. |
+| `timestamp` | `number` | Unix timestamp in ms |
 
 ### Content Merkle Node
 
@@ -121,9 +119,13 @@ An end is just a StateNode with `role: "__end__"`:
   payload: {
     role: "__end__",
     meta: { returnCode: 0, summary: "completed successfully" },
+    start: "<start_hash>",
+    content: "<content_hash>",
+    ancestors: ["<parent_hash>", ...],
+    compact: null,
     timestamp: 1234567891
   },
-  refs: [<start_hash>, <parent_hash>, <content_hash>, ...ancestors]
+  refs: [<start_hash>, <content_hash>, <parent_hash>, ...]
 }
 ```
 
@@ -165,11 +167,11 @@ Benefits:
 
 ### Ancestor Skip-List
 
-Each StateNode carries up to 10 ancestor hashes in `refs[3..N]` (newest first):
+Each StateNode carries up to 11 entries in `payload.ancestors` (1 parent + 10 skip-list, newest first):
 
 ```
-Node 15: refs = [start, node14, content, node13, node12, node11, node10, node9, node8, node7, node6, node5, node4]
-                                         ^--- ancestors (10 most recent) ---^
+Node 15: ancestors = [node14, node13, node12, node11, node10, node9, node8, node7, node6, node5, node4]
+                      ^parent  ^--- skip-list (10 most recent) ---^
 ```
 
 This enables:
@@ -220,6 +222,10 @@ Simple mark-and-sweep:
 3. **Sweep**: delete unmarked CAS blobs
 
 No per-row format parsing needed. GC only needs to understand `refs[]`.
+
+### refs[] Derivation
+
+`refs[]` is auto-derived from payload at write time via a `collectRefs(payload)` function that extracts all CAS hash strings from named fields (`start`, `content`, `ancestors`, `compact`). Application code never reads `refs[]` — it reads named payload fields. This makes `refs[]` a pure GC optimization with zero semantic coupling.
 
 ### Extract Phase
 
