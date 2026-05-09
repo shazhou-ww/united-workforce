@@ -310,6 +310,12 @@ export function createLiveRoutes(storageRoot: string): Hono {
       // If thread is not actively running, emit all records and close — don't keep SSE open
       const runningPath = join(storageRoot, "logs", threadTarget.bundleHash, `${threadId}.running`);
       if (!existsSync(runningPath)) {
+        eventId.n++;
+        await stream.writeSSE({
+          event: "done",
+          data: JSON.stringify({ reason: "not-running" }),
+          id: String(eventId.n),
+        });
         return;
       }
 

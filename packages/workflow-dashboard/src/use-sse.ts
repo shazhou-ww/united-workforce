@@ -148,6 +148,16 @@ export function useSSE(agent: string | null, threadId: string | null): UseSSERet
         }),
       );
 
+      es.addEventListener("done", () => {
+        if (cancelled) {
+          return;
+        }
+        completedRef.current = true;
+        setCompleted(true);
+        setConnected(false);
+        cleanupEs();
+      });
+
       es.onerror = () => {
         if (cancelled || completedRef.current) {
           return;
