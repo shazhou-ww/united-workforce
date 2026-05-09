@@ -40,7 +40,9 @@ function isAllowedImportSpecifier(spec: string): boolean {
   if (
     spec === "@uncaged/workflow" ||
     spec === "@uncaged/workflow-runtime" ||
-    spec === "@uncaged/workflow-cas"
+    spec === "@uncaged/workflow-protocol" ||
+    spec === "@uncaged/workflow-cas" ||
+    spec === "@uncaged/workflow-util"
   ) {
     return true;
   }
