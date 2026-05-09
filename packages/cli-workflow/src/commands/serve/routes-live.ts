@@ -1,9 +1,18 @@
 import { statSync, watch } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
+import {
+  FORK_BRANCH_ROLE,
+  readThreadsIndex,
+  type ThreadIndex,
+  walkStateFramesNewestFirst,
+} from "@uncaged/workflow-execute";
+import { END } from "@uncaged/workflow-runtime";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 
-import { resolveThreadDataPath } from "../../thread-scan.js";
+import { resolveThreadRecord } from "../../thread-scan.js";
 
 type PumpState = {
   contentOffset: number;
@@ -21,7 +30,6 @@ function fileSize(path: string): number {
 async function readNewBytes(path: string, state: PumpState): Promise<string | null> {
   const size = fileSize(path);
   if (size < state.contentOffset) {
-    // File was truncated — reset
     state.contentOffset = 0;
     state.carry = "";
   }
@@ -42,15 +50,6 @@ function parseJsonLine(line: string): unknown {
   }
 }
 
-function isWorkflowResult(record: unknown): boolean {
-  return (
-    record !== null &&
-    typeof record === "object" &&
-    "type" in (record as Record<string, unknown>) &&
-    (record as Record<string, unknown>).type === "workflow-result"
-  );
-}
-
 function parseNewLines(chunk: string, state: PumpState): string[] {
   state.carry += chunk;
 
@@ -67,52 +66,192 @@ function parseNewLines(chunk: string, state: PumpState): string[] {
   return lines;
 }
 
+type CasSseState = {
+  printedHashes: Set<string>;
+  lastHead: string | null;
+  completionEmitted: boolean;
+};
+
+type LiveSseStream = {
+  writeSSE: (opts: { event: string; data: string; id: string }) => Promise<void>;
+};
+
+function completionFromEndMeta(meta: Record<string, unknown>): {
+  returnCode: number;
+  summary: string;
+} | null {
+  const returnCode = meta.returnCode;
+  const summary = meta.summary;
+  if (typeof returnCode !== "number" || typeof summary !== "string") {
+    return null;
+  }
+  return { returnCode, summary };
+}
+
+async function emitRecordsForHead(params: {
+  storageRoot: string;
+  bundleDir: string;
+  threadId: string;
+  headHash: string;
+  sseState: CasSseState;
+  stream: LiveSseStream;
+  eventId: { n: number };
+}): Promise<boolean> {
+  const cas = createCasStore(getGlobalCasDir(params.storageRoot));
+  const frames = await walkStateFramesNewestFirst(cas, params.headHash);
+  const chronological = [...frames].reverse();
+
+  for (const fr of chronological) {
+    if (params.sseState.printedHashes.has(fr.hash)) {
+      continue;
+    }
+    params.sseState.printedHashes.add(fr.hash);
+
+    const role = fr.payload.role;
+    if (role === FORK_BRANCH_ROLE) {
+      continue;
+    }
+
+    if (role === END) {
+      const wf = completionFromEndMeta(fr.payload.meta);
+      if (wf !== null) {
+        params.eventId.n++;
+        await params.stream.writeSSE({
+          event: "record",
+          data: JSON.stringify({ type: "workflow-result", ...wf }),
+          id: String(params.eventId.n),
+        });
+        return true;
+      }
+      continue;
+    }
+
+    const payloadText = await getContentMerklePayload(cas, fr.payload.content);
+    const content =
+      payloadText !== null
+        ? payloadText
+        : `(content not in CAS; contentHash=${fr.payload.content})`;
+
+    params.eventId.n++;
+    await params.stream.writeSSE({
+      event: "record",
+      data: JSON.stringify({
+        role: fr.payload.role,
+        contentHash: fr.payload.content,
+        content,
+        meta: fr.payload.meta,
+        timestamp: fr.payload.timestamp,
+      }),
+      id: String(params.eventId.n),
+    });
+  }
+
+  return false;
+}
+
+async function pumpThreadsJsonSse(params: {
+  storageRoot: string;
+  bundleDir: string;
+  threadId: string;
+  sseState: CasSseState;
+  stream: LiveSseStream;
+  eventId: { n: number };
+}): Promise<boolean> {
+  let idx: ThreadIndex;
+  try {
+    idx = await readThreadsIndex(params.bundleDir);
+  } catch {
+    idx = {};
+  }
+
+  const active = idx[params.threadId];
+
+  if (active === undefined) {
+    if (params.sseState.completionEmitted) {
+      return false;
+    }
+    const hist = await resolveThreadRecord(params.storageRoot, params.threadId);
+    if (hist === null || hist.source !== "history") {
+      return false;
+    }
+    params.sseState.completionEmitted = true;
+    return await emitRecordsForHead({
+      storageRoot: params.storageRoot,
+      bundleDir: params.bundleDir,
+      threadId: params.threadId,
+      headHash: hist.head,
+      sseState: params.sseState,
+      stream: params.stream,
+      eventId: params.eventId,
+    });
+  }
+
+  const head = active.head;
+  if (params.sseState.lastHead === null) {
+    params.sseState.lastHead = head;
+    return await emitRecordsForHead({
+      storageRoot: params.storageRoot,
+      bundleDir: params.bundleDir,
+      threadId: params.threadId,
+      headHash: head,
+      sseState: params.sseState,
+      stream: params.stream,
+      eventId: params.eventId,
+    });
+  }
+
+  if (head !== params.sseState.lastHead) {
+    params.sseState.lastHead = head;
+    return await emitRecordsForHead({
+      storageRoot: params.storageRoot,
+      bundleDir: params.bundleDir,
+      threadId: params.threadId,
+      headHash: head,
+      sseState: params.sseState,
+      stream: params.stream,
+      eventId: params.eventId,
+    });
+  }
+
+  return false;
+}
+
 export function createLiveRoutes(storageRoot: string): Hono {
   const app = new Hono();
 
   app.get("/:threadId/live", async (c) => {
     const threadId = c.req.param("threadId");
-    const dataPath = await resolveThreadDataPath(storageRoot, threadId);
-    if (dataPath === null) {
+    const resolved = await resolveThreadRecord(storageRoot, threadId);
+    if (resolved === null) {
       return c.json({ error: `thread not found: ${threadId}` }, 404);
     }
-    const resolvedDataPath = dataPath;
 
-    const infoPath = join(dirname(resolvedDataPath), `${threadId}.info.jsonl`);
+    const threadTarget = resolved;
+    const threadsJsonPath = join(threadTarget.bundleDir, "threads.json");
+    const infoPath = join(storageRoot, "logs", threadTarget.bundleHash, `${threadId}.info.jsonl`);
 
     return streamSSE(c, async (stream) => {
-      const dataState: PumpState = { contentOffset: 0, carry: "" };
       const infoState: PumpState = { contentOffset: 0, carry: "" };
-      let eventId = 0;
+      const sseThreadState: CasSseState = {
+        printedHashes: new Set<string>(),
+        lastHead: null,
+        completionEmitted: false,
+      };
+      const eventId = { n: 0 };
 
       async function pumpData(): Promise<boolean> {
-        let chunk: string | null;
-        try {
-          chunk = await readNewBytes(resolvedDataPath, dataState);
-        } catch {
-          return false;
-        }
-        if (chunk === null) {
-          return false;
-        }
-
-        const lines = parseNewLines(chunk, dataState);
-        for (const line of lines) {
-          const record = parseJsonLine(line);
-          eventId++;
-          await stream.writeSSE({
-            event: "record",
-            data: JSON.stringify(record),
-            id: String(eventId),
-          });
-
-          if (isWorkflowResult(record)) {
-            return true;
-          }
-        }
-        return false;
+        const finished = await pumpThreadsJsonSse({
+          storageRoot,
+          bundleDir: threadTarget.bundleDir,
+          threadId,
+          sseState: sseThreadState,
+          stream,
+          eventId,
+        });
+        return finished;
       }
 
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE newline framing mirrors legacy pump
       async function pumpInfo(): Promise<void> {
         let chunk: string | null;
         try {
@@ -134,28 +273,46 @@ export function createLiveRoutes(storageRoot: string): Hono {
           ) {
             continue;
           }
-          eventId++;
+          eventId.n++;
           await stream.writeSSE({
             event: "info",
             data: JSON.stringify(record),
-            id: String(eventId),
+            id: String(eventId.n),
           });
         }
       }
 
-      // Initial pump
+      eventId.n++;
+      await stream.writeSSE({
+        event: "record",
+        data: JSON.stringify({
+          type: "thread-start",
+          threadId: threadTarget.threadId,
+          bundleHash: threadTarget.bundleHash,
+          head: threadTarget.head,
+          start: threadTarget.start,
+          source: threadTarget.source,
+        }),
+        id: String(eventId.n),
+      });
+
       const done = await pumpData();
-      await pumpInfo();
+      try {
+        await pumpInfo();
+      } catch {
+        // optional info file
+      }
       if (done) {
         return;
       }
 
-      // Watch for changes
       const controller = new AbortController();
       let completed = false;
 
-      const dataWatcher = watch(resolvedDataPath, async () => {
-        if (completed) return;
+      const dataWatcher = watch(threadsJsonPath, async () => {
+        if (completed) {
+          return;
+        }
         const finished = await pumpData();
         if (finished) {
           completed = true;
@@ -166,7 +323,9 @@ export function createLiveRoutes(storageRoot: string): Hono {
       let infoWatcher: ReturnType<typeof watch> | null = null;
       try {
         infoWatcher = watch(infoPath, async () => {
-          if (completed) return;
+          if (completed) {
+            return;
+          }
           await pumpInfo();
         });
       } catch {
@@ -179,7 +338,6 @@ export function createLiveRoutes(storageRoot: string): Hono {
         infoWatcher?.close();
       });
 
-      // Keep stream alive until completion or client disconnect
       await new Promise<void>((resolve) => {
         if (completed) {
           resolve();

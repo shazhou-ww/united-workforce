@@ -17,7 +17,12 @@ import {
 } from "@uncaged/workflow-util";
 import { executeThread } from "./engine.js";
 import { createThreadPauseGate } from "./thread-pause-gate.js";
-import type { ExecuteThreadIo, PrefilledDiskStep, ThreadPauseGate } from "./types.js";
+import type {
+  ExecuteThreadIo,
+  ForkContinuationOptions,
+  PrefilledDiskStep,
+  ThreadPauseGate,
+} from "./types.js";
 
 const bootLog = createLogger({ sink: { kind: "stderr" } });
 
@@ -28,9 +33,10 @@ type RunCommand = {
   prompt: string;
   options: { maxRounds: number; depth: number };
   steps: RoleOutput[];
-  /** Timestamps aligned with `steps` for `.data.jsonl` replay; length must match `steps` when non-null. */
+  /** Timestamps aligned with `steps` for replay / fork restore; length must match `steps` when steps are non-empty. */
   stepTimestamps: number[] | null;
   forkSourceThreadId: string | null;
+  forkContinuation: ForkContinuationOptions | null;
 };
 
 type KillCommand = {
@@ -73,6 +79,7 @@ function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null 
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: mirrors permissive worker IPC decoding shape checks
 function parseRunStepsPayload(rec: Record<string, unknown>): {
   steps: RoleOutput[];
   stepTimestamps: number[] | null;
@@ -107,9 +114,57 @@ function parseRunStepsPayload(rec: Record<string, unknown>): {
       return null;
     }
   }
+
+  const parallelTsRaw = rec.stepTimestamps;
+  if (
+    steps.length > 0 &&
+    Array.isArray(parallelTsRaw) &&
+    parallelTsRaw.length === steps.length &&
+    parallelTsRaw.every((x): x is number => typeof x === "number")
+  ) {
+    return { steps, stepTimestamps: [...parallelTsRaw] };
+  }
+
   return {
     steps,
     stepTimestamps: anyTimestamp ? timestamps : null,
+  };
+}
+
+function parseForkContinuation(rec: Record<string, unknown>): ForkContinuationOptions | null {
+  const raw = rec.forkContinuation;
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw !== "object") {
+    return null;
+  }
+  const o = raw as Record<string, unknown>;
+  const startHash = o.startHash;
+  const forkHeadHash = o.forkHeadHash;
+  const ic = o.initialChain;
+  if (typeof startHash !== "string" || typeof forkHeadHash !== "string") {
+    return null;
+  }
+  if (ic === null || typeof ic !== "object") {
+    return null;
+  }
+  const ich = ic as Record<string, unknown>;
+  const pph = ich.parentStateHash;
+  const pa = ich.parentAncestors;
+  if (!(pph === null || typeof pph === "string")) {
+    return null;
+  }
+  if (!Array.isArray(pa) || !pa.every((x) => typeof x === "string")) {
+    return null;
+  }
+  return {
+    startHash,
+    forkHeadHash,
+    initialChain: {
+      parentStateHash: pph,
+      parentAncestors: pa,
+    },
   };
 }
 
@@ -148,6 +203,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     }
     forkSourceThreadId = rawFork;
   }
+  const forkContinuation = parseForkContinuation(rec);
   return {
     type: "run",
     threadId,
@@ -157,6 +213,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     steps: parsedSteps.steps,
     stepTimestamps: parsedSteps.stepTimestamps,
     forkSourceThreadId,
+    forkContinuation,
   };
 }
 
@@ -357,6 +414,7 @@ async function main(): Promise<void> {
     }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TCP worker multiplexes lifecycle + runs
   async function dispatchCommand(cmd: ControlCommand, socket: Socket | null): Promise<void> {
     if (cmd.type !== "run") {
       dispatchThreadLifecycleCommand(threads, socket, cmd);
@@ -394,7 +452,19 @@ async function main(): Promise<void> {
 
       const baseTs = Date.now();
       let prefilledDiskSteps: PrefilledDiskStep[] | null = null;
-      if (cmd.steps.length > 0) {
+      let replayTimestamps: readonly number[] | null = null;
+
+      if (cmd.forkContinuation !== null) {
+        if (
+          cmd.steps.length > 0 &&
+          (cmd.stepTimestamps === null || cmd.stepTimestamps.length !== cmd.steps.length)
+        ) {
+          bootLog("J5WQ8NXT", "forkContinuation requires stepTimestamps aligned with steps");
+          throw new Error("forkContinuation requires stepTimestamps aligned with steps");
+        }
+        replayTimestamps =
+          cmd.steps.length === 0 ? null : (cmd.stepTimestamps as readonly number[]);
+      } else if (cmd.steps.length > 0) {
         prefilledDiskSteps = cmd.steps.map((step, i) => {
           const ts = cmd.stepTimestamps?.[i];
           return {
@@ -417,6 +487,8 @@ async function main(): Promise<void> {
           awaitAfterEachYield: () => pauseGate.awaitAfterYield(),
           forkSourceThreadId: cmd.forkSourceThreadId,
           prefilledDiskSteps,
+          forkContinuation: cmd.forkContinuation,
+          replayTimestamps,
           storageRoot,
         },
         io,

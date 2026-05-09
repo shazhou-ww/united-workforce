@@ -101,6 +101,8 @@ export function workflowAsAgent(
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: ctx.threadId,
           prefilledDiskSteps: null,
+          forkContinuation: null,
+          replayTimestamps: null,
           storageRoot,
         },
         io,

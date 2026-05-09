@@ -1,23 +1,87 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { createCasStore, parseCasThreadNode } from "@uncaged/workflow-cas";
+import {
+  readThreadsIndex,
+  type ThreadHistoryEntry,
+  type ThreadIndex,
+} from "@uncaged/workflow-execute";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
 
-function parseFirstJsonLineObject(text: string): Record<string, unknown> | null {
-  const firstLine = text.split("\n")[0];
-  if (firstLine === undefined || firstLine.trim() === "") {
+async function readWorkflowNameFromStartHash(
+  storageRoot: string,
+  startHash: string,
+): Promise<string | null> {
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const yamlText = await cas.get(startHash);
+  if (yamlText === null) {
     return null;
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(firstLine) as unknown;
-  } catch {
+  const parsed = parseCasThreadNode(yamlText);
+  if (parsed === null || parsed.kind !== "start") {
     return null;
   }
-  if (parsed === null || typeof parsed !== "object") {
-    return null;
+  return parsed.node.payload.name;
+}
+
+async function listBundleHashDirs(storageRoot: string): Promise<string[]> {
+  const bundlesRoot = join(storageRoot, "bundles");
+  if (!(await pathExists(bundlesRoot))) {
+    return [];
   }
-  return parsed as Record<string, unknown>;
+  const names = await readdir(bundlesRoot);
+  const out: string[] = [];
+  for (const name of names) {
+    const p = join(bundlesRoot, name);
+    try {
+      const st = await stat(p);
+      if (st.isDirectory()) {
+        out.push(name);
+      }
+    } catch {}
+  }
+  out.sort();
+  return out;
+}
+
+async function parseHistoryFile(path: string): Promise<ThreadHistoryEntry[]> {
+  const text = await readTextFileIfExists(path);
+  if (text === null) {
+    return [];
+  }
+  const out: ThreadHistoryEntry[] = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      continue;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(trimmed) as unknown;
+    } catch {
+      continue;
+    }
+    if (raw === null || typeof raw !== "object") {
+      continue;
+    }
+    const rec = raw as Record<string, unknown>;
+    const threadId = rec.threadId;
+    const head = rec.head;
+    const start = rec.start;
+    const completedAt = rec.completedAt;
+    if (
+      typeof threadId !== "string" ||
+      typeof head !== "string" ||
+      typeof start !== "string" ||
+      typeof completedAt !== "number"
+    ) {
+      continue;
+    }
+    out.push({ threadId, head, start, completedAt });
+  }
+  return out;
 }
 
 export type RunningThreadRow = {
@@ -32,30 +96,76 @@ export type HistoricalThreadRow = {
   workflowName: string | null;
 };
 
-async function readThreadStartTimestampMs(dataPath: string): Promise<number | null> {
-  const text = await readTextFileIfExists(dataPath);
-  if (text === null) {
-    return null;
-  }
-  const parsed = parseFirstJsonLineObject(text);
-  if (parsed === null) {
-    return null;
-  }
-  const ts = parsed.timestamp;
-  return typeof ts === "number" && Number.isFinite(ts) ? ts : null;
-}
+export type ResolvedThreadRecord = {
+  threadId: string;
+  bundleHash: string;
+  bundleDir: string;
+  head: string;
+  start: string;
+  source: "active" | "history";
+};
 
-async function readWorkflowNameFromDataJsonl(dataPath: string): Promise<string | null> {
-  const text = await readTextFileIfExists(dataPath);
-  if (text === null) {
-    return null;
+/** Resolve a thread via `threads.json` (active) or `history/*.jsonl` (completed). */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: scans all bundle dirs for thread id
+export async function resolveThreadRecord(
+  storageRoot: string,
+  threadId: string,
+): Promise<ResolvedThreadRecord | null> {
+  const hashes = await listBundleHashDirs(storageRoot);
+  for (const bundleHash of hashes) {
+    const bundleDir = join(storageRoot, "bundles", bundleHash);
+    let index: ThreadIndex;
+    try {
+      index = await readThreadsIndex(bundleDir);
+    } catch {
+      continue;
+    }
+    const active = index[threadId];
+    if (active !== undefined) {
+      return {
+        threadId,
+        bundleHash,
+        bundleDir,
+        head: active.head,
+        start: active.start,
+        source: "active",
+      };
+    }
   }
-  const parsed = parseFirstJsonLineObject(text);
-  if (parsed === null) {
-    return null;
+
+  for (const bundleHash of hashes) {
+    const bundleDir = join(storageRoot, "bundles", bundleHash);
+    const histDir = join(bundleDir, "history");
+    if (!(await pathExists(histDir))) {
+      continue;
+    }
+    let files: string[];
+    try {
+      files = await readdir(histDir);
+    } catch {
+      continue;
+    }
+    for (const name of files) {
+      if (!name.endsWith(".jsonl")) {
+        continue;
+      }
+      const entries = await parseHistoryFile(join(histDir, name));
+      for (const e of entries) {
+        if (e.threadId === threadId) {
+          return {
+            threadId,
+            bundleHash,
+            bundleDir,
+            head: e.head,
+            start: e.start,
+            source: "history",
+          };
+        }
+      }
+    }
   }
-  const name = parsed.name;
-  return typeof name === "string" ? name : null;
+
+  return null;
 }
 
 /** Threads currently executing — identified via `<threadId>.running` markers. */
@@ -82,8 +192,9 @@ export async function listRunningThreads(storageRoot: string): Promise<RunningTh
         continue;
       }
       const threadId = fileName.slice(0, -".running".length);
-      const dataPath = join(dir, `${threadId}.data.jsonl`);
-      const workflowName = await readWorkflowNameFromDataJsonl(dataPath);
+      const resolved = await resolveThreadRecord(storageRoot, threadId);
+      const workflowName =
+        resolved !== null ? await readWorkflowNameFromStartHash(storageRoot, resolved.start) : null;
       out.push({ threadId, hash, workflowName });
     }
   }
@@ -98,41 +209,70 @@ export async function listRunningThreads(storageRoot: string): Promise<RunningTh
 }
 
 /**
- * Historical threads discovered via `*.data.jsonl`.
- * When `workflowNameFilter` is non-null, only threads whose start record `name` matches are returned.
+ * Threads discovered via `threads.json` (active) and `history/*.jsonl` (completed).
+ * When `workflowNameFilter` is non-null, only threads whose StartNode `name` matches are returned.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: merges active index + partitioned history
 export async function listHistoricalThreads(
   storageRoot: string,
   workflowNameFilter: string | null,
 ): Promise<HistoricalThreadRow[]> {
-  const logsRoot = join(storageRoot, "logs");
-  if (!(await pathExists(logsRoot))) {
-    return [];
-  }
-
-  const hashes = await readdir(logsRoot);
+  const hashes = await listBundleHashDirs(storageRoot);
+  const seen = new Set<string>();
   const out: HistoricalThreadRow[] = [];
 
-  for (const hash of hashes) {
-    const dir = join(logsRoot, hash);
-    let entries: string[];
+  for (const bundleHash of hashes) {
+    const bundleDir = join(storageRoot, "bundles", bundleHash);
+    let index: ThreadIndex;
     try {
-      entries = await readdir(dir);
+      index = await readThreadsIndex(bundleDir);
     } catch {
       continue;
     }
-
-    for (const fileName of entries) {
-      if (!fileName.endsWith(".data.jsonl")) {
+    for (const threadId of Object.keys(index)) {
+      const key = `${bundleHash}/${threadId}`;
+      if (seen.has(key)) {
         continue;
       }
-      const threadId = fileName.slice(0, -".data.jsonl".length);
-      const dataPath = join(dir, fileName);
-      const workflowName = await readWorkflowNameFromDataJsonl(dataPath);
+      seen.add(key);
+      const entry = index[threadId];
+      if (entry === undefined) {
+        continue;
+      }
+      const workflowName = await readWorkflowNameFromStartHash(storageRoot, entry.start);
       if (workflowNameFilter !== null && workflowName !== workflowNameFilter) {
         continue;
       }
-      out.push({ threadId, hash, workflowName });
+      out.push({ threadId, hash: bundleHash, workflowName });
+    }
+
+    const histDir = join(bundleDir, "history");
+    if (!(await pathExists(histDir))) {
+      continue;
+    }
+    let files: string[];
+    try {
+      files = await readdir(histDir);
+    } catch {
+      continue;
+    }
+    for (const name of files) {
+      if (!name.endsWith(".jsonl")) {
+        continue;
+      }
+      const entries = await parseHistoryFile(join(histDir, name));
+      for (const e of entries) {
+        const key = `${bundleHash}/${e.threadId}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        const workflowName = await readWorkflowNameFromStartHash(storageRoot, e.start);
+        if (workflowNameFilter !== null && workflowName !== workflowNameFilter) {
+          continue;
+        }
+        out.push({ threadId: e.threadId, hash: bundleHash, workflowName });
+      }
     }
   }
 
@@ -145,64 +285,93 @@ export async function listHistoricalThreads(
   return out;
 }
 
+export type LatestThreadTarget = {
+  threadId: string;
+  bundleHash: string;
+  bundleDir: string;
+  threadsJsonPath: string;
+};
+
 /**
- * Picks the thread whose `.data.jsonl` is newest by start-record `timestamp`,
- * falling back to file `mtime` when the timestamp is missing.
- * Tie-breaker: larger `mtime` wins when start timestamps are equal.
+ * Picks the newest thread by StartNode timestamp approximation (`updatedAt` active,
+ * else `completedAt` history), falling back to lexical thread id order.
  */
-export async function findLatestThreadDataPath(
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: compares active heads vs history tails
+export async function findLatestThreadBundleTarget(
   storageRoot: string,
-): Promise<{ threadId: string; dataPath: string } | null> {
-  const threads = await listHistoricalThreads(storageRoot, null);
-  if (threads.length === 0) {
-    return null;
-  }
+): Promise<LatestThreadTarget | null> {
+  const hashes = await listBundleHashDirs(storageRoot);
 
   let best: {
     threadId: string;
-    dataPath: string;
-    primary: number;
-    secondary: number;
+    bundleHash: string;
+    bundleDir: string;
+    ts: number;
   } | null = null;
 
-  for (const t of threads) {
-    const dataPath = join(storageRoot, "logs", t.hash, `${t.threadId}.data.jsonl`);
-    let mtimeMs = 0;
+  for (const bundleHash of hashes) {
+    const bundleDir = join(storageRoot, "bundles", bundleHash);
+    let index: ThreadIndex;
     try {
-      const st = await stat(dataPath);
-      mtimeMs = st.mtimeMs;
+      index = await readThreadsIndex(bundleDir);
     } catch {
       continue;
     }
-    const startTs = await readThreadStartTimestampMs(dataPath);
-    const primary = startTs !== null ? startTs : mtimeMs;
-    const secondary = mtimeMs;
-    if (
-      best === null ||
-      primary > best.primary ||
-      (primary === best.primary && secondary > best.secondary)
-    ) {
-      best = { threadId: t.threadId, dataPath, primary, secondary };
+    for (const threadId of Object.keys(index)) {
+      const ent = index[threadId];
+      if (ent === undefined) {
+        continue;
+      }
+      const ts = ent.updatedAt;
+      const cand = { threadId, bundleHash, bundleDir, ts };
+      if (
+        best === null ||
+        cand.ts > best.ts ||
+        (cand.ts === best.ts &&
+          `${cand.bundleHash}/${cand.threadId}` > `${best.bundleHash}/${best.threadId}`)
+      ) {
+        best = cand;
+      }
+    }
+
+    const histDir = join(bundleDir, "history");
+    if (!(await pathExists(histDir))) {
+      continue;
+    }
+    let files: string[];
+    try {
+      files = await readdir(histDir);
+    } catch {
+      continue;
+    }
+    for (const name of files) {
+      if (!name.endsWith(".jsonl")) {
+        continue;
+      }
+      const entries = await parseHistoryFile(join(histDir, name));
+      for (const e of entries) {
+        const ts = e.completedAt;
+        const cand = { threadId: e.threadId, bundleHash, bundleDir, ts };
+        if (
+          best === null ||
+          cand.ts > best.ts ||
+          (cand.ts === best.ts &&
+            `${cand.bundleHash}/${cand.threadId}` > `${best.bundleHash}/${best.threadId}`)
+        ) {
+          best = cand;
+        }
+      }
     }
   }
 
-  return best === null ? null : { threadId: best.threadId, dataPath: best.dataPath };
-}
-
-export async function resolveThreadDataPath(
-  storageRoot: string,
-  threadId: string,
-): Promise<string | null> {
-  const logsRoot = join(storageRoot, "logs");
-  if (!(await pathExists(logsRoot))) {
+  if (best === null) {
     return null;
   }
-  const hashes = await readdir(logsRoot);
-  for (const hash of hashes) {
-    const candidate = join(logsRoot, hash, `${threadId}.data.jsonl`);
-    if (await pathExists(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
+
+  return {
+    threadId: best.threadId,
+    bundleHash: best.bundleHash,
+    bundleDir: best.bundleDir,
+    threadsJsonPath: join(best.bundleDir, "threads.json"),
+  };
 }

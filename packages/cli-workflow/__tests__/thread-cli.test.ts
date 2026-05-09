@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getBundleDir, readThreadsIndex } from "@uncaged/workflow-execute";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdCasPut } from "../src/commands/cas/index.js";
 import {
@@ -18,6 +19,7 @@ import {
 } from "../src/commands/thread/index.js";
 import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists, readTextFileIfExists } from "../src/fs-utils.js";
+import { resolveThreadRecord } from "../src/thread-scan.js";
 import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
@@ -101,34 +103,21 @@ export const run = async function* (_input, options) {
 };
 `;
 
-async function countDataJsonlLines(dataPath: string): Promise<number> {
-  try {
-    const text = await readFile(dataPath, "utf8");
-    return text
-      .trim()
-      .split("\n")
-      .filter((l) => l !== "").length;
-  } catch {
-    return 0;
-  }
-}
-
-async function waitUntilMinDataLines(
-  dataPath: string,
-  minLines: number,
-  maxAttempts: number,
-): Promise<void> {
+async function waitUntilRunningFileAbsent(runningPath: string, maxAttempts: number): Promise<void> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if ((await countDataJsonlLines(dataPath)) >= minLines) {
+    if (!(await pathExists(runningPath))) {
       return;
     }
     await new Promise((r) => setTimeout(r, 25));
   }
 }
 
-async function waitUntilRunningFileAbsent(runningPath: string, maxAttempts: number): Promise<void> {
+async function waitUntilPredicate(
+  predicate: () => Promise<boolean>,
+  maxAttempts: number,
+): Promise<void> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (!(await pathExists(runningPath))) {
+    if (await predicate()) {
       return;
     }
     await new Promise((r) => setTimeout(r, 25));
@@ -200,8 +189,7 @@ describe("cli thread commands", () => {
     const removed = await cmdThreadRemove(storageRoot, threadId);
     expect(removed.ok).toBe(true);
 
-    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
-    expect(await pathExists(dataPath)).toBe(false);
+    expect(await resolveThreadRecord(storageRoot, threadId)).toBeNull();
   });
 
   test("thread rm runs GC and removes CAS blobs not referenced by any remaining thread", async () => {
@@ -234,9 +222,9 @@ describe("cli thread commands", () => {
       threads = await cmdThreads(storageRoot, []);
     }
 
-    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
-    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    const runningPath = join(storageRoot, "logs", added.value.hash, `${threadId}.running`);
     await waitUntilRunningFileAbsent(runningPath, 120);
+    expect((await resolveThreadRecord(storageRoot, threadId))?.source).toBe("history");
 
     const put = await cmdCasPut(storageRoot, "keep-after-thread-rm");
     expect(put.ok).toBe(true);
@@ -323,24 +311,20 @@ describe("cli thread commands", () => {
     const killed = await cmdKill(storageRoot, threadId);
     expect(killed.ok).toBe(true);
 
-    await new Promise((r) => setTimeout(r, 900));
+    await waitUntilPredicate(async () => {
+      return (await resolveThreadRecord(storageRoot, threadId))?.source === "history";
+    }, 120);
 
-    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
-    const text = await readFile(dataPath, "utf8");
-    const lines = text
-      .trim()
-      .split("\n")
-      .filter((l) => l !== "");
-    expect(lines.length).toBe(3);
+    expect((await resolveThreadRecord(storageRoot, threadId))?.source).toBe("history");
 
-    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    const runningPath = join(storageRoot, "logs", added.value.hash, `${threadId}.running`);
     expect(await pathExists(runningPath)).toBe(false);
   });
 
   test("pause stops between yields and resume completes thread", async () => {
-    const bundleDir = join(storageRoot, "src");
-    await mkdir(bundleDir, { recursive: true });
-    const bundlePath = join(bundleDir, "demo.esm.js");
+    const srcDir = join(storageRoot, "src");
+    await mkdir(srcDir, { recursive: true });
+    const bundlePath = join(srcDir, "demo.esm.js");
     await writeFile(bundlePath, pauseResumeBundleSource, "utf8");
 
     const added = await cmdAdd(storageRoot, addCliArgs("solve-issue", bundlePath));
@@ -356,24 +340,33 @@ describe("cli thread commands", () => {
     }
 
     const threadId = ran.value.threadId;
-    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
+    const bundleDir = getBundleDir(storageRoot, added.value.hash);
 
-    await waitUntilMinDataLines(dataPath, 2, 80);
-    expect(await countDataJsonlLines(dataPath)).toBe(2);
+    await waitUntilPredicate(async () => {
+      const idx = await readThreadsIndex(bundleDir);
+      const ent = idx[threadId];
+      return ent !== undefined && ent.head !== ent.start;
+    }, 80);
+
+    const idxBeforePause = await readThreadsIndex(bundleDir);
+    const headAtPause = idxBeforePause[threadId]?.head;
 
     const paused = await cmdPause(storageRoot, threadId);
     expect(paused.ok).toBe(true);
 
     await new Promise((r) => setTimeout(r, 400));
-    expect(await countDataJsonlLines(dataPath)).toBe(2);
+    const idxPaused = await readThreadsIndex(bundleDir);
+    expect(idxPaused[threadId]?.head).toBe(headAtPause);
 
     const resumed = await cmdResume(storageRoot, threadId);
     expect(resumed.ok).toBe(true);
 
-    await waitUntilMinDataLines(dataPath, 4, 120);
-    expect(await countDataJsonlLines(dataPath)).toBe(4);
+    await waitUntilPredicate(async () => {
+      const row = await resolveThreadRecord(storageRoot, threadId);
+      return row?.source === "history";
+    }, 120);
 
-    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    const runningPath = join(storageRoot, "logs", added.value.hash, `${threadId}.running`);
     await waitUntilRunningFileAbsent(runningPath, 100);
     expect(await pathExists(runningPath)).toBe(false);
   });
@@ -397,8 +390,7 @@ describe("cli thread commands", () => {
     }
 
     const threadId = ran.value.threadId;
-    const dataPath = join(storageRoot, "logs", added.value.hash, `${threadId}.data.jsonl`);
-    const runningPath = join(dirname(dataPath), `${threadId}.running`);
+    const runningPath = join(storageRoot, "logs", added.value.hash, `${threadId}.running`);
 
     await waitUntilRunningFileAbsent(runningPath, 100);
     expect(await pathExists(runningPath)).toBe(false);

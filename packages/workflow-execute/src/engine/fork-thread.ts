@@ -1,9 +1,29 @@
-import type { WorkflowCompletion } from "@uncaged/workflow-runtime";
-import { err, normalizeRefsField, ok, type Result } from "@uncaged/workflow-util";
+import type { CasStore } from "@uncaged/workflow-cas";
+import { parseCasThreadNode, putContentNodeWithRefs, putStateNode } from "@uncaged/workflow-cas";
+import type { StateNodePayload } from "@uncaged/workflow-protocol";
+import type { RoleOutput, WorkflowCompletion } from "@uncaged/workflow-runtime";
+import { END } from "@uncaged/workflow-runtime";
+import { err, ok, type Result } from "@uncaged/workflow-util";
+import { parse as parseYaml } from "yaml";
 
-import type { ForkHistoricalStep, ForkPlan, ParsedThreadStartRecord } from "./types.js";
+import { upsertThreadEntry } from "./threads-index.js";
+import type { CasForkPlan, ChainState, ForkContinuationOptions } from "./types.js";
+import { EMPTY_CHAIN_STATE } from "./types.js";
 
-/** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). Omits `rootHash` when absent. */
+/** Internal branch marker; skipped when presenting fork selection / replay slices. */
+export const FORK_BRANCH_ROLE = "__fork__";
+
+/** Cap for {@link StateNodePayload}.ancestors: 1 parent + 10 skip-list. */
+const ANCESTORS_CAP = 11;
+
+function computeAncestors(chain: ChainState): string[] {
+  if (chain.parentStateHash === null) {
+    return [];
+  }
+  return [chain.parentStateHash, ...chain.parentAncestors].slice(0, ANCESTORS_CAP);
+}
+
+/** Recognizes a persisted workflow completion line (no `role`; has numeric `returnCode` and string `summary`). */
 export function tryParseWorkflowResultRecord(
   obj: Record<string, unknown>,
 ): WorkflowCompletion | null {
@@ -18,227 +38,288 @@ export function tryParseWorkflowResultRecord(
   return { returnCode, summary };
 }
 
-export function tryParseRoleStepRecord(obj: Record<string, unknown>): ForkHistoricalStep | null {
-  const role = obj.role;
-  const contentHash = obj.contentHash;
-  const meta = obj.meta;
-  const timestamp = obj.timestamp;
-  if (typeof role !== "string") {
-    return null;
-  }
-  if (typeof contentHash !== "string") {
-    return null;
-  }
-  if (meta === null || typeof meta !== "object") {
-    return null;
-  }
-  if (typeof timestamp !== "number") {
-    return null;
-  }
-  return {
-    role,
-    contentHash,
-    meta: meta as Record<string, unknown>,
-    refs: normalizeRefsField(obj.refs),
-    timestamp,
-  };
-}
-
-function parseRoleLine(
-  obj: Record<string, unknown>,
-  lineIndex: number,
-): Result<ForkHistoricalStep, string> {
-  const parsed = tryParseRoleStepRecord(obj);
-  if (parsed === null) {
-    return err(`invalid role record at line ${lineIndex}`);
-  }
-  return ok(parsed);
-}
-
-function parseStartRecordLine(firstLine: string): Result<ParsedThreadStartRecord, string> {
-  let startParsed: unknown;
-  try {
-    startParsed = JSON.parse(firstLine) as unknown;
-  } catch {
-    return err("invalid JSON on line 1 (start record)");
-  }
-  if (startParsed === null || typeof startParsed !== "object") {
-    return err("invalid start record shape");
-  }
-  const startRec = startParsed as Record<string, unknown>;
-  const name = startRec.name;
-  const hash = startRec.hash;
-  const threadId = startRec.threadId;
-  const parameters = startRec.parameters;
-  if (typeof name !== "string" || typeof hash !== "string" || typeof threadId !== "string") {
-    return err("start record missing name, hash, or threadId");
-  }
-  if (parameters === null || typeof parameters !== "object") {
-    return err("start record missing parameters");
-  }
-  const paramsRec = parameters as Record<string, unknown>;
-  const prompt = paramsRec.prompt;
-  const options = paramsRec.options;
-  if (typeof prompt !== "string") {
-    return err("start record missing parameters.prompt");
-  }
-  if (options === null || typeof options !== "object") {
-    return err("start record missing parameters.options");
-  }
-  const optRec = options as Record<string, unknown>;
-  const maxRounds = optRec.maxRounds;
-  if (typeof maxRounds !== "number") {
-    return err("start record missing parameters.options.maxRounds");
-  }
-
-  const depthRaw = optRec.depth;
-  const depth =
-    typeof depthRaw === "number" && Number.isFinite(depthRaw) ? Math.trunc(depthRaw) : 0;
-
-  return ok({
-    workflowName: name,
-    hash,
-    threadId,
-    prompt,
-    maxRounds,
-    depth,
-  });
-}
-
-function parseFollowingRoleLines(lines: string[]): Result<ForkHistoricalStep[], string> {
-  const roleSteps: ForkHistoricalStep[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === undefined) {
+/** Walk {@link StateNode} hashes from head toward the first step (newest → oldest). */
+export async function walkStateFramesNewestFirst(
+  cas: CasStore,
+  headHash: string,
+): Promise<Array<{ hash: string; payload: StateNodePayload }>> {
+  const frames: Array<{ hash: string; payload: StateNodePayload }> = [];
+  let cur = headHash;
+  while (true) {
+    const yamlText = await cas.get(cur);
+    if (yamlText === null) {
       break;
     }
-    let rec: unknown;
-    try {
-      rec = JSON.parse(line) as unknown;
-    } catch {
-      return err(`invalid JSON at line ${i + 1}`);
-    }
-    if (rec === null || typeof rec !== "object") {
-      return err(`invalid record at line ${i + 1}`);
-    }
-    const recObj = rec as Record<string, unknown>;
-    const wf = tryParseWorkflowResultRecord(recObj);
-    if (wf !== null) {
-      if (i !== lines.length - 1) {
-        return err("WorkflowResult record must be the final line in `.data.jsonl`");
-      }
+    const parsed = parseCasThreadNode(yamlText);
+    if (parsed === null || parsed.kind !== "state") {
       break;
     }
-    const parsed = parseRoleLine(recObj, i + 1);
-    if (!parsed.ok) {
-      return parsed;
+    frames.push({ hash: cur, payload: parsed.node.payload });
+    const ancestors = parsed.node.payload.ancestors;
+    if (ancestors.length === 0) {
+      break;
     }
-    roleSteps.push(parsed.value);
+    const parent = ancestors[0];
+    if (parent === undefined || parent === "") {
+      break;
+    }
+    cur = parent;
   }
-  return ok(roleSteps);
+  return frames;
 }
 
-/**
- * Parse RFC-001 `.data.jsonl`: line 1 start record, line 2+ role outputs.
- */
-export function parseThreadDataJsonl(text: string): Result<
-  {
-    start: ParsedThreadStartRecord;
-    roleSteps: ForkHistoricalStep[];
-  },
-  string
-> {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l !== "");
-  if (lines.length === 0) {
-    return err("thread data is empty");
-  }
-
-  const firstLine = lines[0];
-  if (firstLine === undefined) {
-    return err("thread data is empty");
-  }
-
-  const start = parseStartRecordLine(firstLine);
-  if (!start.ok) {
-    return start;
-  }
-
-  const roleSteps = parseFollowingRoleLines(lines);
-  if (!roleSteps.ok) {
-    return roleSteps;
-  }
-
-  return ok({
-    start: start.value,
-    roleSteps: roleSteps.value,
-  });
-}
-
-function orderedUniqueRoles(roleSteps: ForkHistoricalStep[]): string[] {
+function orderedUniqueRoles(roles: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const s of roleSteps) {
-    if (!seen.has(s.role)) {
-      seen.add(s.role);
-      out.push(s.role);
+  for (const r of roles) {
+    if (!seen.has(r)) {
+      seen.add(r);
+      out.push(r);
     }
   }
   return out;
 }
 
-/**
- * Select historical steps for a fork:
- * - `fromRole === null`: drop the last step (retry the last role).
- * - `fromRole !== null`: keep steps through the first occurrence of that role (inclusive).
- */
-export function selectForkHistoricalSteps(
-  roleSteps: ForkHistoricalStep[],
+async function readPromptText(cas: CasStore, promptHash: string): Promise<Result<string, string>> {
+  const yamlText = await cas.get(promptHash);
+  if (yamlText === null) {
+    return err(`prompt CAS blob missing: ${promptHash}`);
+  }
+  let raw: unknown;
+  try {
+    raw = parseYaml(yamlText) as unknown;
+  } catch {
+    return err(`prompt CAS blob is not valid YAML: ${promptHash}`);
+  }
+  if (raw === null || typeof raw !== "object") {
+    return err(`prompt CAS blob has unexpected shape: ${promptHash}`);
+  }
+  const payload = (raw as Record<string, unknown>).payload;
+  if (typeof payload !== "string") {
+    return err(`prompt CAS blob missing string payload: ${promptHash}`);
+  }
+  return ok(payload);
+}
+
+async function readStartWorkflowIdentity(params: {
+  cas: CasStore;
+  startHash: string;
+}): Promise<
+  Result<{ workflowName: string; maxRounds: number; depth: number; prompt: string }, string>
+> {
+  const yamlText = await params.cas.get(params.startHash);
+  if (yamlText === null) {
+    return err(`start node missing in CAS: ${params.startHash}`);
+  }
+  const parsed = parseCasThreadNode(yamlText);
+  if (parsed === null || parsed.kind !== "start") {
+    return err(`CAS blob is not a StartNode: ${params.startHash}`);
+  }
+  const refs = parsed.node.refs;
+  const promptHash = refs[0];
+  if (typeof promptHash !== "string") {
+    return err("StartNode refs[0] must be the prompt hash");
+  }
+  const prompt = await readPromptText(params.cas, promptHash);
+  if (!prompt.ok) {
+    return prompt;
+  }
+  const p = parsed.node.payload;
+  return ok({
+    workflowName: p.name,
+    maxRounds: p.maxRounds,
+    depth: p.depth,
+    prompt: prompt.value,
+  });
+}
+
+async function payloadToRoleOutput(cas: CasStore, payload: StateNodePayload): Promise<RoleOutput> {
+  let refs: string[] = [];
+  const blob = await cas.get(payload.content);
+  if (blob !== null) {
+    const cn = parseCasThreadNode(blob);
+    if (cn?.kind === "content") {
+      refs = [...cn.node.refs];
+    }
+  }
+  return {
+    role: payload.role,
+    contentHash: payload.content,
+    meta: payload.meta,
+    refs,
+  };
+}
+
+function meaningfulFramesOldestFirst(
+  newestFirst: Array<{ hash: string; payload: StateNodePayload }>,
+): Array<{ hash: string; payload: StateNodePayload }> {
+  const chronological = [...newestFirst].reverse();
+  return chronological.filter((f) => f.payload.role !== END && f.payload.role !== FORK_BRANCH_ROLE);
+}
+
+function selectForkPointStateHash(
+  meaningfulOldestFirst: Array<{ hash: string; payload: StateNodePayload }>,
   fromRole: string | null,
-): Result<ForkHistoricalStep[], string> {
-  if (roleSteps.length === 0) {
+): Result<string | null, string> {
+  if (meaningfulOldestFirst.length === 0) {
     return err("thread has no completed role steps to fork from");
   }
 
   if (fromRole === null) {
-    if (roleSteps.length === 1) {
-      return ok([]);
+    if (meaningfulOldestFirst.length === 1) {
+      return ok(null);
     }
-    return ok(roleSteps.slice(0, -1));
+    const forkFrame = meaningfulOldestFirst[meaningfulOldestFirst.length - 2];
+    if (forkFrame === undefined) {
+      return err("thread has no completed role steps to fork from");
+    }
+    return ok(forkFrame.hash);
   }
 
-  const idx = roleSteps.findIndex((s) => s.role === fromRole);
+  const idx = meaningfulOldestFirst.findIndex((f) => f.payload.role === fromRole);
   if (idx < 0) {
-    const available = orderedUniqueRoles(roleSteps);
+    const available = orderedUniqueRoles(meaningfulOldestFirst.map((f) => f.payload.role));
     return err(`role not found in thread: ${fromRole} (available: ${available.join(", ")})`);
   }
-  return ok(roleSteps.slice(0, idx + 1));
+  const forkFrame = meaningfulOldestFirst[idx];
+  if (forkFrame === undefined) {
+    return err("fork frame missing");
+  }
+  return ok(forkFrame.hash);
+}
+
+function replayFramesThroughForkPoint(
+  meaningfulOldestFirst: Array<{ hash: string; payload: StateNodePayload }>,
+  forkPointHash: string | null,
+): Array<{ hash: string; payload: StateNodePayload }> {
+  if (forkPointHash === null) {
+    return [];
+  }
+  const idx = meaningfulOldestFirst.findIndex((f) => f.hash === forkPointHash);
+  if (idx < 0) {
+    return [];
+  }
+  return meaningfulOldestFirst.slice(0, idx + 1);
+}
+
+async function buildForkContinuation(params: {
+  cas: CasStore;
+  sourceThreadId: string;
+  startHash: string;
+  forkPointStateHash: string | null;
+}): Promise<Result<ForkContinuationOptions, string>> {
+  const { cas, sourceThreadId, startHash, forkPointStateHash } = params;
+
+  if (forkPointStateHash === null) {
+    return ok({
+      startHash,
+      forkHeadHash: startHash,
+      initialChain: EMPTY_CHAIN_STATE,
+    });
+  }
+
+  const yamlText = await cas.get(forkPointStateHash);
+  if (yamlText === null) {
+    return err(`fork point state missing in CAS: ${forkPointStateHash}`);
+  }
+  const parsed = parseCasThreadNode(yamlText);
+  if (parsed === null || parsed.kind !== "state") {
+    return err(`fork point blob is not a StateNode: ${forkPointStateHash}`);
+  }
+  const fpPayload = parsed.node.payload;
+
+  const chainBefore: ChainState = {
+    parentStateHash: forkPointStateHash,
+    parentAncestors: fpPayload.ancestors,
+  };
+  const ancestorsMarker = computeAncestors(chainBefore);
+
+  const emptyContentHash = await putContentNodeWithRefs(cas, "", []);
+  const markerPayload: StateNodePayload = {
+    role: FORK_BRANCH_ROLE,
+    meta: { forkFrom: sourceThreadId },
+    start: startHash,
+    content: emptyContentHash,
+    ancestors: ancestorsMarker,
+    compact: null,
+    timestamp: Date.now(),
+  };
+  const markerHash = await putStateNode(cas, markerPayload);
+
+  const initialChain: ChainState = {
+    parentStateHash: markerHash,
+    parentAncestors: ancestorsMarker,
+  };
+
+  return ok({
+    startHash,
+    forkHeadHash: markerHash,
+    initialChain,
+  });
 }
 
 /**
- * Read `.data.jsonl` text and compute fork payload for the worker `run` command.
+ * Prepare a CAS fork: writes the branch marker {@link StateNode}, registers `threads.json`,
+ * and returns worker payload fields (shared {@link StartNode}, zero ancestor duplication).
  */
-export function buildForkPlan(
-  dataJsonlText: string,
-  fromRole: string | null,
-): Result<ForkPlan, string> {
-  const parsed = parseThreadDataJsonl(dataJsonlText);
-  if (!parsed.ok) {
-    return parsed;
+export async function prepareCasFork(params: {
+  cas: CasStore;
+  bundleDir: string;
+  bundleHash: string;
+  sourceThreadId: string;
+  headHash: string;
+  startHash: string;
+  newThreadId: string;
+  fromRole: string | null;
+}): Promise<Result<CasForkPlan, string>> {
+  const id = await readStartWorkflowIdentity({
+    cas: params.cas,
+    startHash: params.startHash,
+  });
+  if (!id.ok) {
+    return id;
   }
-  const selected = selectForkHistoricalSteps(parsed.value.roleSteps, fromRole);
-  if (!selected.ok) {
-    return selected;
+
+  const newestFirst = await walkStateFramesNewestFirst(params.cas, params.headHash);
+  const meaningful = meaningfulFramesOldestFirst(newestFirst);
+
+  const forkPoint = selectForkPointStateHash(meaningful, params.fromRole);
+  if (!forkPoint.ok) {
+    return forkPoint;
   }
-  const { start } = parsed.value;
+
+  const replayFrames = replayFramesThroughForkPoint(meaningful, forkPoint.value);
+  const steps: RoleOutput[] = [];
+  const stepTimestamps: number[] = [];
+  for (const fr of replayFrames) {
+    steps.push(await payloadToRoleOutput(params.cas, fr.payload));
+    stepTimestamps.push(fr.payload.timestamp);
+  }
+
+  const cont = await buildForkContinuation({
+    cas: params.cas,
+    sourceThreadId: params.sourceThreadId,
+    startHash: params.startHash,
+    forkPointStateHash: forkPoint.value,
+  });
+  if (!cont.ok) {
+    return cont;
+  }
+
+  await upsertThreadEntry(params.bundleDir, params.newThreadId, {
+    head: cont.value.forkHeadHash,
+    start: params.startHash,
+    updatedAt: Date.now(),
+  });
+
   return ok({
-    workflowName: start.workflowName,
-    hash: start.hash,
-    sourceThreadId: start.threadId,
-    prompt: start.prompt,
-    runOptions: { maxRounds: start.maxRounds, depth: start.depth },
-    historicalSteps: selected.value,
+    workflowName: id.value.workflowName,
+    hash: params.bundleHash,
+    sourceThreadId: params.sourceThreadId,
+    prompt: id.value.prompt,
+    runOptions: { maxRounds: id.value.maxRounds, depth: id.value.depth },
+    steps,
+    stepTimestamps,
+    forkContinuation: cont.value,
   });
 }

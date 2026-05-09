@@ -1,5 +1,7 @@
-import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+
+import { err, ok, type Result } from "@uncaged/workflow-util";
 
 /**
  * Active-thread index entry stored in `<bundleDir>/threads.json`.
@@ -71,7 +73,8 @@ function parseThreadIndex(text: string): ThreadIndex {
   return out;
 }
 
-async function readThreadIndex(bundleDir: string): Promise<ThreadIndex> {
+/** Read `<bundleDir>/threads.json` (empty object when missing or invalid). */
+export async function readThreadsIndex(bundleDir: string): Promise<ThreadIndex> {
   const path = threadsJsonPath(bundleDir);
   let text: string;
   try {
@@ -86,7 +89,7 @@ async function readThreadIndex(bundleDir: string): Promise<ThreadIndex> {
   return parseThreadIndex(text);
 }
 
-async function writeThreadIndex(bundleDir: string, index: ThreadIndex): Promise<void> {
+export async function writeThreadsIndex(bundleDir: string, index: ThreadIndex): Promise<void> {
   const path = threadsJsonPath(bundleDir);
   await mkdir(dirname(path), { recursive: true });
   const tmp = `${path}.tmp.${process.pid}.${Date.now()}`;
@@ -101,19 +104,19 @@ export async function upsertThreadEntry(
   threadId: string,
   entry: ThreadIndexEntry,
 ): Promise<void> {
-  const index = await readThreadIndex(bundleDir);
+  const index = await readThreadsIndex(bundleDir);
   index[threadId] = entry;
-  await writeThreadIndex(bundleDir, index);
+  await writeThreadsIndex(bundleDir, index);
 }
 
 /** Remove a thread entry from `threads.json` (no-op when absent). */
 export async function removeThreadEntry(bundleDir: string, threadId: string): Promise<void> {
-  const index = await readThreadIndex(bundleDir);
+  const index = await readThreadsIndex(bundleDir);
   if (!(threadId in index)) {
     return;
   }
   delete index[threadId];
-  await writeThreadIndex(bundleDir, index);
+  await writeThreadsIndex(bundleDir, index);
 }
 
 function dateKey(epochMs: number): string {
@@ -133,4 +136,64 @@ export async function appendThreadHistoryEntry(
   await mkdir(dirname(path), { recursive: true });
   const line = `${JSON.stringify(entry)}\n`;
   await appendFile(path, line, "utf8");
+}
+
+/** Removes every `history/*.jsonl` line whose `threadId` matches (rewrite files in place). */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file JSONL filtering keeps RM deterministic
+export async function removeThreadHistoryEntries(
+  bundleDir: string,
+  threadId: string,
+): Promise<Result<number, string>> {
+  const histRoot = join(bundleDir, "history");
+  let files: string[];
+  try {
+    files = await readdir(histRoot);
+  } catch (e) {
+    const errObj = e as NodeJS.ErrnoException;
+    if (errObj.code === "ENOENT") {
+      return ok(0);
+    }
+    return err(`failed to read history directory: ${String(e)}`);
+  }
+
+  let removed = 0;
+  for (const name of files) {
+    if (!name.endsWith(".jsonl")) {
+      continue;
+    }
+    const path = join(histRoot, name);
+    let text: string;
+    try {
+      text = await readFile(path, "utf8");
+    } catch {
+      continue;
+    }
+    const kept: string[] = [];
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed === "") {
+        continue;
+      }
+      let rec: unknown;
+      try {
+        rec = JSON.parse(trimmed) as unknown;
+      } catch {
+        kept.push(`${trimmed}\n`);
+        continue;
+      }
+      if (rec === null || typeof rec !== "object") {
+        kept.push(`${trimmed}\n`);
+        continue;
+      }
+      const id = (rec as Record<string, unknown>).threadId;
+      if (id === threadId) {
+        removed++;
+        continue;
+      }
+      kept.push(`${trimmed}\n`);
+    }
+    await writeFile(path, kept.join(""), "utf8");
+  }
+
+  return ok(removed);
 }

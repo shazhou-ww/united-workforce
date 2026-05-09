@@ -1,19 +1,44 @@
+import { createCasStore } from "@uncaged/workflow-cas";
+import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { END } from "@uncaged/workflow-runtime";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 
-import { readTextFileIfExists } from "../../fs-utils.js";
-import { resolveThreadDataPath } from "../../thread-scan.js";
+import { resolveThreadRecord } from "../../thread-scan.js";
 
 export async function cmdThreadShow(
   storageRoot: string,
   threadId: string,
 ): Promise<Result<string, string>> {
-  const dataPath = await resolveThreadDataPath(storageRoot, threadId);
-  if (dataPath === null) {
+  const resolved = await resolveThreadRecord(storageRoot, threadId);
+  if (resolved === null) {
     return err(`thread not found: ${threadId}`);
   }
-  const text = await readTextFileIfExists(dataPath);
-  if (text === null) {
-    return err(`thread data missing: ${threadId}`);
+
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const frames = await walkStateFramesNewestFirst(cas, resolved.head);
+  const chronological = [...frames].reverse();
+
+  const steps: Array<{ role: string; hash: string; timestamp: number }> = [];
+  for (const fr of chronological) {
+    if (fr.payload.role === END || fr.payload.role === FORK_BRANCH_ROLE) {
+      continue;
+    }
+    steps.push({
+      role: fr.payload.role,
+      hash: fr.hash,
+      timestamp: fr.payload.timestamp,
+    });
   }
-  return ok(text.endsWith("\n") ? text.slice(0, -1) : text);
+
+  const payload = {
+    threadId: resolved.threadId,
+    bundleHash: resolved.bundleHash,
+    head: resolved.head,
+    start: resolved.start,
+    source: resolved.source,
+    steps,
+  };
+
+  return ok(JSON.stringify(payload, null, 2));
 }

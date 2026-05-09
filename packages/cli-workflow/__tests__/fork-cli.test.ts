@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
+import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
+import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
+
 import { cmdFork, cmdRun } from "../src/commands/thread/index.js";
 import { cmdAdd } from "../src/commands/workflow/index.js";
 import { pathExists } from "../src/fs-utils.js";
+import { resolveThreadRecord } from "../src/thread-scan.js";
 import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
@@ -41,27 +45,6 @@ export const run = async function* (input, options) {
 };
 `;
 
-async function countDataJsonlLines(dataPath: string): Promise<number> {
-  try {
-    const text = await readFile(dataPath, "utf8");
-    return text
-      .trim()
-      .split("\n")
-      .filter((l) => l !== "").length;
-  } catch {
-    return 0;
-  }
-}
-
-async function waitUntilMinDataLines(dataPath: string, minLines: number): Promise<void> {
-  for (let attempt = 0; attempt < 120; attempt++) {
-    if ((await countDataJsonlLines(dataPath)) >= minLines) {
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 25));
-  }
-}
-
 async function waitUntilRunningAbsent(runningPath: string): Promise<void> {
   for (let attempt = 0; attempt < 120; attempt++) {
     if (!(await pathExists(runningPath))) {
@@ -69,6 +52,41 @@ async function waitUntilRunningAbsent(runningPath: string): Promise<void> {
     }
     await new Promise((r) => setTimeout(r, 25));
   }
+}
+
+async function waitUntilThreadCompletes(storageRoot: string, threadId: string): Promise<void> {
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const row = await resolveThreadRecord(storageRoot, threadId);
+    if (row?.source === "history") {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+async function listMeaningfulRoleContents(
+  storageRoot: string,
+  threadId: string,
+): Promise<Array<{ role: string; content: string }>> {
+  const row = await resolveThreadRecord(storageRoot, threadId);
+  if (row === null) {
+    return [];
+  }
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const frames = await walkStateFramesNewestFirst(cas, row.head);
+  const chronological = [...frames].reverse();
+  const out: Array<{ role: string; content: string }> = [];
+  for (const fr of chronological) {
+    if (fr.payload.role === END || fr.payload.role === FORK_BRANCH_ROLE) {
+      continue;
+    }
+    const content = await getContentMerklePayload(cas, fr.payload.content);
+    out.push({
+      role: fr.payload.role,
+      content: content ?? "",
+    });
+  }
+  return out;
 }
 
 describe("cli fork", () => {
@@ -110,10 +128,12 @@ describe("cli fork", () => {
       return;
     }
     const sourceId = ran.value.threadId;
-    const sourceData = join(storageRoot, "logs", hash, `${sourceId}.data.jsonl`);
     const sourceRunning = join(storageRoot, "logs", hash, `${sourceId}.running`);
     await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 5);
+    await waitUntilThreadCompletes(storageRoot, sourceId);
+
+    const histBefore = await resolveThreadRecord(storageRoot, sourceId);
+    expect(histBefore?.source).toBe("history");
 
     const forked = await cmdFork(storageRoot, sourceId, "planner");
     expect(forked.ok).toBe(true);
@@ -121,25 +141,18 @@ describe("cli fork", () => {
       return;
     }
     const newId = forked.value.threadId;
-    const newData = join(storageRoot, "logs", hash, `${newId}.data.jsonl`);
     const newRunning = join(storageRoot, "logs", hash, `${newId}.running`);
     await waitUntilRunningAbsent(newRunning);
-    await waitUntilMinDataLines(newData, 5);
+    await waitUntilThreadCompletes(storageRoot, newId);
 
-    const text = await readFile(newData, "utf8");
-    const lines = text
-      .trim()
-      .split("\n")
-      .filter((l) => l !== "");
-    expect(lines.length).toBe(5);
-    const start = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
-    expect(start.threadId).toBe(newId);
-    expect(start.forkFrom).toEqual({ threadId: sourceId });
+    const forkHist = await resolveThreadRecord(storageRoot, newId);
+    expect(forkHist?.source).toBe("history");
+    expect(forkHist?.start).toBe(histBefore?.start);
 
-    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
-    expect(lastRoleLine.role).toBe("reviewer");
-    const cas = createCasStore(getGlobalCasDir(storageRoot));
-    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-1");
+    const steps = await listMeaningfulRoleContents(storageRoot, newId);
+    const tail = steps[steps.length - 1];
+    expect(tail?.role).toBe("reviewer");
+    expect(tail?.content).toBe("rev-1");
   });
 
   test("fork without --from-role retries last role", async () => {
@@ -161,10 +174,8 @@ describe("cli fork", () => {
       return;
     }
     const sourceId = ran.value.threadId;
-    const sourceData = join(storageRoot, "logs", hash, `${sourceId}.data.jsonl`);
-    const sourceRunning = join(storageRoot, "logs", hash, `${sourceId}.running`);
-    await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 5);
+    await waitUntilRunningAbsent(join(storageRoot, "logs", hash, `${sourceId}.running`));
+    await waitUntilThreadCompletes(storageRoot, sourceId);
 
     const forked = await cmdFork(storageRoot, sourceId, null);
     expect(forked.ok).toBe(true);
@@ -172,26 +183,17 @@ describe("cli fork", () => {
       return;
     }
     const newId = forked.value.threadId;
-    const newData = join(storageRoot, "logs", hash, `${newId}.data.jsonl`);
-    const newRunning = join(storageRoot, "logs", hash, `${newId}.running`);
-    await waitUntilRunningAbsent(newRunning);
-    await waitUntilMinDataLines(newData, 5);
+    await waitUntilRunningAbsent(join(storageRoot, "logs", hash, `${newId}.running`));
+    await waitUntilThreadCompletes(storageRoot, newId);
 
-    const text = await readFile(newData, "utf8");
-    const lines = text
-      .trim()
-      .split("\n")
-      .filter((l) => l !== "");
-    expect(lines.length).toBe(5);
-
-    const replayCoder = JSON.parse(lines[2] ?? "{}") as Record<string, unknown>;
-    expect(replayCoder.role).toBe("coder");
-    const cas = createCasStore(getGlobalCasDir(storageRoot));
-    expect(await getContentMerklePayload(cas, String(replayCoder.contentHash))).toBe("c1");
-
-    const lastRoleLine = JSON.parse(lines[lines.length - 2] ?? "{}") as Record<string, unknown>;
-    expect(lastRoleLine.role).toBe("reviewer");
-    expect(await getContentMerklePayload(cas, String(lastRoleLine.contentHash))).toBe("rev-2");
+    const steps = await listMeaningfulRoleContents(storageRoot, newId);
+    expect(steps.length).toBeGreaterThanOrEqual(3);
+    const coderReplay = steps[steps.length - 2];
+    expect(coderReplay?.role).toBe("coder");
+    expect(coderReplay?.content).toBe("c1");
+    const tail = steps[steps.length - 1];
+    expect(tail?.role).toBe("reviewer");
+    expect(tail?.content).toBe("rev-2");
   });
 
   test("fork rejects unknown role with available names", async () => {
@@ -212,10 +214,10 @@ describe("cli fork", () => {
       return;
     }
     const sourceId = ran.value.threadId;
-    const sourceData = join(storageRoot, "logs", added.value.hash, `${sourceId}.data.jsonl`);
-    const sourceRunning = join(storageRoot, "logs", added.value.hash, `${sourceId}.running`);
-    await waitUntilRunningAbsent(sourceRunning);
-    await waitUntilMinDataLines(sourceData, 5);
+    await waitUntilRunningAbsent(
+      join(storageRoot, "logs", added.value.hash, `${sourceId}.running`),
+    );
+    await waitUntilThreadCompletes(storageRoot, sourceId);
 
     const bad = await cmdFork(storageRoot, sourceId, "ghost-role");
     expect(bad.ok).toBe(false);

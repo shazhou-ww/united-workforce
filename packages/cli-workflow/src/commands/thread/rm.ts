@@ -1,24 +1,35 @@
 import { unlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { garbageCollectCas } from "@uncaged/workflow-execute";
+import { join } from "node:path";
+import {
+  garbageCollectCas,
+  removeThreadEntry,
+  removeThreadHistoryEntries,
+} from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
-import { resolveThreadDataPath } from "../../thread-scan.js";
+import { resolveThreadRecord } from "../../thread-scan.js";
 
 export async function cmdThreadRemove(
   storageRoot: string,
   threadId: string,
 ): Promise<Result<void, string>> {
-  const dataPath = await resolveThreadDataPath(storageRoot, threadId);
-  if (dataPath === null) {
+  const resolved = await resolveThreadRecord(storageRoot, threadId);
+  if (resolved === null) {
     return err(`thread not found: ${threadId}`);
   }
 
-  const dir = dirname(dataPath);
-  const infoPath = join(dir, `${threadId}.info.jsonl`);
-  const runningPath = join(dir, `${threadId}.running`);
+  if (resolved.source === "active") {
+    await removeThreadEntry(resolved.bundleDir, threadId);
+  } else {
+    const hist = await removeThreadHistoryEntries(resolved.bundleDir, threadId);
+    if (!hist.ok) {
+      return hist;
+    }
+  }
 
-  await unlink(dataPath);
+  const infoPath = join(storageRoot, "logs", resolved.bundleHash, `${threadId}.info.jsonl`);
+  const runningPath = join(storageRoot, "logs", resolved.bundleHash, `${threadId}.running`);
+
   await unlink(infoPath).catch(() => {});
   await unlink(runningPath).catch(() => {});
 

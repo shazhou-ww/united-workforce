@@ -33,19 +33,11 @@ import {
   removeThreadEntry,
   upsertThreadEntry,
 } from "./threads-index.js";
-import type { ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
+import type { ChainState, ExecuteThreadIo, ExecuteThreadOptions } from "./types.js";
+import { EMPTY_CHAIN_STATE } from "./types.js";
 
 /** Cap for {@link StateNode}.payload.ancestors: 1 parent + 10 skip-list. */
 const ANCESTORS_CAP = 11;
-
-type ChainState = {
-  /** State hash of the most recently written {@link StateNode}, or `null` before the first step. */
-  parentStateHash: string | null;
-  /** Ancestors recorded on the most recently written {@link StateNode}. */
-  parentAncestors: readonly string[];
-};
-
-const EMPTY_CHAIN: ChainState = { parentStateHash: null, parentAncestors: [] };
 
 function computeAncestors(chain: ChainState): string[] {
   if (chain.parentStateHash === null) {
@@ -408,36 +400,56 @@ export async function executeThread(
   await mkdir(dirname(io.infoJsonlPath), { recursive: true });
 
   const prefilled = options.prefilledDiskSteps;
+  const fork = options.forkContinuation;
+
+  if (fork !== null && prefilled !== null) {
+    throw new Error("forkContinuation and prefilledDiskSteps cannot both be set");
+  }
+
   if (prefilled !== null && prefilled.length !== input.steps.length) {
     throw new Error(
       `prefilledDiskSteps length (${prefilled.length}) must match input.steps length (${input.steps.length})`,
     );
   }
 
+  const replayTs = options.replayTimestamps;
+  if (replayTs !== null && replayTs.length !== input.steps.length) {
+    throw new Error(
+      `replayTimestamps length (${replayTs.length}) must match input.steps length (${input.steps.length})`,
+    );
+  }
+
   const bundleDir = getBundleDir(options.storageRoot, io.hash);
 
-  const promptHash = await io.cas.put(input.prompt);
-  const startHash = await putStartNode(
-    io.cas,
-    {
-      name: workflowName,
-      hash: io.hash,
-      maxRounds: options.maxRounds,
-      depth: options.depth,
-    },
-    promptHash,
-  );
+  let startHash: string;
 
-  await publishHead({
-    bundleDir,
-    threadId: io.threadId,
-    startHash,
-    headHash: startHash,
-  });
+  if (fork !== null) {
+    startHash = fork.startHash;
+    logger("T9HQ2KHM", `thread ${io.threadId} continued fork for workflow ${workflowName}`);
+  } else {
+    const promptHash = await io.cas.put(input.prompt);
+    startHash = await putStartNode(
+      io.cas,
+      {
+        name: workflowName,
+        hash: io.hash,
+        maxRounds: options.maxRounds,
+        depth: options.depth,
+      },
+      promptHash,
+    );
 
-  logger("T9HQ2KHM", `thread ${io.threadId} started for workflow ${workflowName}`);
+    await publishHead({
+      bundleDir,
+      threadId: io.threadId,
+      startHash,
+      headHash: startHash,
+    });
 
-  let chain: ChainState = EMPTY_CHAIN;
+    logger("T9HQ2KHM", `thread ${io.threadId} started for workflow ${workflowName}`);
+  }
+
+  let chain: ChainState = fork !== null ? fork.initialChain : EMPTY_CHAIN_STATE;
 
   if (prefilled !== null) {
     for (const row of prefilled) {
@@ -497,7 +509,7 @@ export async function executeThread(
       contentHash: out.contentHash,
       meta: out.meta,
       refs: out.refs,
-      timestamp: prefilled?.[i]?.timestamp ?? nowMs + i,
+      timestamp: replayTs?.[i] ?? prefilled?.[i]?.timestamp ?? nowMs + i,
     })),
   };
 

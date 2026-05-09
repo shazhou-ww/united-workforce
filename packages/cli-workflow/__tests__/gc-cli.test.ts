@@ -1,44 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createCasStore, putContentMerkleNode } from "@uncaged/workflow-cas";
-import { garbageCollectCas } from "@uncaged/workflow-execute";
+import { createCasStore, putStartNode } from "@uncaged/workflow-cas";
+import { garbageCollectCas, getBundleDir, upsertThreadEntry } from "@uncaged/workflow-execute";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { cmdThreadRemove } from "../src/commands/thread/index.js";
 import { pathExists } from "../src/fs-utils.js";
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
-
-async function writeDemoDataJsonl(params: {
-  path: string;
-  threadId: string;
-  bundleHash: string;
-  cas: ReturnType<typeof createCasStore>;
-  activeHash: string;
-}): Promise<void> {
-  const bodyHash = await putContentMerkleNode(params.cas, "p");
-  const text = [
-    JSON.stringify({
-      name: "demo",
-      hash: params.bundleHash,
-      threadId: params.threadId,
-      parameters: { prompt: "hi", options: { maxRounds: 5 } },
-      timestamp: 100,
-    }),
-    JSON.stringify({
-      role: "planner",
-      contentHash: bodyHash,
-      meta: {},
-      refs: [params.activeHash, bodyHash],
-      timestamp: 101,
-    }),
-    "",
-  ].join("\n");
-  await writeFile(params.path, text, "utf8");
-}
 
 describe("gc cli and garbageCollectCas", () => {
   let prevEnv: string | undefined;
@@ -59,22 +31,30 @@ describe("gc cli and garbageCollectCas", () => {
     await rm(storageRoot, { recursive: true, force: true });
   });
 
-  test("garbageCollectCas keeps CAS entries referenced by thread refs", async () => {
+  test("garbageCollectCas keeps CAS entries reachable from threads.json roots", async () => {
     const bundleHash = "C9NMV6V2TQT81";
     const threadId = "01AAA1111111111111111111";
-    const logsDir = join(storageRoot, "logs", bundleHash);
-    await mkdir(logsDir, { recursive: true });
+    const bundleDir = getBundleDir(storageRoot, bundleHash);
+    await mkdir(bundleDir, { recursive: true });
 
     const cas = createCasStore(getGlobalCasDir(storageRoot));
-    const activeHash = await cas.put("active-blob");
     const orphanHash = await cas.put("orphan-blob");
-
-    await writeDemoDataJsonl({
-      path: join(logsDir, `${threadId}.data.jsonl`),
-      threadId,
-      bundleHash,
+    const promptHash = await cas.put("prompt-text");
+    const startHash = await putStartNode(
       cas,
-      activeHash,
+      {
+        name: "demo",
+        hash: bundleHash,
+        maxRounds: 5,
+        depth: 0,
+      },
+      promptHash,
+    );
+
+    await upsertThreadEntry(bundleDir, threadId, {
+      head: startHash,
+      start: startHash,
+      updatedAt: 100,
     });
 
     const gc = await garbageCollectCas(storageRoot);
@@ -82,12 +62,12 @@ describe("gc cli and garbageCollectCas", () => {
     if (!gc.ok) {
       return;
     }
-    expect(gc.value.scannedThreads).toBe(1);
-    expect(gc.value.activeRefs).toBe(2);
+    expect(gc.value.scannedThreads).toBe(2);
     expect(gc.value.deletedEntries).toBe(1);
     expect(gc.value.deletedHashes).toEqual([orphanHash]);
 
-    expect(await pathExists(join(getGlobalCasDir(storageRoot), `${activeHash}.txt`))).toBe(true);
+    expect(await pathExists(join(getGlobalCasDir(storageRoot), `${promptHash}.txt`))).toBe(true);
+    expect(await pathExists(join(getGlobalCasDir(storageRoot), `${startHash}.txt`))).toBe(true);
     expect(await pathExists(join(getGlobalCasDir(storageRoot), `${orphanHash}.txt`))).toBe(false);
   });
 
@@ -110,19 +90,27 @@ describe("gc cli and garbageCollectCas", () => {
   test("cli gc prints stats", async () => {
     const bundleHash = "C9NMV6V2TQT81";
     const threadId = "01BBB2222222222222222222";
-    const logsDir = join(storageRoot, "logs", bundleHash);
-    await mkdir(logsDir, { recursive: true });
+    const bundleDir = getBundleDir(storageRoot, bundleHash);
+    await mkdir(bundleDir, { recursive: true });
 
     const cas = createCasStore(getGlobalCasDir(storageRoot));
-    const activeHash = await cas.put("keep-me");
+    const promptHash = await cas.put("prompt-text");
+    const startHash = await putStartNode(
+      cas,
+      {
+        name: "demo",
+        hash: bundleHash,
+        maxRounds: 5,
+        depth: 0,
+      },
+      promptHash,
+    );
     await cas.put("drop-me");
 
-    await writeDemoDataJsonl({
-      path: join(logsDir, `${threadId}.data.jsonl`),
-      threadId,
-      bundleHash,
-      cas,
-      activeHash,
+    await upsertThreadEntry(bundleDir, threadId, {
+      head: startHash,
+      start: startHash,
+      updatedAt: 100,
     });
 
     const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
@@ -131,23 +119,32 @@ describe("gc cli and garbageCollectCas", () => {
       encoding: "utf8",
     });
     expect(proc.status).toBe(0);
-    expect(String(proc.stdout).trim()).toBe("scanned 1 threads, 2 active refs, deleted 1 entries");
+    expect(String(proc.stdout).trim()).toBe("scanned 2 threads, 2 active refs, deleted 1 entries");
   });
 
   test("thread rm triggers gc so unreferenced CAS is removed", async () => {
     const bundleHash = "C9NMV6V2TQT81";
     const threadId = "01CCC3333333333333333333";
-    const logsDir = join(storageRoot, "logs", bundleHash);
-    await mkdir(logsDir, { recursive: true });
+    const bundleDir = getBundleDir(storageRoot, bundleHash);
+    await mkdir(bundleDir, { recursive: true });
 
     const cas = createCasStore(getGlobalCasDir(storageRoot));
-    const activeHash = await cas.put("pinned-by-ref");
-    await writeDemoDataJsonl({
-      path: join(logsDir, `${threadId}.data.jsonl`),
-      threadId,
-      bundleHash,
+    const promptHash = await cas.put("prompt-text");
+    const startHash = await putStartNode(
       cas,
-      activeHash,
+      {
+        name: "demo",
+        hash: bundleHash,
+        maxRounds: 5,
+        depth: 0,
+      },
+      promptHash,
+    );
+
+    await upsertThreadEntry(bundleDir, threadId, {
+      head: startHash,
+      start: startHash,
+      updatedAt: 100,
     });
 
     const orphanHash = await cas.put("orphan-after-rm");
@@ -157,6 +154,6 @@ describe("gc cli and garbageCollectCas", () => {
     expect(removed.ok).toBe(true);
 
     expect(await pathExists(orphanPath)).toBe(false);
-    expect(await pathExists(join(getGlobalCasDir(storageRoot), `${activeHash}.txt`))).toBe(false);
+    expect(await pathExists(join(getGlobalCasDir(storageRoot), `${promptHash}.txt`))).toBe(false);
   });
 });

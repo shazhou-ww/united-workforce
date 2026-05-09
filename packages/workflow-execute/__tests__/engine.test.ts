@@ -40,6 +40,8 @@ function makeOptions(overrides: Partial<ExecuteThreadOptions>): ExecuteThreadOpt
     awaitAfterEachYield: async () => {},
     forkSourceThreadId: null,
     prefilledDiskSteps: null,
+    forkContinuation: null,
+    replayTimestamps: null,
     storageRoot: "/tmp/never",
     ...overrides,
   };

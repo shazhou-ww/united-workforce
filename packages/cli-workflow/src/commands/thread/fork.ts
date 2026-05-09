@@ -1,10 +1,11 @@
 import { join } from "node:path";
-import { buildForkPlan } from "@uncaged/workflow-execute";
+import { createCasStore } from "@uncaged/workflow-cas";
+import { prepareCasFork } from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
-import { generateUlid } from "@uncaged/workflow-util";
+import { generateUlid, getGlobalCasDir } from "@uncaged/workflow-util";
 
-import { pathExists, readTextFileIfExists } from "../../fs-utils.js";
-import { resolveThreadDataPath } from "../../thread-scan.js";
+import { pathExists } from "../../fs-utils.js";
+import { resolveThreadRecord } from "../../thread-scan.js";
 import { ensureWorkerForHash, sendWorkerTcpCommand } from "../../worker-spawn.js";
 
 export async function cmdFork(
@@ -12,23 +13,31 @@ export async function cmdFork(
   threadId: string,
   fromRole: string | null,
 ): Promise<Result<{ threadId: string }, string>> {
-  const dataPath = await resolveThreadDataPath(storageRoot, threadId);
-  if (dataPath === null) {
+  const resolved = await resolveThreadRecord(storageRoot, threadId);
+  if (resolved === null) {
     return err(`thread not found: ${threadId}`);
   }
-  const text = await readTextFileIfExists(dataPath);
-  if (text === null) {
-    return err(`thread data missing: ${threadId}`);
+
+  const bundlePath = join(storageRoot, "bundles", `${resolved.bundleHash}.esm.js`);
+  if (!(await pathExists(bundlePath))) {
+    return err(`bundle file missing for thread hash ${resolved.bundleHash}`);
   }
 
-  const plan = buildForkPlan(text, fromRole);
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const newThreadId = generateUlid(Date.now());
+
+  const plan = await prepareCasFork({
+    cas,
+    bundleDir: resolved.bundleDir,
+    bundleHash: resolved.bundleHash,
+    sourceThreadId: threadId,
+    headHash: resolved.head,
+    startHash: resolved.start,
+    newThreadId,
+    fromRole,
+  });
   if (!plan.ok) {
     return plan;
-  }
-
-  const bundlePath = join(storageRoot, "bundles", `${plan.value.hash}.esm.js`);
-  if (!(await pathExists(bundlePath))) {
-    return err(`bundle file missing for thread hash ${plan.value.hash}`);
   }
 
   const worker = await ensureWorkerForHash(storageRoot, plan.value.hash, bundlePath);
@@ -36,25 +45,19 @@ export async function cmdFork(
     return worker;
   }
 
-  const newThreadId = generateUlid(Date.now());
-  const stepsOnWire = plan.value.historicalSteps.map((s) => ({
-    role: s.role,
-    contentHash: s.contentHash,
-    meta: s.meta,
-    refs: s.refs,
-    timestamp: s.timestamp,
-  }));
-
+  const p = plan.value;
   const sent = await sendWorkerTcpCommand(
     worker.value.port,
     {
       type: "run",
       threadId: newThreadId,
-      workflowName: plan.value.workflowName,
-      prompt: plan.value.prompt,
-      options: plan.value.runOptions,
-      steps: stepsOnWire,
-      forkSourceThreadId: plan.value.sourceThreadId,
+      workflowName: p.workflowName,
+      prompt: p.prompt,
+      options: p.runOptions,
+      steps: p.steps,
+      stepTimestamps: p.stepTimestamps.length > 0 ? p.stepTimestamps : null,
+      forkSourceThreadId: threadId,
+      forkContinuation: p.forkContinuation,
     },
     { awaitResponseLine: false },
   );

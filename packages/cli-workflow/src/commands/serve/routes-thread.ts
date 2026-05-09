@@ -1,10 +1,13 @@
+import { createCasStore } from "@uncaged/workflow-cas";
+import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
+import { END } from "@uncaged/workflow-runtime";
+import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { Hono } from "hono";
 
-import { readTextFileIfExists } from "../../fs-utils.js";
 import {
   listHistoricalThreads,
   listRunningThreads,
-  resolveThreadDataPath,
+  resolveThreadRecord,
 } from "../../thread-scan.js";
 import { cmdKill, cmdPause, cmdResume } from "../thread/control.js";
 import { cmdRun } from "../thread/run.js";
@@ -25,22 +28,46 @@ export function createThreadRoutes(storageRoot: string): Hono {
 
   app.get("/:threadId", async (c) => {
     const threadId = c.req.param("threadId");
-    const dataPath = await resolveThreadDataPath(storageRoot, threadId);
-    if (dataPath === null) {
+    const resolved = await resolveThreadRecord(storageRoot, threadId);
+    if (resolved === null) {
       return c.json({ error: `thread not found: ${threadId}` }, 404);
     }
-    const text = await readTextFileIfExists(dataPath);
-    if (text === null) {
-      return c.json({ error: `thread data missing: ${threadId}` }, 404);
-    }
-    const lines = text.trim().split("\n");
-    const records = lines.map((line) => {
-      try {
-        return JSON.parse(line) as unknown;
-      } catch {
-        return { raw: line };
+
+    const cas = createCasStore(getGlobalCasDir(storageRoot));
+    const frames = await walkStateFramesNewestFirst(cas, resolved.head);
+    const chronological = [...frames].reverse();
+
+    const records: unknown[] = [
+      {
+        type: "thread-start",
+        threadId: resolved.threadId,
+        bundleHash: resolved.bundleHash,
+        head: resolved.head,
+        start: resolved.start,
+        source: resolved.source,
+      },
+    ];
+
+    for (const fr of chronological) {
+      if (fr.payload.role === FORK_BRANCH_ROLE) {
+        continue;
       }
-    });
+      if (fr.payload.role === END) {
+        const returnCode = fr.payload.meta.returnCode;
+        const summary = fr.payload.meta.summary;
+        if (typeof returnCode === "number" && typeof summary === "string") {
+          records.push({ type: "workflow-result", returnCode, summary });
+        }
+        continue;
+      }
+      records.push({
+        role: fr.payload.role,
+        contentHash: fr.payload.content,
+        meta: fr.payload.meta,
+        timestamp: fr.payload.timestamp,
+      });
+    }
+
     return c.json({ threadId, records });
   });
 

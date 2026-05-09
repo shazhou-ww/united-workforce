@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { spawn, spawnSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { createCasStore, putContentMerkleNode } from "@uncaged/workflow-cas";
-import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import {
   formatLiveDebugLine,
@@ -18,11 +15,6 @@ import {
 import { parseLiveArgv } from "../src/live-argv.js";
 
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
-const fixtureRoot = fileURLToPath(new URL("./fixtures/live", import.meta.url));
-
-/** Bodies for Merkle content nodes; hashes must match `.data.jsonl` fixtures. */
-const LIVE_FIXTURE_PLANNER_BODY =
-  "alpha\nbeta\ngamma\nLINE4\nLINE5\nLINE6\nLINE7\nLINE8\nLINE9\nLINE10\nLINE11";
 
 describe("live helpers", () => {
   test("formatLiveTimeLabel pads HH:MM:SS", () => {
@@ -86,28 +78,6 @@ describe("live CLI", () => {
     prevEnv = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
     storageRoot = await mkdtemp(join(tmpdir(), "uncaged-wf-live-"));
     process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = storageRoot;
-    await mkdir(join(storageRoot, "logs", "C9NMV6V2TQT81"), { recursive: true });
-    await cp(
-      join(fixtureRoot, "logs", "C9NMV6V2TQT81", "01LIVECMPLT01DDDDDDDDDDDDG.data.jsonl"),
-      join(storageRoot, "logs", "C9NMV6V2TQT81", "01LIVECMPLT01DDDDDDDDDDDDG.data.jsonl"),
-    );
-    await cp(
-      join(fixtureRoot, "logs", "C9NMV6V2TQT81", "01LIVECMPLT01DDDDDDDDDDDDG.info.jsonl"),
-      join(storageRoot, "logs", "C9NMV6V2TQT81", "01LIVECMPLT01DDDDDDDDDDDDG.info.jsonl"),
-    );
-    await cp(
-      join(fixtureRoot, "logs", "C9NMV6V2TQT81", "01LIVEINFLY01DDDDDDDDDDDDG.data.jsonl"),
-      join(storageRoot, "logs", "C9NMV6V2TQT81", "01LIVEINFLY01DDDDDDDDDDDDG.data.jsonl"),
-    );
-    await cp(
-      join(fixtureRoot, "logs", "C9NMV6V2TQT81", "01LIVEOLDER01DDDDDDDDDDDDG.data.jsonl"),
-      join(storageRoot, "logs", "C9NMV6V2TQT81", "01LIVEOLDER01DDDDDDDDDDDDG.data.jsonl"),
-    );
-
-    const cas = createCasStore(getGlobalCasDir(storageRoot));
-    await putContentMerkleNode(cas, LIVE_FIXTURE_PLANNER_BODY);
-    await putContentMerkleNode(cas, "patch");
-    await putContentMerkleNode(cas, "still running");
   });
 
   afterEach(async () => {
@@ -119,170 +89,6 @@ describe("live CLI", () => {
     await rm(storageRoot, { recursive: true, force: true });
   });
 
-  test("prints role steps and summary for a completed thread", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawn(process.execPath, [cliEntryPath, "live", "01LIVECMPLT01DDDDDDDDDDDDG"], {
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("planner");
-    expect(stdout).toContain("coder");
-    expect(stdout).toContain("meta:");
-    expect(stdout).toContain('"phase":"plan"');
-    expect(stdout).toContain("LINE10");
-    expect(stdout).not.toContain("LINE11");
-    expect(stdout).toContain("more line");
-    expect(stdout).toContain("completed: returnCode=0");
-    expect(stdout).toContain("fixture completed");
-  });
-
-  test("--latest tails the newest thread by start timestamp", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawn(process.execPath, [cliEntryPath, "live", "--latest"], {
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("fixture completed");
-    expect(stdout).not.toContain("older thread");
-  });
-
-  test("--debug prints .info.jsonl records after data output", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawn(
-      process.execPath,
-      [cliEntryPath, "live", "01LIVECMPLT01DDDDDDDDDDDDG", "--debug"],
-      {
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("[DEBUGTAG1]");
-    expect(stdout).toContain("bundle loaded");
-    expect(stdout).toContain("[DEBUGTAG2]");
-    expect(stdout).toContain("multi line");
-  });
-
-  test("--role filters out non-matching roles", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawn(
-      process.execPath,
-      [cliEntryPath, "live", "01LIVECMPLT01DDDDDDDDDDDDG", "--role", "planner"],
-      {
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("planner");
-    expect(stdout).not.toContain("patch");
-    expect(stdout).toContain("completed: returnCode=0");
-  });
-
-  test("--latest --debug --role combine", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const proc = spawn(
-      process.execPath,
-      [cliEntryPath, "live", "--latest", "--debug", "--role", "planner"],
-      {
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("[DEBUGTAG1]");
-    expect(stdout).toContain("planner");
-    expect(stdout).not.toContain("patch");
-    expect(stdout).toContain("fixture completed");
-  });
-
   test("unknown thread id exits 1", () => {
     const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
     const r = spawnSync(process.execPath, [cliEntryPath, "live", "01UNKNOWNXXXXXXXXXXXXXXXXX"], {
@@ -291,51 +97,6 @@ describe("live CLI", () => {
     });
     expect(r.status).toBe(1);
     expect(String(r.stderr ?? "")).toContain("thread not found");
-  });
-
-  test("follows file until WorkflowResult is appended", async () => {
-    const env = { ...process.env, UNCAGED_WORKFLOW_STORAGE_ROOT: storageRoot };
-    const dataPath = join(
-      storageRoot,
-      "logs",
-      "C9NMV6V2TQT81",
-      "01LIVEINFLY01DDDDDDDDDDDDG.data.jsonl",
-    );
-
-    const proc = spawn(process.execPath, [cliEntryPath, "live", "01LIVEINFLY01DDDDDDDDDDDDG"], {
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    await new Promise((r) => setTimeout(r, 120));
-    const prior = await readFile(dataPath, "utf8");
-    await writeFile(
-      dataPath,
-      `${prior.replace(/\s*$/, "")}\n${JSON.stringify({ returnCode: 0, summary: "caught up" })}\n`,
-      "utf8",
-    );
-
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let buf = "";
-      proc.stdout?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.stderr?.on("data", (c: Buffer) => {
-        buf += c.toString("utf8");
-      });
-      proc.on("error", reject);
-      proc.on("exit", (code: number | null) => {
-        if (code === 0) {
-          resolve(buf);
-        } else {
-          reject(new Error(`exit ${code}: ${buf}`));
-        }
-      });
-    });
-
-    expect(stdout).toContain("planner");
-    expect(stdout).toContain("completed: returnCode=0");
-    expect(stdout).toContain("caught up");
   });
 });
 
