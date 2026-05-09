@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateWorkflowDescriptor } from "@uncaged/workflow";
+import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
 import { END, type ModeratorContext, type RoleStep, START } from "@uncaged/workflow-runtime";
 import { buildDevelopDescriptor } from "../src/descriptor.js";
 import { developModerator } from "../src/index.js";
