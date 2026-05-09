@@ -101,10 +101,10 @@ async function writeRegistryYaml(storageRoot: string, yaml: string): Promise<voi
   await writeFile(join(storageRoot, "workflow.yaml"), yaml, "utf8");
 }
 
-/** Extract rounds reply with schema-shaped JSON in `content`; supervisor uses plain `content` (no tools advertised). */
+/** Extract and supervisor both run via {@link createThreadReactor}; differentiate by `body.model`. */
 function installMockExtractThenSupervisor(params: {
   extractArgs: ReadonlyArray<Record<string, unknown>>;
-  supervisorContent: string;
+  supervisorDecision: "continue" | "stop";
   onSupervisorCall?: () => void;
 }): () => void {
   const origFetch = globalThis.fetch;
@@ -114,9 +114,9 @@ function installMockExtractThenSupervisor(params: {
     init?: RequestInit,
   ): Promise<Response> => {
     const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-    const tools = body.tools;
-    const hasTools = Array.isArray(tools) && tools.length > 0;
-    if (hasTools) {
+    const model = typeof body.model === "string" ? body.model : "";
+    const isSupervisor = model.startsWith("supervisor-");
+    if (!isSupervisor) {
       const args =
         params.extractArgs[extractI] ?? params.extractArgs[params.extractArgs.length - 1];
       if (args === undefined) {
@@ -133,7 +133,9 @@ function installMockExtractThenSupervisor(params: {
     params.onSupervisorCall?.();
     return new Response(
       JSON.stringify({
-        choices: [{ message: { content: params.supervisorContent } }],
+        choices: [
+          { message: { content: JSON.stringify({ decision: params.supervisorDecision }) } },
+        ],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -674,7 +676,7 @@ describe("executeThread", () => {
   test("supervisor stops thread when interval elapses and model returns stop", async () => {
     restoreFetch = installMockExtractThenSupervisor({
       extractArgs: [{ plan: "do-it", files: ["a.ts"] }, { diff: "+ok" }],
-      supervisorContent: "stop",
+      supervisorDecision: "stop",
     });
 
     const root = await mkdtemp(join(tmpdir(), "wf-engine-sup-stop-"));
@@ -725,7 +727,7 @@ describe("executeThread", () => {
     let supervisorCalls = 0;
     restoreFetch = installMockExtractThenSupervisor({
       extractArgs: [{ plan: "do-it", files: ["a.ts"] }, { diff: "+ok" }],
-      supervisorContent: "stop",
+      supervisorDecision: "stop",
       onSupervisorCall: () => {
         supervisorCalls += 1;
       },

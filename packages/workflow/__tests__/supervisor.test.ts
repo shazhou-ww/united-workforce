@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { parseSupervisorDecisionText, runSupervisor } from "../src/engine/supervisor.js";
+import { runSupervisor } from "../src/engine/supervisor.js";
 import type { WorkflowConfig } from "../src/registry/index.js";
 import type { LogFn } from "../src/util/index.js";
 
@@ -20,28 +20,23 @@ function supervisorOnlyConfig(): WorkflowConfig {
   };
 }
 
-describe("parseSupervisorDecisionText", () => {
-  test("reads continue and stop case-insensitively", () => {
-    expect(parseSupervisorDecisionText("continue")).toBe("continue");
-    expect(parseSupervisorDecisionText("CONTINUE")).toBe("continue");
-    expect(parseSupervisorDecisionText("stop")).toBe("stop");
-    expect(parseSupervisorDecisionText("STOP.")).toBe("stop");
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
   });
+}
 
-  test("finds token inside a sentence", () => {
-    expect(parseSupervisorDecisionText("Answer: continue")).toBe("continue");
-    expect(parseSupervisorDecisionText("I recommend stop now")).toBe("stop");
-  });
-
-  test("when both appear, earlier token wins", () => {
-    expect(parseSupervisorDecisionText("continue then stop")).toBe("continue");
-    expect(parseSupervisorDecisionText("stop then continue")).toBe("stop");
-  });
-
-  test("defaults to continue when unclear", () => {
-    expect(parseSupervisorDecisionText("maybe later")).toBe("continue");
-  });
-});
+function installFetchMock(impl: (init?: RequestInit) => Promise<Response>): () => void {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = Object.assign(
+    async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => impl(init),
+    { preconnect: origFetch.preconnect.bind(origFetch) },
+  ) as typeof fetch;
+  return () => {
+    globalThis.fetch = origFetch;
+  };
+}
 
 describe("runSupervisor", () => {
   let restoreFetch: (() => void) | null = null;
@@ -52,16 +47,9 @@ describe("runSupervisor", () => {
   });
 
   test("returns continue when supervisor model cannot be resolved (no fetch)", async () => {
-    const origFetch = globalThis.fetch;
-    restoreFetch = () => {
-      globalThis.fetch = origFetch;
-    };
-    globalThis.fetch = Object.assign(
-      async () => {
-        throw new Error("fetch should not run when supervisor is not configured");
-      },
-      { preconnect: origFetch.preconnect.bind(origFetch) },
-    ) as typeof fetch;
+    restoreFetch = installFetchMock(async () => {
+      throw new Error("fetch should not run when supervisor is not configured");
+    });
 
     const config: WorkflowConfig = {
       maxDepth: 1,
@@ -87,21 +75,27 @@ describe("runSupervisor", () => {
     expect(r.value).toBe("continue");
   });
 
-  test("returns stop from chat/completions assistant content", async () => {
-    const origFetch = globalThis.fetch;
-    restoreFetch = () => {
-      globalThis.fetch = origFetch;
-    };
-    globalThis.fetch = Object.assign(
-      async () =>
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "stop" } }],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      { preconnect: origFetch.preconnect.bind(origFetch) },
-    ) as typeof fetch;
+  test("returns stop from structured tool call", async () => {
+    restoreFetch = installFetchMock(async () =>
+      jsonResponse({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  id: "t1",
+                  type: "function",
+                  function: {
+                    name: "supervisor_decision",
+                    arguments: JSON.stringify({ decision: "stop" }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
 
     const r = await runSupervisor({
       config: supervisorOnlyConfig(),
@@ -116,14 +110,44 @@ describe("runSupervisor", () => {
     expect(r.value).toBe("stop");
   });
 
-  test("returns err on invalid JSON body", async () => {
-    const origFetch = globalThis.fetch;
-    restoreFetch = () => {
-      globalThis.fetch = origFetch;
-    };
-    globalThis.fetch = Object.assign(async () => new Response("not-json", { status: 200 }), {
-      preconnect: origFetch.preconnect.bind(origFetch),
-    }) as typeof fetch;
+  test("returns continue from plain JSON content (reactor short-circuit)", async () => {
+    restoreFetch = installFetchMock(async () =>
+      jsonResponse({
+        choices: [{ message: { content: '{"decision":"continue"}' } }],
+      }),
+    );
+
+    const r = await runSupervisor({
+      config: supervisorOnlyConfig(),
+      prompt: "do Y",
+      recentSteps: [],
+      logger: noopLogger,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) {
+      return;
+    }
+    expect(r.value).toBe("continue");
+  });
+
+  test("returns err when reactor cannot validate the schema within max rounds", async () => {
+    restoreFetch = installFetchMock(async () =>
+      jsonResponse({
+        choices: [{ message: { content: "not-json" } }],
+      }),
+    );
+
+    const r = await runSupervisor({
+      config: supervisorOnlyConfig(),
+      prompt: "p",
+      recentSteps: [],
+      logger: noopLogger,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  test("returns err on HTTP failure", async () => {
+    restoreFetch = installFetchMock(async () => new Response("boom", { status: 500 }));
 
     const r = await runSupervisor({
       config: supervisorOnlyConfig(),
