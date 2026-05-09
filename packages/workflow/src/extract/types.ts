@@ -1,14 +1,7 @@
-import type { CasStore, LlmProvider } from "@uncaged/workflow-runtime";
+import type { LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
 
 export type { ExtractFn } from "@uncaged/workflow-runtime";
-
-export type ReactExtractArgs<T extends Record<string, unknown>> = {
-  text: string;
-  schema: z.ZodType<T>;
-  provider: LlmProvider;
-  cas: CasStore;
-};
 
 export type LlmExtractArgs<T> = {
   text: string;

@@ -6,7 +6,8 @@ import type { LlmProvider } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 import { createCasStore } from "../src/cas/cas.js";
 import { createContentMerkleNode, serializeMerkleNode } from "../src/cas/merkle.js";
-import { reactExtract } from "../src/extract/react-extract.js";
+import { extractFunctionToolFromZodSchema } from "../src/extract/llm-extract.js";
+import { createLlmFn, createThreadReactor } from "../src/reactor/index.js";
 
 const metaSchema = z.object({ seen: z.string() });
 
@@ -16,7 +17,57 @@ const provider: LlmProvider = {
   model: "test",
 };
 
-describe("reactExtract", () => {
+const CAS_GET_TOOL_DEFINITION = {
+  type: "function" as const,
+  function: {
+    name: "cas_get",
+    description: "Read CAS node",
+    parameters: {
+      type: "object",
+      properties: {
+        hash: { type: "string", description: "hash" },
+      },
+      required: ["hash"],
+    },
+  },
+};
+
+type ThreadCtx = { cas: ReturnType<typeof createCasStore> };
+
+function createTestReactor() {
+  const llm = createLlmFn(provider);
+  return createThreadReactor<ThreadCtx>({
+    llm,
+    maxRounds: 10,
+    staticTools: [CAS_GET_TOOL_DEFINITION],
+    structuredToolFromSchema: (schema) => {
+      const t = extractFunctionToolFromZodSchema(schema);
+      return {
+        name: t.name,
+        tool: {
+          type: "function" as const,
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters,
+          },
+        },
+      };
+    },
+    systemPromptForStructuredTool: (structuredToolName) =>
+      `Extract metadata. Use cas_get when needed. Call ${structuredToolName} with JSON args matching the schema, or reply with plain JSON.`,
+    toolHandler: async (call, thread) => {
+      if (call.function.name !== "cas_get") {
+        return `unexpected tool ${call.function.name}`;
+      }
+      const ta = JSON.parse(call.function.arguments) as { hash: string };
+      const blob = await thread.cas.get(ta.hash);
+      return blob === null ? "null" : blob;
+    },
+  });
+}
+
+describe("createThreadReactor (extract-shaped)", () => {
   let restoreFetch: (() => void) | null = null;
 
   afterEach(() => {
@@ -25,7 +76,7 @@ describe("reactExtract", () => {
   });
 
   test("cas_get rounds then extract tool yields validated meta", async () => {
-    const casDir = await mkdtemp(join(tmpdir(), "react-extract-"));
+    const casDir = await mkdtemp(join(tmpdir(), "thread-reactor-"));
     const cas = createCasStore(casDir);
     try {
       const blob = serializeMerkleNode(createContentMerkleNode("needle"));
@@ -87,12 +138,12 @@ describe("reactExtract", () => {
         { preconnect: origFetch.preconnect.bind(origFetch) },
       ) as typeof fetch;
 
+      const reactor = createTestReactor();
       const text = `## Agent Output\n${h}\n## Extraction Instruction\nExtract seen from CAS.`;
-      const result = await reactExtract({
-        text,
+      const result = await reactor({
+        thread: { cas },
+        input: text,
         schema: metaSchema,
-        provider,
-        cas,
       });
 
       expect(result.ok).toBe(true);
@@ -107,7 +158,7 @@ describe("reactExtract", () => {
   });
 
   test("stops after max tool rounds when model keeps calling cas_get", async () => {
-    const casDir = await mkdtemp(join(tmpdir(), "react-extract-max-"));
+    const casDir = await mkdtemp(join(tmpdir(), "thread-reactor-max-"));
     const cas = createCasStore(casDir);
     try {
       const blob = serializeMerkleNode(createContentMerkleNode("x"));
@@ -146,11 +197,11 @@ describe("reactExtract", () => {
         { preconnect: origFetch.preconnect.bind(origFetch) },
       ) as typeof fetch;
 
-      const result = await reactExtract({
-        text: "## Agent Output\nnoop\n## Extraction Instruction\nExtract seen.",
+      const reactor = createTestReactor();
+      const result = await reactor({
+        thread: { cas },
+        input: "## Agent Output\nnoop\n## Extraction Instruction\nExtract seen.",
         schema: metaSchema,
-        provider,
-        cas,
       });
 
       expect(result.ok).toBe(false);
@@ -165,7 +216,7 @@ describe("reactExtract", () => {
   });
 
   test("passthrough JSON assistant message without tool calls", async () => {
-    const casDir = await mkdtemp(join(tmpdir(), "react-extract-pass-"));
+    const casDir = await mkdtemp(join(tmpdir(), "thread-reactor-pass-"));
     const cas = createCasStore(casDir);
     try {
       const origFetch = globalThis.fetch;
@@ -189,11 +240,11 @@ describe("reactExtract", () => {
         { preconnect: origFetch.preconnect.bind(origFetch) },
       ) as typeof fetch;
 
-      const result = await reactExtract({
-        text: "## Agent Output\nok\n## Extraction Instruction\nExtract.",
+      const reactor = createTestReactor();
+      const result = await reactor({
+        thread: { cas },
+        input: "## Agent Output\nok\n## Extraction Instruction\nExtract.",
         schema: metaSchema,
-        provider,
-        cas,
       });
 
       expect(result.ok).toBe(true);

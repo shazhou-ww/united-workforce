@@ -56,12 +56,23 @@ export {
 export {
   createExtract,
   type ExtractFn,
+  type ExtractThreadContext,
   type LlmError,
   llmErrorToCause,
   llmExtract,
-  type ReactExtractArgs,
-  reactExtract,
 } from "./extract/index.js";
+export {
+  type ChatMessage,
+  createLlmFn,
+  createThreadReactor,
+  type LlmFn,
+  type StructuredToolSpec,
+  type ThreadReactorConfig,
+  type ThreadReactorFn,
+  type ThreadReactorInvokeArgs,
+  type ToolCall,
+  type ToolDefinition,
+} from "./reactor/index.js";
 export {
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
