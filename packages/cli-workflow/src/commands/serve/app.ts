@@ -38,6 +38,7 @@ export function createApp(storageRoot: string): Hono {
   });
 
   app.get("/healthz", (c) => c.json({ ok: true }));
+  app.get("/api/healthz", (c) => c.json({ ok: true }));
 
   app.route("/api/workflows", createWorkflowRoutes(storageRoot));
   app.route("/api/threads", createThreadRoutes(storageRoot));
