@@ -1,8 +1,41 @@
 import { parse, stringify } from "yaml";
 
-import type { CasStore, MerkleNode, StepMerklePayload, ThreadMerklePayload } from "./types.js";
+import type {
+  CasStore,
+  MerkleNode,
+  MerkleNodeType,
+  StepMerklePayload,
+  ThreadMerklePayload,
+} from "./types.js";
+
+function requireStringHashArray(value: unknown, notArrayMessage: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(notArrayMessage);
+  }
+  const out: string[] = [];
+  for (const c of value) {
+    if (typeof c !== "string") {
+      throw new Error("merkle: hash entry must be a string");
+    }
+    out.push(c);
+  }
+  return out;
+}
+
+function edgeListRaw(rec: Record<string, unknown>, type: MerkleNodeType): unknown {
+  if (type === "content") {
+    return rec.refs !== undefined ? rec.refs : rec.children;
+  }
+  return rec.children;
+}
 
 export function serializeMerkleNode(node: MerkleNode): string {
+  if (node.type === "content") {
+    return stringify(
+      { type: node.type, payload: node.payload, refs: node.children },
+      { indent: 2 },
+    );
+  }
   return stringify(
     { type: node.type, payload: node.payload, children: node.children },
     { indent: 2 },
@@ -17,23 +50,18 @@ export function parseMerkleNode(yamlText: string): MerkleNode {
   const rec = raw as Record<string, unknown>;
   const type = rec.type;
   const payload = rec.payload;
-  const children = rec.children;
   if (type !== "content" && type !== "step" && type !== "thread") {
     throw new Error("merkle: invalid or missing type");
   }
   if (typeof payload !== "string" && (payload === null || typeof payload !== "object")) {
     throw new Error("merkle: payload must be a string or object");
   }
-  if (!Array.isArray(children)) {
-    throw new Error("merkle: children must be an array");
-  }
-  const childHashes: string[] = [];
-  for (const c of children) {
-    if (typeof c !== "string") {
-      throw new Error("merkle: child hash must be a string");
-    }
-    childHashes.push(c);
-  }
+
+  const notArrayMsg =
+    type === "content"
+      ? "merkle: content node requires refs or children array"
+      : "merkle: children must be an array";
+  const childHashes = requireStringHashArray(edgeListRaw(rec, type), notArrayMsg);
   return {
     type,
     payload: typeof payload === "string" ? payload : (payload as Record<string, unknown>),
@@ -85,8 +113,8 @@ export async function putContentMerkleNode(store: CasStore, content: string): Pr
 /**
  * Loads a CAS blob and returns the payload string for a `content` node.
  *
- * Accepts both the legacy `{type:content, payload, children}` Merkle layout
- * and the RFC v3 `{type:content, payload, refs}` content node layout.
+ * Accepts both the legacy `{ type:content, payload, children }` Merkle layout
+ * and the RFC-aligned `{ type:content, payload, refs }` content node layout.
  */
 export async function getContentMerklePayload(
   store: CasStore,

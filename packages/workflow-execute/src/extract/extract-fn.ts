@@ -20,7 +20,7 @@ const CAS_GET_TOOL_DEFINITION = {
   function: {
     name: "cas_get",
     description:
-      "Read a Merkle DAG node from content-addressed storage by its hash. Returns YAML-formatted node with type, payload, and children fields.",
+      "Read a Merkle DAG node from content-addressed storage by its hash. Returns YAML-formatted node with type, payload, and refs or children fields (content nodes use refs).",
     parameters: {
       type: "object",
       properties: {
@@ -102,7 +102,7 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
       };
     },
     systemPromptForStructuredTool: (structuredToolName) =>
-      `You extract structured metadata from the agent output below. Use cas_get to read Merkle DAG nodes from CAS (YAML: type, payload, children) when the agent output references hashes you must traverse. When you have the complete structured object, call the ${structuredToolName} tool with JSON arguments matching the schema. You may instead reply with only a JSON object (no prose) when no tools are needed.`,
+      `You extract structured metadata from the agent output below. Use cas_get to read Merkle DAG nodes from CAS (YAML: type, payload, refs for content nodes or children for step/thread legacy nodes) when the agent output references hashes you must traverse. When you have the complete structured object, call the ${structuredToolName} tool with JSON arguments matching the schema. You may instead reply with only a JSON object (no prose) when no tools are needed.`,
     toolHandler: async (call, thread) => {
       if (call.function.name !== "cas_get") {
         return `Unexpected tool routed to handler: ${call.function.name}`;
