@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getHealth } from "../api.ts";
+import { getAgentHealth } from "../api.ts";
 
 type HealthStatus = "connected" | "disconnected" | "reconnecting";
 
 type Props = {
+  agent: string | null;
   onRun: () => void;
 };
 
@@ -17,13 +18,17 @@ function statusLabel(status: HealthStatus): { text: string; color: string } {
   return { text: "● Offline", color: "var(--color-error)" };
 }
 
-export function StatusBar({ onRun }: Props) {
+export function StatusBar({ agent, onRun }: Props) {
   const [status, setStatus] = useState<HealthStatus>("disconnected");
   const wasConnectedRef = useRef(false);
 
   const checkHealth = useCallback(async () => {
+    if (!agent) {
+      setStatus("disconnected");
+      return;
+    }
     try {
-      await getHealth();
+      await getAgentHealth(agent);
       wasConnectedRef.current = true;
       setStatus("connected");
     } catch {
@@ -33,9 +38,11 @@ export function StatusBar({ onRun }: Props) {
         setStatus("disconnected");
       }
     }
-  }, []);
+  }, [agent]);
 
   useEffect(() => {
+    wasConnectedRef.current = false;
+    setStatus("disconnected");
     checkHealth();
     const interval = setInterval(checkHealth, 10_000);
     return () => clearInterval(interval);
@@ -49,12 +56,19 @@ export function StatusBar({ onRun }: Props) {
       style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
     >
       <div className="flex items-center gap-4">
-        <span style={{ color: "var(--color-text-muted)" }}>Local API: 127.0.0.1:7860</span>
+        <span style={{ color: "var(--color-text-muted)" }}>
+          {agent ? `Agent: ${agent}` : "No agent selected"}
+        </span>
         <button
           type="button"
           onClick={onRun}
+          disabled={!agent}
           className="px-3 py-1 rounded text-xs font-medium"
-          style={{ background: "var(--color-accent)", color: "#fff" }}
+          style={{
+            background: agent ? "var(--color-accent)" : "var(--color-border)",
+            color: "#fff",
+            opacity: agent ? 1 : 0.5,
+          }}
         >
           ▶ Run Thread
         </button>
