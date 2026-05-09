@@ -4,13 +4,14 @@ import { useFetch } from "../hooks.ts";
 import { useSSE } from "../use-sse.ts";
 
 type Props = {
+  agent: string;
   threadId: string;
   onBack: () => void;
 };
 
-export function ThreadDetail({ threadId, onBack }: Props) {
-  const sse = useSSE(threadId);
-  const { status, data, error } = useFetch(() => getThread(threadId), [threadId]);
+export function ThreadDetail({ agent, threadId, onBack }: Props) {
+  const sse = useSSE(agent, threadId);
+  const { status, data, error } = useFetch(() => getThread(agent, threadId), [agent, threadId]);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const recordsEndRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +31,7 @@ export function ThreadDetail({ threadId, onBack }: Props) {
     setActionStatus(`${action}ing...`);
     try {
       const fn = action === "kill" ? killThread : action === "pause" ? pauseThread : resumeThread;
-      await fn(threadId);
+      await fn(agent, threadId);
       setActionStatus(`${action} sent ✓`);
     } catch (e) {
       setActionStatus(`${action} failed: ${e instanceof Error ? e.message : String(e)}`);

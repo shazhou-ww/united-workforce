@@ -1,10 +1,21 @@
+import { useState } from "react";
+import type { AgentEndpoint } from "../api.ts";
+import { listAgents } from "../api.ts";
+import { useFetch } from "../hooks.ts";
+
 type Props = {
   view: "threads" | "workflows";
+  agent: string | null;
   onViewChange: (v: "threads" | "workflows") => void;
+  onAgentChange: (a: string | null) => void;
 };
 
-export function Sidebar({ view, onViewChange }: Props) {
-  const items = [
+export function Sidebar({ view, agent, onViewChange, onAgentChange }: Props) {
+  const { status, data } = useFetch(() => listAgents(), []);
+  const [expanded, setExpanded] = useState(true);
+
+  const agents: AgentEndpoint[] = status === "ok" ? data : [];
+  const viewItems = [
     { key: "threads" as const, label: "Threads", icon: "⚡" },
     { key: "workflows" as const, label: "Workflows", icon: "📦" },
   ];
@@ -22,8 +33,56 @@ export function Sidebar({ view, onViewChange }: Props) {
           Dashboard
         </p>
       </div>
+
+      {/* Agent selector */}
+      <div className="border-b" style={{ borderColor: "var(--color-border)" }}>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full text-left px-4 py-2 text-xs font-medium"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {expanded ? "▾" : "▸"} Agents
+          {agent && (
+            <span className="ml-2 text-xs" style={{ color: "var(--color-accent)" }}>
+              ({agent})
+            </span>
+          )}
+        </button>
+        {expanded && (
+          <div className="px-2 pb-2 space-y-0.5">
+            {agents.length === 0 && (
+              <p className="text-xs px-2 py-1" style={{ color: "var(--color-text-muted)" }}>
+                {status === "loading" ? "Loading..." : "No agents online"}
+              </p>
+            )}
+            {agents.map((a) => (
+              <button
+                type="button"
+                key={a.name}
+                onClick={() => onAgentChange(a.name)}
+                className="w-full text-left px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-2"
+                style={{
+                  background: agent === a.name ? "var(--color-accent-dim)" : "transparent",
+                  color: agent === a.name ? "#fff" : "var(--color-text-muted)",
+                }}
+              >
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background: a.status === "online" ? "var(--color-success)" : "var(--color-error)",
+                  }}
+                />
+                {a.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* View navigation */}
       <nav className="flex-1 p-2 space-y-1">
-        {items.map((item) => (
+        {viewItems.map((item) => (
           <button
             type="button"
             key={item.key}

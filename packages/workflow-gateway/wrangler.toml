@@ -1,0 +1,9 @@
+name = "workflow-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[[kv_namespaces]]
+binding = "ENDPOINTS"
+id = "88b118d1cfab4c049f9c1684848811a3"
+
+# GATEWAY_SECRET is set via `wrangler secret put`

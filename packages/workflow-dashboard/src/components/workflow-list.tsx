@@ -1,8 +1,12 @@
 import { listWorkflows } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 
-export function WorkflowList() {
-  const { status, data, error } = useFetch(() => listWorkflows(), []);
+type Props = {
+  agent: string;
+};
+
+export function WorkflowList({ agent }: Props) {
+  const { status, data, error } = useFetch(() => listWorkflows(agent), [agent]);
 
   if (status === "loading")
     return <p style={{ color: "var(--color-text-muted)" }}>Loading workflows...</p>;

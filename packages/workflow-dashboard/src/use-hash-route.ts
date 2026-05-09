@@ -4,37 +4,50 @@ type View = "threads" | "workflows";
 
 type HashRoute = {
   view: View;
+  agent: string | null;
   threadId: string | null;
 };
 
 function parseHash(hash: string): HashRoute {
   const raw = hash.replace(/^#\/?/, "");
-  if (raw.startsWith("threads/")) {
-    const id = raw.slice("threads/".length);
-    if (id.length > 0) {
-      return { view: "threads", threadId: id };
-    }
+  // Format: #agent/threads/id or #agent/workflows or #threads or #workflows
+  const parts = raw.split("/");
+
+  // Check if first part is a known view
+  if (parts[0] === "threads" || parts[0] === "workflows") {
+    return {
+      view: parts[0] as View,
+      agent: null,
+      threadId: parts[0] === "threads" && parts.length > 1 ? parts.slice(1).join("/") : null,
+    };
   }
-  if (raw === "workflows") {
-    return { view: "workflows", threadId: null };
-  }
-  return { view: "threads", threadId: null };
+
+  // First part is agent name
+  const agent = parts[0] || null;
+  const viewPart = parts[1] ?? "threads";
+  const view: View = viewPart === "workflows" ? "workflows" : "threads";
+  const threadId = view === "threads" && parts.length > 2 ? parts.slice(2).join("/") : null;
+
+  return { view, agent, threadId };
 }
 
 function buildHash(route: HashRoute): string {
+  const prefix = route.agent ? `${route.agent}/` : "";
   if (route.view === "workflows") {
-    return "#workflows";
+    return `#${prefix}workflows`;
   }
   if (route.threadId !== null) {
-    return `#threads/${route.threadId}`;
+    return `#${prefix}threads/${route.threadId}`;
   }
-  return "#threads";
+  return `#${prefix}threads`;
 }
 
 export function useHashRoute(): {
   view: View;
+  agent: string | null;
   threadId: string | null;
   setView: (v: View) => void;
+  setAgent: (a: string | null) => void;
   setThreadId: (id: string | null) => void;
 } {
   const [route, setRoute] = useState<HashRoute>(() => parseHash(window.location.hash));
@@ -53,12 +66,20 @@ export function useHashRoute(): {
     setRoute(next);
   }, []);
 
-  const setView = useCallback((v: View) => navigate({ view: v, threadId: null }), [navigate]);
-
-  const setThreadId = useCallback(
-    (id: string | null) => navigate({ view: "threads", threadId: id }),
-    [navigate],
+  const setView = useCallback(
+    (v: View) => navigate({ view: v, agent: route.agent, threadId: null }),
+    [navigate, route.agent],
   );
 
-  return { view: route.view, threadId: route.threadId, setView, setThreadId };
+  const setAgent = useCallback(
+    (a: string | null) => navigate({ view: route.view, agent: a, threadId: null }),
+    [navigate, route.view],
+  );
+
+  const setThreadId = useCallback(
+    (id: string | null) => navigate({ view: "threads", agent: route.agent, threadId: id }),
+    [navigate, route.agent],
+  );
+
+  return { view: route.view, agent: route.agent, threadId: route.threadId, setView, setAgent, setThreadId };
 }

@@ -3,12 +3,13 @@ import { listWorkflows, runThread } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 
 type Props = {
+  agent: string;
   onClose: () => void;
   onCreated: (threadId: string) => void;
 };
 
-export function RunDialog({ onClose, onCreated }: Props) {
-  const workflows = useFetch(() => listWorkflows(), []);
+export function RunDialog({ agent, onClose, onCreated }: Props) {
+  const workflows = useFetch(() => listWorkflows(agent), [agent]);
   const [workflow, setWorkflow] = useState("");
   const [prompt, setPrompt] = useState("");
   const [maxRounds, setMaxRounds] = useState(10);
@@ -21,7 +22,7 @@ export function RunDialog({ onClose, onCreated }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await runThread(workflow, prompt, maxRounds);
+      const result = await runThread(agent, workflow, prompt, maxRounds);
       onCreated(result.threadId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -38,7 +39,7 @@ export function RunDialog({ onClose, onCreated }: Props) {
         className="w-full max-w-lg p-6 rounded-lg border"
         style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
       >
-        <h3 className="text-lg font-semibold mb-4">Run Thread</h3>
+        <h3 className="text-lg font-semibold mb-4">Run Thread on {agent}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label

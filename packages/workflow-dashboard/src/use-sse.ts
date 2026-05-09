@@ -56,7 +56,16 @@ function handleRecordEvent(ev: Event, ctx: RecordEventContext): void {
   ctx.cleanupEs();
 }
 
-export function useSSE(threadId: string | null): UseSSEReturn {
+function sseUrl(agent: string, threadId: string): string {
+  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "";
+  if (gatewayUrl) {
+    return `${gatewayUrl}/api/${agent}/threads/${encodeURIComponent(threadId)}/live`;
+  }
+  // Local dev: use vite proxy
+  return `/api/threads/${encodeURIComponent(threadId)}/live`;
+}
+
+export function useSSE(agent: string | null, threadId: string | null): UseSSEReturn {
   const [records, setRecords] = useState<ThreadRecord[]>([]);
   const [connected, setConnected] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -65,7 +74,7 @@ export function useSSE(threadId: string | null): UseSSEReturn {
   const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
-    if (threadId === null) {
+    if (threadId === null || agent === null) {
       completedRef.current = false;
       reconnectAttemptsRef.current = 0;
       setRecords([]);
@@ -75,6 +84,7 @@ export function useSSE(threadId: string | null): UseSSEReturn {
     }
 
     const tid = threadId;
+    const agentName = agent;
 
     completedRef.current = false;
     reconnectAttemptsRef.current = 0;
@@ -113,7 +123,7 @@ export function useSSE(threadId: string | null): UseSSEReturn {
       }
 
       cleanupEs();
-      const url = `/api/threads/${encodeURIComponent(tid)}/live`;
+      const url = sseUrl(agentName, tid);
       es = new EventSource(url);
 
       es.onopen = () => {
@@ -155,7 +165,7 @@ export function useSSE(threadId: string | null): UseSSEReturn {
       }
       cleanupEs();
     };
-  }, [threadId]);
+  }, [agent, threadId]);
 
   return { records, connected, completed };
 }
