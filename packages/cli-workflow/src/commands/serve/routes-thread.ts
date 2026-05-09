@@ -10,6 +10,7 @@ import type { ResolvedThreadRecord } from "../../thread-scan.js";
 import {
   listHistoricalThreads,
   listRunningThreads,
+  resolveThreadListStatus,
   resolveThreadRecord,
 } from "../../thread-scan.js";
 import { cmdKill, cmdPause, cmdResume } from "../thread/control.js";
@@ -61,7 +62,12 @@ async function buildThreadDetailRecords(
       const returnCode = fr.payload.meta.returnCode;
       const summary = fr.payload.meta.summary;
       if (typeof returnCode === "number" && typeof summary === "string") {
-        records.push({ type: "workflow-result", returnCode, content: summary, timestamp: fr.payload.timestamp });
+        records.push({
+          type: "workflow-result",
+          returnCode,
+          content: summary,
+          timestamp: fr.payload.timestamp,
+        });
       }
       continue;
     }
@@ -92,8 +98,8 @@ export function createThreadRoutes(storageRoot: string): Hono {
     const threads = await Promise.all(
       rows.map(async (r) => {
         const runningPath = join(storageRoot, "logs", r.hash, `${r.threadId}.running`);
-        const isRunning = await pathExists(runningPath);
-        const status = r.source === "history" ? "completed" : isRunning ? "running" : "active";
+        const runningMarkerPresent = await pathExists(runningPath);
+        const status = await resolveThreadListStatus(storageRoot, r, runningMarkerPresent);
         return {
           threadId: r.threadId,
           workflow: r.workflowName,

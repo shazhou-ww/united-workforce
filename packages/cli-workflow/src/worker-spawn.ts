@@ -6,6 +6,7 @@ import { getWorkerHostScriptPath } from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
+import { readThreadTerminalFromHead, resolveThreadRecord } from "./thread-scan.js";
 
 export type WorkerCtl = {
   pid: number;
@@ -269,7 +270,25 @@ export async function resolveRunningHashForThread(
   if (!(await pathExists(logsRoot))) {
     return err(`thread not running (no logs dir): ${threadId}`);
   }
-  const hashes = await readdir(logsRoot);
+  const resolved = await resolveThreadRecord(storageRoot, threadId);
+  if (resolved !== null) {
+    const runningPath = join(logsRoot, resolved.bundleHash, `${threadId}.running`);
+    if (!(await pathExists(runningPath))) {
+      return err(`thread not running: ${threadId}`);
+    }
+    const terminal = await readThreadTerminalFromHead(storageRoot, resolved.head);
+    if (terminal.kind === "terminal") {
+      return err(`thread not running: ${threadId}`);
+    }
+    return ok(resolved.bundleHash);
+  }
+
+  let hashes: string[];
+  try {
+    hashes = await readdir(logsRoot);
+  } catch {
+    return err(`thread not running: ${threadId}`);
+  }
   for (const hash of hashes) {
     const runningPath = join(logsRoot, hash, `${threadId}.running`);
     if (await pathExists(runningPath)) {

@@ -5,7 +5,9 @@ import {
   readThreadsIndex,
   type ThreadHistoryEntry,
   type ThreadIndex,
+  walkStateFramesNewestFirst,
 } from "@uncaged/workflow-execute";
+import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import { pathExists, readTextFileIfExists } from "./fs-utils.js";
@@ -98,6 +100,8 @@ export type HistoricalThreadRow = {
   source: "active" | "history";
   /** `updatedAt` for active threads; `completedAt` for history (ms since epoch). */
   activityTs: number;
+  /** Current CAS head (`threads.json` / history row). */
+  head: string;
 };
 
 export type ResolvedThreadRecord = {
@@ -172,6 +176,73 @@ export async function resolveThreadRecord(
   return null;
 }
 
+export type ThreadHeadTerminal =
+  | { kind: "non-terminal" }
+  | { kind: "terminal"; returnCode: number };
+
+/** True when the newest frame at `headHash` is `__end__` (workflow finished in CAS). */
+export async function readThreadTerminalFromHead(
+  storageRoot: string,
+  headHash: string,
+): Promise<ThreadHeadTerminal> {
+  const cas = createCasStore(getGlobalCasDir(storageRoot));
+  const frames = await walkStateFramesNewestFirst(cas, headHash);
+  const newest = frames[0];
+  if (newest === undefined) {
+    return { kind: "non-terminal" };
+  }
+  if (newest.payload.role !== END) {
+    return { kind: "non-terminal" };
+  }
+  const rc = newest.payload.meta.returnCode;
+  if (typeof rc !== "number") {
+    return { kind: "terminal", returnCode: 1 };
+  }
+  return { kind: "terminal", returnCode: rc };
+}
+
+export type ThreadListStatus = "running" | "active" | "completed" | "failed";
+
+/** Combines `.running` marker with CAS head: stale markers do not imply `running`. */
+export async function resolveThreadListStatus(
+  storageRoot: string,
+  row: HistoricalThreadRow,
+  runningMarkerPresent: boolean,
+): Promise<ThreadListStatus> {
+  const terminal = await readThreadTerminalFromHead(storageRoot, row.head);
+  if (terminal.kind === "terminal") {
+    return terminal.returnCode !== 0 ? "failed" : "completed";
+  }
+  if (row.source === "history") {
+    return "completed";
+  }
+  if (runningMarkerPresent) {
+    return "running";
+  }
+  return "active";
+}
+
+async function appendRunningThreadRowIfLive(
+  storageRoot: string,
+  hash: string,
+  threadId: string,
+  out: RunningThreadRow[],
+): Promise<void> {
+  const resolved = await resolveThreadRecord(storageRoot, threadId);
+  if (resolved !== null && resolved.bundleHash !== hash) {
+    return;
+  }
+  if (resolved !== null) {
+    const terminal = await readThreadTerminalFromHead(storageRoot, resolved.head);
+    if (terminal.kind === "terminal") {
+      return;
+    }
+  }
+  const workflowName =
+    resolved !== null ? await readWorkflowNameFromStartHash(storageRoot, resolved.start) : null;
+  out.push({ threadId, hash, workflowName });
+}
+
 /** Threads currently executing — identified via `<threadId>.running` markers. */
 export async function listRunningThreads(storageRoot: string): Promise<RunningThreadRow[]> {
   const logsRoot = join(storageRoot, "logs");
@@ -196,10 +267,7 @@ export async function listRunningThreads(storageRoot: string): Promise<RunningTh
         continue;
       }
       const threadId = fileName.slice(0, -".running".length);
-      const resolved = await resolveThreadRecord(storageRoot, threadId);
-      const workflowName =
-        resolved !== null ? await readWorkflowNameFromStartHash(storageRoot, resolved.start) : null;
-      out.push({ threadId, hash, workflowName });
+      await appendRunningThreadRowIfLive(storageRoot, hash, threadId, out);
     }
   }
 
@@ -253,6 +321,7 @@ export async function listHistoricalThreads(
         workflowName,
         source: "active",
         activityTs: entry.updatedAt,
+        head: entry.head,
       });
     }
 
@@ -287,6 +356,7 @@ export async function listHistoricalThreads(
           workflowName,
           source: "history",
           activityTs: e.completedAt,
+          head: e.head,
         });
       }
     }

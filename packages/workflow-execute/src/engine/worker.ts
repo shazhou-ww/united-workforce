@@ -1,3 +1,4 @@
+import { unlinkSync } from "node:fs";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
@@ -382,6 +383,23 @@ async function main(): Promise<void> {
   let activeThreads = 0;
   let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
 
+  function cleanupAllRunningMarkersSync(): void {
+    for (const threadId of threads.keys()) {
+      try {
+        unlinkSync(join(storageRoot, "logs", hash, `${threadId}.running`));
+      } catch {
+        // ignore missing file or other fs errors
+      }
+    }
+  }
+
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.on(sig, () => {
+      cleanupAllRunningMarkersSync();
+      process.exit(sig === "SIGINT" ? 130 : 143);
+    });
+  }
+
   const cas = createCasStore(getGlobalCasDir(storageRoot));
 
   const workerCtlPath = join(storageRoot, "workers", `${hash}.json`);
@@ -498,8 +516,8 @@ async function main(): Promise<void> {
       const message = e instanceof Error ? e.message : String(e);
       bootLog("Q3MN8YKW", `thread ${threadId} failed: ${message}`);
     } finally {
-      threads.delete(threadId);
       await unlink(runningPath).catch(() => {});
+      threads.delete(threadId);
       bumpDone();
       socket?.end();
     }
