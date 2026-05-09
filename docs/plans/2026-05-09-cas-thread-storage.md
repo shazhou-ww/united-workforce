@@ -22,7 +22,7 @@ Two CAS node types, using the existing `{ type, payload, refs }` CAS blob struct
 
 #### StartNode
 
-Contains workflow-level parameters. **No threadId** (because the same StartNode can be shared across forks).
+Contains workflow-level parameters. **No threadId** (because the same StartNode can be shared across forks). Prompt is stored as a CAS blob and referenced via `refs[0]`.
 
 ```
 CAS blob:
@@ -31,16 +31,17 @@ CAS blob:
   payload: {
     name: "solve-issue",
     hash: "BUNDLE_HASH",
-    prompt: "Fix the login redirect bug...",
     maxRounds: 10,
     depth: 0
   },
-  refs: []
+  refs: [
+    <prompt_hash>    // refs[0]: initial task prompt (CAS blob)
+  ]
 }
 ```
 
-- `prompt` is the initial task prompt (stored in CAS, no longer inline in JSONL)
 - No `role`, `content`, `meta` — this is not a step, it's workflow metadata
+- Prompt is **not** inline — it lives in CAS and is referenced by hash
 
 #### StateNode
 
@@ -58,7 +59,7 @@ CAS blob:
   refs: [
     <start_hash>,       // refs[0]: always the StartNode
     <parent_hash>,      // refs[1]: previous StateNode (null for first step)
-    <content_hash>,     // refs[2]: role output content
+    <content_hash>,     // refs[2]: content Merkle node (carries role artifact refs)
     ...ancestors,       // refs[3..N]: skip-list of up to 10 ancestor StateNode hashes
   ]
 }
@@ -70,7 +71,7 @@ CAS blob:
 |-------|---------|----------|
 | 0 | StartNode hash | No |
 | 1 | Parent StateNode hash | Yes (null for first step after start) |
-| 2 | Content hash (role output) | No |
+| 2 | Content Merkle node hash | No |
 | 3+ | Ancestor skip-list (≤ 10 most recent ancestors, newest first) | Optional |
 
 **Optional payload fields:**
@@ -78,6 +79,37 @@ CAS blob:
 | Field | Type | Meaning |
 |-------|------|---------|
 | `compact` | `string \| null` | CAS hash of a compacted summary of all nodes before this one. When present, LLM context assembly can use this instead of walking the full chain. |
+
+### Content Merkle Node
+
+The content at `refs[2]` of each StateNode is itself a CAS Merkle node. This is where **role artifact references** live:
+
+```
+CAS blob:
+{
+  type: "content",
+  payload: "<role output text>",
+  refs: [
+    <artifact_hash_1>,   // e.g. a commit, a file, a sub-result
+    <artifact_hash_2>,
+    ...
+  ]
+}
+```
+
+The Extractor is responsible for producing both `meta` and `refs` from raw agent output:
+
+```
+Agent raw output
+    ↓
+Extractor → { meta, contentPayload, refs[] }
+    ↓
+CAS put content Merkle: { type: "content", payload: contentPayload, refs }
+    ↓ contentHash
+StateNode: { ..., refs: [start, parent, contentHash, ...ancestors] }
+```
+
+This keeps StateNode refs fixed and simple. All role-specific artifact references are encapsulated in the content Merkle node. GC follows: `thread head → StateNode.refs → content Merkle.refs → artifacts`, full chain recursive.
 
 ### End Node
 
@@ -97,7 +129,7 @@ An end is just a StateNode with `role: "__end__"`:
 
 ### Thread Index: `threads.json`
 
-Per-bundle directory, one `threads.json` file:
+Per-bundle directory, one `threads.json` file. **Only active (in-progress) threads** live here:
 
 ```
 ~/.uncaged/workflow/bundles/<hash>/threads.json
@@ -109,18 +141,27 @@ Per-bundle directory, one `threads.json` file:
     "head": "<latest_state_node_hash>",
     "start": "<start_node_hash>",
     "updatedAt": 1234567891
-  },
-  "01JTHREAD2BBBBBBBBBBBBBBB": {
-    "head": "<latest_state_node_hash>",
-    "start": "<start_node_hash>",
-    "updatedAt": 1234567892
   }
 }
 ```
 
-- Dashboard SSE watches `threads.json` for real-time updates
-- `threadId` lives here (not in any CAS node, since CAS nodes are fork-shareable)
-- `start` is denormalized for quick access without walking the chain
+When a thread completes (`__end__`), it is **removed from `threads.json`** and appended to a date-partitioned history file:
+
+```
+~/.uncaged/workflow/bundles/<hash>/history/{YYYY-MM-DD}.jsonl
+```
+
+Each line:
+
+```json
+{"threadId":"01JTHREAD1AAAAAAAAAAAAAAA","head":"<end_node_hash>","start":"<start_node_hash>","completedAt":1234567891}
+```
+
+Benefits:
+- `threads.json` stays small — only in-flight threads
+- Dashboard watches `threads.json` for real-time updates; completed threads don't trigger watches
+- History is queryable by date but not actively monitored
+- GC roots = all heads from `threads.json` + all heads from `history/*.jsonl`
 
 ### Ancestor Skip-List
 
@@ -174,11 +215,23 @@ This enables long-running threads without unbounded context growth.
 
 Simple mark-and-sweep:
 
-1. **Roots**: all `head` and `start` hashes from all `threads.json` files
-2. **Mark**: from each root, recursively mark all reachable hashes via `refs[]`
+1. **Roots**: all `head` and `start` hashes from `threads.json` + all `history/*.jsonl` files
+2. **Mark**: from each root, recursively mark all reachable hashes via `refs[]` (including content Merkle → artifact refs)
 3. **Sweep**: delete unmarked CAS blobs
 
 No per-row format parsing needed. GC only needs to understand `refs[]`.
+
+### Extract Phase
+
+The Extractor is expanded from the current design. Currently it only extracts `meta` from agent output. In the new design it extracts:
+
+| Output | Purpose |
+|--------|---------|
+| `meta` | Structured metadata (same as before) |
+| `contentPayload` | The text payload for the content Merkle node |
+| `refs[]` | CAS hashes of artifacts produced by this role step |
+
+The `refs[]` become the content Merkle node's refs, enabling GC to trace all role-produced artifacts.
 
 ## What Stays Unchanged
 
@@ -194,10 +247,10 @@ Breaking change. Old `.data.jsonl` files become incompatible. No backward compat
 
 | Package | Changes |
 |---------|---------|
-| `workflow-protocol` | Replace `StartStep`, `RoleStep` types with `StartNode`, `StateNode`. Remove `refs[]` from step types. |
+| `workflow-protocol` | Replace `StartStep`, `RoleStep` types with `StartNode`, `StateNode`. Add `ContentMerkleNode` type. Expand `ExtractResult` to include `refs[]`. |
 | `workflow-cas` | Add `findReachableHashes(roots)` for GC mark phase |
-| `workflow-execute` | Rewrite engine to write CAS nodes + update `threads.json` instead of appending JSONL. Simplify `gc.ts`. Simplify `fork-thread.ts`. |
-| `workflow-runtime` | `ThreadContext` built by walking chain from head. `start.content` resolved from CAS. |
-| `cli-workflow` | `thread list/show/rm` read from `threads.json`. SSE watches `threads.json`. |
+| `workflow-execute` | Rewrite engine to write CAS nodes + update `threads.json` instead of appending JSONL. Move completed threads to `history/`. Simplify `gc.ts`. Simplify `fork-thread.ts`. Expand extract phase to produce refs. |
+| `workflow-runtime` | `ThreadContext` built by walking chain from head. `start.prompt` resolved from CAS via StartNode.refs[0]. |
+| `cli-workflow` | `thread list/show/rm` read from `threads.json` + `history/`. SSE watches `threads.json`. |
 | `workflow-dashboard` | Watch `threads.json` instead of `.data.jsonl` |
-| Templates & Agents | Update `ctx.start.content` → resolved from CAS |
+| Templates & Agents | Update extract definitions to produce `refs[]`. Update `ctx.start.content` → CAS resolved. |
