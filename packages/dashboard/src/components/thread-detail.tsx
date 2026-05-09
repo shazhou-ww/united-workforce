@@ -101,9 +101,9 @@ export function ThreadDetail({ threadId, onBack }: Props) {
       )}
       {(status === "ok" || liveActive || records.length > 0) && (
         <div className="space-y-3">
-          {records.map((r, i) => (
+          {records.map((r) => (
             <div
-              key={i}
+              key={`${threadId}-${r.type}-${String(r.timestamp)}-${r.role ?? ""}-${r.content ?? ""}`}
               className="p-3 rounded border text-sm"
               style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
             >
