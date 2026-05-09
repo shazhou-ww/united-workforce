@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**@uncaged/workflow** is a workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file with an XXH64 hash as its version identifier.
+This monorepo implements a workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file with an XXH64 hash as its version identifier. Shared types live in `@uncaged/workflow-protocol`; bundle authors typically depend on `@uncaged/workflow-runtime`.
 
 ### Key Terms
 
@@ -19,14 +19,27 @@
 ```
 workflow/
   packages/
-    workflow/       # @uncaged/workflow — core lib (types, hash, ULID, JSONL, registry)
-    cli-workflow/   # @uncaged/cli-workflow — CLI (uncaged-workflow command)
+    workflow-protocol/              # @uncaged/workflow-protocol — shared types + Result
+    workflow-runtime/               # @uncaged/workflow-runtime — createWorkflow, type re-exports
+    workflow-util/                  # @uncaged/workflow-util — Base32, ULID, logger, storage paths, refs helpers
+    workflow-reactor/               # @uncaged/workflow-reactor — LLM fn + thread reactor (tool calls)
+    workflow-cas/                   # @uncaged/workflow-cas — CAS store, hash, Merkle
+    workflow-register/              # @uncaged/workflow-register — bundle validation, registry YAML, model resolution
+    workflow-execute/               # @uncaged/workflow-execute — engine, extract, fork, GC, workflowAsAgent
+    cli-workflow/                   # @uncaged/cli-workflow — uncaged-workflow CLI
+    workflow-agent-cursor/          # @uncaged/workflow-agent-cursor
+    workflow-agent-hermes/          # @uncaged/workflow-agent-hermes
+    workflow-agent-llm/             # @uncaged/workflow-agent-llm
+    workflow-util-agent/            # @uncaged/workflow-util-agent — buildAgentPrompt, spawnCli
+    workflow-template-develop/      # @uncaged/workflow-template-develop
+    workflow-template-solve-issue/  # @uncaged/workflow-template-solve-issue
+    workflow-dashboard/             # @uncaged/workflow-dashboard — React dashboard (private app)
   docs/             # RFCs, conventions
   biome.json        # root Biome config
   tsconfig.json     # root TypeScript config
 ```
 
-- `workflow` is the core; `cli-workflow` depends on it
+- Execution stack layers: `workflow-protocol` → (`workflow-runtime`, `workflow-util`, `workflow-reactor`) → (`workflow-cas`, `workflow-register`) → `workflow-execute` → `cli-workflow`
 - Packages use `workspace:*` protocol
 
 ## Language & Paradigm
@@ -167,10 +180,10 @@ type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 Never use `console.log/warn/error` directly — Biome's `noConsole` rule enforces this.
 
-All logging goes through the structured logger from `@uncaged/workflow`:
+All logging goes through the structured logger from `@uncaged/workflow-util`:
 
 ```typescript
-import { createLogger } from "@uncaged/workflow";
+import { createLogger } from "@uncaged/workflow-util";
 
 const log = createLogger();
 

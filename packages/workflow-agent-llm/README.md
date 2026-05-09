@@ -1,16 +1,16 @@
 # @uncaged/workflow-agent-llm
 
-`AgentFn` adapter that calls an OpenAI-compatible `POST /chat/completions` endpoint using `@uncaged/workflow`’s `LlmProvider` (base URL, API key, model).
+`AgentFn` adapter that calls an OpenAI-compatible `POST /chat/completions` endpoint using `LlmProvider` from `@uncaged/workflow-runtime`.
 
 Single-turn: system text is the current role’s `systemPrompt`, user text is the thread’s initial prompt (`ctx.start.content`). Errors from HTTP, JSON, or empty choices are thrown as `Error` with a JSON payload string.
 
 ## Install
 
 ```bash
-bun add @uncaged/workflow-agent-llm @uncaged/workflow
+bun add @uncaged/workflow-agent-llm @uncaged/workflow-runtime zod
 ```
 
-In this monorepo: `"@uncaged/workflow-agent-llm": "workspace:*"`, `"@uncaged/workflow": "workspace:*"`.
+In this monorepo: `"@uncaged/workflow-agent-llm": "workspace:*"`, `"@uncaged/workflow-runtime": "workspace:*"` (and satisfy `zod` ^4 as required by `@uncaged/workflow-runtime`).
 
 ## Usage
 

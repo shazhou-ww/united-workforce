@@ -1,6 +1,6 @@
-# @uncaged/workflow — Architecture
+# Uncaged workflow — Architecture
 
-**Last updated:** 2026-05-06 by 小橘 🍊（NEKO Team）
+**Last updated:** 2026-05-09
 
 ---
 
@@ -8,72 +8,106 @@
 
 A workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file identified by its XXH64 hash (Crockford Base32). No daemon — processes start on demand and exit when done.
 
-## Package Structure
+The implementation lives in **15** Bun workspace packages under `packages/`, using the `workspace:*` protocol.
 
-| Package | npm Name | Purpose |
-|---------|----------|---------|
-| `workflow` | `@uncaged/workflow` | Core: types, engine, ExtractFn, hash/ULID/registry |
-| `cli-workflow` | `@uncaged/cli-workflow` | CLI: `uncaged-workflow` command |
-| `workflow-agent-cursor` | `@uncaged/workflow-agent-cursor` | Cursor CLI agent (extracts workspace from ctx) |
-| `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | Hermes CLI agent |
-| `workflow-agent-llm` | `@uncaged/workflow-agent-llm` | OpenAI-compatible LLM agent |
-| `workflow-template-develop` | `@uncaged/workflow-template-develop` | Develop workflow template (roles in `src/roles/`) |
-| `workflow-template-solve-issue` | `@uncaged/workflow-template-solve-issue` | Solve-issue workflow template (roles in `src/roles/`) |
-| `workflow-util-agent` | `@uncaged/workflow-util-agent` | `buildAgentPrompt` + `spawnCli` utilities |
+## Package map
 
-Monorepo with **bun workspace**, `workspace:*` protocol.
+Grouped by responsibility (npm name → folder).
 
-## Core Types
+| Layer | Package | One-line role |
+|-------|---------|----------------|
+| Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types and `Result` helpers; peer `zod` only — no other workspace deps. |
+| Author API | `@uncaged/workflow-runtime` → `workflow-runtime` | `createWorkflow` and re-exports of protocol workflow types for bundle authors. |
+| Shared infra | `@uncaged/workflow-util` → `workflow-util` | Base32/ULID, logger, storage root paths, global CAS dir, ref-field helpers. |
+| LLM plumbing | `@uncaged/workflow-reactor` → `workflow-reactor` | `createLlmFn`, `createThreadReactor`, and related tool-call types for threaded LLM invocation. |
+| CAS | `@uncaged/workflow-cas` → `workflow-cas` | `CasStore` implementation, XXH64 hashing, Merkle helpers over CAS payloads. |
+| Registry / bundles | `@uncaged/workflow-register` → `workflow-register` | Bundle validation & dynamic export extraction, `workflow.yaml` registry I/O, provider/model resolution. |
+| Engine | `@uncaged/workflow-execute` → `workflow-execute` | Thread execution, worker entry path, fork/GC, extract pipeline, `workflowAsAgent`. |
+| CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uncaged-workflow` binary (depends on engine, registry, CAS, protocol, util, runtime). |
+| Agent adapters | `@uncaged/workflow-agent-cursor` → `workflow-agent-cursor` | `AgentFn` via `cursor-agent` CLI + workspace extraction. |
+| | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `AgentFn` via `hermes chat` CLI. |
+| | `@uncaged/workflow-agent-llm` → `workflow-agent-llm` | `AgentFn` via OpenAI-compatible HTTP (`LlmProvider` from runtime). |
+| Agent shared | `@uncaged/workflow-util-agent` → `workflow-util-agent` | `buildAgentPrompt`, `spawnCli` for CLI-backed agents. |
+| Templates | `@uncaged/workflow-template-develop` → `workflow-template-develop` | Develop workflow definition, roles, descriptor builder. |
+| | `@uncaged/workflow-template-solve-issue` → `workflow-template-solve-issue` | Solve-issue workflow definition, roles, descriptor builder. |
+| Dashboard | `@uncaged/workflow-dashboard` → `workflow-dashboard` | Private Vite + React app (`src/main.tsx`); only `react` / `react-dom` dependencies — no workspace packages. |
 
-```typescript
-// --- Sentinel values ---
-const START = "__start__";
-const END = "__end__";
+## Dependency graph (workspace packages)
 
-// --- RoleMeta: maps role names → their meta types ---
-type RoleMeta = Record<string, Record<string, unknown>>;
+Bottom-up layering for the execution stack:
 
-// --- Role Definition: pure data, no execution logic ---
-type RoleDefinition<Meta> = {
-  description: string;      // human-readable
-  systemPrompt: string;     // given to agent
-  extractPrompt: string;    // given to extractor
-  schema: z.ZodType<Meta>;  // meta shape (Zod v4)
-};
-
-// --- Workflow Definition: pure data, no agent binding ---
-type WorkflowDefinition<M extends RoleMeta> = {
-  description: string;
-  roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
-  moderator: Moderator<M>;
-};
-
-// --- Agent: raw string output, reads role info from context ---
-type AgentFn = (ctx: AgentContext) => Promise<string>;
-
-// --- Agent Binding: runtime assignment ---
-type AgentBinding = {
-  agent: AgentFn;
-  overrides?: Partial<Record<string, AgentFn>>;
-};
-
-// --- Extract: structured data from context ---
-type ExtractFn = <T>(schema: z.ZodType<T>, prompt: string, ctx: ExtractContext) => Promise<T>;
-
-// --- Moderator: pure routing function ---
-type Moderator<M extends RoleMeta> = (ctx: ModeratorContext<M>) => (keyof M & string) | typeof END;
-
-// --- Composition ---
-// createWorkflow(def, binding, extract) => WorkflowFn
+```mermaid
+flowchart BT
+  subgraph L0["Layer 0 — contract"]
+    protocol["@uncaged/workflow-protocol"]
+  end
+  subgraph L1["Layer 1 — on protocol"]
+    runtime["@uncaged/workflow-runtime"]
+    util["@uncaged/workflow-util"]
+    reactor["@uncaged/workflow-reactor"]
+  end
+  subgraph L2["Layer 2 — protocol + util"]
+    cas["@uncaged/workflow-cas"]
+    register["@uncaged/workflow-register"]
+  end
+  subgraph L3["Layer 3 — engine"]
+    execute["@uncaged/workflow-execute"]
+  end
+  subgraph L4["Layer 4 — CLI"]
+    cli["@uncaged/cli-workflow"]
+  end
+  runtime --> protocol
+  util --> protocol
+  reactor --> protocol
+  cas --> protocol
+  cas --> util
+  register --> protocol
+  register --> util
+  execute --> protocol
+  execute --> runtime
+  execute --> util
+  execute --> cas
+  execute --> reactor
+  execute --> register
+  cli --> protocol
+  cli --> util
+  cli --> cas
+  cli --> execute
+  cli --> register
+  cli --> runtime
 ```
 
-## Three-Phase Engine Loop
+**Adjacent consumers** (not in the main CLI stack):
 
-Each role execution has three distinct phases with progressive context:
+- `@uncaged/workflow-util-agent` → `@uncaged/workflow-runtime`
+- `@uncaged/workflow-agent-llm` → `@uncaged/workflow-runtime`
+- `@uncaged/workflow-agent-cursor` → `@uncaged/workflow-runtime`, `@uncaged/workflow-util-agent`, `zod`
+- `@uncaged/workflow-agent-hermes` → `@uncaged/workflow-runtime`, `@uncaged/workflow-util-agent`
+- `@uncaged/workflow-template-develop` → `@uncaged/workflow-register`, `@uncaged/workflow-runtime`, `zod`
+- `@uncaged/workflow-template-solve-issue` → `@uncaged/workflow-register`, `@uncaged/workflow-runtime`, `zod` (dev-only workspace deps: `@uncaged/workflow-cas`, `@uncaged/workflow-execute` for tests/tooling per `package.json`)
+
+## Package roles (detail)
+
+- **`workflow-protocol`** — Pure types (`WorkflowFn`, contexts, `CasStore` interface, descriptor shapes), `START` / `END`, `ok` / `err`. Depends only on peer `zod` for schema-related types in signatures.
+- **`workflow-runtime`** — Workflow author surface: `createWorkflow` from `src/create-workflow.js`, re-exports protocol types/constants used when authoring bundles.
+- **`workflow-util`** — Cross-cutting utilities: Crockford Base32, ULID, `createLogger`, `getDefaultWorkflowStorageRoot`, `getGlobalCasDir`, ref normalization; re-exports `ok`/`err` from protocol.
+- **`workflow-cas`** — Filesystem CAS (`createCasStore`), `hashString` / `hashWorkflowBundleBytes`, Merkle node serialization and helpers (`merkle.js`).
+- **`workflow-register`** — Bundle pipeline (`validateWorkflowBundle`, `extractBundleExports`, descriptor builders), registry YAML read/write, `resolveModel` / `splitProviderModelRef`.
+- **`workflow-execute`** — `executeThread`, supervisor/worker wiring (`engine/`), fork/GC/pause gate, `createExtract` + LLM extract helpers (`extract/`), `workflowAsAgent`. Imports `@uncaged/workflow-reactor` for LLM-backed extract/supervisor paths (`extract-fn.ts`, `supervisor.ts`).
+- **`workflow-reactor`** — `createLlmFn`, `createThreadReactor`, and thread tool-invocation types — consumed by `workflow-execute`.
+- **`cli-workflow`** — CLI commands and HTTP/dashboard-related wiring (`hono`, `yaml`); composes register + execute + CAS + util.
+- **`workflow-agent-*`** — Replaceable `AgentFn` implementations (Cursor / Hermes CLIs, or HTTP LLM).
+- **`workflow-util-agent`** — Shared prompt assembly and subprocess spawning for CLI agents.
+- **`workflow-template-*`** — Concrete `WorkflowDefinition` graphs + Zod role schemas + descriptor builders for publishing bundles.
+- **`workflow-dashboard`** — Standalone React UI; no published library entry matching `src/index.ts`.
+
+## Three-phase engine loop
+
+Each role round is implemented in `packages/workflow-runtime/src/create-workflow.ts` (`advanceOneRound`): moderator → agent → extractor, with progressive context types from `@uncaged/workflow-protocol`.
 
 ```
 ┌─→ Phase 1: MODERATOR
-│   Context: ModeratorContext { threadId, start, steps }
+│   Context: ModeratorContext { threadId, depth, start, steps }
 │   Action:  moderator(ctx) → role name | END
 │
 │   Phase 2: AGENT
@@ -82,90 +116,80 @@ Each role execution has three distinct phases with progressive context:
 │
 │   Phase 3: EXTRACTOR
 │   Context: ExtractContext = AgentCtx + { agentContent }
-│   Action:  extract(schema, extractPrompt, ctx) → typed meta
+│   Action:  runtime.extract(schema, extractPrompt, ctx) → typed meta
 │
-│   Merge: RoleStep { role, content, meta, timestamp }
+│   Merge: RoleStep { role, contentHash, meta, refs, timestamp }
 │   Append to steps
 └─────────────────────────────────────────────────────┘
 ```
 
-### Context Types (progressive)
+### Context types (progressive)
+
+Defined in `packages/workflow-protocol/src/types.ts`:
 
 ```typescript
-// Phase 1: Moderator sees accumulated state only
-type ModeratorContext<M> = {
-  threadId: string;
-  start: StartStep;
-  steps: RoleStep<M>[];
-};
-
-// Phase 2: Agent knows its identity
+type ModeratorContext<M> = ThreadContext<M>;
 type AgentContext<M> = ModeratorContext<M> & {
   currentRole: { name: string; systemPrompt: string };
 };
-
-// Phase 3: Extractor has agent output
-type ExtractContext<M> = AgentContext<M> & {
-  agentContent: string;
-};
-
-// ThreadContext is an alias for AgentContext (backward compat)
-type ThreadContext<M> = AgentContext<M>;
+type ExtractContext<M> = AgentContext<M> & { agentContent: string };
 ```
 
-### Key Properties
+### Key properties
 
-- **Moderator is synchronous and pure** — no I/O, no state mutation
-- **Agent gets context, not instructions** — reads `ctx.currentRole.systemPrompt`
-- **Extractor is a general tool** — not limited to post-agent extraction; agents can use it too (e.g. Cursor agent extracts workspace path before execution)
-- **extractPrompt is a call parameter**, not context state — different callers use different prompts
+- **Moderator is synchronous and pure** — no I/O, no state mutation inside `createWorkflow`’s moderator call path.
+- **Agent receives `AgentContext`** — reads `ctx.currentRole.systemPrompt`; raw output becomes `agentContent` for extract.
+- **Extractor is `WorkflowRuntime.extract`** — supplied by the engine from registry-resolved LLM config (`workflow-execute`); stores agent body in CAS and yields `contentHash` + `refs` on each step (`create-workflow.ts`).
+- **`extractPrompt` is a call parameter** on `RoleDefinition`, not implicit context state.
 
-## Agent Information Sources
+## Agent information sources
 
 An agent has exactly three information sources:
 
 1. **Prior knowledge** — LLM training, agent memory, agent skills
-2. **Thread context** — `AgentContext` (start, steps, currentRole)
+2. **Thread context** — `AgentContext` (`start`, `steps`, `currentRole`)
 3. **Derived information** — from 1 & 2 (e.g. tool calls, shell commands)
 
-No hidden environment parameters. If an agent needs something (like a workspace path), it extracts it from context using `ExtractFn`.
+No hidden environment parameters. If an agent needs something (like a workspace path), it obtains it via `ExtractFn` (e.g. Cursor agent).
 
-## Bundle Contract
+## Bundle contract
 
-A workflow bundle is a single `.esm.js` file with two named exports:
+A workflow bundle is a single `.esm.js` file with two named exports (see `WorkflowFn` / `WorkflowDescriptor` in `packages/workflow-protocol/src/types.ts`):
 
 ```typescript
-// Named exports (no default export)
 export const descriptor: WorkflowDescriptor;
 export const run: WorkflowFn;
 
 type WorkflowFn = (
-  input: { prompt: string; steps: RoleOutput[] },
-  options: { threadId: string; maxRounds: number },
-) => AsyncGenerator<RoleOutput, WorkflowResult>;
+  thread: ThreadContext,
+  runtime: WorkflowRuntime,
+) => AsyncGenerator<RoleOutput, WorkflowCompletion>;
 ```
+
+`RoleOutput` carries `contentHash`, `meta`, and `refs` (agent text lives in CAS, addressed by hash).
 
 ### Constraints
 
 - Single `.esm.js` file
-- No dynamic `import()`
-- All static imports must be Node built-in modules only
-- XXH64 hash (Crockford Base32) = globally unique version ID
+- No dynamic `import()` in bundles (loader exempt in engine)
+- Portable bundle static imports are constrained by validation in `@uncaged/workflow-register` (`validateWorkflowBundle`)
+- XXH64 hash (Crockford Base32) = version ID
 
 ### Why AsyncGenerator?
 
-- Each `yield` → engine writes to `.data.jsonl`, checks abort/pause
-- `return` → engine marks thread complete
-- Fork = pass historical steps as `input.steps` to a new generator
-- Zero injection — bundle doesn't import from the engine
+- Each `yield` lets `workflow-execute` persist state, CAS rows, and enforce pause/abort
+- `return` supplies `WorkflowCompletion`
+- Fork replays historical steps into a new thread context
+- Bundle does not import the engine — only protocol/runtime types at build time
 
-## Storage Layout
+## Storage layout
 
 ```
 ~/.uncaged/workflow/
+├── cas/                           # Global content-addressed blobs (see getGlobalCasDir)
 ├── bundles/
-│   ├── C9NMV6V2TQT81.esm.js     # Crockford Base32 of XXH64
-│   └── C9NMV6V2TQT81.yaml       # Role descriptor
+│   ├── C9NMV6V2TQT81.esm.js       # Crockford Base32 of XXH64
+│   └── C9NMV6V2TQT81.yaml         # Role descriptor sidecar (when present)
 ├── logs/                          # One folder per bundle hash
 │   └── C9NMV6V2TQT81/
 │       ├── 01KQXKW…YG.data.jsonl  # Thread state
@@ -173,7 +197,7 @@ type WorkflowFn = (
 └── workflow.yaml                  # Registry
 ```
 
-### ID Encoding: Crockford Base32
+### ID encoding: Crockford Base32
 
 - Case-insensitive, filesystem-safe, no ambiguous chars (0/O, 1/I/L)
 - Bundle hash: XXH64 → 13-char
@@ -181,45 +205,36 @@ type WorkflowFn = (
 
 ### Registry (`workflow.yaml`)
 
-```yaml
-workflows:
-  solve-issue:
-    hash: "C9NMV6V2TQT81"
-    timestamp: 1714963200000
-    history:
-      - hash: "A7BKR3M1NPQ40"
-        timestamp: 1714876800000
-```
+Managed by `@uncaged/workflow-register` (`readWorkflowRegistry`, `writeWorkflowRegistry`, …). Shape includes workflow entries and a top-level `config` section used for extract/supervisor model resolution.
 
 ### Thread JSONL
 
-**`.data.jsonl`** — Line 1: start record, Line 2+: role outputs
+**`.data.jsonl`** — Line 1: start record; following lines: role steps with CAS-backed content.
 
 ```jsonc
 // Start record
 { "name": "solve-issue", "hash": "C9NMV6V2TQT81", "threadId": "01KQXKW…",
   "parameters": { "prompt": "Fix bug #3", "options": { "maxRounds": 5 } },
   "timestamp": 1714963200000 }
-// Role output
-{ "role": "planner", "content": "...", "meta": { "phases": [...] }, "timestamp": ... }
+// Role output (engine persists contentHash + refs; body in ~/.uncaged/workflow/cas/)
+{ "role": "planner", "contentHash": "…", "meta": { "phases": [...] }, "refs": ["…"], "timestamp": ... }
 ```
 
-**`.info.jsonl`** — Structured debug log
+**`.info.jsonl`** — Structured debug log via `@uncaged/workflow-util` `createLogger`:
 
 ```jsonc
 { "tag": "4KNMR2PX", "content": "Loading bundle...", "timestamp": ... }
 ```
 
-Tags are 8-char Crockford Base32 (40-bit random), one per call site. `grep "4KNMR2PX"` → instant code location.
+Tags are 8-char Crockford Base32 (40-bit random), one per call site. `grep "4KNMR2PX"` → code location.
 
-## Execution Model
+## Execution model
 
-- **No daemon.** `uncaged-workflow run <name>` starts a worker process
-- Same bundle's threads share one process (memory efficiency)
-- Process exits when all threads complete
-- Thread termination via IPC within the process
+- **No daemon.** `uncaged-workflow run <name>` starts a worker process (`workflow-execute` worker entry via `getWorkerHostScriptPath`)
+- Threads share bundle-scoped workers as implemented in CLI/engine
+- Pause/resume/abort via engine IPC and pause gate (`createThreadPauseGate`)
 
-## CLI Commands
+## CLI commands
 
 | Priority | Command | Description |
 |----------|---------|-------------|
@@ -239,18 +254,16 @@ Tags are 8-char Crockford Base32 (40-bit random), one per call site. `grep "4KNM
 | P2 | `resume <thread-id>` | Resume a paused thread |
 | P3 | `fork <thread-id> [--from-role <role>]` | Fork from historical state |
 
-All commands implemented and tested. ✅
-
-## Design Decisions
+## Design decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | **Role = pure data** | Decouples definition from execution; same role with different agents |
-| **Agent bound at runtime** | WorkflowDefinition is reusable; agent choice is deployment concern |
-| **Three-phase context** | Each phase sees only what it needs; clean separation |
-| **ExtractFn as general tool** | Agents use it for pre-execution extraction; engine uses it for meta |
-| **Single-file ESM** | Hash = version, no dependency hell, self-contained |
-| **No daemon** | OS handles process lifecycle; unnecessary complexity |
+| **Agent bound at runtime** | `WorkflowDefinition` is reusable; agent choice is deployment concern |
+| **Three-phase context** | Each phase sees only what it needs; types live in `workflow-protocol` |
+| **`WorkflowRuntime.extract` + CAS `contentHash`** | Large agent bodies deduplicated globally; Merkle roots summarize threads |
+| **`workflow-reactor` split** | LLM tool-calling loop isolated from filesystem/registry concerns |
+| **Single-file ESM** | Hash = version, self-contained bundle |
+| **No daemon** | OS handles process lifecycle |
 | **Crockford Base32** | Filesystem-safe, readable, compact |
-| **No concurrency in registry** | Different workflows have different constraints; belongs at workflow/role level |
-| **No dryRun** | Tests use mock agents + mock fetch; simpler architecture |
+| **15-package split** | Clear boundaries: protocol ↔ runtime author API ↔ util/CAS/register ↔ execute ↔ CLI ↔ agents/templates/UI |

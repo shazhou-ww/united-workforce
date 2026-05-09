@@ -7,10 +7,10 @@ The agent builds a full prompt (system + task + step history via `@uncaged/workf
 ## Install
 
 ```bash
-bun add @uncaged/workflow-agent-cursor @uncaged/workflow @uncaged/workflow-util-agent zod
+bun add @uncaged/workflow-agent-cursor @uncaged/workflow-runtime @uncaged/workflow-util-agent zod
 ```
 
-In this monorepo: `"@uncaged/workflow-agent-cursor": "workspace:*"` plus `workspace:*` for `@uncaged/workflow` and `@uncaged/workflow-util-agent`.
+In this monorepo: `"@uncaged/workflow-agent-cursor": "workspace:*"` plus `workspace:*` for `@uncaged/workflow-runtime` and `@uncaged/workflow-util-agent`, and `zod` ^4.
 
 ## Usage
 
@@ -28,9 +28,8 @@ const agent = createCursorAgent({
 
 | Export | Description |
 |--------|-------------|
-| `createCursorAgent(config)` | Returns `AgentFn` that runs `cursor-agent` with `buildAgentPrompt(ctx)` |
+| `createCursorAgent(config)` | Returns `AgentFn` that runs `cursor-agent` with `buildAgentPrompt(ctx)` from `@uncaged/workflow-util-agent` |
 | `CursorAgentConfig` | `model`, `timeout`, `extract` (must supply workspace path) |
 | `validateCursorAgentConfig` | Config validation result |
-| `buildAgentPrompt` | Re-exported from `@uncaged/workflow-util-agent` |
 
 Requires `cursor-agent` on `PATH` at runtime.

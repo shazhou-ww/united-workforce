@@ -1,5 +1,7 @@
 # Workflow-as-Agent Implementation Plan
 
+> ⚠️ This plan references the pre-split package structure. File paths have changed.
+
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
 **Goal:** Enable workflows to invoke other workflows as agents, backed by global CAS and refs tracking.

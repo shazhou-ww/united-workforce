@@ -7,10 +7,10 @@ The agent composes the same thread-aware prompt as other CLI-backed agents via `
 ## Install
 
 ```bash
-bun add @uncaged/workflow-agent-hermes @uncaged/workflow @uncaged/workflow-util-agent
+bun add @uncaged/workflow-agent-hermes @uncaged/workflow-runtime @uncaged/workflow-util-agent
 ```
 
-In this monorepo: use `workspace:*` for all three `@uncaged/*` packages.
+In this monorepo: use `workspace:*` for `@uncaged/workflow-agent-hermes`, `@uncaged/workflow-runtime`, and `@uncaged/workflow-util-agent`.
 
 ## Usage
 
@@ -30,6 +30,5 @@ const agent = createHermesAgent({
 | `createHermesAgent(config)` | Returns `AgentFn` wrapping `hermes chat -q ...` |
 | `HermesAgentConfig` | `model`, `timeout` |
 | `validateHermesAgentConfig` | Config validation result |
-| `buildAgentPrompt` | Re-exported from `@uncaged/workflow-util-agent` |
 
 Requires `hermes` on `PATH` at runtime.
