@@ -26,6 +26,9 @@ async function buildThreadDetailRecords(
   const records: unknown[] = [
     {
       type: "thread-start",
+      role: null,
+      content: `workflow: ${resolved.bundleHash ?? "unknown"}`,
+      timestamp: null,
       threadId: resolved.threadId,
       bundleHash: resolved.bundleHash,
       head: resolved.head,
