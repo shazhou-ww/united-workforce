@@ -230,6 +230,16 @@ export async function resolveThreadListStatus(
     }
     return "running";
   }
+  // No .running marker + no __end__ + source "active" → check if worker is dead (crashed)
+  const ctlResult = await readWorkerCtl(storageRoot, row.hash);
+  if (ctlResult.ok) {
+    try {
+      process.kill(ctlResult.value.pid, 0);
+    } catch {
+      // Worker PID is dead, thread never finished — crashed
+      return "failed";
+    }
+  }
   return "active";
 }
 
