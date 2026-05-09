@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
+import { createCasStore, getContentMerklePayload, parseCasThreadNode } from "@uncaged/workflow-cas";
 import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
 import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
@@ -15,6 +15,17 @@ import {
 import { cmdKill, cmdPause, cmdResume } from "../thread/control.js";
 import { cmdRun } from "../thread/run.js";
 
+async function readWorkflowName(
+  cas: ReturnType<typeof createCasStore>,
+  startHash: string,
+): Promise<string | null> {
+  const raw = await cas.get(startHash);
+  if (raw === null) return null;
+  const parsed = parseCasThreadNode(raw);
+  if (parsed === null || parsed.kind !== "start") return null;
+  return parsed.node.payload.name;
+}
+
 async function buildThreadDetailRecords(
   storageRoot: string,
   resolved: ResolvedThreadRecord,
@@ -23,11 +34,17 @@ async function buildThreadDetailRecords(
   const frames = await walkStateFramesNewestFirst(cas, resolved.head);
   const chronological = [...frames].reverse();
 
+  const workflowName = await readWorkflowName(cas, resolved.start);
+
   const records: unknown[] = [
     {
       type: "thread-start",
       role: null,
-      content: `workflow: ${resolved.bundleHash ?? "unknown"}`,
+      content: [
+        `workflow: ${workflowName ?? "unknown"}`,
+        `thread: ${resolved.threadId}`,
+        `status: ${resolved.source}`,
+      ].join("\n"),
       timestamp: null,
       threadId: resolved.threadId,
       bundleHash: resolved.bundleHash,
