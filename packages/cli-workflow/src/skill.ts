@@ -85,12 +85,33 @@ ${commandSections.join("\n\n")}
 | \`run\` | \`thread run\` | Shortcut to start a thread |
 | \`live\` | \`thread live\` | Shortcut to attach to a thread |
 
+### serve
+
+| Command | Args | Description |
+|---------|------|-------------|
+| \`serve\` | \`[--port N] [--host ADDR] [--name NAME]\` | Start HTTP API server with auto-tunnel. \`--name\` registers with the gateway. |
+
 ## Typical Workflow
 
 1. \`uncaged-workflow workflow add my-wf ./my-wf.esm.js\` — register a workflow
 2. \`uncaged-workflow run my-wf --prompt "do the thing"\` — start a thread
 3. \`uncaged-workflow live --latest\` — attach and watch output
 4. \`uncaged-workflow thread show <thread-id>\` — inspect completed thread
+
+## Thread Status
+
+| Status | Meaning |
+|--------|---------|
+| \`running\` | Worker process is alive (\`.running\` marker + live PID) |
+| \`active\` | In \`threads.json\` but not currently running (paused or waiting) |
+| \`completed\` | Finished with \`returnCode === 0\` (has \`__end__\` frame in CAS) |
+| \`failed\` | Finished with non-zero return code, or worker crashed (dead PID / no ctl) |
+
+## Defaults
+
+| Setting | CLI | HTTP API |
+|---------|-----|----------|
+| \`maxRounds\` | 10 | 10 |
 
 ## Exit Codes
 
@@ -103,7 +124,9 @@ ${commandSections.join("\n\n")}
 
 | Variable | Description |
 |----------|-------------|
-| \`UNCAGED_WORKFLOW_STORAGE_ROOT\` | Override the default storage directory for all workflow data |
+| \`WORKFLOW_STORAGE_ROOT\` | Override the default storage directory for all workflow data |
+| \`UNCAGED_WORKFLOW_STORAGE_ROOT\` | Same as above (takes priority) |
+| \`WORKFLOW_LLM_API_KEY\` | API key for LLM calls during workflow execution |
 `;
 }
 
