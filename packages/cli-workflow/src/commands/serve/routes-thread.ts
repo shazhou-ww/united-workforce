@@ -6,7 +6,7 @@ import { getGlobalCasDir } from "@uncaged/workflow-util";
 import { Hono } from "hono";
 
 import { pathExists } from "../../fs-utils.js";
-import type { ResolvedThreadRecord } from "../../thread-scan.js";
+import type { HistoricalThreadRow, ResolvedThreadRecord } from "../../thread-scan.js";
 import {
   listHistoricalThreads,
   listRunningThreads,
@@ -36,6 +36,8 @@ async function readStartInfo(
 async function buildThreadDetailRecords(
   storageRoot: string,
   resolved: ResolvedThreadRecord,
+  runningMarkerPresent: boolean,
+  statusRow: HistoricalThreadRow,
 ): Promise<unknown[]> {
   const cas = createCasStore(getGlobalCasDir(storageRoot));
   const frames = await walkStateFramesNewestFirst(cas, resolved.head);
@@ -43,13 +45,15 @@ async function buildThreadDetailRecords(
 
   const { name: workflowName, prompt } = await readStartInfo(cas, resolved.start);
 
+  const status = await resolveThreadListStatus(storageRoot, statusRow, runningMarkerPresent);
+
   const records: unknown[] = [
     {
       type: "thread-start",
       workflow: workflowName ?? "unknown",
       prompt: prompt ?? null,
       threadId: resolved.threadId,
-      status: resolved.source,
+      status,
       timestamp: null,
     },
   ];
@@ -123,7 +127,17 @@ export function createThreadRoutes(storageRoot: string): Hono {
     if (resolved === null) {
       return c.json({ error: `thread not found: ${threadId}` }, 404);
     }
-    const records = await buildThreadDetailRecords(storageRoot, resolved);
+    const runningPath = join(storageRoot, "logs", resolved.bundleHash, `${threadId}.running`);
+    const runningMarkerPresent = await pathExists(runningPath);
+    const statusRow = {
+      threadId: resolved.threadId,
+      hash: resolved.bundleHash,
+      workflowName: null,
+      source: resolved.source,
+      activityTs: 0,
+      head: resolved.head,
+    };
+    const records = await buildThreadDetailRecords(storageRoot, resolved, runningMarkerPresent, statusRow);
     return c.json({ threadId, records });
   });
 
