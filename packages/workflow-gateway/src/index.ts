@@ -23,12 +23,13 @@ const app = new Hono<Env>();
 
 app.use("*", cors());
 
-// ── Dashboard API key auth (skip healthz + register) ─────────────
-app.use("/endpoints", async (c, next) => {
-  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
-  await next();
-});
+// ── Dashboard API key auth (skip healthz + gateway register) ─────
 app.use("/api/*", async (c, next) => {
+  // Gateway register/unregister use GATEWAY_SECRET, not dashboard key
+  if (c.req.path.startsWith("/api/gateway/register")) {
+    await next();
+    return;
+  }
   if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
   await next();
 });
@@ -47,7 +48,7 @@ function checkDashboardAuth(c: {
 app.get("/healthz", (c) => c.json({ ok: true }));
 
 // ── Register / heartbeat ────────────────────────────────────────────
-app.post("/register", async (c) => {
+app.post("/api/gateway/register", async (c) => {
   const body = await c.req.json<{
     name?: string;
     url?: string;
@@ -83,7 +84,7 @@ app.post("/register", async (c) => {
 });
 
 // ── Unregister ──────────────────────────────────────────────────────
-app.delete("/register/:name", async (c) => {
+app.delete("/api/gateway/register/:name", async (c) => {
   const auth = c.req.header("Authorization");
   if (auth !== `Bearer ${c.env.GATEWAY_SECRET}`) {
     return c.json({ error: "unauthorized" }, 401);
@@ -95,7 +96,7 @@ app.delete("/register/:name", async (c) => {
 });
 
 // ── List endpoints ──────────────────────────────────────────────────
-app.get("/endpoints", async (c) => {
+app.get("/api/gateway/endpoints", async (c) => {
   const list = await c.env.ENDPOINTS.list();
   const endpoints: Array<{ name: string; url: string; status: string; lastHeartbeat: number }> = [];
 
@@ -116,7 +117,7 @@ app.get("/endpoints", async (c) => {
 });
 
 // ── API proxy: /api/:agent/* → agent's tunnel URL ───────────────────
-app.all("/api/:agent/*", async (c) => {
+app.all("/api/agents/:agent/*", async (c) => {
   const agent = c.req.param("agent");
   const record = await c.env.ENDPOINTS.get<EndpointRecord>(agent, "json");
 
@@ -126,7 +127,7 @@ app.all("/api/:agent/*", async (c) => {
 
   // Build target URL: strip /api/:agent prefix, forward the rest
   const url = new URL(c.req.url);
-  const pathAfterAgent = url.pathname.replace(`/api/${agent}`, "");
+  const pathAfterAgent = url.pathname.replace(`/api/agents/${agent}`, "");
   const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
 
   const headers = new Headers(c.req.raw.headers);
