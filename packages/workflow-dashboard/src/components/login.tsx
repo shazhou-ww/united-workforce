@@ -20,7 +20,7 @@ export function LoginPage({ onLogin }: Props) {
     // Test the key by hitting the endpoints list
     const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "";
     try {
-      const res = await fetch(`${gatewayUrl}/endpoints`, {
+      const res = await fetch(`${gatewayUrl}/api/gateway/endpoints`, {
         headers: { Authorization: `Bearer ${key.trim()}` },
       });
       if (res.status === 401) {

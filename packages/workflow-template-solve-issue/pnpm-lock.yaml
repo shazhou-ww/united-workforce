@@ -1,0 +1,35 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@uncaged/workflow-register':
+        specifier: workspace:*
+        version: link:../workflow-register
+      '@uncaged/workflow-runtime':
+        specifier: workspace:*
+        version: link:../workflow-runtime
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@uncaged/workflow-cas':
+        specifier: workspace:*
+        version: link:../workflow-cas
+      '@uncaged/workflow-execute':
+        specifier: workspace:*
+        version: link:../workflow-execute
+
+packages:
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
+snapshots:
+
+  zod@4.4.3: {}
