@@ -23,16 +23,6 @@ const app = new Hono<Env>();
 
 app.use("*", cors());
 
-// ── Dashboard API key auth (skip healthz + register) ─────────────
-app.use("/endpoints", async (c, next) => {
-  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
-  await next();
-});
-app.use("/api/*", async (c, next) => {
-  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
-  await next();
-});
-
 function checkDashboardAuth(c: {
   req: { header: (n: string) => string | undefined; query: (n: string) => string | undefined };
   env: Env["Bindings"];
@@ -46,8 +36,10 @@ function checkDashboardAuth(c: {
 // ── Health ──────────────────────────────────────────────────────────
 app.get("/healthz", (c) => c.json({ ok: true }));
 
-// ── Register / heartbeat ────────────────────────────────────────────
-app.post("/register", async (c) => {
+// ── Gateway management (GATEWAY_SECRET auth) ────────────────────────
+const gateway = new Hono<Env>();
+
+gateway.post("/register", async (c) => {
   const body = await c.req.json<{
     name?: string;
     url?: string;
@@ -82,8 +74,7 @@ app.post("/register", async (c) => {
   return c.json({ registered: name }, status);
 });
 
-// ── Unregister ──────────────────────────────────────────────────────
-app.delete("/register/:name", async (c) => {
+gateway.delete("/register/:name", async (c) => {
   const auth = c.req.header("Authorization");
   if (auth !== `Bearer ${c.env.GATEWAY_SECRET}`) {
     return c.json({ error: "unauthorized" }, 401);
@@ -94,8 +85,10 @@ app.delete("/register/:name", async (c) => {
   return c.json({ unregistered: name });
 });
 
-// ── List endpoints ──────────────────────────────────────────────────
-app.get("/endpoints", async (c) => {
+// endpoints requires dashboard auth
+gateway.get("/endpoints", async (c) => {
+  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
+
   const list = await c.env.ENDPOINTS.list();
   const endpoints: Array<{ name: string; url: string; status: string; lastHeartbeat: number }> = [];
 
@@ -115,8 +108,11 @@ app.get("/endpoints", async (c) => {
   return c.json(endpoints);
 });
 
-// ── API proxy: /api/:agent/* → agent's tunnel URL ───────────────────
-app.all("/api/:agent/*", async (c) => {
+app.route("/api/gateway", gateway);
+
+// ── API proxy: /api/agents/:agent/* → agent's tunnel URL (dashboard auth) ──
+app.all("/api/agents/:agent/*", async (c) => {
+  if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
   const agent = c.req.param("agent");
   const record = await c.env.ENDPOINTS.get<EndpointRecord>(agent, "json");
 
@@ -126,7 +122,7 @@ app.all("/api/:agent/*", async (c) => {
 
   // Build target URL: strip /api/:agent prefix, forward the rest
   const url = new URL(c.req.url);
-  const pathAfterAgent = url.pathname.replace(`/api/${agent}`, "");
+  const pathAfterAgent = url.pathname.replace(`/api/agents/${agent}`, "");
   const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
 
   const headers = new Headers(c.req.raw.headers);

@@ -42,7 +42,7 @@ export async function registerWithGateway(
   agentToken: string,
 ): Promise<boolean> {
   try {
-    const resp = await fetch(`${gatewayUrl}/register`, {
+    const resp = await fetch(`${gatewayUrl}/api/gateway/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, url: tunnelUrl, secret, agentToken }),
@@ -65,7 +65,7 @@ export async function unregisterFromGateway(
   secret: string,
 ): Promise<void> {
   try {
-    await fetch(`${gatewayUrl}/register/${name}`, {
+    await fetch(`${gatewayUrl}/api/gateway/register/${name}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${secret}` },
     });

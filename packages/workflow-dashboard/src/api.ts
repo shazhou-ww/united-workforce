@@ -28,7 +28,7 @@ function authHeaders(): Record<string, string> {
 
 function agentBase(agent: string): string {
   if (GATEWAY_URL) {
-    return `${GATEWAY_URL}/api/${agent}`;
+    return `${GATEWAY_URL}/api/agents/${agent}`;
   }
   // Local dev: proxy via vite, no agent prefix
   return "/api";
@@ -108,7 +108,7 @@ export type ThreadRecord = ThreadStartRecord | RoleRecord | WorkflowResultRecord
 
 export function listAgents(): Promise<AgentEndpoint[]> {
   const url = GATEWAY_URL || "";
-  return fetchJson(url, "/endpoints");
+  return fetchJson(url, "/api/gateway/endpoints");
 }
 
 // ── Agent-scoped endpoints ──────────────────────────────────────────
