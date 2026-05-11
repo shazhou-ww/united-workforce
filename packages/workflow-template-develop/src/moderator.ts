@@ -50,12 +50,6 @@ const allPhasesComplete: ModeratorCondition<DevelopMeta> = {
   },
 };
 
-const hasRoundsRemaining: ModeratorCondition<DevelopMeta> = {
-  name: "hasRoundsRemaining",
-  description: "There are rounds remaining before hitting maxRounds",
-  check: (ctx) => ctx.steps.length < ctx.start.meta.maxRounds - 1,
-};
-
 const reviewApproved: ModeratorCondition<DevelopMeta> = {
   name: "reviewApproved",
   description: "The last reviewer approved the changes",
@@ -81,18 +75,15 @@ const table: ModeratorTable<DevelopMeta> = {
   planner: [{ condition: "FALLBACK", role: "coder" }],
   coder: [
     { condition: allPhasesComplete, role: "reviewer" },
-    { condition: hasRoundsRemaining, role: "coder" },
-    { condition: "FALLBACK", role: END },
+    { condition: "FALLBACK", role: "coder" },
   ],
   reviewer: [
     { condition: reviewApproved, role: "tester" },
-    { condition: hasRoundsRemaining, role: "coder" },
-    { condition: "FALLBACK", role: END },
+    { condition: "FALLBACK", role: "coder" },
   ],
   tester: [
     { condition: testsPassed, role: "committer" },
-    { condition: hasRoundsRemaining, role: "coder" },
-    { condition: "FALLBACK", role: END },
+    { condition: "FALLBACK", role: "coder" },
   ],
   committer: [{ condition: "FALLBACK", role: END }],
 };

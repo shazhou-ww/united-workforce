@@ -156,13 +156,12 @@ export function createThreadRoutes(storageRoot: string): Hono {
 
     const name = body.workflow;
     const prompt = body.prompt;
-    const maxRounds = typeof body.maxRounds === "number" ? body.maxRounds : 10;
 
     if (typeof name !== "string" || typeof prompt !== "string") {
       return c.json({ error: "workflow (string) and prompt (string) are required" }, 400);
     }
 
-    const result = await cmdRun(storageRoot, name, prompt, maxRounds);
+    const result = await cmdRun(storageRoot, name, prompt);
     if (!result.ok) {
       return c.json({ error: result.error }, 400);
     }

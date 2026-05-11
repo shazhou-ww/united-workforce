@@ -133,9 +133,8 @@ export function runThread(
   agent: string,
   workflow: string,
   prompt: string,
-  maxRounds: number = 10,
 ): Promise<{ threadId: string }> {
-  return postJson(agentBase(agent), "/threads", { workflow, prompt, maxRounds });
+  return postJson(agentBase(agent), "/threads", { workflow, prompt });
 }
 
 export function killThread(agent: string, threadId: string): Promise<{ ok: boolean }> {

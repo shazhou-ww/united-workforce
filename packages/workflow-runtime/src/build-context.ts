@@ -57,7 +57,7 @@ async function threadFromStartHead<M extends RoleMeta>(
     start: {
       role: START,
       content: prompt,
-      meta: { maxRounds: p.maxRounds },
+      meta: {},
       timestamp: 0,
     },
     steps: [],
@@ -116,7 +116,7 @@ async function threadFromStateHead<M extends RoleMeta>(
     start: {
       role: START,
       content: prompt,
-      meta: { maxRounds: sp.maxRounds },
+      meta: {},
       timestamp: firstTs,
     },
     steps,

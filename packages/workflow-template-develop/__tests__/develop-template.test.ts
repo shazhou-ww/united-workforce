@@ -13,23 +13,20 @@ const DEFAULT_PHASES: PlannerMeta["phases"] = [
   },
 ];
 
-function makeStart(maxRounds: number): ModeratorContext<DevelopMeta>["start"] {
+function makeStart(): ModeratorContext<DevelopMeta>["start"] {
   return {
     role: START,
     content: "Implement the feature",
-    meta: { maxRounds },
+    meta: {},
     timestamp: 0,
   };
 }
 
-function makeCtx(
-  maxRounds: number,
-  steps: ModeratorContext<DevelopMeta>["steps"],
-): ModeratorContext<DevelopMeta> {
+function makeCtx(steps: ModeratorContext<DevelopMeta>["steps"]): ModeratorContext<DevelopMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
-    start: makeStart(maxRounds),
+    start: makeStart(),
     steps,
   };
 }
@@ -90,20 +87,18 @@ function committerStep(meta: CommitterMeta): RoleStep<DevelopMeta> {
 
 describe("developModerator", () => {
   test("routes initial → planner → coder → reviewer → tester → committer → END", () => {
-    expect(developModerator(makeCtx(20, []))).toBe("planner");
-    expect(developModerator(makeCtx(20, [plannerStep()]))).toBe("coder");
-    expect(developModerator(makeCtx(20, [plannerStep(), coderStep()]))).toBe("reviewer");
-    expect(developModerator(makeCtx(20, [plannerStep(), coderStep(), reviewerStep(true)]))).toBe(
+    expect(developModerator(makeCtx([]))).toBe("planner");
+    expect(developModerator(makeCtx([plannerStep()]))).toBe("coder");
+    expect(developModerator(makeCtx([plannerStep(), coderStep()]))).toBe("reviewer");
+    expect(developModerator(makeCtx([plannerStep(), coderStep(), reviewerStep(true)]))).toBe(
       "tester",
     );
     expect(
-      developModerator(
-        makeCtx(20, [plannerStep(), coderStep(), reviewerStep(true), testerStep(true)]),
-      ),
+      developModerator(makeCtx([plannerStep(), coderStep(), reviewerStep(true), testerStep(true)])),
     ).toBe("committer");
     expect(
       developModerator(
-        makeCtx(20, [
+        makeCtx([
           plannerStep(),
           coderStep(),
           reviewerStep(true),
@@ -120,16 +115,16 @@ describe("developModerator", () => {
       coderStep(),
       reviewerStep(false),
     ];
-    expect(developModerator(makeCtx(20, steps))).toBe("coder");
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
-  test("reviewer rejects → END when max rounds exhausted", () => {
+  test("reviewer rejects → coder retry (supervisor controls termination)", () => {
     const steps: ModeratorContext<DevelopMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(false),
     ];
-    expect(developModerator(makeCtx(4, steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("tester failed → coder retry when budget allows", () => {
@@ -139,17 +134,17 @@ describe("developModerator", () => {
       reviewerStep(true),
       testerStep(false),
     ];
-    expect(developModerator(makeCtx(20, steps))).toBe("coder");
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
-  test("tester failed → END when max rounds exhausted", () => {
+  test("tester failed → coder retry (supervisor controls termination)", () => {
     const steps: ModeratorContext<DevelopMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(true),
       testerStep(false),
     ];
-    expect(developModerator(makeCtx(5, steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("multiple planner phases → coder until all complete, then reviewer", () => {
@@ -157,13 +152,11 @@ describe("developModerator", () => {
       { hash: "AA000001", title: "first phase" },
       { hash: "AA000002", title: "second phase" },
     ];
-    expect(developModerator(makeCtx(20, [plannerStep(phases)]))).toBe("coder");
-    expect(developModerator(makeCtx(20, [plannerStep(phases), coderStep("AA000001")]))).toBe(
-      "coder",
-    );
+    expect(developModerator(makeCtx([plannerStep(phases)]))).toBe("coder");
+    expect(developModerator(makeCtx([plannerStep(phases), coderStep("AA000001")]))).toBe("coder");
     expect(
       developModerator(
-        makeCtx(20, [plannerStep(phases), coderStep("AA000001"), coderStep("AA000002")]),
+        makeCtx([plannerStep(phases), coderStep("AA000001"), coderStep("AA000002")]),
       ),
     ).toBe("reviewer");
   });
@@ -175,7 +168,7 @@ describe("developModerator", () => {
       { hash: "BB000003", title: "verify" },
       { hash: "BB000004", title: "polish" },
     ];
-    expect(developModerator(makeCtx(20, [plannerStep(phases), coderStep("BB000004")]))).toBe(
+    expect(developModerator(makeCtx([plannerStep(phases), coderStep("BB000004")]))).toBe(
       "reviewer",
     );
   });
@@ -185,12 +178,10 @@ describe("developModerator", () => {
       { hash: "CC000001", title: "first phase" },
       { hash: "CC000002", title: "second phase" },
     ];
-    expect(developModerator(makeCtx(20, [plannerStep(phases), coderStep("all-done")]))).toBe(
-      "coder",
-    );
+    expect(developModerator(makeCtx([plannerStep(phases), coderStep("all-done")]))).toBe("coder");
   });
 
-  test("incomplete phases → END when max rounds exhausted", () => {
+  test("incomplete phases → coder retry (supervisor controls termination)", () => {
     const phases: PlannerMeta["phases"] = [
       { hash: "DD000001", title: "first phase" },
       { hash: "DD000002", title: "second phase" },
@@ -199,7 +190,7 @@ describe("developModerator", () => {
       plannerStep(phases),
       coderStep("DD000001"),
     ];
-    expect(developModerator(makeCtx(3, steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("committer → END for any committer meta status", () => {
@@ -220,9 +211,9 @@ describe("developModerator", () => {
       reviewerStep(true),
       testerStep(true),
     ];
-    expect(developModerator(makeCtx(20, [...base, committed]))).toBe(END);
-    expect(developModerator(makeCtx(20, [...base, recoverable]))).toBe(END);
-    expect(developModerator(makeCtx(20, [...base, unrecoverable]))).toBe(END);
+    expect(developModerator(makeCtx([...base, committed]))).toBe(END);
+    expect(developModerator(makeCtx([...base, recoverable]))).toBe(END);
+    expect(developModerator(makeCtx([...base, unrecoverable]))).toBe(END);
   });
 });
 

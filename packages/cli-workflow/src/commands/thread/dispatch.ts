@@ -26,12 +26,7 @@ export async function dispatchRun(storageRoot: string, argv: string[]): Promise<
     return 1;
   }
 
-  const result = await cmdRun(
-    storageRoot,
-    parsed.value.name,
-    parsed.value.prompt,
-    parsed.value.maxRounds,
-  );
+  const result = await cmdRun(storageRoot, parsed.value.name, parsed.value.prompt);
   if (!result.ok) {
     printCliError(result.error);
     return 1;
@@ -166,7 +161,7 @@ export async function dispatchFork(storageRoot: string, argv: string[]): Promise
 export const THREAD_SUBCOMMAND_TABLE: Record<string, CommandEntry> = {
   run: {
     handler: dispatchRun,
-    args: "<name> [--prompt <text>] [--max-rounds N]",
+    args: "<name> [--prompt <text>]",
     description: "Start a new thread executing a workflow",
   },
   list: {

@@ -107,12 +107,6 @@ ${commandSections.join("\n\n")}
 | \`completed\` | Finished with \`returnCode === 0\` (has \`__end__\` frame in CAS) |
 | \`failed\` | Finished with non-zero return code, or worker crashed (dead PID / no ctl) |
 
-## Defaults
-
-| Setting | CLI | HTTP API |
-|---------|-----|----------|
-| \`maxRounds\` | 10 | 10 |
-
 ## Exit Codes
 
 | Code | Meaning |

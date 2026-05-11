@@ -7,7 +7,7 @@ function startTask(content: string): AgentContext["start"] {
   return {
     role: START,
     content,
-    meta: { maxRounds: 5 },
+    meta: {},
     timestamp: 1,
   };
 }

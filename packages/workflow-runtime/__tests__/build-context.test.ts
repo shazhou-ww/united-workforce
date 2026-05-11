@@ -27,7 +27,7 @@ describe("buildThreadContext", () => {
     const bundleHash = "BHAAAAAAAAAAA";
     const startHash = await putStartNode(
       cas,
-      { name: "demo", hash: bundleHash, maxRounds: 99, depth: 2 },
+      { name: "demo", hash: bundleHash, depth: 2 },
       promptHash,
     );
 
@@ -59,7 +59,6 @@ describe("buildThreadContext", () => {
     expect(ctx.depth).toBe(2);
     expect(ctx.start.role).toBe(START);
     expect(ctx.start.content).toBe("hello-task");
-    expect(ctx.start.meta.maxRounds).toBe(99);
     expect(ctx.steps.map((s) => s.role)).toEqual(["planner", "coder"]);
     expect(ctx.steps[0]?.refs).toEqual([art]);
     expect(ctx.steps[1]?.refs).toEqual([]);
@@ -72,7 +71,7 @@ describe("buildThreadContext", () => {
     const promptHash = await cas.put("only-prompt");
     const startHash = await putStartNode(
       cas,
-      { name: "solo", hash: "BHBBBBBBBBBBB", maxRounds: 3, depth: 1 },
+      { name: "solo", hash: "BHBBBBBBBBBBB", depth: 1 },
       promptHash,
     );
 
@@ -80,7 +79,6 @@ describe("buildThreadContext", () => {
     expect(ctx.steps).toEqual([]);
     expect(ctx.start.content).toBe("only-prompt");
     expect(ctx.depth).toBe(1);
-    expect(ctx.start.meta.maxRounds).toBe(3);
   });
 
   test("omits __end__ states from steps", async () => {
@@ -89,7 +87,7 @@ describe("buildThreadContext", () => {
     const bundleHash = "BHCCCCCCCCCCC";
     const startHash = await putStartNode(
       cas,
-      { name: "demo", hash: bundleHash, maxRounds: 10, depth: 0 },
+      { name: "demo", hash: bundleHash, depth: 0 },
       promptHash,
     );
 

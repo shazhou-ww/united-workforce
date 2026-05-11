@@ -21,7 +21,6 @@ function isStartPayload(value: unknown): value is StartNodePayload {
   return (
     typeof value.name === "string" &&
     typeof value.hash === "string" &&
-    typeof value.maxRounds === "number" &&
     typeof value.depth === "number"
   );
 }

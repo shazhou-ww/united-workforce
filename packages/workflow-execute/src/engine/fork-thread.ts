@@ -104,9 +104,7 @@ async function readPromptText(cas: CasStore, promptHash: string): Promise<Result
 async function readStartWorkflowIdentity(params: {
   cas: CasStore;
   startHash: string;
-}): Promise<
-  Result<{ workflowName: string; maxRounds: number; depth: number; prompt: string }, string>
-> {
+}): Promise<Result<{ workflowName: string; depth: number; prompt: string }, string>> {
   const yamlText = await params.cas.get(params.startHash);
   if (yamlText === null) {
     return err(`start node missing in CAS: ${params.startHash}`);
@@ -127,7 +125,6 @@ async function readStartWorkflowIdentity(params: {
   const p = parsed.node.payload;
   return ok({
     workflowName: p.name,
-    maxRounds: p.maxRounds,
     depth: p.depth,
     prompt: prompt.value,
   });
@@ -317,7 +314,7 @@ export async function prepareCasFork(params: {
     hash: params.bundleHash,
     sourceThreadId: params.sourceThreadId,
     prompt: id.value.prompt,
-    runOptions: { maxRounds: id.value.maxRounds, depth: id.value.depth },
+    runOptions: { depth: id.value.depth },
     steps,
     stepTimestamps,
     forkContinuation: cont.value,

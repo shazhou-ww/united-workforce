@@ -2,7 +2,11 @@ import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 
 export const coderMetaSchema = z.object({
-  completedPhase: z.string().describe("The planner phase hash finished this round. If multiple phases were completed, use the last finished phase hash."),
+  completedPhase: z
+    .string()
+    .describe(
+      "The planner phase hash finished this round. If multiple phases were completed, use the last finished phase hash.",
+    ),
   filesChanged: z.array(z.string()),
   summary: z.string(),
 });

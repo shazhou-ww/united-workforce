@@ -8,7 +8,7 @@ function makeCtx(userContent: string): AgentContext {
     start: {
       role: START,
       content: userContent,
-      meta: { maxRounds: 10 },
+      meta: {},
       timestamp: 1,
     },
     depth: 0,
