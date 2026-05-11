@@ -11,9 +11,15 @@ export type {
   ExtractContext,
   ExtractFn,
   ExtractResult,
+  FALLBACK,
   LlmProvider,
   Moderator,
+  ModeratorCondition,
   ModeratorContext,
+  ModeratorTable,
+  ModeratorTransition,
+  ProviderConfig,
+  ResolvedModel,
   Result,
   RoleDefinition,
   RoleMeta,
@@ -31,4 +37,4 @@ export type {
   WorkflowRuntime,
 } from "@uncaged/workflow-protocol";
 
-export { END, START } from "@uncaged/workflow-protocol";
+export { END, START, tableToModerator } from "@uncaged/workflow-protocol";

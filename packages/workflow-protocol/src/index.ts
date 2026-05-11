@@ -17,9 +17,13 @@ export type {
   ExtractContext,
   ExtractFn,
   ExtractResult,
+  FALLBACK,
   LlmProvider,
   Moderator,
+  ModeratorCondition,
   ModeratorContext,
+  ModeratorTable,
+  ModeratorTransition,
   ProviderConfig,
   ResolvedModel,
   Result,
@@ -47,3 +51,7 @@ export { END, START } from "./types.js";
 // ── Constructor functions ──────────────────────────────────────────
 
 export { err, ok } from "./result.js";
+
+// ── Moderator Table ────────────────────────────────────────────────
+
+export { tableToModerator } from "./moderator-table.js";
