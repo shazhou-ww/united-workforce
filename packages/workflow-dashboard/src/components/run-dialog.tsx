@@ -12,7 +12,6 @@ export function RunDialog({ agent, onClose, onCreated }: Props) {
   const workflows = useFetch(() => listWorkflows(agent), [agent]);
   const [workflow, setWorkflow] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [maxRounds, setMaxRounds] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +21,7 @@ export function RunDialog({ agent, onClose, onCreated }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await runThread(agent, workflow, prompt, maxRounds);
+      const result = await runThread(agent, workflow, prompt);
       onCreated(result.threadId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -89,29 +88,6 @@ export function RunDialog({ agent, onClose, onCreated }: Props) {
                 color: "var(--color-text)",
               }}
               placeholder="Enter the task prompt..."
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="run-max-rounds"
-              className="text-sm block mb-1"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Max Rounds
-            </label>
-            <input
-              id="run-max-rounds"
-              type="number"
-              value={maxRounds}
-              onChange={(e) => setMaxRounds(Number(e.target.value))}
-              min={1}
-              max={100}
-              className="w-24 px-3 py-2 rounded border text-sm"
-              style={{
-                background: "var(--color-bg)",
-                borderColor: "var(--color-border)",
-                color: "var(--color-text)",
-              }}
             />
           </div>
           {error && (

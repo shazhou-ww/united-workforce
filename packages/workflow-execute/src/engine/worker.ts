@@ -32,7 +32,7 @@ type RunCommand = {
   threadId: string;
   workflowName: string;
   prompt: string;
-  options: { maxRounds: number; depth: number };
+  options: { depth: number };
   steps: RoleOutput[];
   /** Timestamps aligned with `steps` for replay / fork restore; length must match `steps` when steps are non-empty. */
   stepTimestamps: number[] | null;
@@ -185,10 +185,6 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     return null;
   }
   const optRec = options as Record<string, unknown>;
-  const maxRounds = optRec.maxRounds;
-  if (typeof maxRounds !== "number") {
-    return null;
-  }
   const depthRaw = optRec.depth;
   const depth =
     typeof depthRaw === "number" && Number.isFinite(depthRaw) ? Math.trunc(depthRaw) : 0;
@@ -210,7 +206,7 @@ function parseRunControlPayload(rec: Record<string, unknown>): RunCommand | null
     threadId,
     workflowName,
     prompt,
-    options: { maxRounds, depth },
+    options: { depth },
     steps: parsedSteps.steps,
     stepTimestamps: parsedSteps.stepTimestamps,
     forkSourceThreadId,

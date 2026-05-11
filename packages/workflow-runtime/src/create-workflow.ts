@@ -101,9 +101,10 @@ async function advanceOneRound<M extends RoleMeta>(
   );
   const artifactRefs = mergeUniqueHashes(extracted.refs, refsFromMeta);
 
-  const contentHash = artifactRefs.length === 0
-    ? agentContentHash
-    : await putContentNodeWithRefs(runtime.cas, extracted.contentPayload, artifactRefs);
+  const contentHash =
+    artifactRefs.length === 0
+      ? agentContentHash
+      : await putContentNodeWithRefs(runtime.cas, extracted.contentPayload, artifactRefs);
   const refs = artifactRefs.includes(contentHash) ? artifactRefs : [...artifactRefs, contentHash];
 
   const step = {
@@ -144,17 +145,9 @@ export function createWorkflow<M extends RoleMeta>(
     if (thread.start.role !== START) {
       throw new Error(`workflow loop expected start role to be ${START}`);
     }
-    const maxRounds = thread.start.meta.maxRounds;
     let currentThread = thread as ModeratorContext<M>;
 
     while (true) {
-      if (currentThread.steps.length >= maxRounds) {
-        return {
-          returnCode: 0,
-          summary: `completed: reached maxRounds (${maxRounds})`,
-        };
-      }
-
       const outcome = await advanceOneRound(def, binding, {
         thread: currentThread,
         runtime,

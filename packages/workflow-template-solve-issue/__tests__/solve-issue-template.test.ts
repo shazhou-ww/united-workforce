@@ -98,23 +98,22 @@ function installMockToolCallCompletions(
   };
 }
 
-function makeStart(maxRounds: number): ModeratorContext<SolveIssueMeta>["start"] {
+function makeStart(): ModeratorContext<SolveIssueMeta>["start"] {
   return {
     role: START,
     content: "Fix the flaky login test",
-    meta: { maxRounds },
+    meta: {},
     timestamp: 0,
   };
 }
 
 function makeCtx(
-  maxRounds: number,
   steps: ModeratorContext<SolveIssueMeta>["steps"],
 ): ModeratorContext<SolveIssueMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
-    start: makeStart(maxRounds),
+    start: makeStart(),
     steps,
   };
 }
@@ -182,7 +181,7 @@ function makeThread(prompt: string) {
     start: {
       role: START,
       content: prompt,
-      meta: { maxRounds: 20 },
+      meta: {},
       timestamp: Date.now(),
     },
     steps: [],
@@ -191,12 +190,12 @@ function makeThread(prompt: string) {
 
 describe("solveIssueModerator", () => {
   test("routes initial → preparer → developer → submitter → END", () => {
-    expect(solveIssueModerator(makeCtx(20, []))).toBe("preparer");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep()]))).toBe("developer");
-    expect(solveIssueModerator(makeCtx(20, [preparerStep(), developerStep()]))).toBe("submitter");
+    expect(solveIssueModerator(makeCtx([]))).toBe("preparer");
+    expect(solveIssueModerator(makeCtx([preparerStep()]))).toBe("developer");
+    expect(solveIssueModerator(makeCtx([preparerStep(), developerStep()]))).toBe("submitter");
     expect(
       solveIssueModerator(
-        makeCtx(20, [
+        makeCtx([
           preparerStep(),
           developerStep(),
           submitterStep({
@@ -211,7 +210,7 @@ describe("solveIssueModerator", () => {
   test("submitter failed → END", () => {
     expect(
       solveIssueModerator(
-        makeCtx(20, [
+        makeCtx([
           preparerStep(),
           developerStep(),
           submitterStep({ status: "failed", error: "gh not authenticated" }),
@@ -225,7 +224,7 @@ describe("solveIssueModerator", () => {
     // routed to END, since the moderator is a closed switch over known roles.
     expect(
       solveIssueModerator(
-        makeCtx(20, [
+        makeCtx([
           preparerStep(),
           developerStep(),
           submitterStep({ status: "submitted", prUrl: "https://example.com/pr/1" }),

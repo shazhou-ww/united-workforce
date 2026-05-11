@@ -24,7 +24,7 @@ function makeCtx(roles: (keyof TestMeta & string)[]): ModeratorContext<TestMeta>
     start: {
       role: START,
       content: "test",
-      meta: { maxRounds: 10 },
+      meta: {},
       timestamp: Date.now(),
     } as StartStep,
     steps,

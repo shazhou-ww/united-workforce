@@ -95,7 +95,6 @@ export function workflowAsAgent(
         workflowName,
         input,
         {
-          maxRounds: ctx.start.meta.maxRounds,
           depth: nextDepth,
           signal: signalNever.signal,
           awaitAfterEachYield: async () => {},

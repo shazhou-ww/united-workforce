@@ -39,7 +39,6 @@ export type PrefilledDiskStep = {
 };
 
 export type ExecuteThreadOptions = {
-  maxRounds: number;
   /** Passed to the bundle thread context as `ThreadContext.depth`. */
   depth: number;
   signal: AbortSignal;
@@ -68,7 +67,7 @@ export type CasForkPlan = {
   hash: string;
   sourceThreadId: string;
   prompt: string;
-  runOptions: { maxRounds: number; depth: number };
+  runOptions: { depth: number };
   steps: RoleOutput[];
   stepTimestamps: number[];
   forkContinuation: ForkContinuationOptions;

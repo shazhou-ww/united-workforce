@@ -34,7 +34,6 @@ function noLogger(): (tag: string, content: string) => void {
 
 function makeOptions(overrides: Partial<ExecuteThreadOptions>): ExecuteThreadOptions {
   return {
-    maxRounds: 5,
     depth: 0,
     signal: new AbortController().signal,
     awaitAfterEachYield: async () => {},
@@ -107,7 +106,7 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       wf,
       "demo",
       { prompt: "hello", steps: [] },
-      makeOptions({ storageRoot, maxRounds: 5 }),
+      makeOptions({ storageRoot }),
       io,
       noLogger(),
     );
@@ -127,7 +126,6 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
     expect(startNode.type).toBe("start");
     expect((startNode.payload as Record<string, unknown>).name).toBe("demo");
     expect((startNode.payload as Record<string, unknown>).hash).toBe(bundleHash);
-    expect((startNode.payload as Record<string, unknown>).maxRounds).toBe(5);
 
     const refs = startNode.refs as string[];
     expect(refs.length).toBe(1);
@@ -164,7 +162,6 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
 
     const opts = makeOptions({
       storageRoot,
-      maxRounds: 5,
       awaitAfterEachYield: async () => {
         const text = await readFile(join(bundleDir, "threads.json"), "utf8");
         const parsed = JSON.parse(text) as Record<string, { head: string }>;
@@ -228,7 +225,7 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       wf,
       "demo",
       { prompt: "p", steps: [] },
-      makeOptions({ storageRoot, maxRounds: 5 }),
+      makeOptions({ storageRoot }),
       io,
       noLogger(),
     );
@@ -279,7 +276,7 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       wf,
       "demo",
       { prompt: "p", steps: [] },
-      makeOptions({ storageRoot, maxRounds: 5 }),
+      makeOptions({ storageRoot }),
       io,
       noLogger(),
     );

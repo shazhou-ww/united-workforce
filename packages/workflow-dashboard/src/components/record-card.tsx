@@ -1,4 +1,4 @@
-import type { ThreadStartRecord, RoleRecord, WorkflowResultRecord, ThreadRecord } from "../api.ts";
+import type { RoleRecord, ThreadRecord, ThreadStartRecord, WorkflowResultRecord } from "../api.ts";
 import { Markdown } from "./markdown.tsx";
 
 const ROLE_COLORS: Record<string, string> = {

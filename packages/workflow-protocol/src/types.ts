@@ -46,7 +46,7 @@ export type RoleOutput = {
 export type StartStep = {
   role: typeof START;
   content: string;
-  meta: { maxRounds: number };
+  meta: Record<string, never>;
   timestamp: number;
 };
 

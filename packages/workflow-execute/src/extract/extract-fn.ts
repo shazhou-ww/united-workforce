@@ -1,10 +1,6 @@
 import { type CasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
-import type {
-  ExtractFn,
-  ExtractResult,
-  LlmProvider,
-} from "@uncaged/workflow-runtime";
+import type { ExtractFn, ExtractResult, LlmProvider } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
 import { extractFunctionToolFromZodSchema } from "./llm-extract.js";
 

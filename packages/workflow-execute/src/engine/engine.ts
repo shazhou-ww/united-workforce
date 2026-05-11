@@ -284,21 +284,6 @@ async function driveWorkflowGenerator(params: {
       });
     }
 
-    if (written >= executeOptions.maxRounds) {
-      logger("R3CW7YBQ", `thread ${threadId} stopped at maxRounds=${executeOptions.maxRounds}`);
-      return await finalizeThread({
-        cas,
-        bundleDir,
-        threadId,
-        startHash,
-        chain,
-        completion: {
-          returnCode: 0,
-          summary: `completed: reached maxRounds (${executeOptions.maxRounds})`,
-        },
-      });
-    }
-
     const iterResult = await gen.next();
 
     if (iterResult.done) {
@@ -383,7 +368,7 @@ async function driveWorkflowGenerator(params: {
  * Persistence layout (RFC v3 — CAS-based thread storage):
  * - Thread chain is written as immutable CAS blobs: a single {@link StartNode}
  *   plus one {@link StateNode} per role step (including a final `__end__`
- *   state on completion / abort / `maxRounds`).
+ *   state on completion / abort).
  * - The active thread head is published in `<bundleDir>/threads.json`; on
  *   completion it is removed and a record is appended to
  *   `<bundleDir>/history/{YYYY-MM-DD}.jsonl`.
@@ -433,7 +418,6 @@ export async function executeThread(
       {
         name: workflowName,
         hash: io.hash,
-        maxRounds: options.maxRounds,
         depth: options.depth,
       },
       promptHash,
@@ -475,21 +459,6 @@ export async function executeThread(
 
   const nowMs = Date.now();
 
-  if (options.maxRounds <= 0) {
-    logger("R3CW7YBQ", `thread ${io.threadId} stopped at maxRounds=${options.maxRounds}`);
-    return await finalizeThread({
-      cas: io.cas,
-      bundleDir,
-      threadId: io.threadId,
-      startHash,
-      chain,
-      completion: {
-        returnCode: 0,
-        summary: `completed: reached maxRounds (${options.maxRounds})`,
-      },
-    });
-  }
-
   const registryRuntime = await resolveEngineRegistryRuntime(options.storageRoot, io.cas);
   if (!registryRuntime.ok) {
     throw new Error(registryRuntime.error);
@@ -501,7 +470,7 @@ export async function executeThread(
     start: {
       role: START,
       content: input.prompt,
-      meta: { maxRounds: options.maxRounds },
+      meta: {},
       timestamp: nowMs,
     },
     steps: input.steps.map((out, i) => ({

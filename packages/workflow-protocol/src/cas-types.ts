@@ -3,7 +3,6 @@
 export type StartNodePayload = {
   name: string;
   hash: string;
-  maxRounds: number;
   depth: number;
 };
 

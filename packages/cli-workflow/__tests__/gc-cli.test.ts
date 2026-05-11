@@ -45,7 +45,7 @@ describe("gc cli and garbageCollectCas", () => {
       {
         name: "demo",
         hash: bundleHash,
-        maxRounds: 5,
+
         depth: 0,
       },
       promptHash,
@@ -100,7 +100,7 @@ describe("gc cli and garbageCollectCas", () => {
       {
         name: "demo",
         hash: bundleHash,
-        maxRounds: 5,
+
         depth: 0,
       },
       promptHash,
@@ -135,7 +135,7 @@ describe("gc cli and garbageCollectCas", () => {
       {
         name: "demo",
         hash: bundleHash,
-        maxRounds: 5,
+
         depth: 0,
       },
       promptHash,

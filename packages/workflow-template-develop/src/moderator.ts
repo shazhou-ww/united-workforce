@@ -52,8 +52,8 @@ const allPhasesComplete: ModeratorCondition<DevelopMeta> = {
 
 const hasRoundsRemaining: ModeratorCondition<DevelopMeta> = {
   name: "hasRoundsRemaining",
-  description: "There are rounds remaining before hitting maxRounds",
-  check: (ctx) => ctx.steps.length < ctx.start.meta.maxRounds - 1,
+  description: "Always true — supervisor controls termination",
+  check: () => true,
 };
 
 const reviewApproved: ModeratorCondition<DevelopMeta> = {

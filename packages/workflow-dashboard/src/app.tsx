@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { hasApiKey, clearApiKey } from "./api.ts";
+import { clearApiKey, hasApiKey } from "./api.ts";
 import { LoginPage } from "./components/login.tsx";
 import { RunDialog } from "./components/run-dialog.tsx";
 import { Sidebar } from "./components/sidebar.tsx";

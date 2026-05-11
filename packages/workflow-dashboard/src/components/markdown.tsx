@@ -1,10 +1,10 @@
-import ReactMarkdown from "react-markdown";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
-  createHighlighter,
-  type HighlighterGeneric,
   type BundledLanguage,
   type BundledTheme,
+  createHighlighter,
+  type HighlighterGeneric,
 } from "shiki";
 
 let highlighterPromise: Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> | null = null;
