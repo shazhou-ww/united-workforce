@@ -13,7 +13,12 @@ export function ThreadList({ agent, onSelect }: Props) {
     return <p style={{ color: "var(--color-text-muted)" }}>Loading threads...</p>;
   if (status === "error") return <p style={{ color: "var(--color-error)" }}>Error: {error}</p>;
 
-  const threads = data.threads;
+  const threads = [...data.threads].sort((a, b) => {
+    if (!a.startedAt && !b.startedAt) return 0;
+    if (!a.startedAt) return 1;
+    if (!b.startedAt) return -1;
+    return b.startedAt.localeCompare(a.startedAt);
+  });
 
   return (
     <div>
@@ -39,11 +44,11 @@ export function ThreadList({ agent, onSelect }: Props) {
                     className="text-xs px-2 py-0.5 rounded"
                     style={{
                       background:
-                        t.status === "running"
+                        t.status === "completed"
                           ? "var(--color-success)"
                           : t.status === "failed"
                             ? "var(--color-error)"
-                            : "var(--color-text-muted)",
+                            : "var(--color-accent)",
                       color: "#000",
                     }}
                   >
