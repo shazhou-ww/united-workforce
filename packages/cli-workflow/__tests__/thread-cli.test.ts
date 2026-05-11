@@ -305,8 +305,13 @@ describe("cli thread commands", () => {
     }
 
     const threadId = ran.value.threadId;
+    const killBundleDir = getBundleDir(storageRoot, added.value.hash);
 
-    await new Promise((r) => setTimeout(r, 50));
+    await waitUntilPredicate(async () => {
+      const idx = await readThreadsIndex(killBundleDir);
+      const ent = idx[threadId];
+      return ent !== undefined && ent.head !== ent.start;
+    }, 80);
 
     const killed = await cmdKill(storageRoot, threadId);
     expect(killed.ok).toBe(true);
