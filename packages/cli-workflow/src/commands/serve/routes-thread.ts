@@ -137,7 +137,12 @@ export function createThreadRoutes(storageRoot: string): Hono {
       activityTs: 0,
       head: resolved.head,
     };
-    const records = await buildThreadDetailRecords(storageRoot, resolved, runningMarkerPresent, statusRow);
+    const records = await buildThreadDetailRecords(
+      storageRoot,
+      resolved,
+      runningMarkerPresent,
+      statusRow,
+    );
     return c.json({ threadId, records });
   });
 

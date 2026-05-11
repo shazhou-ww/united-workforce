@@ -12,12 +12,12 @@ const SUPERVISOR_MAX_REACT_ROUNDS = 4;
 
 const supervisorDecisionSchema = z
   .object({
-    decision: z.enum(["continue", "stop"]),
+    decision: z.enum(["continue", "kill"]),
   })
   .meta({
     title: "supervisor_decision",
     description:
-      'Workflow supervisor decision. "continue" when the thread is making progress; "stop" when done, looping, or stuck.',
+      'Workflow supervisor decision. "continue" when the thread is making progress or following its normal role sequence; "kill" only when the thread is stuck in an infinite loop, producing no meaningful progress, or has gone off the rails. Normal workflow completion is handled by the moderator — the supervisor should NOT kill a thread just because it looks done.',
   });
 
 type SupervisorThreadContext = Record<string, never>;
@@ -63,7 +63,7 @@ export async function runSupervisor(
       };
     },
     systemPromptForStructuredTool: (structuredToolName) =>
-      `You supervise a multi-step workflow. Decide whether the thread should keep running or halt. Reply with "continue" when the thread is making progress toward the task, or "stop" when it is finished, looping, or no longer making progress. Call the ${structuredToolName} tool with JSON arguments matching the schema, or reply with only a JSON object such as {"decision":"stop"}.`,
+      `You supervise a multi-step workflow. Your job is to detect pathological situations — NOT to decide when the workflow is "done" (that is the moderator's job). Reply with "continue" when the thread is making progress or following its normal role sequence. Reply with "kill" ONLY when the thread is stuck in an infinite loop, producing repetitive/meaningless output, or has clearly gone off the rails. Call the ${structuredToolName} tool with JSON arguments matching the schema, or reply with only a JSON object such as {"decision":"continue"}.`,
     toolHandler: async (call) => `Unknown tool: ${call.function.name}`,
   });
 

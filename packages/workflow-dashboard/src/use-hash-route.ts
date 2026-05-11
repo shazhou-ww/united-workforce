@@ -81,5 +81,12 @@ export function useHashRoute(): {
     [navigate, route.agent],
   );
 
-  return { view: route.view, agent: route.agent, threadId: route.threadId, setView, setAgent, setThreadId };
+  return {
+    view: route.view,
+    agent: route.agent,
+    threadId: route.threadId,
+    setView,
+    setAgent,
+    setThreadId,
+  };
 }

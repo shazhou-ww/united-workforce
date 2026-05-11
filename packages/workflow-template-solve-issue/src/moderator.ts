@@ -1,26 +1,12 @@
-import type { Moderator } from "@uncaged/workflow-runtime";
-import { END } from "@uncaged/workflow-runtime";
+import { END, type ModeratorTable, START, tableToModerator } from "@uncaged/workflow-runtime";
 
 import type { SolveIssueMeta } from "./roles.js";
 
-export const solveIssueModerator: Moderator<SolveIssueMeta> = (ctx) => {
-  if (ctx.steps.length === 0) {
-    return "preparer";
-  }
-
-  const last = ctx.steps[ctx.steps.length - 1];
-
-  if (last.role === "preparer") {
-    return "developer";
-  }
-
-  if (last.role === "developer") {
-    return "submitter";
-  }
-
-  if (last.role === "submitter") {
-    return END;
-  }
-
-  return END;
+const table: ModeratorTable<SolveIssueMeta> = {
+  [START]: [{ condition: "FALLBACK", role: "preparer" }],
+  preparer: [{ condition: "FALLBACK", role: "developer" }],
+  developer: [{ condition: "FALLBACK", role: "submitter" }],
+  submitter: [{ condition: "FALLBACK", role: END }],
 };
+
+export const solveIssueModerator = tableToModerator(table);

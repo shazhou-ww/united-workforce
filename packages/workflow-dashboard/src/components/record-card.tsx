@@ -93,9 +93,7 @@ function ResultCard({ record }: { record: WorkflowResultRecord }) {
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">{success ? "✅" : "❌"}</span>
-        <span className="font-semibold text-sm">
-          {success ? "Completed" : "Failed"}
-        </span>
+        <span className="font-semibold text-sm">{success ? "Completed" : "Failed"}</span>
         <span
           className="text-xs px-2 py-0.5 rounded font-mono"
           style={{

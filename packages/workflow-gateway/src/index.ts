@@ -33,7 +33,10 @@ app.use("/api/*", async (c, next) => {
   await next();
 });
 
-function checkDashboardAuth(c: { req: { header: (n: string) => string | undefined; query: (n: string) => string | undefined }; env: Env["Bindings"] }): boolean {
+function checkDashboardAuth(c: {
+  req: { header: (n: string) => string | undefined; query: (n: string) => string | undefined };
+  env: Env["Bindings"];
+}): boolean {
   const bearer = c.req.header("Authorization")?.replace("Bearer ", "");
   const query = c.req.query("key");
   const key = bearer ?? query;
@@ -45,7 +48,12 @@ app.get("/healthz", (c) => c.json({ ok: true }));
 
 // ── Register / heartbeat ────────────────────────────────────────────
 app.post("/register", async (c) => {
-  const body = await c.req.json<{ name?: string; url?: string; secret?: string; agentToken?: string }>();
+  const body = await c.req.json<{
+    name?: string;
+    url?: string;
+    secret?: string;
+    agentToken?: string;
+  }>();
   const { name, url, secret, agentToken } = body;
 
   if (!name || !url) {

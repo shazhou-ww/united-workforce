@@ -16,7 +16,11 @@ import type { ServeOptions } from "./types.js";
 const DEFAULT_GATEWAY_URL = "https://workflow-gateway.shazhou.workers.dev";
 const HEARTBEAT_INTERVAL_MS = 60_000;
 
-export function startServer(storageRoot: string, options: ServeOptions, agentToken: string | null): void {
+export function startServer(
+  storageRoot: string,
+  options: ServeOptions,
+  agentToken: string | null,
+): void {
   const app = createApp(storageRoot, agentToken);
 
   const server = serve({

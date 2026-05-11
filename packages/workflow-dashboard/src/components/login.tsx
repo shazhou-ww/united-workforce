@@ -44,7 +44,10 @@ export function LoginPage({ onLogin }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--color-bg)" }}>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: "var(--color-bg)" }}
+    >
       <div
         className="p-8 rounded-lg border w-full max-w-sm"
         style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}

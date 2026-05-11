@@ -211,17 +211,17 @@ async function maybeSupervisorHaltsThread(params: {
     params.logger("K6PW9NYT", `supervisor skipped: ${sup.error}`);
     return null;
   }
-  if (sup.value !== "stop") {
+  if (sup.value !== "kill") {
     return null;
   }
-  params.logger("M4QX8VHN", `thread ${params.threadId} stopped by supervisor`);
+  params.logger("M4QX8VHN", `thread ${params.threadId} killed by supervisor`);
   return finalizeThread({
     cas: params.cas,
     bundleDir: params.bundleDir,
     threadId: params.threadId,
     startHash: params.startHash,
     chain: params.chain,
-    completion: { returnCode: 0, summary: "completed: supervisor stopped thread" },
+    completion: { returnCode: 1, summary: "killed: supervisor detected pathological behavior" },
   });
 }
 

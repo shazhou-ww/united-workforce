@@ -172,21 +172,21 @@ export type WorkflowDefinition<M extends RoleMeta> = {
 // ── Declarative Moderator Table ────────────────────────────────────
 
 export type ModeratorCondition<M extends RoleMeta> = {
-	name: string;
-	description: string;
-	check: (ctx: ModeratorContext<M>) => boolean;
+  name: string;
+  description: string;
+  check: (ctx: ModeratorContext<M>) => boolean;
 };
 
 export type FALLBACK = "FALLBACK";
 
 export type ModeratorTransition<M extends RoleMeta> = {
-	condition: ModeratorCondition<M> | FALLBACK;
-	role: (keyof M & string) | typeof END;
+  condition: ModeratorCondition<M> | FALLBACK;
+  role: (keyof M & string) | typeof END;
 };
 
 export type ModeratorTable<M extends RoleMeta> = Record<
-	(keyof M & string) | typeof START,
-	ModeratorTransition<M>[]
+  (keyof M & string) | typeof START,
+  ModeratorTransition<M>[]
 >;
 
 // ── Advance Outcome ────────────────────────────────────────────────

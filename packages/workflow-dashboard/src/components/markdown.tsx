@@ -1,10 +1,23 @@
 import ReactMarkdown from "react-markdown";
 import { useEffect, useState } from "react";
-import { createHighlighter, type HighlighterGeneric, type BundledLanguage, type BundledTheme } from "shiki";
+import {
+  createHighlighter,
+  type HighlighterGeneric,
+  type BundledLanguage,
+  type BundledTheme,
+} from "shiki";
 
 let highlighterPromise: Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> | null = null;
 
-const LANGS: BundledLanguage[] = ["typescript", "javascript", "json", "yaml", "bash", "python", "markdown"];
+const LANGS: BundledLanguage[] = [
+  "typescript",
+  "javascript",
+  "json",
+  "yaml",
+  "bash",
+  "python",
+  "markdown",
+];
 
 function getHighlighter(): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> {
   if (highlighterPromise === null) {
@@ -32,7 +45,9 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
         setHtml(null);
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [code, lang]);
 
   if (html !== null) {
@@ -46,7 +61,10 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
   }
 
   return (
-    <pre className="rounded overflow-x-auto text-xs my-2 p-3" style={{ background: "var(--color-bg)" }}>
+    <pre
+      className="rounded overflow-x-auto text-xs my-2 p-3"
+      style={{ background: "var(--color-bg)" }}
+    >
       <code>{code}</code>
     </pre>
   );
@@ -100,7 +118,8 @@ export function Markdown({ content }: { content: string }) {
               </blockquote>
             );
           },
-        }}>
+        }}
+      >
         {content}
       </ReactMarkdown>
     </div>

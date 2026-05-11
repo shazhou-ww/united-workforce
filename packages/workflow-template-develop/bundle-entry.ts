@@ -1,10 +1,10 @@
 /**
  * develop bundle entry — 小橘 🍊
  */
-import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
-import { createWorkflow } from "@uncaged/workflow-runtime";
-import { createExtract } from "@uncaged/workflow-execute";
 import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
+import { createExtract } from "@uncaged/workflow-execute";
+import { createWorkflow } from "@uncaged/workflow-runtime";
+import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -23,7 +23,8 @@ function optionalEnv(name: string): string | null {
 }
 
 const provider = {
-  baseUrl: optionalEnv("WORKFLOW_LLM_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  baseUrl:
+    optionalEnv("WORKFLOW_LLM_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
   apiKey: requireEnv("WORKFLOW_LLM_API_KEY"),
   model: optionalEnv("WORKFLOW_LLM_MODEL") ?? "qwen-plus",
 };

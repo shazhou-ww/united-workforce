@@ -20,7 +20,16 @@ export function App() {
 
   return (
     <div className="flex h-screen">
-      <Sidebar view={view} agent={agent} onViewChange={setView} onAgentChange={setAgent} onLogout={() => { clearApiKey(); setAuthed(false); }} />
+      <Sidebar
+        view={view}
+        agent={agent}
+        onViewChange={setView}
+        onAgentChange={setAgent}
+        onLogout={() => {
+          clearApiKey();
+          setAuthed(false);
+        }}
+      />
       <main className="flex-1 overflow-hidden flex flex-col">
         <StatusBar agent={agent} onRun={() => setShowRun(true)} />
         <div className="flex-1 overflow-auto p-6">

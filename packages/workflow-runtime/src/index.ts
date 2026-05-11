@@ -9,9 +9,13 @@ export type {
   ExtractContext,
   ExtractFn,
   ExtractResult,
+  FALLBACK,
   LlmProvider,
   Moderator,
+  ModeratorCondition,
   ModeratorContext,
+  ModeratorTable,
+  ModeratorTransition,
   Result,
   RoleDefinition,
   RoleMeta,
@@ -28,4 +32,4 @@ export type {
   WorkflowRoleSchema,
   WorkflowRuntime,
 } from "./types.js";
-export { END, START } from "./types.js";
+export { END, START, tableToModerator } from "./types.js";
