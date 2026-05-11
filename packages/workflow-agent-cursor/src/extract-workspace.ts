@@ -1,12 +1,14 @@
 import type { AgentContext, LlmProvider } from "@uncaged/workflow-protocol";
-import { createLlmFn } from "@uncaged/workflow-reactor";
-import type { ChatMessage } from "@uncaged/workflow-reactor";
+import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
+import type { LogFn } from "@uncaged/workflow-util";
+import * as z from "zod/v4";
 
-const EXTRACT_SYSTEM = `You are a workspace-path extractor. Given a workflow agent context (task description and previous step outputs), identify the absolute filesystem path of the project workspace where code changes should be made.
+const workspaceSchema = z.object({
+  workspace: z.string().describe("Absolute filesystem path of the project workspace"),
+});
 
-Reply with ONLY the absolute path, nothing else. Example: /home/user/repos/my-project
-
-If you cannot determine the workspace path, reply with: UNKNOWN`;
+const EXTRACT_SYSTEM_FN = (_toolName: string) =>
+  `You are a workspace-path extractor. Given a workflow agent context (task description and previous step outputs), identify the absolute filesystem path of the project workspace where code changes should be made. Call the tool with the absolute path.`;
 
 function buildExtractionInput(ctx: AgentContext): string {
   const lines: string[] = [];
@@ -25,59 +27,47 @@ function buildExtractionInput(ctx: AgentContext): string {
 export async function extractWorkspacePath(
   ctx: AgentContext,
   provider: LlmProvider,
+  logger: LogFn,
 ): Promise<string | null> {
-  const llm = createLlmFn(provider);
-  const messages: ChatMessage[] = [
-    { role: "system", content: EXTRACT_SYSTEM },
-    { role: "user", content: buildExtractionInput(ctx) },
-  ];
+  const reactor = createThreadReactor<null>({
+    llm: createLlmFn(provider),
+    maxRounds: 2,
+    staticTools: [],
+    structuredToolFromSchema: (schema) => {
+      const jsonSchema = z.toJSONSchema(schema);
+      return {
+        name: "set_workspace",
+        tool: {
+          type: "function" as const,
+          function: {
+            name: "set_workspace",
+            description: "Set the extracted workspace path",
+            parameters: jsonSchema as Record<string, unknown>,
+          },
+        },
+      };
+    },
+    systemPromptForStructuredTool: EXTRACT_SYSTEM_FN,
+    toolHandler: async () => "unknown tool",
+  });
 
-  const result = await llm({ messages, tools: [] });
+  const result = await reactor({
+    thread: null,
+    input: buildExtractionInput(ctx),
+    schema: workspaceSchema,
+  });
+
   if (!result.ok) {
+    logger("V3KM8QWP", `workspace extraction failed: ${result.error}`);
     return null;
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(result.value) as unknown;
-  } catch {
+  const workspace = result.value.workspace.trim();
+  if (!workspace.startsWith("/")) {
+    logger("V3KM8QWP", `workspace extraction returned non-absolute path: ${workspace}`);
     return null;
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("choices" in parsed) ||
-    !Array.isArray((parsed as Record<string, unknown>).choices)
-  ) {
-    return null;
-  }
-
-  const choices = (parsed as Record<string, unknown>).choices as unknown[];
-  if (choices.length === 0) {
-    return null;
-  }
-
-  const first = choices[0];
-  if (
-    typeof first !== "object" ||
-    first === null ||
-    !("message" in first) ||
-    typeof (first as Record<string, unknown>).message !== "object"
-  ) {
-    return null;
-  }
-
-  const message = (first as Record<string, unknown>).message as Record<string, unknown>;
-  const content = message.content;
-  if (typeof content !== "string") {
-    return null;
-  }
-
-  const trimmed = content.trim();
-  if (trimmed === "UNKNOWN" || !trimmed.startsWith("/")) {
-    return null;
-  }
-
-  return trimmed;
+  logger("V3KM8QWP", `extracted workspace: ${workspace}`);
+  return workspace;
 }

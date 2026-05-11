@@ -1,4 +1,5 @@
 import type { AgentFn } from "@uncaged/workflow-runtime";
+import { createLogger } from "@uncaged/workflow-util";
 import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
 
 import { extractWorkspacePath } from "./extract-workspace.js";
@@ -36,6 +37,7 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
 
   const modelFlag = resolveCursorModel(config.model);
   const timeoutMs = config.timeout > 0 ? config.timeout : null;
+  const logger = createLogger({ sink: { kind: "stderr" } });
 
   return async (ctx) => {
     let workspace: string;
@@ -43,7 +45,10 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
     if (config.workspace !== null) {
       workspace = config.workspace;
     } else {
-      const extracted = await extractWorkspacePath(ctx, config.llmProvider!);
+      if (config.llmProvider === null) {
+        throw new Error("cursor-agent: llmProvider is required when workspace is null");
+      }
+      const extracted = await extractWorkspacePath(ctx, config.llmProvider, logger);
       if (extracted === null) {
         throw new Error(
           "cursor-agent: failed to extract workspace path from context. Provide an explicit workspace or ensure previous steps include a repoPath.",
@@ -52,6 +57,7 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
       workspace = extracted;
     }
 
+    logger("R5HN3YKQ", `cursor-agent workspace: ${workspace}`);
     const fullPrompt = await buildAgentPrompt(ctx);
     const args = [
       "-p",
