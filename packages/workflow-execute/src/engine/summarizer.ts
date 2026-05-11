@@ -5,7 +5,9 @@ import * as z from "zod/v4";
 
 import { createCasReactor } from "../cas-reactor.js";
 
+/** Max ReAct rounds: 3 cas_get reads + 1 structured output = 4 rounds is sufficient. */
 const SUMMARIZER_MAX_REACT_ROUNDS = 4;
+/** Only pass the last N steps; each step is just a role+contentHash reference (~60 chars), not full content. */
 const SUMMARIZER_RECENT_STEP_LIMIT = 20;
 
 const summarySchema = z.object({ summary: z.string() }).meta({
