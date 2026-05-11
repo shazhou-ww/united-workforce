@@ -8,7 +8,6 @@ export type {
   AgentContext,
   AgentFn,
   CasStore,
-  ExtractContext,
   ExtractFn,
   ExtractResult,
   FALLBACK,

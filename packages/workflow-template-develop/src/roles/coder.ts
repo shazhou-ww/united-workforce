@@ -2,7 +2,7 @@ import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 
 export const coderMetaSchema = z.object({
-  completedPhase: z.string(),
+  completedPhase: z.string().describe("The planner phase hash finished this round. If multiple phases were completed, use the last finished phase hash."),
   filesChanged: z.array(z.string()),
   summary: z.string(),
 });
@@ -27,8 +27,6 @@ export const coderRole: RoleDefinition<CoderMeta> = {
   description:
     "Implements the next incomplete planner phase and reports structured completion metadata.",
   systemPrompt: CODER_SYSTEM,
-  extractPrompt:
-    "Extract completedPhase: the planner phase hash finished this round (exact hash string from the plan). If multiple phases were finished in one round, use the last finished phase hash. Extract filesChanged and a summary of the work.",
   schema: coderMetaSchema,
   extractRefs: (meta) => [meta.completedPhase],
 };

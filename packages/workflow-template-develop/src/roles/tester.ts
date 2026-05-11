@@ -19,8 +19,6 @@ const TESTER_SYSTEM = `You are a tester. Run the project's test suite, build, an
 export const testerRole: RoleDefinition<TesterMeta> = {
   description: "Runs test, build, and lint commands and reports pass or fail with details.",
   systemPrompt: TESTER_SYSTEM,
-  extractPrompt:
-    "Extract the verification result: passed with summary details, or failed with details of what broke.",
   schema: testerMetaSchema,
   extractRefs: null,
 };

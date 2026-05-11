@@ -44,8 +44,6 @@ Order phases so earlier steps unblock later ones. Cover root cause, edge cases, 
 export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
-  extractPrompt:
-    "Extract the implementation phases from the agent's output. Each phase has a hash (the CAS content-hash returned by the cas put command) and a title (one-line summary).",
   schema: plannerMetaSchema,
   extractRefs: (meta) => meta.phases.map((p) => p.hash),
 };

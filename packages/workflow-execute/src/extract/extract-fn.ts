@@ -1,7 +1,6 @@
 import { type CasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
 import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
 import type {
-  ExtractContext,
   ExtractFn,
   ExtractResult,
   LlmProvider,
@@ -31,47 +30,12 @@ const CAS_GET_TOOL_DEFINITION = {
   },
 };
 
-export type ExtractThreadContext = {
+type ExtractThreadContext = {
   cas: CasStore;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Builds the user-side extraction prompt (thread + agent output + instruction). */
-export async function buildExtractUserContent(
-  ctx: ExtractContext,
-  prompt: string,
-  deps: ExtractDeps,
-): Promise<string> {
-  const lines: string[] = [];
-  lines.push(`## Role: ${ctx.currentRole.name}`);
-  lines.push(ctx.currentRole.systemPrompt);
-  lines.push("");
-  lines.push("## Task");
-  lines.push(ctx.start.content);
-  lines.push("");
-  if (ctx.steps.length > 0) {
-    lines.push("## Thread History");
-    for (const step of ctx.steps) {
-      const body = await getContentMerklePayload(deps.cas, step.contentHash);
-      if (body === null) {
-        throw new Error(`extract: missing CAS blob for step ${step.role}: ${step.contentHash}`);
-      }
-      lines.push(`### ${step.role}`);
-      lines.push(body);
-      lines.push(`Meta: ${JSON.stringify(step.meta)}`);
-      lines.push("");
-    }
-  }
-  lines.push("## Agent Output");
-  lines.push(ctx.agentContent);
-  lines.push("");
-  lines.push("## Extraction Instruction");
-  lines.push(prompt);
-
-  return lines.join("\n");
 }
 
 /**
@@ -102,7 +66,7 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
       };
     },
     systemPromptForStructuredTool: (structuredToolName) =>
-      `You extract structured metadata from the agent output below. Use cas_get to read Merkle DAG nodes from CAS (YAML: type, payload, refs for content nodes or children for step/thread legacy nodes) when the agent output references hashes you must traverse. When you have the complete structured object, call the ${structuredToolName} tool with JSON arguments matching the schema. You may instead reply with only a JSON object (no prose) when no tools are needed.`,
+      `You extract structured metadata from content. The content is from a CAS node. Use cas_get to read referenced nodes if needed. When ready, call the ${structuredToolName} tool with JSON matching the schema. You may instead reply with only a JSON object (no prose) when no tools are needed.`,
     toolHandler: async (call, thread) => {
       if (call.function.name !== "cas_get") {
         return `Unexpected tool routed to handler: ${call.function.name}`;
@@ -124,10 +88,13 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
 
   return async <T extends Record<string, unknown>>(
     schema: z.ZodType<T>,
-    prompt: string,
-    ctx: ExtractContext,
+    contentHash: string,
   ): Promise<ExtractResult<T>> => {
-    const text = await buildExtractUserContent(ctx, prompt, deps);
+    const payload = await getContentMerklePayload(deps.cas, contentHash);
+    if (payload === null) {
+      throw new Error(`extract: missing CAS content node for hash ${contentHash}`);
+    }
+    const text = `${payload}\n\nExtract structured metadata according to the schema.`;
     const result = await reactor({
       thread: { cas: deps.cas },
       input: text,
@@ -138,7 +105,7 @@ export function createExtract(provider: LlmProvider, deps: ExtractDeps): Extract
     }
     return {
       meta: result.value,
-      contentPayload: ctx.agentContent,
+      contentPayload: payload,
       refs: [],
     };
   };
