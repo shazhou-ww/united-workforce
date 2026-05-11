@@ -223,7 +223,6 @@ Each role has:
 |-------|------|---------|
 | \`description\` | string | What the role does |
 | \`systemPrompt\` | string | System prompt for the agent |
-| \`extractPrompt\` | string | Instruction for extracting structured meta |
 | \`schema\` | ZodSchema | Validates the extracted meta |
 | \`extractRefs\` | fn or null | Extracts CAS hashes from meta for DAG linking |
 

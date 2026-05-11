@@ -44,8 +44,6 @@ export const preparerRole: RoleDefinition<PreparerMeta> = {
   description:
     "Locates or clones the target repository, ensures it is up to date, and gathers project context (conventions, toolchain).",
   systemPrompt: PREPARER_SYSTEM,
-  extractPrompt:
-    "Extract repoPath (absolute path), defaultBranch, conventions (summary string or null), and toolchain (packageManager, testCommand, lintCommand, buildCommand — each string or null).",
   schema: preparerMetaSchema,
   extractRefs: null,
 };

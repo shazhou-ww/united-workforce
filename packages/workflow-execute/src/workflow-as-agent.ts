@@ -108,7 +108,7 @@ export function workflowAsAgent(
         io,
         logger,
       );
-      return result.rootHash;
+      return `Child workflow "${workflowName}" completed (returnCode=${result.returnCode}).\n\nSummary: ${result.summary}\n\nChild thread root hash: ${result.rootHash}`;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return `ERROR: ${message}`;

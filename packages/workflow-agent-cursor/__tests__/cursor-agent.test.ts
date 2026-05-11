@@ -1,24 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { ExtractContext, ExtractFn } from "@uncaged/workflow-runtime";
-import type * as z from "zod/v4";
 import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
-
-const testExtract: ExtractFn = async <T extends Record<string, unknown>>(
-  _schema: z.ZodType<T>,
-  _prompt: string,
-  _ctx: ExtractContext,
-): Promise<{ meta: T; contentPayload: string; refs: string[] }> => ({
-  meta: { workspace: "/tmp" } as unknown as T,
-  contentPayload: "",
-  refs: [],
-});
 
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config", () => {
     const r = validateCursorAgentConfig({
       model: null,
       timeout: 0,
-      extract: testExtract,
+      workspace: "/tmp/test-project",
     });
     expect(r.ok).toBe(true);
   });
@@ -27,11 +15,11 @@ describe("validateCursorAgentConfig", () => {
     const r = validateCursorAgentConfig({
       model: null,
       timeout: 0,
-      extract: null as unknown as ExtractFn,
+      workspace: "",
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.error).toContain("extract");
+      expect(r.error).toContain("workspace");
     }
   });
 
@@ -39,7 +27,7 @@ describe("validateCursorAgentConfig", () => {
     const r = validateCursorAgentConfig({
       model: null,
       timeout: -1,
-      extract: testExtract,
+      workspace: "/tmp/test-project",
     });
     expect(r.ok).toBe(false);
   });
@@ -50,7 +38,7 @@ describe("createCursorAgent", () => {
     const agent = createCursorAgent({
       model: null,
       timeout: 0,
-      extract: testExtract,
+      workspace: "/tmp/test-project",
     });
     expect(typeof agent).toBe("function");
   });
@@ -60,7 +48,7 @@ describe("createCursorAgent", () => {
       createCursorAgent({
         model: null,
         timeout: -1,
-        extract: testExtract,
+        workspace: "/tmp/test-project",
       }),
     ).toThrow();
   });

@@ -50,7 +50,6 @@ const greeterMetaSchema = z.object({
 export const greeterRole: RoleDefinition<HelloTemplateMeta["greeter"]> = {
   description: "Says hello — replace with your first role.",
   systemPrompt: "You are a helpful assistant. Reply with one short friendly sentence.",
-  extractPrompt: "Extract the assistant's greeting as message.",
   schema: greeterMetaSchema,
   extractRefs: null,
 };

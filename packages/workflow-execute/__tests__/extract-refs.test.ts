@@ -2,8 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCasStore } from "@uncaged/workflow-cas";
-import { type ExtractContext, START } from "@uncaged/workflow-runtime";
+import { createCasStore, putContentNodeWithRefs } from "@uncaged/workflow-cas";
 import * as z from "zod/v4";
 
 import { createExtract } from "../src/extract/extract-fn.js";
@@ -45,21 +44,9 @@ describe("createExtract — ExtractResult shape", () => {
       );
 
       const schema = z.object({ confidence: z.number() });
-      const ctx: ExtractContext = {
-        threadId: "01THREADTESTAAAAAAAAAAAAAA",
-        depth: 0,
-        start: {
-          role: START,
-          content: "task text",
-          meta: { maxRounds: 10 },
-          timestamp: 100,
-        },
-        steps: [],
-        currentRole: { name: "analyst", systemPrompt: "be precise" },
-        agentContent: "model says hello",
-      };
+      const contentHash = await putContentNodeWithRefs(cas, "model says hello", []);
 
-      const out = await extract(schema, "extract fields", ctx);
+      const out = await extract(schema, contentHash);
 
       expect(out.meta).toEqual({ confidence: 0.9 });
       expect(out.contentPayload).toBe("model says hello");

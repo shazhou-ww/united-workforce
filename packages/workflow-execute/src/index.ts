@@ -37,9 +37,7 @@ export { EMPTY_CHAIN_STATE } from "./engine/types.js";
 export { getWorkerHostScriptPath } from "./engine/worker-entry-path.js";
 export type { ExtractFn, LlmError, LlmExtractArgs } from "./extract/index.js";
 export {
-  buildExtractUserContent,
   createExtract,
-  type ExtractThreadContext,
   extractFunctionToolFromZodSchema,
   llmErrorToCause,
   llmExtract,

@@ -7,7 +7,6 @@ import {
   type AgentContext,
   type AgentFn,
   END,
-  type ExtractContext,
   type ModeratorContext,
   type RoleDefinition,
   type RoleMeta,
@@ -89,15 +88,11 @@ async function advanceOneRound<M extends RoleMeta>(
   const agent = agentForRole(binding, next);
   const raw = await agent(agentCtx as unknown as AgentContext);
 
-  const extractCtx: ExtractContext<M> = {
-    ...agentCtx,
-    agentContent: raw,
-  };
+  const agentContentHash = await putContentNodeWithRefs(runtime.cas, raw, []);
 
   const extracted = await runtime.extract(
     roleDef.schema as z.ZodType<Record<string, unknown>>,
-    roleDef.extractPrompt,
-    extractCtx as unknown as ExtractContext,
+    agentContentHash,
   );
 
   const refsFromMeta = resolveExtractedRefs(
@@ -106,11 +101,9 @@ async function advanceOneRound<M extends RoleMeta>(
   );
   const artifactRefs = mergeUniqueHashes(extracted.refs, refsFromMeta);
 
-  const contentHash = await putContentNodeWithRefs(
-    runtime.cas,
-    extracted.contentPayload,
-    artifactRefs,
-  );
+  const contentHash = artifactRefs.length === 0
+    ? agentContentHash
+    : await putContentNodeWithRefs(runtime.cas, extracted.contentPayload, artifactRefs);
   const refs = artifactRefs.includes(contentHash) ? artifactRefs : [...artifactRefs, contentHash];
 
   const step = {

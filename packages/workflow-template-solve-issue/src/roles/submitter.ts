@@ -31,13 +31,9 @@ Read the thread for context:
 
 On any failure (push rejected, gh not authenticated, PR creation failed, etc.), report status="failed" with a short error message. Do not retry — surface the error so the moderator can decide.`;
 
-const SUBMITTER_EXTRACT_PROMPT =
-  "Extract the submission result. status='submitted' with prUrl on success, or status='failed' with a short error message on failure.";
-
 export const submitterRole: RoleDefinition<SubmitterMeta> = {
   description: "Pushes the developer's branch to the remote and opens a pull request.",
   systemPrompt: SUBMITTER_SYSTEM,
-  extractPrompt: SUBMITTER_EXTRACT_PROMPT,
   schema: submitterMetaSchema,
   extractRefs: null,
 };

@@ -76,10 +76,6 @@ export type AgentContext<M extends RoleMeta = RoleMeta> = ModeratorContext<M> & 
   };
 };
 
-export type ExtractContext<M extends RoleMeta = RoleMeta> = AgentContext<M> & {
-  agentContent: string;
-};
-
 // ── Workflow Completion ────────────────────────────────────────────
 
 export type WorkflowCompletion = {
@@ -128,8 +124,7 @@ export type ExtractResult<T extends Record<string, unknown>> = {
 
 export type ExtractFn = <T extends Record<string, unknown>>(
   schema: z.ZodType<T>,
-  prompt: string,
-  ctx: ExtractContext,
+  contentHash: string,
 ) => Promise<ExtractResult<T>>;
 
 export type AgentFn = (ctx: AgentContext) => Promise<string>;
@@ -154,7 +149,6 @@ export type WorkflowFn = (
 export type RoleDefinition<Meta extends Record<string, unknown>> = {
   description: string;
   systemPrompt: string;
-  extractPrompt: string;
   schema: z.ZodType<Meta>;
   extractRefs: ((meta: Meta) => string[]) | null;
 };

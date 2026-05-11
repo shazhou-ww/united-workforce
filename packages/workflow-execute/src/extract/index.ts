@@ -1,8 +1,4 @@
-export {
-  buildExtractUserContent,
-  createExtract,
-  type ExtractThreadContext,
-} from "./extract-fn.js";
+export { createExtract } from "./extract-fn.js";
 export {
   extractFunctionToolFromZodSchema,
   llmErrorToCause,

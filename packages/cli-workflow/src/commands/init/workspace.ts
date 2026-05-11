@@ -93,18 +93,18 @@ Init 生成的骨架：\`templates/\` 下放可复用定义，\`workflows/\` 下
 ## 2. 核心概念
 
 - **RoleMeta**：\`Record<string, Record<string, unknown>>\`，角色名 → 该角色结构化 meta 的形状约定。
-- **RoleDefinition<Meta>**：纯数据——\`description\`、\`systemPrompt\`、\`extractPrompt\`、\`schema\`（Zod v4）。不含执行逻辑。
+- **RoleDefinition<Meta>**：纯数据——\`description\`、\`systemPrompt\`、\`schema\`（Zod v4）。不含执行逻辑。
 - **WorkflowDefinition<M extends RoleMeta>**：\`description\` + \`roles\`（各角色定义）+ **Moderator**。
 - **Moderator**：\`(ctx: ModeratorContext<M>) => (角色名) | END\`。同步、纯函数，只做路由。
 - **AgentFn**：\`(ctx: AgentContext) => Promise<string>\`，原始文本输出；从上下文读取当前角色的 \`systemPrompt\`。
-- **ExtractFn**：从上下文与 prompt 解析结构化数据（引擎与 Agent 都可使用）。
+- **ExtractFn**：从 CAS content hash 解析结构化数据（引擎与 Agent 都可使用）。
 
 引擎循环简述：**Moderator** → 选角色 → **Agent** 产出文本 → **Extract** 写入 **meta** → 追加 step，重复直至 **END**。详见 \`docs/architecture.md\` 中的三阶段说明。
 
 ## 3. 开发流程
 
 1. **定义 RoleMeta**：为每个角色约定 meta 的 TypeScript 类型（与 Zod schema 对齐）。
-2. **编写 RoleDefinition**：为每个角色写 Zod \`schema\`，补齐 \`systemPrompt\` / \`extractPrompt\` / \`description\`。
+2. **编写 RoleDefinition**：为每个角色写 Zod \`schema\`，补齐 \`systemPrompt\` / \`description\`。
 3. **编写 Moderator**：根据 \`ctx.steps\` 与业务状态返回下一个角色名或 \`END\`。
 4. **组装 WorkflowDefinition**：在模板 \`index\` 中导出 definition（以及必要的角色 / moderator 导出）。
 5. **实例化**：在 workflow 包中使用 \`createWorkflow(def, binding)\`（或项目约定的封装）绑定 **AgentFn**；**ExtractFn** 由引擎从 **workflow.yaml** 注入 \`WorkflowRuntime\`。
