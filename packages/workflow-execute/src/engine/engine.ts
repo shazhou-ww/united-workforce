@@ -26,6 +26,7 @@ import { END, START } from "@uncaged/workflow-runtime";
 import { err, type LogFn, ok, type Result } from "@uncaged/workflow-util";
 
 import { createExtract } from "../extract/index.js";
+import { createSummarizer, type SummarizeFn } from "./summarizer.js";
 import { runSupervisor } from "./supervisor.js";
 import {
   appendThreadHistoryEntry,
@@ -53,6 +54,7 @@ async function resolveEngineRegistryRuntime(
   Result<
     {
       extract: ReturnType<typeof createExtract>;
+      summarize: SummarizeFn;
       workflowConfig: WorkflowConfig;
     },
     string
@@ -76,7 +78,11 @@ async function resolveEngineRegistryRuntime(
     apiKey: ex.apiKey,
     model: ex.model,
   };
-  return ok({ extract: createExtract(llmProvider, { cas }), workflowConfig: cfg });
+  return ok({
+    extract: createExtract(llmProvider, { cas }),
+    summarize: createSummarizer(llmProvider, cas),
+    workflowConfig: cfg,
+  });
 }
 
 async function appendStateForStep(params: {
@@ -250,6 +256,7 @@ async function driveWorkflowGenerator(params: {
   bundleDir: string;
   startHash: string;
   chain: ChainState;
+  summarize: SummarizeFn;
 }): Promise<WorkflowResult> {
   const {
     fn,
@@ -262,6 +269,7 @@ async function driveWorkflowGenerator(params: {
     cas,
     bundleDir,
     startHash,
+    summarize,
   } = params;
   let chain: ChainState = params.chain;
   const gen = fn(thread, runtime);
@@ -269,6 +277,10 @@ async function driveWorkflowGenerator(params: {
   const recentSupervisorSteps: { role: string; summary: string }[] = thread.steps.map((s) => ({
     role: s.role,
     summary: JSON.stringify(s.meta),
+  }));
+  const summarizerSteps: { role: string; contentHash: string }[] = thread.steps.map((s) => ({
+    role: s.role,
+    contentHash: s.contentHash,
   }));
 
   while (true) {
@@ -288,13 +300,20 @@ async function driveWorkflowGenerator(params: {
 
     if (iterResult.done) {
       logger("F3HN8QKP", `thread ${threadId} generator finished`);
+      const rawCompletion = iterResult.value;
+      const llmSummary = await summarize({
+        prompt: thread.start.content,
+        recentSteps: summarizerSteps,
+        fallback: rawCompletion.summary,
+        logger,
+      });
       return await finalizeThread({
         cas,
         bundleDir,
         threadId,
         startHash,
         chain,
-        completion: iterResult.value,
+        completion: { ...rawCompletion, summary: llmSummary },
       });
     }
 
@@ -320,6 +339,7 @@ async function driveWorkflowGenerator(params: {
       role: step.role,
       summary: JSON.stringify(step.meta),
     });
+    summarizerSteps.push({ role: step.role, contentHash: step.contentHash });
 
     await Promise.race([
       executeOptions.awaitAfterEachYield(),
@@ -499,5 +519,6 @@ export async function executeThread(
     bundleDir,
     startHash,
     chain,
+    summarize: registryRuntime.value.summarize,
   });
 }
