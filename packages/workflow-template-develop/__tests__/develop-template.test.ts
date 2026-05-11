@@ -118,13 +118,13 @@ describe("developModerator", () => {
     expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
-  test("reviewer rejects → END when max rounds exhausted", () => {
+  test("reviewer rejects → coder retry (supervisor controls termination)", () => {
     const steps: ModeratorContext<DevelopMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(false),
     ];
-    expect(developModerator(makeCtx(steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("tester failed → coder retry when budget allows", () => {
@@ -137,14 +137,14 @@ describe("developModerator", () => {
     expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
-  test("tester failed → END when max rounds exhausted", () => {
+  test("tester failed → coder retry (supervisor controls termination)", () => {
     const steps: ModeratorContext<DevelopMeta>["steps"] = [
       plannerStep(),
       coderStep(),
       reviewerStep(true),
       testerStep(false),
     ];
-    expect(developModerator(makeCtx(steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("multiple planner phases → coder until all complete, then reviewer", () => {
@@ -181,7 +181,7 @@ describe("developModerator", () => {
     expect(developModerator(makeCtx([plannerStep(phases), coderStep("all-done")]))).toBe("coder");
   });
 
-  test("incomplete phases → END when max rounds exhausted", () => {
+  test("incomplete phases → coder retry (supervisor controls termination)", () => {
     const phases: PlannerMeta["phases"] = [
       { hash: "DD000001", title: "first phase" },
       { hash: "DD000002", title: "second phase" },
@@ -190,7 +190,7 @@ describe("developModerator", () => {
       plannerStep(phases),
       coderStep("DD000001"),
     ];
-    expect(developModerator(makeCtx(steps))).toBe(END);
+    expect(developModerator(makeCtx(steps))).toBe("coder");
   });
 
   test("committer → END for any committer meta status", () => {
