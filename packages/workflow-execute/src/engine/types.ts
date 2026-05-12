@@ -41,6 +41,8 @@ export type PrefilledDiskStep = {
 export type ExecuteThreadOptions = {
   /** Passed to the bundle thread context as `ThreadContext.depth`. */
   depth: number;
+  /** Parent thread's head state hash at spawn time; `null` for top-level threads. */
+  parentStateHash: string | null;
   signal: AbortSignal;
   /** Invoked after each successful yield (and outer-loop checks); used for pause/resume. */
   awaitAfterEachYield: () => Promise<void>;

@@ -13,6 +13,7 @@ export type {
   AgentBinding,
   AgentContext,
   AgentFn,
+  AgentFnResult,
   CasStore,
   ExtractFn,
   ExtractResult,

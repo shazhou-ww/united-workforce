@@ -29,6 +29,7 @@ function makeCtx(steps: ModeratorContext<DevelopMeta>["steps"]): ModeratorContex
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
+    bundleHash: "TESTHASH00001",
     start: makeStart(),
     steps,
   };

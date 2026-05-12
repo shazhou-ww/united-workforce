@@ -118,14 +118,22 @@ export function parseCasThreadNode(yamlText: string): ParsedCasThreadNode | null
     if (!isStartPayload(raw.payload)) {
       return null;
     }
-    const node: StartNode = { type: "start", payload: normalizeStartPayload(raw.payload), refs: [...refs] };
+    const node: StartNode = {
+      type: "start",
+      payload: normalizeStartPayload(raw.payload),
+      refs: [...refs],
+    };
     return { kind: "start", node };
   }
 
   if (!isStatePayload(raw.payload)) {
     return null;
   }
-  const node: StateNode = { type: "state", payload: normalizeStatePayload(raw.payload), refs: [...refs] };
+  const node: StateNode = {
+    type: "state",
+    payload: normalizeStatePayload(raw.payload),
+    refs: [...refs],
+  };
   return { kind: "state", node };
 }
 

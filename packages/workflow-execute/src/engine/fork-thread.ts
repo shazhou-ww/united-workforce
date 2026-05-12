@@ -144,6 +144,7 @@ async function payloadToRoleOutput(cas: CasStore, payload: StateNodePayload): Pr
     contentHash: payload.content,
     meta: payload.meta,
     refs,
+    childThread: payload.childThread,
   };
 }
 

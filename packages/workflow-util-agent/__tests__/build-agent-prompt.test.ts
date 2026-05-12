@@ -17,6 +17,7 @@ describe("buildAgentPrompt", () => {
     const ctx: AgentContext = {
       start: startTask("fix the bug"),
       depth: 0,
+      bundleHash: "TESTHASH00001",
       steps: [],
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: START, systemPrompt: "You are an agent." },
@@ -33,6 +34,7 @@ describe("buildAgentPrompt", () => {
     const ctx: AgentContext = {
       start: startTask("user task"),
       depth: 0,
+      bundleHash: "TESTHASH00001",
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "Be helpful." },
       steps: [
@@ -61,6 +63,7 @@ describe("buildAgentPrompt", () => {
     const ctx: AgentContext = {
       start: startTask("first message full: task content here"),
       depth: 0,
+      bundleHash: "TESTHASH00001",
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "coder", systemPrompt: "System." },
       steps: [
@@ -99,6 +102,7 @@ describe("buildAgentPrompt", () => {
     const ctx: AgentContext = {
       start: startTask("start"),
       depth: 0,
+      bundleHash: "TESTHASH00001",
       threadId: "01TEST000000000000000000TR",
       currentRole: { name: "c", systemPrompt: "S" },
       steps: [

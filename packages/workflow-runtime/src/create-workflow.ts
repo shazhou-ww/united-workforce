@@ -7,6 +7,7 @@ import {
   type AgentBinding,
   type AgentContext,
   type AgentFn,
+  type AgentFnResult,
   END,
   type ModeratorContext,
   type RoleDefinition,
@@ -50,6 +51,16 @@ function mergeUniqueHashes(a: readonly string[], b: readonly string[]): string[]
   return out;
 }
 
+function normalizeAgentResult(result: AgentFnResult): {
+  output: string;
+  childThread: string | null;
+} {
+  if (typeof result === "string") {
+    return { output: result, childThread: null };
+  }
+  return result;
+}
+
 function agentForRole(binding: AgentBinding, roleName: string): AgentFn {
   const overrides = binding.overrides;
   const overrideFn: AgentFn | undefined =
@@ -89,9 +100,9 @@ async function advanceOneRound<M extends RoleMeta>(
   };
 
   const agent = agentForRole(binding, next);
-  const raw = await agent(agentCtx as unknown as AgentContext);
+  const agentResult = normalizeAgentResult(await agent(agentCtx as unknown as AgentContext));
 
-  const agentContentHash = await putContentNodeWithRefs(runtime.cas, raw, []);
+  const agentContentHash = await putContentNodeWithRefs(runtime.cas, agentResult.output, []);
 
   const extracted = await runtime.extract(
     roleDef.schema as z.ZodType<Record<string, unknown>>,
@@ -125,6 +136,7 @@ async function advanceOneRound<M extends RoleMeta>(
       contentHash: step.contentHash,
       meta: step.meta,
       refs: step.refs,
+      childThread: agentResult.childThread,
     },
     step,
   };

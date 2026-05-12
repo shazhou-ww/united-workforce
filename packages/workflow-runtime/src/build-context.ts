@@ -54,6 +54,7 @@ async function threadFromStartHead<M extends RoleMeta>(
   return {
     threadId: "",
     depth: p.depth,
+    bundleHash: p.hash,
     start: {
       role: START,
       content: prompt,
@@ -113,6 +114,7 @@ async function threadFromStateHead<M extends RoleMeta>(
   return {
     threadId: "",
     depth: sp.depth,
+    bundleHash: sp.hash,
     start: {
       role: START,
       content: prompt,
