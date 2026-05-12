@@ -280,6 +280,29 @@ bun run link:consume    # Link into CWD's project (⚠️ don't bun install afte
 bun run link:unlink     # Restore original deps
 ```
 
+### End-to-end: Monorepo → Registry → Workspace → Bundle
+
+The recommended development flow for building workflows:
+
+```
+workflow/ (monorepo)           — engine, runtime, templates, agents
+  │  bun run publish:gitea     — auto topo-sort, bun pm pack → npm publish
+  ▼
+git.shazhou.work npm registry  — @uncaged/* scoped packages
+  │  bun install               — via bunfig.toml scoped registry
+  ▼
+my-workflows/ (workspace)     — bunfig.toml + normal package.json
+  │  bun run build:develop     — bun build → single .esm.js
+  ▼
+uncaged-workflow workflow add  — register bundle locally
+uncaged-workflow run           — execute workflow
+```
+
+1. **Monorepo changes** → `bun run publish:gitea` (packages auto-discovered from `packages/*/`, topologically sorted, `workspace:*` resolved to real versions)
+2. **Workspace** → `bun install` fetches latest from Gitea, `bun install` is safe to run anytime
+3. **Build** → produces single-file ESM bundle with `@uncaged/*` as externals
+4. **Register & Run** → `uncaged-workflow workflow add <name> <bundle>` then `uncaged-workflow run <name>`
+
 ## Commit Convention
 
 ```
