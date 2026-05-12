@@ -46,6 +46,7 @@ describe("garbageCollectCas (mark-and-sweep)", () => {
         name: "demo",
         hash: bundleHash,
         depth: 0,
+        parentState: null,
       },
       promptHash,
     );
@@ -59,6 +60,7 @@ describe("garbageCollectCas (mark-and-sweep)", () => {
       ancestors: [],
       compact: null,
       timestamp: 1,
+      childThread: null,
     } satisfies StateNodePayload);
 
     const c2 = await putContentNodeWithRefs(cas, "c1", []);
@@ -70,6 +72,7 @@ describe("garbageCollectCas (mark-and-sweep)", () => {
       ancestors: [h1],
       compact: null,
       timestamp: 2,
+      childThread: null,
     } satisfies StateNodePayload);
 
     const ec = await putContentNodeWithRefs(cas, "", []);
@@ -81,6 +84,7 @@ describe("garbageCollectCas (mark-and-sweep)", () => {
       ancestors: [h1],
       compact: null,
       timestamp: 3,
+      childThread: null,
     } satisfies StateNodePayload);
 
     await upsertThreadEntry(bundleDir, "THREAD_AAAAAAA", {

@@ -240,6 +240,7 @@ async function buildForkContinuation(params: {
     ancestors: ancestorsMarker,
     compact: null,
     timestamp: Date.now(),
+    childThread: null,
   };
   const markerHash = await putStateNode(cas, markerPayload);
 

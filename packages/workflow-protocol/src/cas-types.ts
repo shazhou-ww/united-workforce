@@ -4,6 +4,8 @@ export type StartNodePayload = {
   name: string;
   hash: string;
   depth: number;
+  /** Parent thread's head state hash at spawn time. `null` for top-level workflows. */
+  parentState: string | null;
 };
 
 export type StartNode = {
@@ -20,6 +22,8 @@ export type StateNodePayload = {
   ancestors: string[];
   compact: string | null;
   timestamp: number;
+  /** Child thread's final state hash (workflow-as-agent). `null` when no child spawned. */
+  childThread: string | null;
 };
 
 export type StateNode = {

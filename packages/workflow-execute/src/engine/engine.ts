@@ -112,6 +112,7 @@ async function appendStateForStep(params: {
     ancestors,
     compact: null,
     timestamp: params.timestamp,
+    childThread: null,
   };
   const stateHash = await putStateNode(params.cas, payload);
   return {
@@ -137,6 +138,7 @@ async function appendEndState(params: {
     ancestors,
     compact: null,
     timestamp: params.timestamp,
+    childThread: null,
   };
   return putStateNode(params.cas, payload);
 }
@@ -439,6 +441,7 @@ export async function executeThread(
         name: workflowName,
         hash: io.hash,
         depth: options.depth,
+        parentState: null,
       },
       promptHash,
     );
