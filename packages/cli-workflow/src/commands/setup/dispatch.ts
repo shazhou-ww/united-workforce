@@ -261,17 +261,23 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
         const row = models.slice(i, i + numCols);
         printCliLine("  " + row.map((m) => m.padEnd(colWidth)).join(""));
       }
-      modelPrompt = `\nDefault model — format: ${provider}/<model-name>: `;
+      modelPrompt = `\nDefault model (e.g. qwen-plus, MiniMax-M2.7): `;
     } else {
       printCliWarn("Could not fetch models (API may not support /models endpoint).");
-      modelPrompt = `Default model — format: ${provider}/<model-name>\n  (e.g. ${provider}/gpt-4o, ${provider}/qwen-plus): `;
+      modelPrompt = `Default model (e.g. qwen-plus, gpt-4o): `;
     }
 
-    const defaultModel = await promptLine(rl2, modelPrompt);
-    if (defaultModel === "") {
+    const rawModel = await promptLine(rl2, modelPrompt);
+    if (rawModel === "") {
       rl2.close();
       return err("default model must not be empty");
     }
+    // Normalise: ensure the model ref uses the configured provider prefix.
+    // Users may type a bare model name (e.g. "qwen-plus") or paste a model ID
+    // that already contains a vendor prefix (e.g. "MiniMax/MiniMax-M2.7").
+    const defaultModel = rawModel.includes("/")
+      ? `${provider}/${rawModel.split("/").pop()}`
+      : `${provider}/${rawModel}`;
 
     const wsPath = await promptLine(
       rl2,
