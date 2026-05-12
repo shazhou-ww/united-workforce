@@ -59,23 +59,23 @@ export function workflowAsAgent(
 
     const registryResult = await readWorkflowRegistry(storageRoot);
     if (!registryResult.ok) {
-      return `ERROR: failed to read workflow registry: ${registryResult.error.message}`;
+      return { output: `ERROR: failed to read workflow registry: ${registryResult.error.message}`, childThread: null };
     }
 
     const maxDepth = workflowAsAgentMaxDepth(registryResult.value.config);
     if (nextDepth > maxDepth) {
-      return `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`;
+      return { output: `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`, childThread: null };
     }
 
     const entry = getRegisteredWorkflow(registryResult.value, workflowName);
     if (entry === null) {
-      return `ERROR: workflow "${workflowName}" not found in registry`;
+      return { output: `ERROR: workflow "${workflowName}" not found in registry`, childThread: null };
     }
 
     const bundlePath = join(storageRoot, "bundles", `${entry.hash}.esm.js`);
     const bundleExportsResult = await extractBundleExports(bundlePath, { storageRoot });
     if (!bundleExportsResult.ok) {
-      return `ERROR: ${bundleExportsResult.error}`;
+      return { output: `ERROR: ${bundleExportsResult.error}`, childThread: null };
     }
 
     const input = {
@@ -121,7 +121,7 @@ export function workflowAsAgent(
       return { output: summary, childThread: result.rootHash };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      return `ERROR: ${message}`;
+      return { output: `ERROR: ${message}`, childThread: null };
     }
   };
 }
