@@ -5,6 +5,19 @@ export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
   const lines: string[] = [];
   lines.push(ctx.currentRole.systemPrompt);
   lines.push("");
+
+  if (ctx.start.parentState !== null) {
+    lines.push("## Parent Context");
+    lines.push(
+      "This workflow was spawned by a parent workflow. The parent's state at spawn time is available at hash: " +
+        ctx.start.parentState,
+    );
+    lines.push(
+      `Use \`uncaged-workflow cas get ${ctx.start.parentState}\` to inspect the parent's context and trace back through its steps.`,
+    );
+    lines.push("");
+  }
+
   lines.push("## Task");
   lines.push(ctx.start.content);
 

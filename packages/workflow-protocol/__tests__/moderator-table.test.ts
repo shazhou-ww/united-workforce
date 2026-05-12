@@ -27,6 +27,7 @@ function makeCtx(roles: (keyof TestMeta & string)[]): ModeratorContext<TestMeta>
       content: "test",
       meta: {},
       timestamp: Date.now(),
+      parentState: null,
     } as StartStep,
     steps,
   };

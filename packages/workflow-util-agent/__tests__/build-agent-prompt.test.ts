@@ -3,12 +3,13 @@ import { type AgentContext, START } from "@uncaged/workflow-runtime";
 
 import { buildAgentPrompt } from "../src/index.js";
 
-function startTask(content: string): AgentContext["start"] {
+function startTask(content: string, parentState: string | null = null): AgentContext["start"] {
   return {
     role: START,
     content,
     meta: {},
     timestamp: 1,
+    parentState,
   };
 }
 
@@ -93,6 +94,35 @@ describe("buildAgentPrompt", () => {
     expect(text).toContain('Meta: {"done":true}');
     expect(text).toContain("## Tools");
     expect(text).toContain("uncaged-workflow thread 01TEST000000000000000000TR");
+  });
+
+  test("parentState null omits Parent Context section", async () => {
+    const ctx: AgentContext = {
+      start: startTask("top-level task"),
+      depth: 0,
+      bundleHash: "TESTHASH00001",
+      steps: [],
+      threadId: "01TEST000000000000000000TR",
+      currentRole: { name: START, systemPrompt: "You are an agent." },
+    };
+    const text = await buildAgentPrompt(ctx);
+    expect(text).not.toContain("## Parent Context");
+  });
+
+  test("parentState non-null includes Parent Context section with hash", async () => {
+    const parentHash = "01PARENTSTATE0000000000001";
+    const ctx: AgentContext = {
+      start: startTask("child task", parentHash),
+      depth: 1,
+      bundleHash: "TESTHASH00001",
+      steps: [],
+      threadId: "01TEST000000000000000000TR",
+      currentRole: { name: START, systemPrompt: "You are an agent." },
+    };
+    const text = await buildAgentPrompt(ctx);
+    expect(text).toContain("## Parent Context");
+    expect(text).toContain(parentHash);
+    expect(text).toContain(`uncaged-workflow cas get ${parentHash}`);
   });
 
   test("middle steps show meta summary only and latest shows hash", async () => {

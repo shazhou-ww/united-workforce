@@ -37,13 +37,7 @@ function isAllowedImportSpecifier(spec: string): boolean {
   if (spec.startsWith(".") || spec.startsWith("/") || spec.startsWith("file:")) {
     return false;
   }
-  if (
-    spec === "@uncaged/workflow" ||
-    spec === "@uncaged/workflow-runtime" ||
-    spec === "@uncaged/workflow-protocol" ||
-    spec === "@uncaged/workflow-cas" ||
-    spec === "@uncaged/workflow-util"
-  ) {
+  if (spec.startsWith("@uncaged/workflow")) {
     return true;
   }
   return isBuiltin(spec);
@@ -114,7 +108,8 @@ function bindingInitializerIsCallable(init: Node): boolean {
   return (
     init.type === "FunctionExpression" ||
     init.type === "ArrowFunctionExpression" ||
-    init.type === "CallExpression"
+    init.type === "CallExpression" ||
+    init.type === "Identifier"
   );
 }
 

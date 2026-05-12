@@ -499,6 +499,7 @@ export async function executeThread(
       content: input.prompt,
       meta: {},
       timestamp: nowMs,
+      parentState: options.parentStateHash,
     },
     steps: input.steps.map((out, i) => ({
       role: out.role,

@@ -60,6 +60,7 @@ async function threadFromStartHead<M extends RoleMeta>(
       content: prompt,
       meta: {},
       timestamp: 0,
+      parentState: p.parentState,
     },
     steps: [],
   };
@@ -120,6 +121,7 @@ async function threadFromStateHead<M extends RoleMeta>(
       content: prompt,
       meta: {},
       timestamp: firstTs,
+      parentState: sp.parentState,
     },
     steps,
   };

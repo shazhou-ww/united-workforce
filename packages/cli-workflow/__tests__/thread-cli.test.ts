@@ -187,6 +187,14 @@ describe("cli thread commands", () => {
     }
     expect(shown.value.includes('"threadId"')).toBe(true);
 
+    const parsed = JSON.parse(shown.value) as Record<string, unknown>;
+    expect(parsed.parentState).toBeNull();
+    const parsedSteps = parsed.steps as Array<Record<string, unknown>>;
+    for (const step of parsedSteps) {
+      expect(step).toHaveProperty("childThread");
+      expect(step.childThread).toBeNull();
+    }
+
     const removed = await cmdThreadRemove(storageRoot, threadId);
     expect(removed.ok).toBe(true);
 

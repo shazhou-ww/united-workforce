@@ -107,6 +107,7 @@ function makeStart(): ModeratorContext<SolveIssueMeta>["start"] {
     content: "Fix the flaky login test",
     meta: {},
     timestamp: 0,
+    parentState: null,
   };
 }
 
@@ -188,6 +189,7 @@ function makeThread(prompt: string) {
       content: prompt,
       meta: {},
       timestamp: Date.now(),
+      parentState: null,
     },
     steps: [],
   };

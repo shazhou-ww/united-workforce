@@ -62,6 +62,7 @@ export type StartStep = {
   content: string;
   meta: Record<string, never>;
   timestamp: number;
+  parentState: string | null;
 };
 
 export type RoleStep<M extends RoleMeta> = {
