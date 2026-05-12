@@ -320,6 +320,7 @@ export async function cmdInitWorkspace(
     writeFile(join(rootPath, "README.md"), readmeMd(workspaceName), "utf8"),
     writeFile(join(rootPath, "templates", ".gitkeep"), "", "utf8"),
     writeFile(join(rootPath, "workflows", "package.json"), workflowsPackageJson(), "utf8"),
+    writeFile(join(rootPath, "workflows", ".gitkeep"), "", "utf8"),
     writeFile(join(rootPath, "bunfig.toml"), bunfigToml(), "utf8"),
     writeFile(join(rootPath, "scripts", "bundle.ts"), bundleTs(), "utf8"),
   ]);

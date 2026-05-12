@@ -3,9 +3,17 @@ import { createInterface } from "node:readline/promises";
 
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
-import { printCliError, printCliLine } from "../../cli-output.js";
+import { printCliError, printCliLine, printCliWarn } from "../../cli-output.js";
 import { cmdSetup, printSetupSummary } from "./setup.js";
 import type { SetupCliArgs } from "./types.js";
+
+type OpenAiModelEntry = {
+  id: string;
+};
+
+type OpenAiModelsResponse = {
+  data: OpenAiModelEntry[];
+};
 
 function usageSetup(): string {
   return [
@@ -139,6 +147,69 @@ async function promptLine(
   return raw.trim();
 }
 
+/** Read a line with terminal echo disabled (for secrets). */
+async function promptSecret(label: string): Promise<string> {
+  process.stdout.write(label);
+  return new Promise((resolve) => {
+    let buf = "";
+    const rawWasSet = process.stdin.isRaw;
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+
+    const onData = (ch: string) => {
+      const c = ch.toString();
+      if (c === "\n" || c === "\r" || c === "\u0004") {
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(rawWasSet);
+        }
+        process.stdin.pause();
+        process.stdin.removeListener("data", onData);
+        process.stdout.write("\n");
+        resolve(buf.trim());
+        return;
+      }
+      if (c === "\u007F" || c === "\b") {
+        buf = buf.slice(0, -1);
+        return;
+      }
+      if (c === "\u0003") {
+        process.exit(130);
+      }
+      buf += c;
+      process.stdout.write("*");
+    };
+
+    process.stdin.on("data", onData);
+  });
+}
+
+/** Fetch available models from an OpenAI-compatible /models endpoint. */
+async function fetchAvailableModels(
+  baseUrl: string,
+  apiKey: string,
+): Promise<string[]> {
+  const url = baseUrl.replace(/\/+$/, "") + "/models";
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      return [];
+    }
+    const body = (await res.json()) as OpenAiModelsResponse;
+    if (!Array.isArray(body.data)) {
+      return [];
+    }
+    return body.data.map((m) => m.id).sort();
+  } catch {
+    return [];
+  }
+}
+
 async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> {
   const rl = createInterface({ input, output });
   try {
@@ -158,34 +229,51 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     if (baseUrl === "") {
       return err("base URL must not be empty");
     }
-    // Note: readline does not support masked input; API key is visible during entry.
-    // Acceptable for a local dev CLI — not a production-facing prompt.
-    const apiKey = await promptLine(rl, "API key for this provider: ");
+
+    // Close readline before raw-mode secret prompt, reopen after.
+    rl.close();
+    const apiKey = await promptSecret("API key for this provider: ");
     if (apiKey === "") {
       return err("API key must not be empty");
     }
-    const defaultModel = await promptLine(
-      rl,
-      `Default model — format: ${provider}/<model-name>\n  (e.g. ${provider}/gpt-4o, ${provider}/qwen-plus): `,
-    );
+    const rl2 = createInterface({ input, output });
+
+    // Try to list available models from the provider.
+    printCliLine("\nFetching available models...");
+    const models = await fetchAvailableModels(baseUrl, apiKey);
+    let modelPrompt: string;
+    if (models.length > 0) {
+      const display = models.slice(0, 20);
+      printCliLine(`Available models (${models.length} total):`);
+      for (const m of display) {
+        printCliLine(`  ${m}`);
+      }
+      if (models.length > 20) {
+        printCliLine(`  ... and ${models.length - 20} more`);
+      }
+      modelPrompt = `\nDefault model — format: ${provider}/<model-name>: `;
+    } else {
+      printCliWarn("Could not fetch models (API may not support /models endpoint).");
+      modelPrompt = `Default model — format: ${provider}/<model-name>\n  (e.g. ${provider}/gpt-4o, ${provider}/qwen-plus): `;
+    }
+
+    const defaultModel = await promptLine(rl2, modelPrompt);
     if (defaultModel === "") {
+      rl2.close();
       return err("default model must not be empty");
     }
-    const yn = await promptLine(
-      rl,
-      "\nCreate a workflow workspace in the current directory? (y/n): ",
+
+    const wsPath = await promptLine(
+      rl2,
+      "\nWorkflow workspace path (default: ./workflows, leave empty to skip): ",
     );
-    const lower = yn.toLowerCase();
+    rl2.close();
+
     let initWorkspaceName: string | null = null;
-    if (lower === "y" || lower === "yes") {
-      const name = await promptLine(rl, "Workspace directory name: ");
-      if (name === "") {
-        return err("workspace name must not be empty");
-      }
-      initWorkspaceName = name;
-    } else if (lower !== "n" && lower !== "no" && lower !== "") {
-      return err('expected "y" or "n" for workspace init prompt');
+    if (wsPath !== "") {
+      initWorkspaceName = wsPath;
     }
+
     return ok({
       provider,
       baseUrl,
@@ -193,8 +281,8 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
       defaultModel,
       initWorkspaceName,
     });
-  } finally {
-    rl.close();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : String(e));
   }
 }
 
