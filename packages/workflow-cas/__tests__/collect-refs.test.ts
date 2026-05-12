@@ -14,6 +14,7 @@ function payload(
     ancestors: partial.ancestors ?? [],
     compact: partial.compact ?? null,
     timestamp: partial.timestamp ?? 0,
+    childThread: partial.childThread ?? null,
   };
 }
 
@@ -61,5 +62,33 @@ describe("collectRefs", () => {
       }),
     );
     expect(refs).toEqual(["S2", "C2"]);
+  });
+
+  test("includes childThread hash when childThread is non-null", () => {
+    const refs = collectRefs(
+      payload({
+        role: "developer",
+        start: "S3",
+        content: "C3",
+        ancestors: ["A3"],
+        compact: null,
+        childThread: "CHILDEND000000000000001",
+      }),
+    );
+    expect(refs).toEqual(["S3", "C3", "A3", "CHILDEND000000000000001"]);
+  });
+
+  test("does not include childThread when childThread is null", () => {
+    const refs = collectRefs(
+      payload({
+        role: "developer",
+        start: "S4",
+        content: "C4",
+        ancestors: [],
+        compact: null,
+        childThread: null,
+      }),
+    );
+    expect(refs).toEqual(["S4", "C4"]);
   });
 });

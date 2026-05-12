@@ -27,7 +27,7 @@ describe("buildThreadContext", () => {
     const bundleHash = "BHAAAAAAAAAAA";
     const startHash = await putStartNode(
       cas,
-      { name: "demo", hash: bundleHash, depth: 2 },
+      { name: "demo", hash: bundleHash, depth: 2, parentState: null },
       promptHash,
     );
 
@@ -41,6 +41,7 @@ describe("buildThreadContext", () => {
       ancestors: [],
       compact: null,
       timestamp: 1000,
+      childThread: null,
     });
 
     const chCode = await putContentNodeWithRefs(cas, "code body", []);
@@ -52,6 +53,7 @@ describe("buildThreadContext", () => {
       ancestors: [statePlan],
       compact: null,
       timestamp: 2000,
+      childThread: null,
     });
 
     const ctx = await buildThreadContext(stateCode, cas);
@@ -71,7 +73,7 @@ describe("buildThreadContext", () => {
     const promptHash = await cas.put("only-prompt");
     const startHash = await putStartNode(
       cas,
-      { name: "solo", hash: "BHBBBBBBBBBBB", depth: 1 },
+      { name: "solo", hash: "BHBBBBBBBBBBB", depth: 1, parentState: null },
       promptHash,
     );
 
@@ -87,7 +89,7 @@ describe("buildThreadContext", () => {
     const bundleHash = "BHCCCCCCCCCCC";
     const startHash = await putStartNode(
       cas,
-      { name: "demo", hash: bundleHash, depth: 0 },
+      { name: "demo", hash: bundleHash, depth: 0, parentState: null },
       promptHash,
     );
 
@@ -100,6 +102,7 @@ describe("buildThreadContext", () => {
       ancestors: [],
       compact: null,
       timestamp: 500,
+      childThread: null,
     });
 
     const endContent = await putContentNodeWithRefs(cas, "finished", []);
@@ -111,6 +114,7 @@ describe("buildThreadContext", () => {
       ancestors: [state1],
       compact: null,
       timestamp: 600,
+      childThread: null,
     });
 
     const ctx = await buildThreadContext(endState, cas);
