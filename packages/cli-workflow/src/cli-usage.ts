@@ -12,6 +12,7 @@ const USAGE_SECTION_BY_GROUP: Record<string, string> = {
   thread: "Thread execution:",
   cas: "Content-addressable storage:",
   init: "Development:",
+  setup: "Configuration:",
 };
 
 export function formatUsageCommandLines(
@@ -38,9 +39,10 @@ export function formatCliUsage(
     }
     lines.push(sectionTitle);
     const rows = group.commands.map((cmd) => {
+      const namePart = cmd.name === "" ? "" : ` ${cmd.name}`;
       const args = cmd.args ? ` ${cmd.args}` : "";
       return {
-        prefix: `${group.name} ${cmd.name}${args}`,
+        prefix: `${group.name}${namePart}${args}`,
         description: cmd.description,
       };
     });

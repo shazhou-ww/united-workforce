@@ -58,6 +58,11 @@ describe("--help flag on groups", () => {
     const code = await runCli(STORAGE_ROOT, ["init", "--help"]);
     expect(code).toBe(0);
   });
+
+  test("setup --help returns 0", async () => {
+    const code = await runCli(STORAGE_ROOT, ["setup", "--help"]);
+    expect(code).toBe(0);
+  });
 });
 
 describe("getSkillTopics", () => {
@@ -90,6 +95,8 @@ describe("formatCliUsage", () => {
     expect(u).toContain("Thread execution:");
     expect(u).toContain("Content-addressable storage:");
     expect(u).toContain("Development:");
+    expect(u).toContain("Configuration:");
+    expect(u).toContain("setup [--provider <name>]");
     expect(u).toContain("Shortcuts:");
     expect(u).toContain("Reference:");
     expect(u).toContain("skill [topic]");
@@ -128,6 +135,7 @@ describe("formatSkillTopic('cli')", () => {
     expect(doc).toContain("### thread");
     expect(doc).toContain("### cas");
     expect(doc).toContain("### init");
+    expect(doc).toContain("### setup");
     expect(doc).toContain("### Top-level shortcuts");
   });
 

@@ -54,8 +54,9 @@ function formatSkillCli(): string {
   const commandSections: string[] = [];
   for (const group of groups) {
     const rows = group.commands.map((cmd) => {
+      const namePart = cmd.name === "" ? "" : ` ${cmd.name}`;
       const args = cmd.args ? `\`${cmd.args}\`` : "(none)";
-      return `| \`${group.name} ${cmd.name}\` | ${args} | ${cmd.description} |`;
+      return `| \`${group.name}${namePart}\` | ${args} | ${cmd.description} |`;
     });
     commandSections.push(
       `### ${group.name}\n\n| Command | Args | Description |\n|---------|------|-------------|\n${rows.join("\n")}`,

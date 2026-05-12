@@ -5,6 +5,7 @@ import { formatCliUsage as formatCliUsageWithGroups } from "./cli-usage.js";
 import { createCasDispatcher } from "./commands/cas/index.js";
 import { createInitDispatcher } from "./commands/init/index.js";
 import { dispatchServe } from "./commands/serve/index.js";
+import { dispatchSetup } from "./commands/setup/index.js";
 import { createThreadDispatcher, dispatchLive, dispatchRun } from "./commands/thread/index.js";
 import { createWorkflowDispatcher } from "./commands/workflow/index.js";
 import { formatSkillIndex, formatSkillTopic, getSkillTopics } from "./skill.js";
@@ -66,6 +67,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   thread: dispatchThread,
   cas: dispatchCas,
   init: dispatchInit,
+  setup: dispatchSetup,
   skill: dispatchSkill,
   run: dispatchRun,
   live: dispatchLive,
