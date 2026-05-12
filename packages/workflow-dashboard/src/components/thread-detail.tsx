@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getThread,
   getWorkflowDescriptor,
@@ -30,9 +30,10 @@ type GraphPanelProps = {
   descriptor: WorkflowDescriptor;
   workflowName: string | null;
   nodeStates: Map<string, NodeState>;
+  onNodeClick: ((roleName: string) => void) | null;
 };
 
-function GraphPanel({ descriptor, workflowName, nodeStates }: GraphPanelProps) {
+function GraphPanel({ descriptor, workflowName, nodeStates, onNodeClick }: GraphPanelProps) {
   const [open, setOpen] = useState(true);
   const edgeCount = descriptor.graph.edges.length;
   return (
@@ -64,6 +65,7 @@ function GraphPanel({ descriptor, workflowName, nodeStates }: GraphPanelProps) {
             graph={descriptor.graph}
             roles={descriptor.roles}
             nodeStates={nodeStates}
+            onNodeClick={onNodeClick}
           />
         </div>
       )}
@@ -102,6 +104,9 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
   const { status, data, error } = useFetch(() => getThread(agent, threadId), [agent, threadId]);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const recordsEndRef = useRef<HTMLDivElement>(null);
+  const firstCardByRoleRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [highlightedRole, setHighlightedRole] = useState<string | null>(null);
 
   const liveActive = sse.connected && !sse.completed;
   const records = liveActive
@@ -120,6 +125,35 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
 
   const descriptor = descriptorFetch.status === "ok" ? descriptorFetch.data : null;
   const nodeStates = useMemo(() => computeNodeStates(records), [records]);
+
+  const firstIndexByRole = useMemo(() => {
+    const m = new Map<string, number>();
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i];
+      if (r.type === "role" && !m.has(r.role)) {
+        m.set(r.role, i);
+      }
+    }
+    return m;
+  }, [records]);
+
+  const handleGraphNodeClick = useCallback((roleName: string) => {
+    const el = firstCardByRoleRef.current.get(roleName);
+    if (el == null) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+    setHighlightedRole(roleName);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedRole(null);
+      highlightTimerRef.current = null;
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the rendered record list grows
   useEffect(() => {
@@ -194,7 +228,12 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
       )}
 
       {descriptor !== null && descriptor.graph.edges.length > 0 && (
-        <GraphPanel descriptor={descriptor} workflowName={workflowName} nodeStates={nodeStates} />
+        <GraphPanel
+          descriptor={descriptor}
+          workflowName={workflowName}
+          nodeStates={nodeStates}
+          onNodeClick={handleGraphNodeClick}
+        />
       )}
 
       {status === "loading" && !liveActive && records.length === 0 && (
@@ -205,9 +244,26 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
       )}
       {(status === "ok" || liveActive || records.length > 0) && (
         <div className="space-y-3">
-          {records.map((r, i) => (
-            <RecordCard key={`${threadId}-${i}`} record={r} />
-          ))}
+          {records.map((r, i) => {
+            const key = `${threadId}-${i}`;
+            if (r.type === "role") {
+              const isFirstForRole = firstIndexByRole.get(r.role) === i;
+              const flash = highlightedRole === r.role;
+              return (
+                <div
+                  key={key}
+                  ref={(el) => {
+                    if (!isFirstForRole) return;
+                    if (el !== null) firstCardByRoleRef.current.set(r.role, el);
+                    else firstCardByRoleRef.current.delete(r.role);
+                  }}
+                >
+                  <RecordCard record={r} highlighted={flash} />
+                </div>
+              );
+            }
+            return <RecordCard key={key} record={r} highlighted={false} />;
+          })}
           <div ref={recordsEndRef} aria-hidden />
         </div>
       )}

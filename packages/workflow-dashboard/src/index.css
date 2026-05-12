@@ -33,3 +33,19 @@ body {
 .wf-node-pulse {
   animation: wf-node-pulse 1.6s ease-in-out infinite;
 }
+
+@keyframes wf-record-card-highlight {
+  0% {
+    border-color: var(--color-accent);
+  }
+  35% {
+    border-color: var(--color-accent);
+  }
+  100% {
+    border-color: var(--color-border);
+  }
+}
+
+.wf-record-card-highlight {
+  animation: wf-record-card-highlight 1.5s ease-out forwards;
+}

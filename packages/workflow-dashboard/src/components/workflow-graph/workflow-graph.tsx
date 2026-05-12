@@ -1,4 +1,12 @@
-import { Background, type EdgeTypes, MarkerType, type NodeTypes, ReactFlow } from "@xyflow/react";
+import {
+  Background,
+  type EdgeTypes,
+  MarkerType,
+  type Node,
+  type NodeTypes,
+  type OnNodeClick,
+  ReactFlow,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useMemo } from "react";
 import type { WorkflowGraph as WorkflowGraphData } from "../../api.ts";
@@ -12,6 +20,7 @@ type Props = {
   graph: WorkflowGraphData;
   roles: Record<string, { description: string }>;
   nodeStates: Map<string, NodeState>;
+  onNodeClick: ((roleName: string) => void) | null;
 };
 
 const nodeTypes: NodeTypes = {
@@ -23,8 +32,16 @@ const edgeTypes: EdgeTypes = {
   condition: ConditionEdge,
 };
 
-export function WorkflowGraph({ graph, roles, nodeStates }: Props) {
+function handleRoleNodeClick(onRoleClick: (roleName: string) => void, node: Node): void {
+  if (node.type !== "role") return;
+  onRoleClick(node.id);
+}
+
+export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) {
   const layout = useLayout({ edges: graph.edges, roles, nodeStates });
+
+  const onNodeClickHandler: OnNodeClick | undefined =
+    onNodeClick !== null ? (_e, node) => handleRoleNodeClick(onNodeClick, node) : undefined;
 
   const styledEdges = useMemo(
     () =>
@@ -46,6 +63,7 @@ export function WorkflowGraph({ graph, roles, nodeStates }: Props) {
       edges={styledEdges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
+      onNodeClick={onNodeClickHandler}
       fitView
       fitViewOptions={{ padding: 0.15 }}
       nodesDraggable={false}

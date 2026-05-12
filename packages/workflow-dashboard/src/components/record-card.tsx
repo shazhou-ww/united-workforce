@@ -56,11 +56,11 @@ function StartCard({ record }: { record: ThreadStartRecord }) {
   );
 }
 
-function RoleMessage({ record }: { record: RoleRecord }) {
+function RoleMessage({ record, highlighted }: { record: RoleRecord; highlighted: boolean }) {
   const color = roleColor(record.role);
   return (
     <div
-      className="p-3 rounded-lg border text-sm"
+      className={`p-3 rounded-lg border text-sm ${highlighted ? "wf-record-card-highlight" : ""}`}
       style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -114,12 +114,17 @@ function ResultCard({ record }: { record: WorkflowResultRecord }) {
   );
 }
 
-export function RecordCard({ record }: { record: ThreadRecord }) {
+type RecordCardProps = {
+  record: ThreadRecord;
+  highlighted: boolean;
+};
+
+export function RecordCard({ record, highlighted }: RecordCardProps) {
   switch (record.type) {
     case "thread-start":
       return <StartCard record={record} />;
     case "role":
-      return <RoleMessage record={record} />;
+      return <RoleMessage record={record} highlighted={highlighted} />;
     case "workflow-result":
       return <ResultCard record={record} />;
   }
