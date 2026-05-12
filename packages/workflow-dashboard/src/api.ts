@@ -147,13 +147,15 @@ export function listWorkflows(agent: string): Promise<{ workflows: WorkflowSumma
   return fetchJson(agentBase(agent), "/workflows");
 }
 
-export function getWorkflowDescriptor(
+export async function getWorkflowDescriptor(
   agent: string,
   name: string,
 ): Promise<WorkflowDescriptor | null> {
-  return fetchJson<WorkflowDetail>(agentBase(agent), `/workflows/${encodeURIComponent(name)}`).then(
-    (res) => res.descriptor,
+  const res = await fetchJson<WorkflowDetail>(
+    agentBase(agent),
+    `/workflows/${encodeURIComponent(name)}`,
   );
+  return res.descriptor;
 }
 
 export function listThreads(agent: string): Promise<{ threads: ThreadSummary[] }> {
