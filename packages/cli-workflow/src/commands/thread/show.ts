@@ -1,10 +1,25 @@
-import { createCasStore, getContentMerklePayload } from "@uncaged/workflow-cas";
+import { createCasStore, getContentMerklePayload, parseCasThreadNode } from "@uncaged/workflow-cas";
 import { FORK_BRANCH_ROLE, walkStateFramesNewestFirst } from "@uncaged/workflow-execute";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 import { END } from "@uncaged/workflow-runtime";
 import { getGlobalCasDir } from "@uncaged/workflow-util";
 
 import { resolveThreadRecord } from "../../thread-scan.js";
+
+async function readParentStateFromStartNode(
+  cas: { get(hash: string): Promise<string | null> },
+  startHash: string,
+): Promise<string | null> {
+  const yamlText = await cas.get(startHash);
+  if (yamlText === null) {
+    return null;
+  }
+  const parsed = parseCasThreadNode(yamlText);
+  if (parsed === null || parsed.kind !== "start") {
+    return null;
+  }
+  return parsed.node.payload.parentState;
+}
 
 export async function cmdThreadShow(
   storageRoot: string,
@@ -19,7 +34,15 @@ export async function cmdThreadShow(
   const frames = await walkStateFramesNewestFirst(cas, resolved.head);
   const chronological = [...frames].reverse();
 
-  const steps: Array<{ role: string; hash: string; timestamp: number; content: string }> = [];
+  const parentState = await readParentStateFromStartNode(cas, resolved.start);
+
+  const steps: Array<{
+    role: string;
+    hash: string;
+    timestamp: number;
+    content: string;
+    childThread: string | null;
+  }> = [];
   for (const fr of chronological) {
     if (fr.payload.role === END || fr.payload.role === FORK_BRANCH_ROLE) {
       continue;
@@ -33,6 +56,7 @@ export async function cmdThreadShow(
         payloadText !== null
           ? payloadText
           : `(content not in CAS; contentHash=${fr.payload.content})`,
+      childThread: fr.payload.childThread,
     });
   }
 
@@ -41,6 +65,7 @@ export async function cmdThreadShow(
     bundleHash: resolved.bundleHash,
     head: resolved.head,
     start: resolved.start,
+    parentState,
     source: resolved.source,
     steps,
   };

@@ -10,6 +10,7 @@ function makeCtx(userContent: string): AgentContext {
       content: userContent,
       meta: {},
       timestamp: 1,
+      parentState: null,
     },
     depth: 0,
     bundleHash: "TESTHASH00001",

@@ -22,6 +22,7 @@ function makeStart(): ModeratorContext<DevelopMeta>["start"] {
     content: "Implement the feature",
     meta: {},
     timestamp: 0,
+    parentState: null,
   };
 }
 
