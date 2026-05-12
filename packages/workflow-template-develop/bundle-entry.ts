@@ -1,8 +1,9 @@
 /**
  * develop bundle entry — 小橘 🍊
+ *
+ * All roles use cursor-agent with workspace auto-extracted from context.
  */
-import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
-import { createExtract } from "@uncaged/workflow-execute";
+import { createCursorAgent } from "@uncaged/workflow-agent-cursor";
 import { createWorkflow } from "@uncaged/workflow-runtime";
 import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
@@ -22,23 +23,23 @@ function optionalEnv(name: string): string | null {
   return value;
 }
 
-const provider = {
+const llmProvider = {
   baseUrl:
     optionalEnv("WORKFLOW_LLM_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
   apiKey: requireEnv("WORKFLOW_LLM_API_KEY"),
   model: optionalEnv("WORKFLOW_LLM_MODEL") ?? "qwen-plus",
 };
 
-const agent = createHermesAgent({
-  model: optionalEnv("WORKFLOW_HERMES_MODEL"),
-  timeout: optionalEnv("WORKFLOW_HERMES_TIMEOUT")
-    ? Number(optionalEnv("WORKFLOW_HERMES_TIMEOUT"))
-    : null,
+const agent = createCursorAgent({
+  model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
+  timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
+    ? Number(optionalEnv("WORKFLOW_CURSOR_TIMEOUT"))
+    : 0,
+  workspace: null,
+  llmProvider,
 });
 
-const extract = createExtract(provider);
-
-const wf = createWorkflow(developWorkflowDefinition, { agent }, extract);
+const wf = createWorkflow(developWorkflowDefinition, { agent, overrides: null });
 
 export const descriptor = buildDevelopDescriptor();
-export const run = wf.run;
+export const run = wf;
