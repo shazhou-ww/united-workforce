@@ -1,11 +1,16 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { AGENT_SOCKET_INTERNAL_STATUS_PATH, AgentSocket } from "./agent-socket.js";
+
+export { AgentSocket };
+
 type Env = {
   Bindings: {
     ENDPOINTS: KVNamespace;
     GATEWAY_SECRET: string;
     DASHBOARD_API_KEY: string;
+    AGENT_SOCKET: DurableObjectNamespace<AgentSocket>;
   };
 };
 
@@ -33,8 +38,73 @@ function checkDashboardAuth(c: {
   return key === c.env.DASHBOARD_API_KEY;
 }
 
+function isLocalAgentUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+async function fetchAgentSocketStatus(
+  env: Env["Bindings"],
+  name: string,
+): Promise<{ ok: true; connected: boolean } | { ok: false }> {
+  try {
+    const id = env.AGENT_SOCKET.idFromName(name);
+    const stub = env.AGENT_SOCKET.get(id);
+    const resp = await stub.fetch(
+      new Request(`https://do${AGENT_SOCKET_INTERNAL_STATUS_PATH}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${env.GATEWAY_SECRET}` },
+      }),
+    );
+    if (!resp.ok) {
+      return { ok: false };
+    }
+    const body = (await resp.json()) as { connected: boolean };
+    return { ok: true, connected: body.connected };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function endpointStatusFromKvAndDo(record: EndpointRecord, doConnected: boolean | null): string {
+  if (doConnected === true) {
+    return "online";
+  }
+  if (doConnected === false) {
+    if (isLocalAgentUrl(record.url)) {
+      return "offline";
+    }
+    const age = Date.now() - record.lastHeartbeat;
+    return age < TTL_SECONDS * 1000 ? "online" : "offline";
+  }
+  const age = Date.now() - record.lastHeartbeat;
+  return age < TTL_SECONDS * 1000 ? "online" : "offline";
+}
+
 // ── Health ──────────────────────────────────────────────────────────
 app.get("/healthz", (c) => c.json({ ok: true }));
+
+// ── Agent reverse WebSocket (GATEWAY_SECRET query param) ────────────
+app.get("/ws/connect", async (c) => {
+  const secret = c.req.query("secret");
+  const name = c.req.query("name");
+  if (name === undefined || name === "") {
+    return c.json({ error: "name required" }, 400);
+  }
+  if (secret !== c.env.GATEWAY_SECRET) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  if (c.req.header("Upgrade") !== "websocket") {
+    return c.text("expected WebSocket upgrade", 426);
+  }
+  const id = c.env.AGENT_SOCKET.idFromName(name);
+  const stub = c.env.AGENT_SOCKET.get(id);
+  return stub.fetch(c.req.raw);
+});
 
 // ── Gateway management (GATEWAY_SECRET auth) ────────────────────────
 const gateway = new Hono<Env>();
@@ -95,11 +165,12 @@ gateway.get("/endpoints", async (c) => {
   for (const key of list.keys) {
     const record = await c.env.ENDPOINTS.get<EndpointRecord>(key.name, "json");
     if (record) {
-      const age = Date.now() - record.lastHeartbeat;
+      const doStatus = await fetchAgentSocketStatus(c.env, record.name);
+      const doConnected = doStatus.ok ? doStatus.connected : null;
       endpoints.push({
         name: record.name,
         url: record.url,
-        status: age < TTL_SECONDS * 1000 ? "online" : "offline",
+        status: endpointStatusFromKvAndDo(record, doConnected),
         lastHeartbeat: record.lastHeartbeat,
       });
     }
@@ -149,4 +220,5 @@ app.all("/api/agents/:agent/*", async (c) => {
   }
 });
 
+// biome-ignore lint/style/noDefaultExport: Cloudflare Workers entry expects default export
 export default app;
