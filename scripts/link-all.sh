@@ -30,6 +30,7 @@ case "${1:-}" in
   --consume)
     each_pkg do_consume
     echo "✅ All @uncaged/* packages linked into $(pwd)"
+    echo "   ⚠️  Do NOT run 'bun install' after this — it will overwrite the links"
     echo "   To restore: $0 --unlink"
     ;;
   --unlink)
