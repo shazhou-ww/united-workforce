@@ -45,6 +45,8 @@ function biomeJson(): string {
     {
       $schema: "https://biomejs.dev/schemas/2.4.14/schema.json",
       files: {
+        // Exclude generated bundle script — it uses Bun globals and console that
+        // conflict with the workspace's Biome rules (noConsole, etc.).
         includes: ["**", "!**/node_modules", "!**/dist", "!scripts/bundle.ts"],
       },
       formatter: {
