@@ -159,27 +159,31 @@ async function promptSecret(label: string): Promise<string> {
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
 
-    const onData = (ch: string) => {
-      const c = ch.toString();
-      if (c === "\n" || c === "\r" || c === "\u0004") {
-        if (process.stdin.isTTY) {
-          process.stdin.setRawMode(rawWasSet);
+    const onData = (chunk: string) => {
+      for (const c of chunk.toString()) {
+        if (c === "\n" || c === "\r" || c === "\u0004") {
+          if (process.stdin.isTTY) {
+            process.stdin.setRawMode(rawWasSet);
+          }
+          process.stdin.pause();
+          process.stdin.removeListener("data", onData);
+          process.stdout.write("\n");
+          resolve(buf.trim());
+          return;
         }
-        process.stdin.pause();
-        process.stdin.removeListener("data", onData);
-        process.stdout.write("\n");
-        resolve(buf.trim());
-        return;
+        if (c === "\u007F" || c === "\b") {
+          if (buf.length > 0) {
+            buf = buf.slice(0, -1);
+            process.stdout.write("\b \b");
+          }
+          continue;
+        }
+        if (c === "\u0003") {
+          process.exit(130);
+        }
+        buf += c;
+        process.stdout.write("*");
       }
-      if (c === "\u007F" || c === "\b") {
-        buf = buf.slice(0, -1);
-        return;
-      }
-      if (c === "\u0003") {
-        process.exit(130);
-      }
-      buf += c;
-      process.stdout.write("*");
     };
 
     process.stdin.on("data", onData);
