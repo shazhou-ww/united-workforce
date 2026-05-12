@@ -150,6 +150,8 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     if (baseUrl === "") {
       return err("base URL must not be empty");
     }
+    // Note: readline does not support masked input; API key is visible during entry.
+    // Acceptable for a local dev CLI — not a production-facing prompt.
     const apiKey = await promptLine(rl, "API key: ");
     if (apiKey === "") {
       return err("API key must not be empty");
