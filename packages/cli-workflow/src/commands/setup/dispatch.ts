@@ -278,14 +278,12 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
 
     const wsPath = await promptLine(
       rl2,
-      "\nWorkflow workspace path (default: ./workflows, leave empty to skip): ",
+      "\nWorkflow workspace path (default: ./workflows, type 'skip' to skip): ",
     );
     rl2.close();
 
-    let initWorkspaceName: string | null = null;
-    if (wsPath !== "") {
-      initWorkspaceName = wsPath;
-    }
+    const initWorkspaceName =
+      wsPath.toLowerCase() === "skip" ? null : wsPath === "" ? "./workflows" : wsPath;
 
     return ok({
       provider,
