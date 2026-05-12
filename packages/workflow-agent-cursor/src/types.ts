@@ -1,7 +1,8 @@
 import type { LlmProvider } from "@uncaged/workflow-protocol";
 
 export type CursorAgentConfig = {
-  command: string | null;
+  /** Absolute path to the cursor-agent CLI binary. */
+  command: string;
   model: string | null;
   timeout: number;
   /** Explicit workspace path. When `null`, the agent extracts workspace from AgentContext via a ReAct LLM call. */

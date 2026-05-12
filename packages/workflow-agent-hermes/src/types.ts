@@ -1,5 +1,6 @@
 export type HermesAgentConfig = {
-  command: string | null;
+  /** Absolute path to the hermes CLI binary. */
+  command: string;
   model: string | null;
   timeout: number | null;
 };

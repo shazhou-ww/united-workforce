@@ -31,7 +31,7 @@ const llmProvider = {
 };
 
 const agent = createCursorAgent({
-  command: optionalEnv("WORKFLOW_CURSOR_COMMAND"),
+  command: requireEnv("WORKFLOW_CURSOR_COMMAND"),
   model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
   timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
     ? Number(optionalEnv("WORKFLOW_CURSOR_TIMEOUT"))

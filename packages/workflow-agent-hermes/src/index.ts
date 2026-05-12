@@ -47,7 +47,7 @@ export function createHermesAgent(config: HermesAgentConfig): AgentFn {
     if (config.model !== null) {
       args.push("--model", config.model);
     }
-    const run = await spawnCli(config.command ?? "hermes", args, {
+    const run = await spawnCli(config.command, args, {
       cwd: null,
       timeoutMs,
     });

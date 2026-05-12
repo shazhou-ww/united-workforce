@@ -4,6 +4,7 @@ import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 describe("validateCursorAgentConfig", () => {
   test("accepts valid config with explicit workspace", () => {
     const r = validateCursorAgentConfig({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: "/tmp/test-project",
@@ -14,6 +15,7 @@ describe("validateCursorAgentConfig", () => {
 
   test("accepts valid config with null workspace and llmProvider", () => {
     const r = validateCursorAgentConfig({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: null,
@@ -22,8 +24,23 @@ describe("validateCursorAgentConfig", () => {
     expect(r.ok).toBe(true);
   });
 
+  test("rejects non-absolute command", () => {
+    const r = validateCursorAgentConfig({
+      command: "cursor-agent",
+      model: null,
+      timeout: 0,
+      workspace: "/tmp/test-project",
+      llmProvider: null,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("absolute path");
+    }
+  });
+
   test("rejects empty workspace string", () => {
     const r = validateCursorAgentConfig({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: "",
@@ -37,6 +54,7 @@ describe("validateCursorAgentConfig", () => {
 
   test("rejects null workspace without llmProvider", () => {
     const r = validateCursorAgentConfig({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: null,
@@ -50,6 +68,7 @@ describe("validateCursorAgentConfig", () => {
 
   test("rejects negative timeout", () => {
     const r = validateCursorAgentConfig({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: -1,
       workspace: "/tmp/test-project",
@@ -62,6 +81,7 @@ describe("validateCursorAgentConfig", () => {
 describe("createCursorAgent", () => {
   test("returns an AgentFn with explicit workspace", () => {
     const agent = createCursorAgent({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: "/tmp/test-project",
@@ -72,6 +92,7 @@ describe("createCursorAgent", () => {
 
   test("returns an AgentFn with null workspace and llmProvider", () => {
     const agent = createCursorAgent({
+      command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
       workspace: null,
@@ -83,6 +104,7 @@ describe("createCursorAgent", () => {
   test("throws on invalid config at construction", () => {
     expect(() =>
       createCursorAgent({
+        command: "/usr/local/bin/cursor-agent",
         model: null,
         timeout: -1,
         workspace: "/tmp/test-project",
@@ -94,6 +116,7 @@ describe("createCursorAgent", () => {
   test("throws when null workspace without llmProvider", () => {
     expect(() =>
       createCursorAgent({
+        command: "/usr/local/bin/cursor-agent",
         model: null,
         timeout: 0,
         workspace: null,
