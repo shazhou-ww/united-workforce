@@ -1,6 +1,6 @@
 import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
-import { solveIssueModerator } from "./moderator.js";
+import { solveIssueTable } from "./moderator.js";
 import { SOLVE_ISSUE_WORKFLOW_DESCRIPTION, type SolveIssueMeta, solveIssueRoles } from "./roles.js";
 
 export { buildSolveIssueDescriptor } from "./descriptor.js";
@@ -9,7 +9,7 @@ export {
   developerMetaSchema,
   developerRole,
 } from "./developer.js";
-export { solveIssueModerator } from "./moderator.js";
+export { solveIssueTable } from "./moderator.js";
 export {
   type PreparerMeta,
   preparerMetaSchema,
@@ -28,5 +28,5 @@ export {
 export const solveIssueWorkflowDefinition: WorkflowDefinition<SolveIssueMeta> = {
   description: SOLVE_ISSUE_WORKFLOW_DESCRIPTION,
   roles: solveIssueRoles,
-  moderator: solveIssueModerator,
+  table: solveIssueTable,
 };

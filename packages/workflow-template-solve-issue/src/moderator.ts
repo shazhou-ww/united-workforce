@@ -1,4 +1,4 @@
-import { END, type ModeratorTable, START, tableToModerator } from "@uncaged/workflow-runtime";
+import { END, type ModeratorTable, START } from "@uncaged/workflow-runtime";
 
 import type { SolveIssueMeta } from "./roles.js";
 
@@ -9,4 +9,4 @@ const table: ModeratorTable<SolveIssueMeta> = {
   submitter: [{ condition: "FALLBACK", role: END }],
 };
 
-export const solveIssueModerator = tableToModerator(table);
+export { table as solveIssueTable };

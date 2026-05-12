@@ -64,6 +64,7 @@ describe("init template", () => {
 
     const moder = await readFile(join(tdir, "src", "moderator.ts"), "utf8");
     expect(moder).not.toContain("export default");
+    expect(moder).toContain("ModeratorTable");
   });
 
   test("finds workspace walking up from nested cwd", async () => {

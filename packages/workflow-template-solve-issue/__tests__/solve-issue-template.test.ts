@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCasStore } from "@uncaged/workflow-cas";
 import { createExtract } from "@uncaged/workflow-execute";
+import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
 import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
 import {
   createWorkflow,
@@ -14,9 +15,11 @@ import {
 } from "@uncaged/workflow-runtime";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
-import { solveIssueModerator, solveIssueWorkflowDefinition } from "../src/index.js";
+import { solveIssueTable, solveIssueWorkflowDefinition } from "../src/index.js";
 import type { PreparerMeta, SubmitterMeta } from "../src/roles/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
+
+const solveIssueModerator = tableToModerator(solveIssueTable);
 
 function jsonResponse(payload: Record<string, unknown>): Response {
   return new Response(JSON.stringify(payload), {
@@ -388,6 +391,7 @@ describe("buildSolveIssueDescriptor", () => {
       "preparer",
       "submitter",
     ]);
+    expect(validated.value.graph.edges.length).toBe(4);
     for (const key of ["preparer", "developer", "submitter"] as const) {
       const role = validated.value.roles[key];
       expect(role).toBeDefined();

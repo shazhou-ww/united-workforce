@@ -57,17 +57,13 @@ export const greeterRole: RoleDefinition<HelloTemplateMeta["greeter"]> = {
 }
 
 export function templateModeratorTs(): string {
-  return `import { END, type Moderator, type ModeratorContext } from "@uncaged/workflow-runtime";
+  return `import { END, START, type ModeratorTable } from "@uncaged/workflow-runtime";
 
 import type { HelloTemplateMeta } from "./roles.js";
 
-export const helloTemplateModerator: Moderator<HelloTemplateMeta> = (
-  ctx: ModeratorContext<HelloTemplateMeta>,
-) => {
-  if (ctx.steps.length === 0) {
-    return "greeter";
-  }
-  return END;
+export const helloTemplateTable: ModeratorTable<HelloTemplateMeta> = {
+  [START]: [{ condition: "FALLBACK", role: "greeter" }],
+  greeter: [{ condition: "FALLBACK", role: END }],
 };
 `;
 }
@@ -75,7 +71,7 @@ export const helloTemplateModerator: Moderator<HelloTemplateMeta> = (
 export function templateIndexTs(): string {
   return `import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
-import { helloTemplateModerator } from "./moderator.js";
+import { helloTemplateTable } from "./moderator.js";
 import {
   HELLO_TEMPLATE_DESCRIPTION,
   type HelloTemplateMeta,
@@ -87,14 +83,14 @@ export {
   type HelloTemplateMeta,
   greeterRole,
 } from "./roles.js";
-export { helloTemplateModerator } from "./moderator.js";
+export { helloTemplateTable } from "./moderator.js";
 
 export const helloTemplateWorkflowDefinition: WorkflowDefinition<HelloTemplateMeta> = {
   description: HELLO_TEMPLATE_DESCRIPTION,
   roles: {
     greeter: greeterRole,
   },
-  moderator: helloTemplateModerator,
+  table: helloTemplateTable,
 };
 `;
 }

@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
 import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
 import { END, type ModeratorContext, type RoleStep, START } from "@uncaged/workflow-runtime";
 import { buildDevelopDescriptor } from "../src/descriptor.js";
-import { developModerator } from "../src/index.js";
+import { developTable } from "../src/moderator.js";
 import type { CommitterMeta, PlannerMeta } from "../src/roles/index.js";
 import type { DevelopMeta } from "../src/roles.js";
+
+const developModerator = tableToModerator(developTable);
 
 const DEFAULT_PHASES: PlannerMeta["phases"] = [
   {
@@ -232,6 +235,7 @@ describe("buildDevelopDescriptor", () => {
       "reviewer",
       "tester",
     ]);
+    expect(validated.value.graph.edges.length).toBeGreaterThan(0);
     for (const key of ["planner", "coder", "reviewer", "tester", "committer"] as const) {
       const role = validated.value.roles[key];
       expect(role).toBeDefined();

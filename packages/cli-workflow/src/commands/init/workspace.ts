@@ -85,7 +85,7 @@ function agentsMd(): string {
 | 层级 | 目录 / 产物 | 职责 |
 |------|----------------|------|
 | **Workspace** | 仓库根（\`package.json\` 含 \`workspaces: ["templates/*", "workflows"]\`） | Bun monorepo：统一管理本地模板包与 workflow 实例 |
-| **Template** | \`templates/<name>/\`（如 \`src/roles.ts\`、\`src/moderator.ts\`、\`src/index.ts\`） | 纯数据：**WorkflowDefinition**（各 **RoleDefinition** + **Moderator**），**不绑定**具体 Agent |
+| **Template** | \`templates/<name>/\`（如 \`src/roles.ts\`、\`src/moderator.ts\`、\`src/index.ts\`） | 纯数据：**WorkflowDefinition**（各 **RoleDefinition** + **ModeratorTable**），**不绑定**具体 Agent |
 | **Workflow instance** | \`workflows/\`（或单独包） | 把模板与运行时 **AgentFn** / **ExtractFn** 组合，产出可注册的 **单文件 ESM bundle**（\`run\` + \`descriptor\` 命名导出） |
 
 Init 生成的骨架：\`templates/\` 下放可复用定义，\`workflows/\` 下放绑定与打包入口。
@@ -94,19 +94,19 @@ Init 生成的骨架：\`templates/\` 下放可复用定义，\`workflows/\` 下
 
 - **RoleMeta**：\`Record<string, Record<string, unknown>>\`，角色名 → 该角色结构化 meta 的形状约定。
 - **RoleDefinition<Meta>**：纯数据——\`description\`、\`systemPrompt\`、\`schema\`（Zod v4）。不含执行逻辑。
-- **WorkflowDefinition<M extends RoleMeta>**：\`description\` + \`roles\`（各角色定义）+ **Moderator**。
-- **Moderator**：\`(ctx: ModeratorContext<M>) => (角色名) | END\`。同步、纯函数，只做路由。
+- **WorkflowDefinition<M extends RoleMeta>**：\`description\` + \`roles\`（各角色定义）+ **ModeratorTable**（声明式路由表）。
+- **ModeratorTable**：从 \`START\` 与各角色名映射到有序 transition 列表（条件 + 下一角色或 \`END\`）；可序列化，供描述符提取 **graph**。
 - **AgentFn**：\`(ctx: AgentContext) => Promise<string>\`，原始文本输出；从上下文读取当前角色的 \`systemPrompt\`。
 - **ExtractFn**：从 CAS content hash 解析结构化数据（引擎与 Agent 都可使用）。
 
-引擎循环简述：**Moderator** → 选角色 → **Agent** 产出文本 → **Extract** 写入 **meta** → 追加 step，重复直至 **END**。详见 \`docs/architecture.md\` 中的三阶段说明。
+引擎循环简述：按 **ModeratorTable** 选下一角色 → **Agent** 产出文本 → **Extract** 写入 **meta** → 追加 step，重复直至 **END**。详见 \`docs/architecture.md\` 中的三阶段说明。
 
 ## 3. 开发流程
 
 1. **定义 RoleMeta**：为每个角色约定 meta 的 TypeScript 类型（与 Zod schema 对齐）。
 2. **编写 RoleDefinition**：为每个角色写 Zod \`schema\`，补齐 \`systemPrompt\` / \`description\`。
-3. **编写 Moderator**：根据 \`ctx.steps\` 与业务状态返回下一个角色名或 \`END\`。
-4. **组装 WorkflowDefinition**：在模板 \`index\` 中导出 definition（以及必要的角色 / moderator 导出）。
+3. **编写 ModeratorTable**：为 \`START\` 与各角色声明 transition（\`FALLBACK\` 或命名条件 + \`check\`）。
+4. **组装 WorkflowDefinition**：在模板 \`index\` 中导出 definition（以及必要的角色 / table 导出）。
 5. **实例化**：在 workflow 包中使用 \`createWorkflow(def, binding)\`（或项目约定的封装）绑定 **AgentFn**；**ExtractFn** 由引擎从 **workflow.yaml** 注入 \`WorkflowRuntime\`。
 6. **构建**：打包为单个 **.esm.js** bundle，使用 **uncaged-workflow add** 注册。
 
@@ -153,7 +153,7 @@ uncaged-workflow add <name> <path/to/bundle.esm.js>
 
 ---
 
-编写新 workflow 时，先对齐 **RoleMeta → RoleDefinition（Zod）→ Moderator → 绑定 → 单文件 bundle**，再对照本节规范自检。
+编写新 workflow 时，先对齐 **RoleMeta → RoleDefinition（Zod）→ ModeratorTable → 绑定 → 单文件 bundle**，再对照本节规范自检。
 `;
 }
 
@@ -164,7 +164,7 @@ Local workflow development workspace (Bun monorepo).
 
 ## Layout
 
-- \`templates/\` — reusable workflow definition packages (roles + moderator), no agent binding
+- \`templates/\` — reusable workflow definition packages (roles + ModeratorTable), no agent binding
 - \`workflows/\` — workflow instances that bind templates to agents and export \`run\` + \`descriptor\`
 
 ## Commands

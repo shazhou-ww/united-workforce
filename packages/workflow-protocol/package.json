@@ -6,6 +6,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
+    },
+    "./moderator-table.js": {
+      "types": "./dist/moderator-table.d.ts",
+      "import": "./src/moderator-table.ts"
     }
   },
   "peerDependencies": {

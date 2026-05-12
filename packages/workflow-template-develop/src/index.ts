@@ -1,10 +1,10 @@
 import type { WorkflowDefinition } from "@uncaged/workflow-runtime";
 
-import { developModerator } from "./moderator.js";
+import { developTable } from "./moderator.js";
 import { DEVELOP_WORKFLOW_DESCRIPTION, type DevelopMeta, developRoles } from "./roles.js";
 
 export { buildDevelopDescriptor } from "./descriptor.js";
-export { developModerator } from "./moderator.js";
+export { developTable } from "./moderator.js";
 export {
   type CoderMeta,
   type CommitterMeta,
@@ -33,5 +33,5 @@ export {
 export const developWorkflowDefinition: WorkflowDefinition<DevelopMeta> = {
   description: DEVELOP_WORKFLOW_DESCRIPTION,
   roles: developRoles,
-  moderator: developModerator,
+  table: developTable,
 };

@@ -3,6 +3,8 @@ import type { WorkflowDescriptor, WorkflowFn } from "@uncaged/workflow-protocol"
 export type {
   WorkflowDescriptor,
   WorkflowFn,
+  WorkflowGraph,
+  WorkflowGraphEdge,
   WorkflowRoleDescriptor,
   WorkflowRoleSchema,
 } from "@uncaged/workflow-protocol";

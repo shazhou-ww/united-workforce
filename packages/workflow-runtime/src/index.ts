@@ -10,7 +10,6 @@ export type {
   ExtractResult,
   FALLBACK,
   LlmProvider,
-  Moderator,
   ModeratorCondition,
   ModeratorContext,
   ModeratorTable,
@@ -26,9 +25,11 @@ export type {
   WorkflowDefinition,
   WorkflowDescriptor,
   WorkflowFn,
+  WorkflowGraph,
+  WorkflowGraphEdge,
   WorkflowResult,
   WorkflowRoleDescriptor,
   WorkflowRoleSchema,
   WorkflowRuntime,
 } from "./types.js";
-export { END, START, tableToModerator } from "./types.js";
+export { END, START } from "./types.js";

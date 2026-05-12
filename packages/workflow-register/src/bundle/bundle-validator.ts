@@ -404,7 +404,7 @@ export function validateWorkflowBundle(input: WorkflowBundleValidationInput): Re
 
   if (!descriptorExportExists(program)) {
     return err(
-      'workflow bundle must export descriptor (e.g. "export const descriptor = { description, roles }")',
+      'workflow bundle must export descriptor (e.g. "export const descriptor = { description, roles, graph }")',
     );
   }
 

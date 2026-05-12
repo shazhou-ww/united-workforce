@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@uncaged/workflow-cas": "workspace:*",
-    "@uncaged/workflow-execute": "workspace:*"
+    "@uncaged/workflow-execute": "workspace:*",
+    "@uncaged/workflow-protocol": "workspace:*"
   }
 }
