@@ -1,14 +1,101 @@
-import { useEffect, useRef, useState } from "react";
-import { getThread, killThread, pauseThread, resumeThread } from "../api.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getThread,
+  getWorkflowDescriptor,
+  killThread,
+  pauseThread,
+  resumeThread,
+  type ThreadRecord,
+  type WorkflowDescriptor,
+} from "../api.ts";
 import { useFetch } from "../hooks.ts";
 import { useSSE } from "../use-sse.ts";
 import { RecordCard } from "./record-card.tsx";
+import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
 
 type Props = {
   agent: string;
   threadId: string;
   onBack: () => void;
 };
+
+function extractWorkflowName(records: readonly ThreadRecord[]): string | null {
+  for (const r of records) {
+    if (r.type === "thread-start") return r.workflow;
+  }
+  return null;
+}
+
+type GraphPanelProps = {
+  descriptor: WorkflowDescriptor;
+  workflowName: string | null;
+  nodeStates: Map<string, NodeState>;
+};
+
+function GraphPanel({ descriptor, workflowName, nodeStates }: GraphPanelProps) {
+  const [open, setOpen] = useState(true);
+  const edgeCount = descriptor.graph.edges.length;
+  return (
+    <div
+      className="mb-4 rounded-lg border overflow-hidden"
+      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        <span className="font-mono">
+          {open ? "▼" : "▶"} Workflow graph
+          {workflowName !== null && (
+            <span className="ml-2" style={{ color: "var(--color-text)" }}>
+              {workflowName}
+            </span>
+          )}
+        </span>
+        <span>
+          {edgeCount} edge{edgeCount === 1 ? "" : "s"}
+        </span>
+      </button>
+      {open && (
+        <div style={{ height: 300, width: "100%" }}>
+          <WorkflowGraph
+            graph={descriptor.graph}
+            roles={descriptor.roles}
+            nodeStates={nodeStates}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeState> {
+  const states = new Map<string, NodeState>();
+  const roleRecords = records.filter(
+    (r): r is Extract<ThreadRecord, { type: "role" }> => r.type === "role",
+  );
+  const hasResult = records.some((r) => r.type === "workflow-result");
+
+  for (let i = 0; i < roleRecords.length; i++) {
+    const role = roleRecords[i].role;
+    const isLast = i === roleRecords.length - 1;
+    states.set(role, !hasResult && isLast ? "active" : "completed");
+  }
+
+  if (roleRecords.length > 0) {
+    states.set("__start__", "completed");
+  }
+  if (hasResult) {
+    states.set("__end__", "completed");
+    for (const [k, v] of states) {
+      if (v === "active") states.set(k, "completed");
+    }
+  }
+
+  return states;
+}
 
 export function ThreadDetail({ agent, threadId, onBack }: Props) {
   const sse = useSSE(agent, threadId);
@@ -22,6 +109,17 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
     : status === "ok"
       ? data.records
       : ([] as typeof sse.records);
+
+  const workflowName = useMemo(() => extractWorkflowName(records), [records]);
+
+  const descriptorFetch = useFetch<WorkflowDescriptor | null>(
+    () =>
+      workflowName === null ? Promise.resolve(null) : getWorkflowDescriptor(agent, workflowName),
+    [agent, workflowName],
+  );
+
+  const descriptor = descriptorFetch.status === "ok" ? descriptorFetch.data : null;
+  const nodeStates = useMemo(() => computeNodeStates(records), [records]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the rendered record list grows
   useEffect(() => {
@@ -93,6 +191,10 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
         <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
           {actionStatus}
         </p>
+      )}
+
+      {descriptor !== null && descriptor.graph.edges.length > 0 && (
+        <GraphPanel descriptor={descriptor} workflowName={workflowName} nodeStates={nodeStates} />
       )}
 
       {status === "loading" && !liveActive && records.length === 0 && (
