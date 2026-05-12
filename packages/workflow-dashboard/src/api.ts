@@ -104,6 +104,36 @@ export type WorkflowResultRecord = {
 
 export type ThreadRecord = ThreadStartRecord | RoleRecord | WorkflowResultRecord;
 
+export type WorkflowGraphEdge = {
+  from: string;
+  to: string;
+  condition: string;
+  conditionDescription: string | null;
+};
+
+export type WorkflowGraph = {
+  edges: readonly WorkflowGraphEdge[];
+};
+
+export type WorkflowRoleDescriptor = {
+  description: string;
+  schema: Record<string, unknown>;
+};
+
+export type WorkflowDescriptor = {
+  description: string;
+  roles: Record<string, WorkflowRoleDescriptor>;
+  graph: WorkflowGraph;
+};
+
+export type WorkflowDetail = {
+  name: string;
+  hash: string;
+  timestamp: number;
+  history: unknown[];
+  descriptor: WorkflowDescriptor | null;
+};
+
 // ── Gateway endpoints ───────────────────────────────────────────────
 
 export function listAgents(): Promise<AgentEndpoint[]> {
@@ -115,6 +145,15 @@ export function listAgents(): Promise<AgentEndpoint[]> {
 
 export function listWorkflows(agent: string): Promise<{ workflows: WorkflowSummary[] }> {
   return fetchJson(agentBase(agent), "/workflows");
+}
+
+export function getWorkflowDescriptor(
+  agent: string,
+  name: string,
+): Promise<WorkflowDescriptor | null> {
+  return fetchJson<WorkflowDetail>(agentBase(agent), `/workflows/${encodeURIComponent(name)}`).then(
+    (res) => res.descriptor,
+  );
 }
 
 export function listThreads(agent: string): Promise<{ threads: ThreadSummary[] }> {

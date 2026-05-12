@@ -19,3 +19,17 @@ body {
   color: var(--color-text);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
+
+@keyframes wf-node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 109, 240, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(124, 109, 240, 0);
+  }
+}
+
+.wf-node-pulse {
+  animation: wf-node-pulse 1.6s ease-in-out infinite;
+}
