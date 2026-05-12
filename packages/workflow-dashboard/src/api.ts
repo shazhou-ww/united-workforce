@@ -66,8 +66,13 @@ export type AgentEndpoint = {
 
 export type WorkflowSummary = {
   name: string;
-  currentHash: string;
-  versions: number;
+  hash: string | null;
+  timestamp: number | null;
+};
+
+export type WorkflowHistoryEntry = {
+  hash: string;
+  timestamp: number;
 };
 
 export type ThreadSummary = {
@@ -130,7 +135,7 @@ export type WorkflowDetail = {
   name: string;
   hash: string;
   timestamp: number;
-  history: unknown[];
+  history: readonly WorkflowHistoryEntry[];
   descriptor: WorkflowDescriptor | null;
 };
 
@@ -147,14 +152,15 @@ export function listWorkflows(agent: string): Promise<{ workflows: WorkflowSumma
   return fetchJson(agentBase(agent), "/workflows");
 }
 
+export async function getWorkflowDetail(agent: string, name: string): Promise<WorkflowDetail> {
+  return fetchJson<WorkflowDetail>(agentBase(agent), `/workflows/${encodeURIComponent(name)}`);
+}
+
 export async function getWorkflowDescriptor(
   agent: string,
   name: string,
 ): Promise<WorkflowDescriptor | null> {
-  const res = await fetchJson<WorkflowDetail>(
-    agentBase(agent),
-    `/workflows/${encodeURIComponent(name)}`,
-  );
+  const res = await getWorkflowDetail(agent, name);
   return res.descriptor;
 }
 
