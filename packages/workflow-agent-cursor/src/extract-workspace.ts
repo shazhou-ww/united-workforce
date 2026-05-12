@@ -58,13 +58,13 @@ export async function extractWorkspacePath(
   });
 
   if (!result.ok) {
-    logger("V3KM8QWP", `workspace extraction failed: ${result.error}`);
+    logger("W8KN3QYT", `workspace extraction failed: ${result.error}`);
     return null;
   }
 
   const workspace = result.value.workspace.trim();
   if (!workspace.startsWith("/")) {
-    logger("V3KM8QWP", `workspace extraction returned non-absolute path: ${workspace}`);
+    logger("H4PM7RXV", `workspace extraction returned non-absolute path: ${workspace}`);
     return null;
   }
 
