@@ -72,11 +72,13 @@ function parseRoleOutputRecord(obj: Record<string, unknown>): RoleOutput | null 
   if (meta === null || typeof meta !== "object") {
     return null;
   }
+  const childThread = obj.childThread;
   return {
     role,
     contentHash,
     meta: meta as Record<string, unknown>,
     refs: normalizeRefsField(obj.refs),
+    childThread: typeof childThread === "string" ? childThread : null,
   };
 }
 
@@ -497,6 +499,7 @@ async function main(): Promise<void> {
         { prompt: cmd.prompt, steps: cmd.steps },
         {
           ...cmd.options,
+          parentStateHash: null,
           signal: ac.signal,
           awaitAfterEachYield: () => pauseGate.awaitAfterYield(),
           forkSourceThreadId: cmd.forkSourceThreadId,

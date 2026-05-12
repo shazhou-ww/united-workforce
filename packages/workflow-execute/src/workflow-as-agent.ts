@@ -6,7 +6,7 @@ import {
   getRegisteredWorkflow,
   readWorkflowRegistry,
 } from "@uncaged/workflow-register";
-import type { AgentContext, AgentFn } from "@uncaged/workflow-runtime";
+import type { AgentContext, AgentFn, AgentFnResult } from "@uncaged/workflow-runtime";
 import {
   createLogger,
   generateUlid,
@@ -14,7 +14,7 @@ import {
   getGlobalCasDir,
 } from "@uncaged/workflow-util";
 import type { ExecuteThreadIo } from "./engine/index.js";
-import { executeThread } from "./engine/index.js";
+import { executeThread, getBundleDir, readThreadsIndex } from "./engine/index.js";
 
 const DEFAULT_WORKFLOW_AS_AGENT_MAX_DEPTH = 3;
 
@@ -37,6 +37,13 @@ function resolveWorkflowAsAgentStorageRoot(options: WorkflowAsAgentOptions | nul
   return getDefaultWorkflowStorageRoot();
 }
 
+async function readParentHeadState(storageRoot: string, ctx: AgentContext): Promise<string | null> {
+  const bundleDir = getBundleDir(storageRoot, ctx.bundleHash);
+  const index = await readThreadsIndex(bundleDir);
+  const entry = index[ctx.threadId] ?? null;
+  return entry !== null ? entry.head : null;
+}
+
 /**
  * Returns an {@link AgentFn} that runs another registered workflow in a new thread,
  * using the parent thread's initial prompt (`ctx.start.content`) as the child prompt.
@@ -45,7 +52,7 @@ export function workflowAsAgent(
   workflowName: string,
   options: WorkflowAsAgentOptions | null = null,
 ): AgentFn {
-  return async (ctx: AgentContext): Promise<string> => {
+  return async (ctx: AgentContext): Promise<AgentFnResult> => {
     const nextDepth = ctx.depth + 1;
 
     const storageRoot = resolveWorkflowAsAgentStorageRoot(options);
@@ -89,6 +96,8 @@ export function workflowAsAgent(
     const logger = createLogger({ sink: { kind: "file", path: infoJsonlPath } });
     const signalNever = new AbortController();
 
+    const parentHeadState = await readParentHeadState(storageRoot, ctx);
+
     try {
       const result = await executeThread(
         bundleExportsResult.value.run,
@@ -96,6 +105,7 @@ export function workflowAsAgent(
         input,
         {
           depth: nextDepth,
+          parentStateHash: parentHeadState,
           signal: signalNever.signal,
           awaitAfterEachYield: async () => {},
           forkSourceThreadId: ctx.threadId,
@@ -107,7 +117,8 @@ export function workflowAsAgent(
         io,
         logger,
       );
-      return `Child workflow "${workflowName}" completed (returnCode=${result.returnCode}).\n\nSummary: ${result.summary}\n\nChild thread root hash: ${result.rootHash}`;
+      const summary = `Child workflow "${workflowName}" completed (returnCode=${result.returnCode}).\n\nSummary: ${result.summary}\n\nChild thread root hash: ${result.rootHash}`;
+      return { output: summary, childThread: result.rootHash };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return `ERROR: ${message}`;

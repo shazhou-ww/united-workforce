@@ -12,6 +12,7 @@ function makeCtx(userContent: string): AgentContext {
       timestamp: 1,
     },
     depth: 0,
+    bundleHash: "TESTHASH00001",
     steps: [],
     threadId: "01TEST000000000000000000TR",
     currentRole: { name: "planner", systemPrompt: "system instructions" },

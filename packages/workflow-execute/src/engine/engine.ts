@@ -94,6 +94,7 @@ async function appendStateForStep(params: {
   meta: Record<string, unknown>;
   refs: readonly string[];
   timestamp: number;
+  childThread: string | null;
 }): Promise<{ stateHash: string; chain: ChainState }> {
   const text = await getContentMerklePayload(params.cas, params.contentHash);
   if (text === null) {
@@ -112,7 +113,7 @@ async function appendStateForStep(params: {
     ancestors,
     compact: null,
     timestamp: params.timestamp,
-    childThread: null,
+    childThread: params.childThread,
   };
   const stateHash = await putStateNode(params.cas, payload);
   return {
@@ -331,6 +332,7 @@ async function driveWorkflowGenerator(params: {
       meta: step.meta,
       refs: step.refs,
       timestamp: ts,
+      childThread: step.childThread ?? null,
     });
     chain = written_.chain;
     await publishHead({ bundleDir, threadId, startHash, headHash: written_.stateHash });
@@ -441,7 +443,7 @@ export async function executeThread(
         name: workflowName,
         hash: io.hash,
         depth: options.depth,
-        parentState: null,
+        parentState: options.parentStateHash,
       },
       promptHash,
     );
@@ -469,6 +471,7 @@ export async function executeThread(
         meta: row.meta,
         refs: row.refs,
         timestamp: row.timestamp,
+        childThread: null,
       });
       chain = written.chain;
       await publishHead({
@@ -490,6 +493,7 @@ export async function executeThread(
   const thread: ThreadContext = {
     threadId: io.threadId,
     depth: options.depth,
+    bundleHash: io.hash,
     start: {
       role: START,
       content: input.prompt,

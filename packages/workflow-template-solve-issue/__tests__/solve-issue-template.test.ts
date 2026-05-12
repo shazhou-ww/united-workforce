@@ -113,6 +113,7 @@ function makeCtx(
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
+    bundleHash: "TESTHASH00001",
     start: makeStart(),
     steps,
   };
@@ -178,6 +179,7 @@ function makeThread(prompt: string) {
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
+    bundleHash: "TESTHASH00001",
     start: {
       role: START,
       content: prompt,

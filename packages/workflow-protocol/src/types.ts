@@ -41,6 +41,7 @@ export type RoleOutput = {
   contentHash: string;
   meta: Record<string, unknown>;
   refs: string[];
+  childThread: string | null;
 };
 
 export type StartStep = {
@@ -63,6 +64,7 @@ export type RoleStep<M extends RoleMeta> = {
 export type ThreadContext<M extends RoleMeta = RoleMeta> = {
   threadId: string;
   depth: number;
+  bundleHash: string;
   start: StartStep;
   steps: RoleStep<M>[];
 };
@@ -127,7 +129,9 @@ export type ExtractFn = <T extends Record<string, unknown>>(
   contentHash: string,
 ) => Promise<ExtractResult<T>>;
 
-export type AgentFn = (ctx: AgentContext) => Promise<string>;
+export type AgentFnResult = string | { output: string; childThread: string | null };
+
+export type AgentFn = (ctx: AgentContext) => Promise<AgentFnResult>;
 
 export type AgentBinding = {
   agent: AgentFn;

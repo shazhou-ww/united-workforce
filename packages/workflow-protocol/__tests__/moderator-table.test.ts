@@ -21,6 +21,7 @@ function makeCtx(roles: (keyof TestMeta & string)[]): ModeratorContext<TestMeta>
   return {
     threadId: "test-thread",
     depth: 0,
+    bundleHash: "TESTHASH00001",
     start: {
       role: START,
       content: "test",

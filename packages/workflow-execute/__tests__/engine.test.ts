@@ -35,6 +35,7 @@ function noLogger(): (tag: string, content: string) => void {
 function makeOptions(overrides: Partial<ExecuteThreadOptions>): ExecuteThreadOptions {
   return {
     depth: 0,
+    parentStateHash: null,
     signal: new AbortController().signal,
     awaitAfterEachYield: async () => {},
     forkSourceThreadId: null,
@@ -144,9 +145,9 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       runtime: WorkflowRuntime,
     ): AsyncGenerator<RoleOutput, WorkflowCompletion> {
       const h1 = await runtime.cas.put("plan-text");
-      yield { role: "planner", contentHash: h1, meta: { plan: 1 }, refs: [h1] };
+      yield { role: "planner", contentHash: h1, meta: { plan: 1 }, refs: [h1], childThread: null };
       const h2 = await runtime.cas.put("code-text");
-      yield { role: "coder", contentHash: h2, meta: { diff: "y" }, refs: [h2] };
+      yield { role: "coder", contentHash: h2, meta: { diff: "y" }, refs: [h2], childThread: null };
       return { returnCode: 0, summary: "done" };
     };
 
@@ -210,7 +211,7 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       runtime: WorkflowRuntime,
     ): AsyncGenerator<RoleOutput, WorkflowCompletion> {
       const h = await runtime.cas.put("only-step");
-      yield { role: "only", contentHash: h, meta: {}, refs: [h] };
+      yield { role: "only", contentHash: h, meta: {}, refs: [h], childThread: null };
       return { returnCode: 0, summary: "completed" };
     };
 
@@ -261,7 +262,7 @@ describe("executeThread (Phase 2 — CAS thread storage)", () => {
       runtime: WorkflowRuntime,
     ): AsyncGenerator<RoleOutput, WorkflowCompletion> {
       const h = await runtime.cas.put("step");
-      yield { role: "only", contentHash: h, meta: {}, refs: [h] };
+      yield { role: "only", contentHash: h, meta: {}, refs: [h], childThread: null };
       return { returnCode: 0, summary: "done" };
     };
 
