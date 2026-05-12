@@ -28,7 +28,7 @@ function workflowsPackageJson(): string {
       private: true,
       type: "module",
       dependencies: {
-        "@uncaged/workflow-runtime": "*",
+        "@uncaged/workflow-runtime": "^0.3.1",
         zod: "^4.0.0",
       },
     },
@@ -157,6 +157,12 @@ uncaged-workflow add <name> <path/to/bundle.esm.js>
 `;
 }
 
+function bunfigToml(): string {
+  return `[install.scopes]
+"@uncaged" = "https://git.shazhou.work/api/packages/shazhou/npm/"
+`;
+}
+
 function readmeMd(workspaceName: string): string {
   return `# ${workspaceName}
 
@@ -210,6 +216,7 @@ export async function cmdInitWorkspace(
     writeFile(join(rootPath, "README.md"), readmeMd(workspaceName), "utf8"),
     writeFile(join(rootPath, "templates", ".gitkeep"), "", "utf8"),
     writeFile(join(rootPath, "workflows", "package.json"), workflowsPackageJson(), "utf8"),
+    writeFile(join(rootPath, "bunfig.toml"), bunfigToml(), "utf8"),
   ]);
 
   return ok({ rootPath });
