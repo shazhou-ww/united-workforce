@@ -9,7 +9,10 @@
     "check": "bunx tsc --build && biome check .",
     "typecheck": "bunx tsc --build",
     "format": "biome format --write .",
-    "test": "bun run --filter '*' test"
+    "test": "bun run --filter '*' test",
+    "link": "./scripts/link-all.sh",
+    "link:consume": "./scripts/link-all.sh --consume",
+    "link:unlink": "./scripts/link-all.sh --unlink"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",

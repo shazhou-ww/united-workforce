@@ -28,7 +28,7 @@ function workflowsPackageJson(): string {
       private: true,
       type: "module",
       dependencies: {
-        "@uncaged/workflow-runtime": "^0.1.0",
+        "@uncaged/workflow-runtime": "*",
         zod: "^4.0.0",
       },
     },

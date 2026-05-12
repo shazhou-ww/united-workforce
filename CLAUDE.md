@@ -245,6 +245,23 @@ bun run format      # biome format --write
 bun test            # run tests
 ```
 
+### Cross-repo Development (bun link)
+
+For developing workflows in a separate repo (e.g. `xingyue-workflows`) against local monorepo packages:
+
+```bash
+# 1. Register all @uncaged/* packages (run once from monorepo root)
+bun run link
+
+# 2. Consume linked packages (run from the external workflow repo)
+bun run link:consume
+
+# 3. Restore original npm versions (undo link)
+bun run link:unlink
+```
+
+The script is at `scripts/link-all.sh`. It links/unlinks all 16 `@uncaged/*` packages.
+
 ## Commit Convention
 
 ```
