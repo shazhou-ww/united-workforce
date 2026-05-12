@@ -38,8 +38,16 @@ describe("init workspace", () => {
 
     const rootPkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as {
       workspaces: string[];
+      scripts: { bundle: string };
     };
     expect(rootPkg.workspaces).toEqual(["templates/*", "workflows"]);
+    expect(rootPkg.scripts.bundle).toBe("bun run scripts/bundle.ts");
+
+    expect(await pathExists(join(root, "scripts", "bundle.ts"))).toBe(true);
+    const bundleSrc = await readFile(join(root, "scripts", "bundle.ts"), "utf8");
+    expect(bundleSrc).toContain("Bun.build");
+    expect(bundleSrc).toContain("-entry.ts");
+    expect(bundleSrc).toContain("distDir");
 
     const wfPkg = JSON.parse(await readFile(join(root, "workflows", "package.json"), "utf8")) as {
       type: string;

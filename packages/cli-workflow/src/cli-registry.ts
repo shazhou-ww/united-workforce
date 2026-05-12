@@ -5,6 +5,15 @@ import { INIT_SUBCOMMAND_TABLE } from "./commands/init/index.js";
 import { THREAD_SUBCOMMAND_TABLE } from "./commands/thread/index.js";
 import { WORKFLOW_SUBCOMMAND_TABLE } from "./commands/workflow/index.js";
 
+const SETUP_USAGE_COMMANDS = [
+  {
+    name: "",
+    args: "[--provider <name>] [--base-url <url>] [--api-key <key>] [--default-model <provider/model>] [--init-workspace <name>]",
+    description:
+      "Configure workflow.yaml LLM providers and default model (interactive when no flags)",
+  },
+] as const;
+
 export function getCommandRegistry(): ReadonlyArray<CommandGroup> {
   return [
     {
@@ -38,6 +47,10 @@ export function getCommandRegistry(): ReadonlyArray<CommandGroup> {
         args: e.args,
         description: e.description,
       })),
+    },
+    {
+      name: "setup",
+      commands: [...SETUP_USAGE_COMMANDS],
     },
   ];
 }
