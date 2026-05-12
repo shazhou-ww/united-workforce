@@ -3,6 +3,8 @@ export type {
   ExtractedBundleExports,
   WorkflowBundleValidationInput,
   WorkflowDescriptor,
+  WorkflowGraph,
+  WorkflowGraphEdge,
   WorkflowRoleDescriptor,
   WorkflowRoleSchema,
 } from "./bundle/index.js";

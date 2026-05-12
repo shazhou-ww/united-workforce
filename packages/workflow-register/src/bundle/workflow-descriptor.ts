@@ -1,6 +1,64 @@
 import { err, ok, type Result } from "@uncaged/workflow-util";
 
-import type { WorkflowDescriptor, WorkflowRoleDescriptor, WorkflowRoleSchema } from "./types.js";
+import type {
+  WorkflowDescriptor,
+  WorkflowGraph,
+  WorkflowGraphEdge,
+  WorkflowRoleDescriptor,
+  WorkflowRoleSchema,
+} from "./types.js";
+
+function validateDescriptorGraphEdge(
+  item: unknown,
+  index: number,
+): Result<WorkflowGraphEdge, string> {
+  if (item === null || typeof item !== "object" || Array.isArray(item)) {
+    return err(`descriptor.graph.edges[${index}] must be a non-array object`);
+  }
+  const e = item as Record<string, unknown>;
+  if (typeof e.from !== "string") {
+    return err(`descriptor.graph.edges[${index}].from must be a string`);
+  }
+  if (typeof e.to !== "string") {
+    return err(`descriptor.graph.edges[${index}].to must be a string`);
+  }
+  if (typeof e.condition !== "string") {
+    return err(`descriptor.graph.edges[${index}].condition must be a string`);
+  }
+  const cdRaw = e.conditionDescription;
+  if (cdRaw !== null && cdRaw !== undefined && typeof cdRaw !== "string") {
+    return err(`descriptor.graph.edges[${index}].conditionDescription must be a string or null`);
+  }
+  const conditionDescription: string | null = cdRaw === undefined || cdRaw === null ? null : cdRaw;
+  return ok({
+    from: e.from,
+    to: e.to,
+    condition: e.condition,
+    conditionDescription,
+  });
+}
+
+function validateDescriptorGraph(graphRaw: unknown): Result<WorkflowGraph, string> {
+  if (graphRaw === null || typeof graphRaw !== "object" || Array.isArray(graphRaw)) {
+    return err("descriptor.graph must be a non-array object");
+  }
+  const graphRecord = graphRaw as Record<string, unknown>;
+  const edgesRaw = graphRecord.edges;
+  if (!Array.isArray(edgesRaw)) {
+    return err("descriptor.graph.edges must be an array");
+  }
+
+  const edges: WorkflowGraphEdge[] = [];
+  for (let i = 0; i < edgesRaw.length; i++) {
+    const edgeResult = validateDescriptorGraphEdge(edgesRaw[i], i);
+    if (!edgeResult.ok) {
+      return edgeResult;
+    }
+    edges.push(edgeResult.value);
+  }
+
+  return ok({ edges });
+}
 
 export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescriptor, string> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -36,5 +94,10 @@ export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescr
     };
   }
 
-  return ok({ description, roles });
+  const graphResult = validateDescriptorGraph(root.graph);
+  if (!graphResult.ok) {
+    return graphResult;
+  }
+
+  return ok({ description, roles, graph: graphResult.value });
 }

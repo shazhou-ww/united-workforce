@@ -3,7 +3,6 @@ import {
   type ModeratorCondition,
   type ModeratorTable,
   START,
-  tableToModerator,
 } from "@uncaged/workflow-runtime";
 
 import type { DevelopMeta } from "./roles.js";
@@ -88,4 +87,4 @@ const table: ModeratorTable<DevelopMeta> = {
   committer: [{ condition: "FALLBACK", role: END }],
 };
 
-export const developModerator = tableToModerator(table);
+export { table as developTable };

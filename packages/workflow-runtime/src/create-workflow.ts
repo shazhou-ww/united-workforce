@@ -1,4 +1,5 @@
 import { putContentNodeWithRefs } from "@uncaged/workflow-cas";
+import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
 import type * as z from "zod/v4";
 
 import {
@@ -57,7 +58,9 @@ function agentForRole(binding: AgentBinding, roleName: string): AgentFn {
 }
 
 async function advanceOneRound<M extends RoleMeta>(
-  def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
+  def: Pick<WorkflowDefinition<M>, "roles"> & {
+    pickNext: (ctx: ModeratorContext<M>) => (keyof M & string) | typeof END;
+  },
   binding: AgentBinding,
   params: {
     thread: ModeratorContext<M>;
@@ -67,7 +70,7 @@ async function advanceOneRound<M extends RoleMeta>(
   const { thread, runtime } = params;
   const modCtx: ModeratorContext<M> = thread;
 
-  const next = def.moderator(modCtx);
+  const next = def.pickNext(modCtx);
   if (!isRoleNext(next)) {
     return {
       kind: "complete",
@@ -128,16 +131,19 @@ async function advanceOneRound<M extends RoleMeta>(
 }
 
 /**
- * Binds pure role definitions + moderator to runtime agents.
+ * Binds pure role definitions + moderator table to runtime agents.
  * Assign with `export const run = createWorkflow(def, binding)`.
  *
  * Structured meta extraction is delegated to {@link WorkflowRuntime.extract}, which the
  * engine resolves from the workflow registry's `extract` scene.
  */
 export function createWorkflow<M extends RoleMeta>(
-  def: Pick<WorkflowDefinition<M>, "roles" | "moderator">,
+  def: Pick<WorkflowDefinition<M>, "roles" | "table">,
   binding: AgentBinding,
 ): WorkflowFn {
+  const pickNext = tableToModerator(def.table);
+  const loopDef = { roles: def.roles, pickNext };
+
   return async function* workflowLoop(
     thread: ThreadContext,
     runtime: WorkflowRuntime,
@@ -148,7 +154,7 @@ export function createWorkflow<M extends RoleMeta>(
     let currentThread = thread as ModeratorContext<M>;
 
     while (true) {
-      const outcome = await advanceOneRound(def, binding, {
+      const outcome = await advanceOneRound(loopDef, binding, {
         thread: currentThread,
         runtime,
       });

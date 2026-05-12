@@ -24,6 +24,7 @@ export const descriptor = {
     coder: { description: "coder", schema: {} },
     reviewer: { description: "reviewer", schema: {} },
   },
+  graph: { edges: [] },
 };
 export const run = async function* (input, options) {
   const cas = options.cas;

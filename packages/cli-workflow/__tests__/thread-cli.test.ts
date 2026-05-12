@@ -36,6 +36,7 @@ const threadFixtureDescriptor = `export const descriptor = {
     only: { description: "only", schema: {} },
     noop: { description: "noop", schema: {} },
   },
+  graph: { edges: [] },
 };
 `;
 

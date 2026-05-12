@@ -12,7 +12,6 @@ export type {
   ExtractResult,
   FALLBACK,
   LlmProvider,
-  Moderator,
   ModeratorCondition,
   ModeratorContext,
   ModeratorTable,
@@ -30,10 +29,12 @@ export type {
   WorkflowDefinition,
   WorkflowDescriptor,
   WorkflowFn,
+  WorkflowGraph,
+  WorkflowGraphEdge,
   WorkflowResult,
   WorkflowRoleDescriptor,
   WorkflowRoleSchema,
   WorkflowRuntime,
 } from "@uncaged/workflow-protocol";
 
-export { END, START, tableToModerator } from "@uncaged/workflow-protocol";
+export { END, START } from "@uncaged/workflow-protocol";

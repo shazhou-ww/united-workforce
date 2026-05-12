@@ -17,7 +17,7 @@ import {
 } from "../src/commands/workflow/index.js";
 import { addCliArgs } from "./bundle-fixture.js";
 
-const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {} };
+const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {}, graph: { edges: [] } };
 `;
 
 const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
@@ -153,6 +153,7 @@ export const run = async function* (input) { return { returnCode: 0, summary: in
       schema: { type: "object", properties: { greeting: { type: "string" } } },
     },
   },
+  graph: { edges: [] },
 };
 ${wfPutImport}
 export const run = async function* (input, options) {

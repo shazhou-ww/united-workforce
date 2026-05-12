@@ -189,25 +189,28 @@ export const run: WorkflowRun;
 
 ## WorkflowDescriptor
 
-Defines the workflow's metadata and role sequence:
+Serialized metadata for the registry (per-role JSON Schema plus a static routing graph):
 
 \`\`\`typescript
 type WorkflowDescriptor = {
-  name: string;           // verb-first kebab-case, e.g. "solve-issue"
-  description: string;    // one-line summary
-  roles: string[];        // ordered role names, e.g. ["planner", "coder", "reviewer"]
+  description: string;
+  roles: Record<string, { description: string; schema: unknown /* JSON Schema */ }>;
+  graph: {
+    edges: Array<{
+      from: string;
+      to: string;
+      condition: string;
+      conditionDescription: string | null;
+    }>;
+  };
 };
 \`\`\`
 
 ## WorkflowRun
 
-The main function that creates and returns a moderator:
+Async generator from \`createWorkflow(definition, binding)\` (**@uncaged/workflow-runtime**) — yields each role output until the workflow completes.
 
-\`\`\`typescript
-type WorkflowRun = (ctx: WorkflowContext) => Moderator;
-\`\`\`
-
-The **Moderator** controls the flow — it decides which role runs next, handles retries, and determines when the workflow is complete.
+The **ModeratorTable** on **WorkflowDefinition** is declarative routing (from each role and \`START\` to the next role or \`END\`); the engine evaluates conditions at runtime.
 
 ## Role Definition
 
@@ -226,7 +229,7 @@ Each role has:
 # 1. Initialize a workspace
 uncaged-workflow init workspace my-workflow
 
-# 2. Write your template (roles + moderator + descriptor)
+# 2. Write your template (roles + ModeratorTable + descriptor)
 
 # 3. Build the ESM bundle
 bun run build

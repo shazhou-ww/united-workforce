@@ -82,7 +82,7 @@ describe("init workspace", () => {
     for (const term of [
       "RoleDefinition",
       "WorkflowDefinition",
-      "Moderator",
+      "ModeratorTable",
       "AgentFn",
       "ExtractFn",
       "RoleMeta",

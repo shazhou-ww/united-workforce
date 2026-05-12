@@ -27,9 +27,22 @@ export type WorkflowRoleDescriptor = {
   schema: WorkflowRoleSchema;
 };
 
+/** Serializable routing edges derived from a moderator transition table. */
+export type WorkflowGraphEdge = {
+  from: string;
+  to: string;
+  condition: string;
+  conditionDescription: string | null;
+};
+
+export type WorkflowGraph = {
+  edges: readonly WorkflowGraphEdge[];
+};
+
 export type WorkflowDescriptor = {
   description: string;
   roles: Record<string, WorkflowRoleDescriptor>;
+  graph: WorkflowGraph;
 };
 
 // ── Role & Thread ──────────────────────────────────────────────────
@@ -160,7 +173,7 @@ export type Moderator<M extends RoleMeta> = (
 export type WorkflowDefinition<M extends RoleMeta> = {
   description: string;
   roles: { [K in keyof M & string]: RoleDefinition<M[K]> };
-  moderator: Moderator<M>;
+  table: ModeratorTable<M>;
 };
 
 // ── Declarative Moderator Table ────────────────────────────────────
