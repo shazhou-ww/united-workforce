@@ -208,7 +208,12 @@ async function fetchAvailableModels(
     if (!Array.isArray(body.data)) {
       return [];
     }
-    return body.data.map((m) => m.id).sort();
+    const NON_CHAT_RE =
+      /speech|embed|image|video|audio|ocr|rerank|tts|asr|paraformer|sambert|cosyvoice|wordart|wanx|wan2|flux|stable-diffusion|z-image|s2s|livetranslate|realtime|gui-/i;
+    return body.data
+      .map((m) => m.id)
+      .filter((id) => !NON_CHAT_RE.test(id))
+      .sort();
   } catch {
     return [];
   }
@@ -247,13 +252,14 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     const models = await fetchAvailableModels(baseUrl, apiKey);
     let modelPrompt: string;
     if (models.length > 0) {
-      const display = models.slice(0, 20);
-      printCliLine(`Available models (${models.length} total):`);
-      for (const m of display) {
-        printCliLine(`  ${m}`);
-      }
-      if (models.length > 20) {
-        printCliLine(`  ... and ${models.length - 20} more`);
+      printCliLine(`Available models (${models.length}):`);
+      const cols = process.stdout.columns || 80;
+      const maxLen = Math.max(...models.map((m) => m.length));
+      const colWidth = maxLen + 4;
+      const numCols = Math.max(1, Math.floor(cols / colWidth));
+      for (let i = 0; i < models.length; i += numCols) {
+        const row = models.slice(i, i + numCols);
+        printCliLine("  " + row.map((m) => m.padEnd(colWidth)).join(""));
       }
       modelPrompt = `\nDefault model — format: ${provider}/<model-name>: `;
     } else {
