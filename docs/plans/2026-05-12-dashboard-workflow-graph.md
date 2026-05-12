@@ -1,68 +1,53 @@
 # Dashboard Workflow Graph Visualization
 
 **Issue**: #198
-**Status**: Draft
+**Status**: In Progress
 **Author**: xingyue
 
 ## Overview
 
 在 Dashboard 的 ThreadDetail 页面中嵌入一个交互式流程图，将 workflow 的 `ModeratorTable` 可视化为有向图。用户可以一眼看到角色流转结构和当前执行进度。
 
-## 数据流
+## 数据层（✅ 已完成 — PR #201）
 
-### 问题：ModeratorTable 在 bundle 端，Dashboard 在前端
+### WorkflowGraph 类型
 
-`ModeratorTable` 是运行时数据结构（包含 JS 函数引用如 `check`），无法直接序列化给前端。需要一个**静态图描述格式**作为中间层。
-
-### 方案：扩展 WorkflowDescriptor
-
-当前 `WorkflowDescriptor` 只有 roles + description，不包含转换图信息：
+`WorkflowDefinition.moderator`（函数）已替换为 `WorkflowDefinition.table`（声明式 `ModeratorTable`），`buildDescriptor` 自动从 table 提取 graph：
 
 ```ts
-type WorkflowDescriptor = {
-  description: string;
-  roles: Record<string, WorkflowRoleDescriptor>;
-};
-```
-
-**扩展为**：
-
-```ts
-type TransitionEdge = {
-  condition: string;        // condition.name，或 "FALLBACK"
-  description: string | null; // condition.description，FALLBACK 为 null
-  target: string;           // role name 或 "__end__"
+type WorkflowGraphEdge = {
+  from: string;              // source role 或 "__start__"
+  to: string;                // target role 或 "__end__"
+  condition: string;         // condition.name 或 "FALLBACK"
+  conditionDescription: string | null;
 };
 
-type WorkflowGraph = Record<string, TransitionEdge[]>;
-// key = source role name 或 "__start__"
+type WorkflowGraph = {
+  edges: readonly WorkflowGraphEdge[];
+};
 
 type WorkflowDescriptor = {
   description: string;
   roles: Record<string, WorkflowRoleDescriptor>;
-  graph: WorkflowGraph | null;  // null = legacy bundles without graph
+  graph: WorkflowGraph;      // 必填，新 bundle 自动生成
 };
 ```
 
-在 `buildDescriptor`（`workflow-register`）中，从 `ModeratorTable` 提取静态图结构。`condition.check` 函数不序列化，只保留 `name` 和 `description`。
-
-### 数据暴露路径
+### 数据流
 
 ```
-ModeratorTable (runtime)
-  → buildDescriptor() 提取 graph
-    → descriptor.yaml 持久化
-      → CLI serve /workflows API 返回
+ModeratorTable (WorkflowDefinition.table)
+  → buildDescriptor() 自动提取 graph
+    → descriptor.yaml 持久化（hash.yaml）
+      → CLI serve /workflows/:name API 返回 descriptor
         → Dashboard 前端拿到 graph
 ```
 
-同时需要新增或扩展一个 API，让 Dashboard 能拿到指定 workflow 的 descriptor（含 graph）：
+### 剩余数据层工作
 
-```
-GET /workflows/:name → { descriptor: WorkflowDescriptor }
-```
+**serve API 需要返回 descriptor**：当前 `GET /workflows/:name` 只返回 registry entry（hash + timestamp），不含 descriptor。需要从 `bundles/{hash}.yaml` 读取 descriptor 并返回给前端。
 
-或者在现有 `listWorkflows` 返回中附带。
+方案：在 `routes-workflow.ts` 的 `GET /workflows/:name` 响应中附带 `descriptor` 字段。或者：thread-detail 发现 workflow name 后，请求 `GET /workflows/:name/descriptor` 拿到 graph。
 
 ## 前端渲染
 
@@ -87,17 +72,17 @@ GET /workflows/:name → { descriptor: WorkflowDescriptor }
 ### 图结构映射
 
 ```
-WorkflowGraph → React Flow nodes + edges
+WorkflowGraph.edges → React Flow nodes + edges
 
-节点:
+节点（自动从 edges 推导）:
   - __start__  → 圆形小节点（入口）
   - role       → 圆角矩形，显示 role name + description
   - __end__    → 圆形小节点（终止）
 
 边:
   - FALLBACK   → 虚线（dashed），无 label
-  - condition  → 实线，label = condition.name
-                  hover tooltip = condition.description
+  - condition  → 实线，label = condition
+                  hover tooltip = conditionDescription
 ```
 
 ### 布局
@@ -172,7 +157,7 @@ function getNodeStates(records: ThreadRecord[]): Map<string, "completed" | "acti
 workflow-dashboard/src/
   components/
     workflow-graph/
-      types.ts           — TransitionEdge, NodeState 等前端类型
+      types.ts           — NodeState 等前端类型
       index.ts           — export { WorkflowGraph }
       workflow-graph.tsx  — 主组件，React Flow canvas
       role-node.tsx       — 自定义 role 节点
@@ -196,15 +181,22 @@ workflow-dashboard/src/
 
 图高度固定 300px，React Flow 支持 pan + zoom，不影响下方 records 滚动。
 
-## 分阶段实施
+## 实施计划
 
-### Phase 1: 数据层 + 静态图
+### ~~Phase 0: 数据层~~ ✅ Done (PR #201)
 
-1. 在 `workflow-protocol` 中新增 `TransitionEdge` / `WorkflowGraph` 类型
-2. 在 `workflow-register` 的 `buildDescriptor` 中从 `ModeratorTable` 提取 graph
-3. `stringifyWorkflowDescriptor` / `validateWorkflowDescriptor` 支持 graph 字段
-4. CLI serve 的 `/workflows` API 返回 descriptor（含 graph）
-5. Dashboard 新增 `WorkflowGraph` 组件，静态渲染图
+- [x] `WorkflowDefinition.moderator` → `table` (ModeratorTable)
+- [x] `WorkflowDescriptor` 新增 `graph: WorkflowGraph`
+- [x] `buildDescriptor` 自动提取 graph
+- [x] `validateWorkflowDescriptor` 校验 graph
+
+### Phase 1: API + 静态图渲染
+
+1. serve API：`GET /workflows/:name` 返回 descriptor（含 graph），或新增 `GET /workflows/:name/descriptor`
+2. Dashboard `api.ts` 新增 `getWorkflowDescriptor(agent, name)` 函数
+3. 安装 `@xyflow/react` + `@dagrejs/dagre`
+4. 实现 `workflow-graph/` 组件集
+5. ThreadDetail 中集成：从 thread-start record 拿 workflow name → 请求 descriptor → 渲染图
 
 **产出**：打开 ThreadDetail 看到 workflow 流程图，无高亮。
 
@@ -219,21 +211,14 @@ workflow-dashboard/src/
 ### Phase 3: 交互增强
 
 1. 点击节点滚动到对应 role 的 RecordCard
-2. 边 hover 显示 condition description tooltip
+2. 边 hover 显示 conditionDescription tooltip
 3. 节点 hover 显示 role description + schema summary
 
 **产出**：图和记录列表联动。
 
 ## 注意事项
 
-- **向后兼容**：`graph` 字段为 `null` 时（旧 bundle），不渲染图，只显示 records
 - **自循环边**：如 `coder → coder (FALLBACK)`，React Flow 支持自循环，dagre 需要特殊处理（self-edge 用 loop 路径）
 - **大图性能**：dagre 在 <50 节点时性能无忧，workflow 通常 <10 个 role
 - **暗色主题**：Dashboard 已使用 CSS variables，节点/边样式复用现有色板
 - **不提交 pnpm-lock.yaml**
-
-## 开放问题
-
-1. **graph 放 descriptor 还是独立字段？** — 建议放 descriptor，因为它描述的就是 workflow 结构
-2. **是否需要 WorkflowList 页也展示图？** — Phase 1 先只在 ThreadDetail，后续按需扩展
-3. **`buildDescriptor` 需要 `ModeratorTable` 参数** — 当前 `buildDescriptor` 只接收 roles，需要扩展签名或在 bundle 注册时额外传入 table
