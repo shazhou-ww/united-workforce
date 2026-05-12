@@ -22,6 +22,7 @@ export function spawnCli(
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd === null ? undefined : options.cwd,
+      env: process.env,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });

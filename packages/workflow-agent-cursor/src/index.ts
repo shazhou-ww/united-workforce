@@ -71,7 +71,7 @@ export function createCursorAgent(config: CursorAgentConfig): AgentFn {
       "--trust",
       "--force",
     ];
-    const run = await spawnCli("cursor-agent", args, {
+    const run = await spawnCli(config.command ?? "cursor-agent", args, {
       cwd: workspace,
       timeoutMs,
     });
