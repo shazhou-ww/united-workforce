@@ -5,6 +5,8 @@
 #   ./scripts/publish-all.sh           # Publish all packages
 #   ./scripts/publish-all.sh --dry-run # Show what would be published
 #
+# Package order is auto-resolved via topological sort of workspace:* dependencies.
+#
 # Prerequisites:
 #   - .npmrc in monorepo root with Gitea auth token
 #   - bun (for packing with workspace:* resolution)
@@ -24,36 +26,81 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   echo
 fi
 
-# Dependency order matters: leaf packages first
-PACKAGES=(
-  workflow-protocol
-  workflow-util
-  workflow-cas
-  workflow-runtime
-  workflow-reactor
-  workflow-register
-  workflow-execute
-  workflow-util-agent
-  workflow-agent-cursor
-  workflow-agent-hermes
-  workflow-agent-llm
-  workflow-template-develop
-  workflow-template-solve-issue
-  cli-workflow
-)
+# Topological sort: read all package.json files, build dependency graph, emit leaf-first order
+ORDERED=$(python3 -c "
+import json, os, sys
+from pathlib import Path
+
+pkgs_dir = Path('$MONOREPO_ROOT/packages')
+# name -> dir_name, and dependency edges
+name_to_dir = {}
+deps_graph = {}  # name -> set of @uncaged/* dependency names
+
+for d in sorted(pkgs_dir.iterdir()):
+    pj = d / 'package.json'
+    if not pj.exists():
+        continue
+    data = json.loads(pj.read_text())
+    name = data.get('name', '')
+    if not name.startswith('@uncaged/'):
+        continue
+    if data.get('private'):
+        continue
+    name_to_dir[name] = d.name
+    local_deps = set()
+    for section in ('dependencies', 'devDependencies', 'peerDependencies'):
+        for dep, ver in data.get(section, {}).items():
+            if dep.startswith('@uncaged/') and dep in name_to_dir or ver == 'workspace:*':
+                local_deps.add(dep)
+    deps_graph[name] = local_deps
+
+# Kahn's algorithm
+in_degree = {n: 0 for n in deps_graph}
+for n, ds in deps_graph.items():
+    for d in ds:
+        if d in in_degree:
+            in_degree[d] = in_degree.get(d, 0)  # ensure exists
+
+# Recount
+in_degree = {n: 0 for n in deps_graph}
+for n, ds in deps_graph.items():
+    for d in ds:
+        if d in in_degree:
+            in_degree[d] += 1
+
+# Wait, direction is wrong. If A depends on B, B must be published first.
+# So edge is: A -> B means B must come before A.
+# in_degree[A] = number of deps A has (that are in our set)
+in_degree = {n: 0 for n in deps_graph}
+for n, ds in deps_graph.items():
+    for d in ds:
+        if d in in_degree:
+            pass  # d is a dependency of n
+    in_degree[n] = len([d for d in ds if d in deps_graph])
+
+queue = [n for n, deg in in_degree.items() if deg == 0]
+queue.sort()  # stable order
+result = []
+while queue:
+    node = queue.pop(0)
+    result.append(node)
+    for n, ds in deps_graph.items():
+        if node in ds:
+            in_degree[n] -= 1
+            if in_degree[n] == 0:
+                queue.append(n)
+    queue.sort()
+
+for name in result:
+    print(name_to_dir[name])
+")
 
 ok=0
 fail=0
 
-for pkg in "${PACKAGES[@]}"; do
+while IFS= read -r pkg; do
   dir="$MONOREPO_ROOT/packages/$pkg"
-  [[ -f "$dir/package.json" ]] || { echo "⚠️  skip $pkg (no package.json)"; continue; }
-
-  # Skip private packages
-  if grep -q '"private": true' "$dir/package.json" 2>/dev/null; then
-    echo "  skip    @uncaged/$pkg (private)"
-    continue
-  fi
+  name=$(grep -m1 '"name"' "$dir/package.json" | sed 's/.*: *"\(.*\)".*/\1/')
 
   cd "$dir"
 
@@ -61,21 +108,20 @@ for pkg in "${PACKAGES[@]}"; do
   tgz=$(bun pm pack 2>&1 | grep '\.tgz' | grep -v packed | head -1 | tr -d ' ')
 
   if [[ -z "$tgz" || ! -f "$tgz" ]]; then
-    echo "❌ @uncaged/$pkg — pack failed"
+    echo "❌ $name — pack failed"
     ((fail++)) || true
     continue
   fi
 
   if npm publish "$tgz" --registry="$REGISTRY" $DRY_RUN 2>&1 | tail -1 | grep -q '+'; then
-    echo "✅ @uncaged/$pkg"
+    echo "✅ $name"
     ((ok++)) || true
   else
-    # Could be "already published" — not necessarily an error
-    echo "⚠️  @uncaged/$pkg (may already exist at this version)"
+    echo "⚠️  $name (may already exist at this version)"
   fi
 
   rm -f "$tgz"
-done
+done <<< "$ORDERED"
 
 echo
 echo "Published: $ok  Skipped/Failed: $fail"
