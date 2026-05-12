@@ -26,53 +26,6 @@ function extractWorkflowName(records: readonly ThreadRecord[]): string | null {
   return null;
 }
 
-type GraphPanelProps = {
-  descriptor: WorkflowDescriptor;
-  workflowName: string | null;
-  nodeStates: Map<string, NodeState>;
-  onNodeClick: ((roleName: string) => void) | null;
-};
-
-function GraphPanel({ descriptor, workflowName, nodeStates, onNodeClick }: GraphPanelProps) {
-  const [open, setOpen] = useState(true);
-  const edgeCount = descriptor.graph.edges.length;
-  return (
-    <div
-      className="mb-4 rounded-lg border overflow-hidden"
-      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        <span className="font-mono">
-          {open ? "▼" : "▶"} Workflow graph
-          {workflowName !== null && (
-            <span className="ml-2" style={{ color: "var(--color-text)" }}>
-              {workflowName}
-            </span>
-          )}
-        </span>
-        <span>
-          {edgeCount} edge{edgeCount === 1 ? "" : "s"}
-        </span>
-      </button>
-      {open && (
-        <div style={{ height: 300, width: "100%" }}>
-          <WorkflowGraph
-            graph={descriptor.graph}
-            roles={descriptor.roles}
-            nodeStates={nodeStates}
-            onNodeClick={onNodeClick}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeState> {
   const states = new Map<string, NodeState>();
   const roleRecords = records.filter(
@@ -227,46 +180,85 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
         </p>
       )}
 
-      {descriptor !== null && descriptor.graph.edges.length > 0 && (
-        <GraphPanel
-          descriptor={descriptor}
-          workflowName={workflowName}
-          nodeStates={nodeStates}
-          onNodeClick={handleGraphNodeClick}
-        />
-      )}
+      <div className="flex gap-4" style={{ minHeight: "calc(100vh - 120px)" }}>
+        {descriptor !== null && descriptor.graph.edges.length > 0 && (
+          <div
+            className="shrink-0"
+            style={{
+              width: 280,
+              position: "sticky",
+              top: 16,
+              height: "calc(100vh - 120px)",
+              alignSelf: "flex-start",
+            }}
+          >
+            <div
+              className="rounded-lg border h-full flex flex-col overflow-hidden"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div
+                className="flex items-center justify-between px-3 py-2 text-xs"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                <span className="font-mono">
+                  Workflow graph
+                  {workflowName !== null && (
+                    <span className="ml-2" style={{ color: "var(--color-text)" }}>
+                      {workflowName}
+                    </span>
+                  )}
+                </span>
+                <span>
+                  {descriptor.graph.edges.length} edge
+                  {descriptor.graph.edges.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="flex-1">
+                <WorkflowGraph
+                  graph={descriptor.graph}
+                  roles={descriptor.roles}
+                  nodeStates={nodeStates}
+                  onNodeClick={handleGraphNodeClick}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-      {status === "loading" && !liveActive && records.length === 0 && (
-        <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>
-      )}
-      {status === "error" && !liveActive && (
-        <p style={{ color: "var(--color-error)" }}>Error: {error}</p>
-      )}
-      {(status === "ok" || liveActive || records.length > 0) && (
-        <div className="space-y-3">
-          {records.map((r, i) => {
-            const key = `${threadId}-${i}`;
-            if (r.type === "role") {
-              const isFirstForRole = firstIndexByRole.get(r.role) === i;
-              const flash = highlightedRole === r.role;
-              return (
-                <div
-                  key={key}
-                  ref={(el) => {
-                    if (!isFirstForRole) return;
-                    if (el !== null) firstCardByRoleRef.current.set(r.role, el);
-                    else firstCardByRoleRef.current.delete(r.role);
-                  }}
-                >
-                  <RecordCard record={r} highlighted={flash} />
-                </div>
-              );
-            }
-            return <RecordCard key={key} record={r} highlighted={false} />;
-          })}
-          <div ref={recordsEndRef} aria-hidden />
+        <div className="flex-1 min-w-0">
+          {status === "loading" && !liveActive && records.length === 0 && (
+            <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>
+          )}
+          {status === "error" && !liveActive && (
+            <p style={{ color: "var(--color-error)" }}>Error: {error}</p>
+          )}
+          {(status === "ok" || liveActive || records.length > 0) && (
+            <div className="space-y-3">
+              {records.map((r, i) => {
+                const key = `${threadId}-${i}`;
+                if (r.type === "role") {
+                  const isFirstForRole = firstIndexByRole.get(r.role) === i;
+                  const flash = highlightedRole === r.role;
+                  return (
+                    <div
+                      key={key}
+                      ref={(el) => {
+                        if (!isFirstForRole) return;
+                        if (el !== null) firstCardByRoleRef.current.set(r.role, el);
+                        else firstCardByRoleRef.current.delete(r.role);
+                      }}
+                    >
+                      <RecordCard record={r} highlighted={flash} />
+                    </div>
+                  );
+                }
+                return <RecordCard key={key} record={r} highlighted={false} />;
+              })}
+              <div ref={recordsEndRef} aria-hidden />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
