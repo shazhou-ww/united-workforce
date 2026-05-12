@@ -9,5 +9,8 @@ export function collectRefs(payload: StateNode["payload"]): string[] {
   if (payload.compact !== null) {
     out.push(payload.compact);
   }
+  if (payload.childThread !== null) {
+    out.push(payload.childThread);
+  }
   return out;
 }

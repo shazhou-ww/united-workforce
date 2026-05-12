@@ -18,11 +18,25 @@ function isStartPayload(value: unknown): value is StartNodePayload {
   if (!isRecord(value)) {
     return false;
   }
+  const parentState = value.parentState;
+  if (parentState !== undefined && parentState !== null && typeof parentState !== "string") {
+    return false;
+  }
   return (
     typeof value.name === "string" &&
     typeof value.hash === "string" &&
     typeof value.depth === "number"
   );
+}
+
+/** Normalizes a raw start payload, defaulting `parentState` to `null` for legacy nodes. */
+function normalizeStartPayload(raw: StartNodePayload): StartNodePayload {
+  return {
+    name: raw.name,
+    hash: raw.hash,
+    depth: raw.depth,
+    parentState: raw.parentState ?? null,
+  };
 }
 
 function isStatePayload(value: unknown): value is StateNodePayload {
@@ -41,12 +55,30 @@ function isStatePayload(value: unknown): value is StateNodePayload {
   if (!isRecord(meta)) {
     return false;
   }
+  const childThread = value.childThread;
+  if (childThread !== undefined && childThread !== null && typeof childThread !== "string") {
+    return false;
+  }
   return (
     typeof value.role === "string" &&
     typeof value.start === "string" &&
     typeof value.content === "string" &&
     typeof value.timestamp === "number"
   );
+}
+
+/** Normalizes a raw state payload, defaulting `childThread` to `null` for legacy nodes. */
+function normalizeStatePayload(raw: StateNodePayload): StateNodePayload {
+  return {
+    role: raw.role,
+    meta: raw.meta,
+    start: raw.start,
+    content: raw.content,
+    ancestors: raw.ancestors,
+    compact: raw.compact,
+    timestamp: raw.timestamp,
+    childThread: raw.childThread ?? null,
+  };
 }
 
 /** Parses a YAML CAS blob into a typed RFC v3 thread node (or legacy content layout with `children`). */
@@ -86,14 +118,14 @@ export function parseCasThreadNode(yamlText: string): ParsedCasThreadNode | null
     if (!isStartPayload(raw.payload)) {
       return null;
     }
-    const node: StartNode = { type: "start", payload: raw.payload, refs: [...refs] };
+    const node: StartNode = { type: "start", payload: normalizeStartPayload(raw.payload), refs: [...refs] };
     return { kind: "start", node };
   }
 
   if (!isStatePayload(raw.payload)) {
     return null;
   }
-  const node: StateNode = { type: "state", payload: raw.payload, refs: [...refs] };
+  const node: StateNode = { type: "state", payload: normalizeStatePayload(raw.payload), refs: [...refs] };
   return { kind: "state", node };
 }
 
@@ -143,10 +175,14 @@ export async function putStartNode(
   payload: StartNode["payload"],
   promptHash: string,
 ): Promise<string> {
+  const refs = [promptHash];
+  if (payload.parentState !== null) {
+    refs.push(payload.parentState);
+  }
   const node: StartNode = {
     type: "start",
     payload,
-    refs: [promptHash],
+    refs,
   };
   return store.put(serializeCasNode(node));
 }
