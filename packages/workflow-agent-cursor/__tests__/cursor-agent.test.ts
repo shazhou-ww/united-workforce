@@ -101,27 +101,25 @@ describe("createCursorAgent", () => {
     expect(typeof agent).toBe("function");
   });
 
-  test("throws on invalid config at construction", () => {
-    expect(() =>
-      createCursorAgent({
-        command: "/usr/local/bin/cursor-agent",
-        model: null,
-        timeout: -1,
-        workspace: "/tmp/test-project",
-        llmProvider: null,
-      }),
-    ).toThrow();
+  test("defers validation to call time (invalid config does not throw at construction)", () => {
+    const agent = createCursorAgent({
+      command: "/usr/local/bin/cursor-agent",
+      model: null,
+      timeout: -1,
+      workspace: "/tmp/test-project",
+      llmProvider: null,
+    });
+    expect(typeof agent).toBe("function");
   });
 
-  test("throws when null workspace without llmProvider", () => {
-    expect(() =>
-      createCursorAgent({
-        command: "/usr/local/bin/cursor-agent",
-        model: null,
-        timeout: 0,
-        workspace: null,
-        llmProvider: null,
-      }),
-    ).toThrow();
+  test("defers validation — null workspace without llmProvider does not throw at construction", () => {
+    const agent = createCursorAgent({
+      command: "/usr/local/bin/cursor-agent",
+      model: null,
+      timeout: 0,
+      workspace: null,
+      llmProvider: null,
+    });
+    expect(typeof agent).toBe("function");
   });
 });

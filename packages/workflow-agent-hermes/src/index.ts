@@ -26,14 +26,14 @@ function throwHermesSpawnError(error: SpawnCliError): never {
 
 /** Runs `hermes chat` non-interactively with the Nerve-style argv contract (`-q`, `--yolo`, `--quiet`). */
 export function createHermesAgent(config: HermesAgentConfig): AgentFn {
-  const validated = validateHermesAgentConfig(config);
-  if (!validated.ok) {
-    throw new Error(validated.error);
-  }
-
   const timeoutMs = config.timeout;
 
   return async (ctx) => {
+    const validated = validateHermesAgentConfig(config);
+    if (!validated.ok) {
+      throw new Error(validated.error);
+    }
+
     const fullPrompt = await buildAgentPrompt(ctx);
     const args = [
       "chat",

@@ -30,16 +30,16 @@ function resolveCursorModel(model: string | null): string {
 
 /** Runs `cursor-agent` with workspace from config or extracted from context via LLM. */
 export function createCursorAgent(config: CursorAgentConfig): AgentFn {
-  const validated = validateCursorAgentConfig(config);
-  if (!validated.ok) {
-    throw new Error(validated.error);
-  }
-
   const modelFlag = resolveCursorModel(config.model);
   const timeoutMs = config.timeout > 0 ? config.timeout : null;
   const logger = createLogger({ sink: { kind: "stderr" } });
 
   return async (ctx) => {
+    const validated = validateCursorAgentConfig(config);
+    if (!validated.ok) {
+      throw new Error(validated.error);
+    }
+
     let workspace: string;
 
     if (config.workspace !== null) {

@@ -37,11 +37,11 @@ describe("validateHermesAgentConfig", () => {
 });
 
 describe("createHermesAgent", () => {
-  test("returns an AgentFn", () => {
+  test("returns an AgentFn even with invalid config (validation deferred to call)", () => {
     const agent = createHermesAgent({
       command: "/usr/local/bin/hermes",
       model: null,
-      timeout: null,
+      timeout: -5,
     });
     expect(typeof agent).toBe("function");
   });
