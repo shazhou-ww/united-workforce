@@ -245,22 +245,40 @@ bun run format      # biome format --write
 bun test            # run tests
 ```
 
-### Cross-repo Development (bun link)
+### Publishing to Gitea npm Registry
 
-For developing workflows in a separate repo (e.g. `xingyue-workflows`) against local monorepo packages:
+All public `@uncaged/*` packages are published to the Gitea npm registry at `git.shazhou.work`. Workflow workspaces consume packages from this registry via `bunfig.toml`.
 
 ```bash
-# 1. Register all @uncaged/* packages (run once from monorepo root)
-bun run link
+# Publish all packages (bun pm pack resolves workspace:* → actual versions)
+bun run publish:gitea
 
-# 2. Consume linked packages (run from the external workflow repo)
-bun run link:consume
-
-# 3. Restore original npm versions (undo link)
-bun run link:unlink
+# Dry run — see what would be published
+bun run publish:gitea:dry
 ```
 
-The script is at `scripts/link-all.sh`. It links/unlinks all 16 `@uncaged/*` packages.
+Prerequisites: `.npmrc` in monorepo root with Gitea auth token (`//git.shazhou.work/api/packages/shazhou/npm/:_authToken=<token>`).
+
+### Workflow Workspace Setup
+
+External workflow repos (e.g. `xingyue-workflows`) use the Gitea registry for `@uncaged/*` packages. Add a `bunfig.toml`:
+
+```toml
+[install.scopes]
+"@uncaged" = "https://git.shazhou.work/api/packages/shazhou/npm/"
+```
+
+Then `bun install` resolves `@uncaged/*` from Gitea, all other packages from npmjs.
+
+### Cross-repo Development (bun link)
+
+Alternative for development against un-published local changes:
+
+```bash
+bun run link            # Register all packages (from monorepo root)
+bun run link:consume    # Link into CWD's project (⚠️ don't bun install after)
+bun run link:unlink     # Restore original deps
+```
 
 ## Commit Convention
 

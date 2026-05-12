@@ -12,7 +12,9 @@
     "test": "bun run --filter '*' test",
     "link": "./scripts/link-all.sh",
     "link:consume": "./scripts/link-all.sh --consume",
-    "link:unlink": "./scripts/link-all.sh --unlink"
+    "link:unlink": "./scripts/link-all.sh --unlink",
+    "publish:gitea": "./scripts/publish-all.sh",
+    "publish:gitea:dry": "./scripts/publish-all.sh --dry-run"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
