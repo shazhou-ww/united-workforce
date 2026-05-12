@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { AGENT_SOCKET_INTERNAL_STATUS_PATH, AgentSocket } from "./agent-socket.js";
+import {
+  AGENT_SOCKET_INTERNAL_PROXY_PATH,
+  AGENT_SOCKET_INTERNAL_STATUS_PATH,
+  AgentSocket,
+} from "./agent-socket.js";
+import type { WsRequest } from "./ws-protocol.js";
 
 export { AgentSocket };
 
@@ -45,6 +50,97 @@ function isLocalAgentUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+function buildForwardHeaders(raw: Headers, agentToken: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of raw) {
+    const lower = key.toLowerCase();
+    if (lower === "host" || lower === "authorization") {
+      continue;
+    }
+    if (
+      lower === "connection" ||
+      lower === "keep-alive" ||
+      lower === "proxy-connection" ||
+      lower === "transfer-encoding" ||
+      lower === "upgrade"
+    ) {
+      continue;
+    }
+    out[key] = value;
+  }
+  if (agentToken !== "") {
+    out["X-Agent-Token"] = agentToken;
+  }
+  return out;
+}
+
+function buildDashboardProxyHeaders(raw: Headers, token: string): Headers {
+  const headers = new Headers(raw);
+  headers.delete("host");
+  headers.delete("Authorization");
+  if (token !== "") {
+    headers.set("X-Agent-Token", token);
+  }
+  return headers;
+}
+
+async function readBodyForWsProxy(method: string, req: Request): Promise<string | null> {
+  if (method === "GET" || method === "HEAD") {
+    return null;
+  }
+  const buf = await req.arrayBuffer();
+  return buf.byteLength === 0 ? null : new TextDecoder().decode(buf);
+}
+
+async function fetchThroughAgentSocket(
+  bindings: Env["Bindings"],
+  agent: string,
+  gateSecret: string,
+  wsRequest: WsRequest,
+): Promise<Response> {
+  const stub = bindings.AGENT_SOCKET.get(bindings.AGENT_SOCKET.idFromName(agent));
+  return stub.fetch(
+    new Request(`https://do.internal${AGENT_SOCKET_INTERNAL_PROXY_PATH}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${gateSecret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(wsRequest),
+    }),
+  );
+}
+
+async function fetchAgentWithRecordHeaders(
+  targetUrl: string,
+  method: string,
+  forwardRecord: Record<string, string>,
+  bodyStr: string | null,
+): Promise<Response> {
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(forwardRecord)) {
+    headers.set(k, v);
+  }
+  return fetch(targetUrl, {
+    method,
+    headers,
+    body: method !== "GET" && method !== "HEAD" ? (bodyStr ?? undefined) : undefined,
+  });
+}
+
+async function fetchAgentWithDashboardHeaders(
+  targetUrl: string,
+  method: string,
+  headers: Headers,
+  rawBody: BodyInit | null | undefined,
+): Promise<Response> {
+  return fetch(targetUrl, {
+    method,
+    headers,
+    body: method !== "GET" && method !== "HEAD" ? rawBody : undefined,
+  });
 }
 
 async function fetchAgentSocketStatus(
@@ -181,7 +277,7 @@ gateway.get("/endpoints", async (c) => {
 
 app.route("/api/gateway", gateway);
 
-// ── API proxy: /api/agents/:agent/* → agent's tunnel URL (dashboard auth) ──
+// ── API proxy: /api/agents/:agent/* → WebSocket (preferred) or agent tunnel URL (dashboard auth) ──
 app.all("/api/agents/:agent/*", async (c) => {
   if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
   const agent = c.req.param("agent");
@@ -191,26 +287,45 @@ app.all("/api/agents/:agent/*", async (c) => {
     return c.json({ error: "agent not found" }, 404);
   }
 
-  // Build target URL: strip /api/:agent prefix, forward the rest
   const url = new URL(c.req.url);
   const pathAfterAgent = url.pathname.replace(`/api/agents/${agent}`, "");
   const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
+  const proxyPath = `/api${pathAfterAgent}${url.search}`;
+  const method = c.req.method;
+  const token = record.agentToken ?? "";
+  const forwardRecord = buildForwardHeaders(c.req.raw.headers, token);
 
-  const headers = new Headers(c.req.raw.headers);
-  headers.delete("host");
-  headers.delete("Authorization"); // don't forward dashboard key to agent
-  if (record.agentToken) {
-    headers.set("X-Agent-Token", record.agentToken);
+  const doStatus = await fetchAgentSocketStatus(c.env, agent);
+  if (doStatus.ok && doStatus.connected) {
+    const bodyStr = await readBodyForWsProxy(method, c.req.raw);
+    const wsRequest: WsRequest = {
+      id: crypto.randomUUID(),
+      method,
+      path: proxyPath,
+      headers: forwardRecord,
+      body: bodyStr,
+    };
+    const proxyResp = await fetchThroughAgentSocket(c.env, agent, c.env.GATEWAY_SECRET, wsRequest);
+    if (proxyResp.status !== 503) {
+      return new Response(proxyResp.body, {
+        status: proxyResp.status,
+        headers: proxyResp.headers,
+      });
+    }
+    try {
+      const resp = await fetchAgentWithRecordHeaders(targetUrl, method, forwardRecord, bodyStr);
+      return new Response(resp.body, {
+        status: resp.status,
+        headers: resp.headers,
+      });
+    } catch (err) {
+      return c.json({ error: "agent unreachable", detail: String(err) }, 502);
+    }
   }
 
+  const headers = buildDashboardProxyHeaders(c.req.raw.headers, token);
   try {
-    const resp = await fetch(targetUrl, {
-      method: c.req.method,
-      headers,
-      body: c.req.method !== "GET" && c.req.method !== "HEAD" ? c.req.raw.body : undefined,
-    });
-
-    // Stream response back
+    const resp = await fetchAgentWithDashboardHeaders(targetUrl, method, headers, c.req.raw.body);
     return new Response(resp.body, {
       status: resp.status,
       headers: resp.headers,

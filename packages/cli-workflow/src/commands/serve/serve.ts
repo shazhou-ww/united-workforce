@@ -128,6 +128,7 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
       gatewayUrl: options.gatewayUrl,
       name: options.name,
       secret: options.gatewaySecret,
+      localPort: options.port,
       log,
     });
     printCliLine("gateway WebSocket reverse connection (no cloudflared)");

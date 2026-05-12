@@ -6,6 +6,7 @@
     "uncaged-workflow": "src/cli.ts"
   },
   "dependencies": {
+    "@uncaged/workflow-gateway": "workspace:*",
     "@uncaged/workflow-protocol": "workspace:*",
     "@uncaged/workflow-util": "workspace:*",
     "@uncaged/workflow-cas": "workspace:*",

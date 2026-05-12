@@ -1,9 +1,11 @@
+import { parseWsRequestJson, type WsResponse } from "@uncaged/workflow-gateway/ws-protocol";
 import type { LogFn } from "@uncaged/workflow-util";
 
 export type GatewayWsClientParams = {
   gatewayUrl: string;
   name: string;
   secret: string;
+  localPort: number;
   log: LogFn;
 };
 
@@ -22,6 +24,58 @@ export function buildGatewayWsConnectUrl(gatewayUrl: string, name: string, secre
   u.searchParams.set("name", name);
   u.searchParams.set("secret", secret);
   return u.href;
+}
+
+function headersToRecord(h: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of h) {
+    out[k] = v;
+  }
+  return out;
+}
+
+async function handleGatewayMessage(
+  ws: WebSocket,
+  raw: string,
+  params: GatewayWsClientParams,
+): Promise<void> {
+  const req = parseWsRequestJson(raw);
+  if (req === null) {
+    params.log("ZM8K2PQ1", "gateway WebSocket dropped non-request message");
+    return;
+  }
+  const localUrl = `http://127.0.0.1:${String(params.localPort)}${req.path}`;
+  const initHeaders = new Headers();
+  for (const [k, v] of Object.entries(req.headers)) {
+    initHeaders.set(k, v);
+  }
+  let resp: Response;
+  try {
+    resp = await fetch(localUrl, {
+      method: req.method,
+      headers: initHeaders,
+      body: req.body === null ? undefined : req.body,
+    });
+  } catch (e) {
+    params.log("R4N7BQ3C", `local proxy fetch failed: ${String(e)}`);
+    const errBody: WsResponse = {
+      id: req.id,
+      status: 502,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ error: "local fetch failed", detail: String(e) }),
+    };
+    ws.send(JSON.stringify(errBody));
+    return;
+  }
+  const bodyText = await resp.text();
+  const headerRecord = headersToRecord(resp.headers);
+  const out: WsResponse = {
+    id: req.id,
+    status: resp.status,
+    headers: headerRecord,
+    body: bodyText,
+  };
+  ws.send(JSON.stringify(out));
 }
 
 /** Maintains a reverse WebSocket to the workflow gateway; reconnects with exponential backoff. */
@@ -87,15 +141,14 @@ export function startGatewayWsClient(params: GatewayWsClientParams): () => void 
     });
 
     ws.addEventListener("message", (ev) => {
-      let preview: string;
-      if (typeof ev.data === "string") {
-        preview = ev.data;
-      } else if (ev.data instanceof ArrayBuffer) {
-        preview = `[binary ${String(ev.data.byteLength)} bytes]`;
-      } else {
-        preview = "[non-text message]";
+      const data = ev.data;
+      if (typeof data !== "string") {
+        params.log("T9W2KL5H", "gateway WebSocket non-text frame ignored");
+        return;
       }
-      params.log("3FHK5NDJ", `gateway → agent (phase 2 stub): ${preview.slice(0, 500)}`);
+      void handleGatewayMessage(ws, data, params).catch((e: unknown) => {
+        params.log("V7KX2M9P", `gateway WebSocket handler error: ${String(e)}`);
+      });
     });
   };
 
