@@ -142,27 +142,38 @@ async function promptLine(
 async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> {
   const rl = createInterface({ input, output });
   try {
-    const provider = await promptLine(rl, "Provider name (e.g. openai, dashscope): ");
+    printCliLine("Configure the LLM provider that workflow agents will use.\n");
+
+    const provider = await promptLine(
+      rl,
+      "Provider name — a short label for this LLM service (e.g. openai, dashscope): ",
+    );
     if (provider === "") {
       return err("provider name must not be empty");
     }
-    const baseUrl = await promptLine(rl, "Base URL: ");
+    const baseUrl = await promptLine(
+      rl,
+      "OpenAI-compatible API base URL\n  (e.g. https://api.openai.com/v1, https://dashscope.aliyuncs.com/compatible-mode/v1): ",
+    );
     if (baseUrl === "") {
       return err("base URL must not be empty");
     }
     // Note: readline does not support masked input; API key is visible during entry.
     // Acceptable for a local dev CLI — not a production-facing prompt.
-    const apiKey = await promptLine(rl, "API key: ");
+    const apiKey = await promptLine(rl, "API key for this provider: ");
     if (apiKey === "") {
       return err("API key must not be empty");
     }
-    const defaultModel = await promptLine(rl, "Default model (provider/model): ");
+    const defaultModel = await promptLine(
+      rl,
+      `Default model — format: ${provider}/<model-name>\n  (e.g. ${provider}/gpt-4o, ${provider}/qwen-plus): `,
+    );
     if (defaultModel === "") {
       return err("default model must not be empty");
     }
     const yn = await promptLine(
       rl,
-      "Initialize a workflow workspace under the current directory? (y/n): ",
+      "\nCreate a workflow workspace in the current directory? (y/n): ",
     );
     const lower = yn.toLowerCase();
     let initWorkspaceName: string | null = null;
