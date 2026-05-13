@@ -1,5 +1,11 @@
 # @uncaged/workflow-gateway
 
+## 0.4.2
+
+### Patch Changes
+
+- Fix workspace dependency resolution: use workspace:^ so published packages resolve to compatible versions instead of exact (non-existent) versions.
+
 ## 0.4.0
 
 ### Minor Changes

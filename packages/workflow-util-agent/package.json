@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-util-agent",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": [
     "dist",
     "package.json"
@@ -18,8 +18,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-runtime": "workspace:*",
-    "@uncaged/workflow-cas": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:^",
+    "@uncaged/workflow-cas": "workspace:^",
     "zod": "^4.0.0"
   }
 }

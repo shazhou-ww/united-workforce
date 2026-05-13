@@ -10,14 +10,9 @@
     "typecheck": "bunx tsc --build",
     "format": "biome format --write .",
     "test": "bun run --filter '*' test",
-    "link": "./scripts/link-all.sh",
-    "link:consume": "./scripts/link-all.sh --consume",
-    "link:unlink": "./scripts/link-all.sh --unlink",
-    "publish:gitea": "./scripts/publish.sh patch",
-    "publish:gitea:dry": "./scripts/publish.sh --dry-run patch",
     "changeset": "bunx changeset",
     "version": "bunx changeset version",
-    "release": "bunx changeset publish --no-git-tag"
+    "release": "bun run build && bun test && bunx changeset publish --no-git-tag"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",

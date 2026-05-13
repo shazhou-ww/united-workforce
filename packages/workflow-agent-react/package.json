@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-agent-react",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": [
     "dist",
     "package.json"
@@ -18,9 +18,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:*",
-    "@uncaged/workflow-reactor": "workspace:*",
-    "@uncaged/workflow-util-agent": "workspace:*"
+    "@uncaged/workflow-protocol": "workspace:^",
+    "@uncaged/workflow-reactor": "workspace:^",
+    "@uncaged/workflow-util-agent": "workspace:^"
   },
   "devDependencies": {
     "zod": "^4.0.0"

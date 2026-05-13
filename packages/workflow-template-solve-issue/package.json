@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-template-solve-issue",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": [
     "dist",
     "package.json"
@@ -17,13 +17,13 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-register": "workspace:*",
-    "@uncaged/workflow-runtime": "workspace:*",
+    "@uncaged/workflow-register": "workspace:^",
+    "@uncaged/workflow-runtime": "workspace:^",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@uncaged/workflow-cas": "workspace:*",
-    "@uncaged/workflow-execute": "workspace:*",
-    "@uncaged/workflow-protocol": "workspace:*"
+    "@uncaged/workflow-cas": "workspace:^",
+    "@uncaged/workflow-execute": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:^"
   }
 }

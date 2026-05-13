@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/cli-workflow",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": [
     "src",
     "dist",
@@ -11,13 +11,13 @@
     "uncaged-workflow": "src/cli.ts"
   },
   "dependencies": {
-    "@uncaged/workflow-gateway": "workspace:*",
-    "@uncaged/workflow-protocol": "workspace:*",
-    "@uncaged/workflow-util": "workspace:*",
-    "@uncaged/workflow-cas": "workspace:*",
-    "@uncaged/workflow-execute": "workspace:*",
-    "@uncaged/workflow-register": "workspace:*",
-    "@uncaged/workflow-runtime": "workspace:*",
+    "@uncaged/workflow-gateway": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
+    "@uncaged/workflow-cas": "workspace:^",
+    "@uncaged/workflow-execute": "workspace:^",
+    "@uncaged/workflow-register": "workspace:^",
+    "@uncaged/workflow-runtime": "workspace:^",
     "hono": "^4.12.18",
     "yaml": "^2.8.4"
   },

@@ -1,5 +1,14 @@
 # @uncaged/workflow-runtime
 
+## 0.4.2
+
+### Patch Changes
+
+- Fix workspace dependency resolution: use workspace:^ so published packages resolve to compatible versions instead of exact (non-existent) versions.
+- Updated dependencies
+  - @uncaged/workflow-cas@0.4.2
+  - @uncaged/workflow-protocol@0.4.2
+
 ## 0.4.0
 
 ### Minor Changes
