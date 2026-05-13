@@ -1,19 +1,18 @@
 {
   "name": "@uncaged/workflow-runtime",
-  "version": "0.3.21",
+  "version": "0.4.0",
   "files": [
     "dist",
     "package.json"
   ],
   "type": "module",
-  "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-cas": "workspace:*",
-    "@uncaged/workflow-protocol": "workspace:*"
+    "@uncaged/workflow-cas": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:^"
   },
   "peerDependencies": {
     "zod": "^4.0.0"
@@ -23,8 +22,9 @@
   },
   "exports": {
     ".": {
+      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./src/index.ts"
+      "import": "./dist/index.js"
     }
   }
 }

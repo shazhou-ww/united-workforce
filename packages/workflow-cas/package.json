@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-cas",
-  "version": "0.3.21",
+  "version": "0.4.0",
   "files": [
     "dist",
     "package.json"
@@ -11,13 +11,14 @@
   },
   "exports": {
     ".": {
+      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./src/index.ts"
+      "import": "./dist/index.js"
     }
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:*",
-    "@uncaged/workflow-util": "workspace:*",
+    "@uncaged/workflow-protocol": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
     "xxhashjs": "^0.2.2",
     "yaml": "^2.7.1"
   },
