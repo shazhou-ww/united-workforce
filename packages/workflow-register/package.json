@@ -14,8 +14,8 @@
     }
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^"
+    "@uncaged/workflow-protocol": "workspace:*",
+    "@uncaged/workflow-util": "workspace:*"
   },
   "peerDependencies": {
     "acorn": "^8.0.0",

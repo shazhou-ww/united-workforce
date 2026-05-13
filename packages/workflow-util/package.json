@@ -14,7 +14,7 @@
     }
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^"
+    "@uncaged/workflow-protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

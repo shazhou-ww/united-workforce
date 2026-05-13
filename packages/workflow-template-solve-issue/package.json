@@ -17,13 +17,13 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-register": "workspace:^",
-    "@uncaged/workflow-runtime": "workspace:^",
+    "@uncaged/workflow-register": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@uncaged/workflow-cas": "workspace:^",
-    "@uncaged/workflow-execute": "workspace:^",
-    "@uncaged/workflow-protocol": "workspace:^"
+    "@uncaged/workflow-cas": "workspace:*",
+    "@uncaged/workflow-execute": "workspace:*",
+    "@uncaged/workflow-protocol": "workspace:*"
   }
 }

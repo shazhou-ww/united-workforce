@@ -11,11 +11,11 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-reactor": "workspace:^",
-    "@uncaged/workflow-runtime": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
-    "@uncaged/workflow-util-agent": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:*",
+    "@uncaged/workflow-reactor": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:*",
+    "@uncaged/workflow-util": "workspace:*",
+    "@uncaged/workflow-util-agent": "workspace:*",
     "zod": "^4.0.0"
   },
   "exports": {

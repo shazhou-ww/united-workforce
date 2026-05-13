@@ -17,12 +17,12 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-runtime": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
-    "@uncaged/workflow-cas": "workspace:^",
-    "@uncaged/workflow-reactor": "workspace:^",
-    "@uncaged/workflow-register": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:*",
+    "@uncaged/workflow-runtime": "workspace:*",
+    "@uncaged/workflow-util": "workspace:*",
+    "@uncaged/workflow-cas": "workspace:*",
+    "@uncaged/workflow-reactor": "workspace:*",
+    "@uncaged/workflow-register": "workspace:*",
     "yaml": "^2.7.1"
   },
   "peerDependencies": {

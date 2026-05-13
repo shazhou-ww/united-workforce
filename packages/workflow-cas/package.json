@@ -17,8 +17,8 @@
     }
   },
   "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:*",
+    "@uncaged/workflow-util": "workspace:*",
     "xxhashjs": "^0.2.2",
     "yaml": "^2.7.1"
   },

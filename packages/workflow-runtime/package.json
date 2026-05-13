@@ -11,8 +11,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/workflow-cas": "workspace:^",
-    "@uncaged/workflow-protocol": "workspace:^"
+    "@uncaged/workflow-cas": "workspace:*",
+    "@uncaged/workflow-protocol": "workspace:*"
   },
   "peerDependencies": {
     "zod": "^4.0.0"
