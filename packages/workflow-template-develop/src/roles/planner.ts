@@ -63,5 +63,5 @@ export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
   schema: plannerMetaSchema,
-  extractRefs: (meta) => meta.status === "planned" ? meta.phases.map((p) => p.hash) : [],
+  extractRefs: (meta) => (meta.status === "planned" ? meta.phases.map((p) => p.hash) : []),
 };

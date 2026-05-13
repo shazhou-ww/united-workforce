@@ -2,24 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { createCursorAgent, validateCursorAgentConfig } from "../src/index.js";
 
 describe("validateCursorAgentConfig", () => {
-  test("accepts valid config with explicit workspace", () => {
+  test("accepts valid config", () => {
     const r = validateCursorAgentConfig({
       command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
-      workspace: "/tmp/test-project",
-      llmProvider: null,
-    });
-    expect(r.ok).toBe(true);
-  });
-
-  test("accepts valid config with null workspace and llmProvider", () => {
-    const r = validateCursorAgentConfig({
-      command: "/usr/local/bin/cursor-agent",
-      model: null,
-      timeout: 0,
-      workspace: null,
-      llmProvider: { baseUrl: "http://localhost", apiKey: "test", model: "test" },
     });
     expect(r.ok).toBe(true);
   });
@@ -29,40 +16,10 @@ describe("validateCursorAgentConfig", () => {
       command: "cursor-agent",
       model: null,
       timeout: 0,
-      workspace: "/tmp/test-project",
-      llmProvider: null,
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.error).toContain("absolute path");
-    }
-  });
-
-  test("rejects empty workspace string", () => {
-    const r = validateCursorAgentConfig({
-      command: "/usr/local/bin/cursor-agent",
-      model: null,
-      timeout: 0,
-      workspace: "",
-      llmProvider: null,
-    });
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.error).toContain("workspace");
-    }
-  });
-
-  test("rejects null workspace without llmProvider", () => {
-    const r = validateCursorAgentConfig({
-      command: "/usr/local/bin/cursor-agent",
-      model: null,
-      timeout: 0,
-      workspace: null,
-      llmProvider: null,
-    });
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.error).toContain("llmProvider");
     }
   });
 
@@ -71,32 +28,17 @@ describe("validateCursorAgentConfig", () => {
       command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: -1,
-      workspace: "/tmp/test-project",
-      llmProvider: null,
     });
     expect(r.ok).toBe(false);
   });
 });
 
 describe("createCursorAgent", () => {
-  test("returns an AdapterFn with explicit workspace", () => {
+  test("returns an AdapterFn", () => {
     const agent = createCursorAgent({
       command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: 0,
-      workspace: "/tmp/test-project",
-      llmProvider: null,
-    });
-    expect(typeof agent).toBe("function");
-  });
-
-  test("returns an AdapterFn with null workspace and llmProvider", () => {
-    const agent = createCursorAgent({
-      command: "/usr/local/bin/cursor-agent",
-      model: null,
-      timeout: 0,
-      workspace: null,
-      llmProvider: { baseUrl: "http://localhost", apiKey: "test", model: "test" },
     });
     expect(typeof agent).toBe("function");
   });
@@ -106,19 +48,6 @@ describe("createCursorAgent", () => {
       command: "/usr/local/bin/cursor-agent",
       model: null,
       timeout: -1,
-      workspace: "/tmp/test-project",
-      llmProvider: null,
-    });
-    expect(typeof agent).toBe("function");
-  });
-
-  test("defers validation — null workspace without llmProvider does not throw at construction", () => {
-    const agent = createCursorAgent({
-      command: "/usr/local/bin/cursor-agent",
-      model: null,
-      timeout: 0,
-      workspace: null,
-      llmProvider: null,
     });
     expect(typeof agent).toBe("function");
   });

@@ -12,8 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@uncaged/workflow-cas": "workspace:^",
     "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-reactor": "workspace:^",
     "@uncaged/workflow-runtime": "workspace:^",
     "@uncaged/workflow-util": "workspace:^",
     "@uncaged/workflow-util-agent": "workspace:^",

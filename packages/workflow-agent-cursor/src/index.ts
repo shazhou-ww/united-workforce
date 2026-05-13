@@ -1,4 +1,4 @@
-import type { AdapterFn } from "@uncaged/workflow-runtime";
+import type { WorkflowRuntime } from "@uncaged/workflow-runtime";
 import { createLogger } from "@uncaged/workflow-util";
 import {
   buildThreadInput,
@@ -33,34 +33,23 @@ function resolveCursorModel(model: string | null): string {
   return model === null ? "auto" : model;
 }
 
-/** Runs `cursor-agent` with workspace from config or extracted from context via LLM. */
-export function createCursorAgent(config: CursorAgentConfig): AdapterFn {
+/** Runs `cursor-agent` with workspace extracted from thread context via runtime.extract. */
+export function createCursorAgent(config: CursorAgentConfig) {
   const modelFlag = resolveCursorModel(config.model);
   const timeoutMs = config.timeout > 0 ? config.timeout : null;
   const logger = createLogger({ sink: { kind: "stderr" } });
 
-  return createTextAdapter(async (ctx, prompt) => {
+  return createTextAdapter(async (ctx, prompt, runtime: WorkflowRuntime) => {
     const validated = validateCursorAgentConfig(config);
     if (!validated.ok) {
       throw new Error(validated.error);
     }
 
-    let workspace: string;
-
-    if (config.workspace !== null) {
-      workspace = config.workspace;
-    } else {
-      if (config.llmProvider === null) {
-        throw new Error("cursor-agent: llmProvider is required when workspace is null");
-      }
-      const agentCtx = { ...ctx, currentRole: { name: "cursor", systemPrompt: prompt } };
-      const extracted = await extractWorkspacePath(agentCtx, config.llmProvider, logger);
-      if (extracted === null) {
-        throw new Error(
-          "cursor-agent: failed to extract workspace path from context. Provide an explicit workspace or ensure previous steps include a repoPath.",
-        );
-      }
-      workspace = extracted;
+    const workspace = await extractWorkspacePath(ctx, runtime, logger);
+    if (workspace === null) {
+      throw new Error(
+        "cursor-agent: failed to extract workspace path from context. Ensure the task prompt or previous steps include a project path.",
+      );
     }
 
     logger("R5HN3YKQ", `cursor-agent workspace: ${workspace}`);

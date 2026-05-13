@@ -7,6 +7,8 @@ import type {
 } from "@uncaged/workflow-runtime";
 import type * as z from "zod/v4";
 
+export type { WorkflowRuntime } from "@uncaged/workflow-runtime";
+
 /**
  * Result from a text-producing agent (CLI spawn, LLM call, etc.).
  * `output` is the raw text; `childThread` links to a spawned sub-workflow.
@@ -23,6 +25,7 @@ export type TextAdapterResult = {
 export type TextProducerFn = (
   ctx: ThreadContext,
   prompt: string,
+  runtime: WorkflowRuntime,
 ) => Promise<string | TextAdapterResult>;
 
 /**
@@ -37,7 +40,7 @@ export type TextProducerFn = (
 export function createTextAdapter(producer: TextProducerFn): AdapterFn {
   return <T>(prompt: string, schema: z.ZodType<T>) => {
     return async (ctx: ThreadContext, runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
-      const result = await producer(ctx, prompt);
+      const result = await producer(ctx, prompt, runtime);
       const output = typeof result === "string" ? result : result.output;
       const childThread = typeof result === "string" ? null : result.childThread;
       const contentHash = await putContentNodeWithRefs(runtime.cas, output, []);
