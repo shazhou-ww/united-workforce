@@ -14,7 +14,11 @@ export const testerMetaSchema = z.discriminatedUnion("status", [
 
 export type TesterMeta = z.infer<typeof testerMetaSchema>;
 
-const TESTER_SYSTEM = `You are a tester. Run the project's test suite, build, and lint commands. Check what commands are available from the preparer's output in the thread. Report pass/fail with details of what failed.`;
+const TESTER_SYSTEM = `You are a tester. Run the project's test suite, build, and lint commands. Check what commands are available from the preparer's output in the thread. Report pass/fail with details of what failed.
+
+## Output rules
+
+Keep your final response **short**. Report pass/fail with a brief summary of failures (if any). Do NOT paste full test output or build logs — just the key error lines.`;
 
 export const testerRole: RoleDefinition<TesterMeta> = {
   description: "Runs test, build, and lint commands and reports pass or fail with details.",

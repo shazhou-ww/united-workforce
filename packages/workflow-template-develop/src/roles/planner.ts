@@ -39,7 +39,11 @@ Fewer phases is always better. Each phase must justify its existence — if two 
 After storing all phases via the CLI, output compact JSON only:
   { "phases": [{ "hash": "<hash-from-cas-put>", "title": "<one-line-summary>" }] }
 
-Order phases so earlier steps unblock later ones. Cover root cause, edge cases, and verification across the phases.`;
+Order phases so earlier steps unblock later ones. Cover root cause, edge cases, and verification across the phases.
+
+## Output rules
+
+Keep your final response **short** — just the JSON with phases. Do NOT paste code snippets, diffs, or implementation details in your response. Phase details are already stored in CAS; your response should only contain the compact phases JSON.`;
 
 export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
