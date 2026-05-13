@@ -272,31 +272,50 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     // Try to list available models from the provider.
     printCliLine("\nFetching available models...");
     const models = await fetchAvailableModels(baseUrl, apiKey);
-    let modelPrompt: string;
+    let selectedModel: string;
     if (models.length > 0) {
-      printCliLine(`Available models (${models.length}):`);
+      printCliLine(`\nAvailable models (${models.length}):\n`);
       const cols = process.stdout.columns || 80;
-      const maxLen = Math.max(...models.map((m) => m.length));
-      const colWidth = maxLen + 4;
-      const numCols = Math.max(1, Math.floor(cols / colWidth));
+      const nw = String(models.length).length; // number width
+      // Each cell: "  <num>) <model>  " — prefix is 2 + nw + 2 = nw+4
+      const prefixLen = nw + 4;
+      const maxModelLen = Math.max(...models.map((m) => m.length));
+      const cellWidth = prefixLen + maxModelLen + 2; // +2 gap between columns
+      const numCols = Math.max(1, Math.floor(cols / cellWidth));
       for (let i = 0; i < models.length; i += numCols) {
-        const row = models.slice(i, i + numCols);
-        printCliLine("  " + row.map((m) => m.padEnd(colWidth)).join(""));
+        const cells: string[] = [];
+        for (let j = i; j < Math.min(i + numCols, models.length); j++) {
+          const num = String(j + 1).padStart(nw);
+          cells.push(`  ${num}) ${(models[j]!).padEnd(maxModelLen + 2)}`);
+        }
+        printCliLine(cells.join(""));
       }
-      modelPrompt = `\nDefault model: `;
+      printCliLine(`\nChoose a number, or type a model name directly.`);
+      const modelInput = await promptLine(rl2, `Default model [1-${models.length}]: `);
+      if (modelInput === "") {
+        rl2.close();
+        return err("default model must not be empty");
+      }
+      const modelNum = Number.parseInt(modelInput, 10);
+      if (!Number.isNaN(modelNum) && modelNum >= 1 && modelNum <= models.length) {
+        selectedModel = models[modelNum - 1]!;
+      } else {
+        // Treat as a literal model name.
+        selectedModel = modelInput;
+      }
     } else {
       printCliWarn("Could not fetch models (API may not support /models endpoint).");
-      modelPrompt = `Default model (e.g. qwen-plus, gpt-4o): `;
-    }
-
-    const modelName = await promptLine(rl2, modelPrompt);
-    if (modelName === "") {
-      rl2.close();
-      return err("default model must not be empty");
+      const modelInput = await promptLine(rl2, `Default model (e.g. qwen-plus, gpt-4o): `);
+      if (modelInput === "") {
+        rl2.close();
+        return err("default model must not be empty");
+      }
+      selectedModel = modelInput;
     }
     // Strip provider prefix if user included one (e.g. pasted "MiniMax/MiniMax-M2.7").
-    const bare = modelName.includes("/") ? modelName.split("/").pop()! : modelName;
+    const bare = selectedModel.includes("/") ? selectedModel.split("/").pop()! : selectedModel;
     const defaultModel = `${provider}/${bare}`;
+    printCliLine(`  → ${defaultModel}`);
 
     const wsPath = await promptLine(
       rl2,
