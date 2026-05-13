@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Publish all public @uncaged/* packages to Gitea npm registry.
 #
+# PITFALL: After bumping versions in package.json, bun pm pack still reads the
+# old bun.lock and resolves workspace:* to the previous (stale) versions.
+# This script deletes bun.lock and runs bun install before packing to force
+# correct resolution of workspace:* dependencies.
+#
 # Usage:
 #   ./scripts/publish-all.sh           # Publish all packages
 #   ./scripts/publish-all.sh --dry-run # Show what would be published
@@ -94,6 +99,11 @@ while queue:
 for name in result:
     print(name_to_dir[name])
 ")
+
+# Regenerate lockfile so bun pm pack resolves workspace:* to freshly-bumped versions
+cd "$MONOREPO_ROOT"
+rm -f bun.lock
+bun install
 
 ok=0
 fail=0
