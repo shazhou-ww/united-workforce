@@ -15,7 +15,7 @@
     "sourceMap": true,
     "composite": true,
     "outDir": "dist",
-    "types": ["bun-types"]
+    "types": ["bun-types", "node"]
   },
   "references": [
     { "path": "packages/workflow-runtime" },
