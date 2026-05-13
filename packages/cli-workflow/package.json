@@ -2,12 +2,13 @@
   "name": "@uncaged/cli-workflow",
   "version": "0.3.18",
   "files": [
+    "src",
     "dist",
     "package.json"
   ],
   "type": "module",
   "bin": {
-    "uncaged-workflow": "dist/cli.js"
+    "uncaged-workflow": "src/cli.ts"
   },
   "dependencies": {
     "@uncaged/workflow-gateway": "workspace:*",
