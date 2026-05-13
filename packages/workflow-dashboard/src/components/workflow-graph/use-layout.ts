@@ -99,7 +99,7 @@ function buildEdge(e: WorkflowGraphEdge, elkEdgeMap: Map<string, ElkExtendedEdge
       isFallback,
       elkLabelX: labelX,
       elkLabelY: labelY,
-    } as ConditionEdgeData,
+    },
   };
 }
 
@@ -195,9 +195,16 @@ export function useLayout(input: LayoutInput): LayoutResult {
       roles: JSON.parse(roleJson) as Record<string, { description: string }>,
       nodeStates: input.nodeStates,
     };
-    computeLayout(parsed).then((result) => {
-      if (!cancelled) setLayout(result);
-    });
+    computeLayout(parsed)
+      .then((result) => {
+        if (!cancelled) setLayout(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          // biome-ignore lint/suspicious/noConsole: layout error reporting
+          console.error("ELK layout failed:", err);
+        }
+      });
     return () => {
       cancelled = true;
     };

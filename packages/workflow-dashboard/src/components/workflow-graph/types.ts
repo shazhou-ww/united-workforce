@@ -21,6 +21,8 @@ export type ConditionEdgeData = {
   condition: string;
   conditionDescription: string | null;
   isFallback: boolean;
+  elkLabelX: number | null;
+  elkLabelY: number | null;
   [key: string]: unknown;
 };
 
