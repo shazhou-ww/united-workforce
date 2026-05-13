@@ -155,11 +155,67 @@ async function promptLine(
   return raw.trim();
 }
 
+type SecretInputState = {
+  buf: string;
+  rawWasSet: boolean;
+  onData: (chunk: string) => void;
+  fulfill: (value: string) => void;
+};
+
+function isLineTerminator(c: string): boolean {
+  return c === "\n" || c === "\r" || c === "\u0004";
+}
+
+function handleLineTerminator(state: SecretInputState): void {
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(state.rawWasSet);
+  }
+  process.stdin.pause();
+  process.stdin.removeListener("data", state.onData);
+  process.stdout.write("\n");
+  state.fulfill(state.buf.trim());
+}
+
+function handleBackspace(state: SecretInputState): void {
+  if (state.buf.length > 0) {
+    state.buf = state.buf.slice(0, -1);
+    process.stdout.write("\b \b");
+  }
+}
+
+function handleInterrupt(rawWasSet: boolean): void {
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(rawWasSet);
+  }
+  process.exit(130);
+}
+
+function isBackspace(c: string): boolean {
+  return c === "\u007F" || c === "\b";
+}
+
+/** Process a single character in secret input. Returns "done" to stop reading. */
+function processSecretChar(c: string, state: SecretInputState): "done" | "skip" | "append" {
+  if (isLineTerminator(c)) {
+    handleLineTerminator(state);
+    return "done";
+  }
+  if (isBackspace(c)) {
+    handleBackspace(state);
+    return "skip";
+  }
+  if (c === "\u0003") {
+    handleInterrupt(state.rawWasSet);
+  }
+  state.buf += c;
+  process.stdout.write("*");
+  return "append";
+}
+
 /** Read a line with terminal echo disabled (for secrets). */
 async function promptSecret(label: string): Promise<string> {
   process.stdout.write(label);
   return new Promise((fulfill) => {
-    let buf = "";
     const rawWasSet = process.stdin.isRaw;
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
@@ -167,36 +223,15 @@ async function promptSecret(label: string): Promise<string> {
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
 
+    const state: SecretInputState = { buf: "", rawWasSet, fulfill, onData: () => {} };
+
     const onData = (chunk: string) => {
       for (const c of chunk.toString()) {
-        if (c === "\n" || c === "\r" || c === "\u0004") {
-          if (process.stdin.isTTY) {
-            process.stdin.setRawMode(rawWasSet);
-          }
-          process.stdin.pause();
-          process.stdin.removeListener("data", onData);
-          process.stdout.write("\n");
-          fulfill(buf.trim());
-          return;
-        }
-        if (c === "\u007F" || c === "\b") {
-          if (buf.length > 0) {
-            buf = buf.slice(0, -1);
-            process.stdout.write("\b \b");
-          }
-          continue;
-        }
-        if (c === "\u0003") {
-          if (process.stdin.isTTY) {
-            process.stdin.setRawMode(rawWasSet);
-          }
-          process.exit(130);
-        }
-        buf += c;
-        process.stdout.write("*");
+        if (processSecretChar(c, state) === "done") return;
       }
     };
 
+    state.onData = onData;
     process.stdin.on("data", onData);
   });
 }
@@ -234,134 +269,150 @@ async function fetchAvailableModels(baseUrl: string, apiKey: string): Promise<st
   }
 }
 
+type PresetProvider = ReturnType<typeof loadPresetProviders>[number];
+
+function printProviderMenu(presets: readonly PresetProvider[]): void {
+  const numWidth = String(presets.length + 1).length;
+  printCliLine("Select a provider:\n");
+  for (let i = 0; i < presets.length; i++) {
+    const p = presets.at(i);
+    if (!p) continue;
+    const num = String(i + 1).padStart(numWidth);
+    printCliLine(`  ${num}) ${p.label.padEnd(28)} ${p.baseUrl}`);
+  }
+  const customNum = String(presets.length + 1).padStart(numWidth);
+  printCliLine(`  ${customNum}) Custom (enter name and URL manually)`);
+  printCliLine("");
+}
+
+async function selectProvider(
+  rl: { question: (q: string) => Promise<string> },
+  presets: readonly PresetProvider[],
+): Promise<Result<{ provider: string; baseUrl: string }, string>> {
+  const choice = await promptLine(rl, `Choose [1-${presets.length + 1}]: `);
+  const choiceNum = Number.parseInt(choice, 10);
+  if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > presets.length + 1) {
+    return err(`invalid choice: ${choice}`);
+  }
+
+  if (choiceNum <= presets.length) {
+    const selected = presets.at(choiceNum - 1);
+    if (!selected) return err(`invalid choice: ${choice}`);
+    printCliLine(`\n  → ${selected.label} (${selected.baseUrl})\n`);
+    return ok({ provider: selected.name, baseUrl: selected.baseUrl });
+  }
+
+  const provider = await promptLine(rl, "Provider name (e.g. my-proxy): ");
+  if (provider === "") return err("provider name must not be empty");
+  const baseUrl = await promptLine(rl, "OpenAI-compatible API base URL: ");
+  if (baseUrl === "") return err("base URL must not be empty");
+  return ok({ provider, baseUrl });
+}
+
+function printModelList(models: string[]): void {
+  const cols = process.stdout.columns || 80;
+  const nw = String(models.length).length;
+  const prefixLen = nw + 4;
+  const maxModelLen = Math.max(...models.map((m) => m.length));
+  const cellWidth = prefixLen + maxModelLen + 2;
+  const numCols = Math.max(1, Math.floor(cols / cellWidth));
+  for (let i = 0; i < models.length; i += numCols) {
+    const cells: string[] = [];
+    for (let j = i; j < Math.min(i + numCols, models.length); j++) {
+      const num = String(j + 1).padStart(nw);
+      const model = models.at(j) ?? "";
+      cells.push(`  ${num}) ${model.padEnd(maxModelLen + 2)}`);
+    }
+    printCliLine(cells.join(""));
+  }
+}
+
+async function selectModel(
+  rl: { question: (q: string) => Promise<string> },
+  models: string[],
+): Promise<Result<string, string>> {
+  if (models.length > 0) {
+    printCliLine(`\nAvailable models (${models.length}):\n`);
+    printModelList(models);
+    printCliLine(`\nChoose a number, or type a model name directly.`);
+    const modelInput = await promptLine(rl, `Default model [1-${models.length}]: `);
+    if (modelInput === "") return err("default model must not be empty");
+    const modelNum = Number.parseInt(modelInput, 10);
+    if (!Number.isNaN(modelNum) && modelNum >= 1 && modelNum <= models.length) {
+      return ok(models.at(modelNum - 1) ?? modelInput);
+    }
+    return ok(modelInput);
+  }
+
+  printCliWarn("Could not fetch models (API may not support /models endpoint).");
+  const modelInput = await promptLine(rl, `Default model (e.g. qwen-plus, gpt-4o): `);
+  if (modelInput === "") return err("default model must not be empty");
+  return ok(modelInput);
+}
+
+async function selectWorkspace(rl: {
+  question: (q: string) => Promise<string>;
+}): Promise<string | null> {
+  while (true) {
+    const wsPath = await promptLine(
+      rl,
+      "\nWorkflow workspace path (default: ./workflows, type 'skip' to skip): ",
+    );
+    if (wsPath.toLowerCase() === "skip") return null;
+    const candidate = wsPath === "" ? "./workflows" : wsPath;
+    const resolved = resolvePath(process.cwd(), candidate);
+    if (existsSync(resolved)) {
+      printCliWarn(`directory already exists: ${resolved}`);
+      printCliLine("Please enter a different path, or type 'skip' to skip.");
+      continue;
+    }
+    return candidate;
+  }
+}
+
+function stripProviderPrefix(model: string): string {
+  if (model.includes("/")) {
+    return model.split("/").pop() ?? model;
+  }
+  return model;
+}
+
 async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> {
   const rl = createInterface({ input, output });
   try {
     printCliLine("Configure the LLM provider that workflow agents will use.\n");
 
     const presets = loadPresetProviders();
-    const numWidth = String(presets.length + 1).length;
-    printCliLine("Select a provider:\n");
-    for (let i = 0; i < presets.length; i++) {
-      const p = presets[i]!;
-      const num = String(i + 1).padStart(numWidth);
-      printCliLine(`  ${num}) ${p.label.padEnd(28)} ${p.baseUrl}`);
-    }
-    const customNum = String(presets.length + 1).padStart(numWidth);
-    printCliLine(`  ${customNum}) Custom (enter name and URL manually)`);
-    printCliLine("");
+    printProviderMenu(presets);
 
-    const choice = await promptLine(rl, `Choose [1-${presets.length + 1}]: `);
-    const choiceNum = Number.parseInt(choice, 10);
-    if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > presets.length + 1) {
+    const providerResult = await selectProvider(rl, presets);
+    if (!providerResult.ok) {
       rl.close();
-      return err(`invalid choice: ${choice}`);
+      return providerResult;
     }
+    const { provider, baseUrl } = providerResult.value;
 
-    let provider: string;
-    let baseUrl: string;
-    if (choiceNum <= presets.length) {
-      const selected = presets[choiceNum - 1]!;
-      provider = selected.name;
-      baseUrl = selected.baseUrl;
-      printCliLine(`\n  → ${selected.label} (${baseUrl})\n`);
-    } else {
-      provider = await promptLine(rl, "Provider name (e.g. my-proxy): ");
-      if (provider === "") {
-        return err("provider name must not be empty");
-      }
-      baseUrl = await promptLine(rl, "OpenAI-compatible API base URL: ");
-      if (baseUrl === "") {
-        return err("base URL must not be empty");
-      }
-    }
-
-    // Close readline before raw-mode secret prompt, reopen after.
     rl.close();
     const apiKey = await promptSecret("API key for this provider: ");
-    if (apiKey === "") {
-      return err("API key must not be empty");
-    }
+    if (apiKey === "") return err("API key must not be empty");
     const rl2 = createInterface({ input, output });
 
-    // Try to list available models from the provider.
     printCliLine("\nFetching available models...");
     const models = await fetchAvailableModels(baseUrl, apiKey);
-    let selectedModel: string;
-    if (models.length > 0) {
-      printCliLine(`\nAvailable models (${models.length}):\n`);
-      const cols = process.stdout.columns || 80;
-      const nw = String(models.length).length; // number width
-      // Each cell: "  <num>) <model>  " — prefix is 2 + nw + 2 = nw+4
-      const prefixLen = nw + 4;
-      const maxModelLen = Math.max(...models.map((m) => m.length));
-      const cellWidth = prefixLen + maxModelLen + 2; // +2 gap between columns
-      const numCols = Math.max(1, Math.floor(cols / cellWidth));
-      for (let i = 0; i < models.length; i += numCols) {
-        const cells: string[] = [];
-        for (let j = i; j < Math.min(i + numCols, models.length); j++) {
-          const num = String(j + 1).padStart(nw);
-          cells.push(`  ${num}) ${(models[j]!).padEnd(maxModelLen + 2)}`);
-        }
-        printCliLine(cells.join(""));
-      }
-      printCliLine(`\nChoose a number, or type a model name directly.`);
-      const modelInput = await promptLine(rl2, `Default model [1-${models.length}]: `);
-      if (modelInput === "") {
-        rl2.close();
-        return err("default model must not be empty");
-      }
-      const modelNum = Number.parseInt(modelInput, 10);
-      if (!Number.isNaN(modelNum) && modelNum >= 1 && modelNum <= models.length) {
-        selectedModel = models[modelNum - 1]!;
-      } else {
-        // Treat as a literal model name.
-        selectedModel = modelInput;
-      }
-    } else {
-      printCliWarn("Could not fetch models (API may not support /models endpoint).");
-      const modelInput = await promptLine(rl2, `Default model (e.g. qwen-plus, gpt-4o): `);
-      if (modelInput === "") {
-        rl2.close();
-        return err("default model must not be empty");
-      }
-      selectedModel = modelInput;
+    const modelResult = await selectModel(rl2, models);
+    if (!modelResult.ok) {
+      rl2.close();
+      return modelResult;
     }
-    // Strip provider prefix if user included one (e.g. pasted "MiniMax/MiniMax-M2.7").
-    const bare = selectedModel.includes("/") ? selectedModel.split("/").pop()! : selectedModel;
+
+    const bare = stripProviderPrefix(modelResult.value);
     const defaultModel = `${provider}/${bare}`;
     printCliLine(`  → ${defaultModel}`);
 
-    let initWorkspaceName: string | null = null;
-    // Loop until a valid workspace path is provided or the user skips.
-    while (true) {
-      const wsPath = await promptLine(
-        rl2,
-        "\nWorkflow workspace path (default: ./workflows, type 'skip' to skip): ",
-      );
-      if (wsPath.toLowerCase() === "skip") {
-        break;
-      }
-      const candidate = wsPath === "" ? "./workflows" : wsPath;
-      // Validate path before passing to cmdSetup.
-      const resolved = resolvePath(process.cwd(), candidate);
-      if (existsSync(resolved)) {
-        printCliWarn(`directory already exists: ${resolved}`);
-        printCliLine("Please enter a different path, or type 'skip' to skip.");
-        continue;
-      }
-      initWorkspaceName = candidate;
-      break;
-    }
+    const initWorkspaceName = await selectWorkspace(rl2);
     rl2.close();
 
-    return ok({
-      provider,
-      baseUrl,
-      apiKey,
-      defaultModel,
-      initWorkspaceName,
-    });
+    return ok({ provider, baseUrl, apiKey, defaultModel, initWorkspaceName });
   } catch (e) {
     return err(e instanceof Error ? e.message : String(e));
   }

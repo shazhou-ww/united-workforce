@@ -3,6 +3,27 @@ import type { ToolEntry } from "./types.js";
 
 const MAX_OUTPUT = 10000;
 
+function truncate(text: string): string {
+  return text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n...(truncated)` : text;
+}
+
+function classifyExecError(err: unknown): string {
+  if (
+    err &&
+    typeof err === "object" &&
+    "status" in err &&
+    (err as { status: unknown }).status === null
+  ) {
+    return "Error: command timed out";
+  }
+  if (err && typeof err === "object" && "stderr" in err) {
+    const e = err as { stderr: string; stdout: string; status: number };
+    const combined = `${e.stdout ?? ""}${e.stderr ?? ""}`;
+    return truncate(combined) || `Error: command exited with status ${e.status}`;
+  }
+  return `Error: ${err instanceof Error ? err.message : String(err)}`;
+}
+
 export const shellExecTool: ToolEntry = {
   definition: {
     type: "function",
@@ -29,24 +50,9 @@ export const shellExecTool: ToolEntry = {
         stdio: ["pipe", "pipe", "pipe"],
         maxBuffer: MAX_OUTPUT * 2,
       });
-      return output.length > MAX_OUTPUT ? `${output.slice(0, MAX_OUTPUT)}\n...(truncated)` : output;
+      return truncate(output);
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === "object" &&
-        "status" in err &&
-        (err as { status: unknown }).status === null
-      ) {
-        return "Error: command timed out";
-      }
-      if (err && typeof err === "object" && "stderr" in err) {
-        const e = err as { stderr: string; stdout: string; status: number };
-        const combined = `${e.stdout ?? ""}${e.stderr ?? ""}`;
-        return combined.length > MAX_OUTPUT
-          ? `${combined.slice(0, MAX_OUTPUT)}\n...(truncated)`
-          : combined || `Error: command exited with status ${e.status}`;
-      }
-      return `Error: ${err instanceof Error ? err.message : String(err)}`;
+      return classifyExecError(err);
     }
   },
 };
