@@ -79,7 +79,7 @@ describe("validateCursorAgentConfig", () => {
 });
 
 describe("createCursorAgent", () => {
-  test("returns an AgentFn with explicit workspace", () => {
+  test("returns an AdapterFn with explicit workspace", () => {
     const agent = createCursorAgent({
       command: "/usr/local/bin/cursor-agent",
       model: null,
@@ -90,7 +90,7 @@ describe("createCursorAgent", () => {
     expect(typeof agent).toBe("function");
   });
 
-  test("returns an AgentFn with null workspace and llmProvider", () => {
+  test("returns an AdapterFn with null workspace and llmProvider", () => {
     const agent = createCursorAgent({
       command: "/usr/local/bin/cursor-agent",
       model: null,

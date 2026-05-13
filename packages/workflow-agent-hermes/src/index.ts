@@ -1,5 +1,10 @@
-import type { AgentFn } from "@uncaged/workflow-runtime";
-import { buildAgentPrompt, type SpawnCliError, spawnCli } from "@uncaged/workflow-util-agent";
+import type { AdapterFn } from "@uncaged/workflow-runtime";
+import {
+  buildThreadInput,
+  createTextAdapter,
+  type SpawnCliError,
+  spawnCli,
+} from "@uncaged/workflow-util-agent";
 
 import type { HermesAgentConfig } from "./types.js";
 import { validateHermesAgentConfig } from "./validate-config.js";
@@ -25,16 +30,17 @@ function throwHermesSpawnError(error: SpawnCliError): never {
 }
 
 /** Runs `hermes chat` non-interactively with the Nerve-style argv contract (`-q`, `--yolo`, `--quiet`). */
-export function createHermesAgent(config: HermesAgentConfig): AgentFn {
+export function createHermesAgent(config: HermesAgentConfig): AdapterFn {
   const timeoutMs = config.timeout;
 
-  return async (ctx) => {
+  return createTextAdapter(async (ctx, prompt) => {
     const validated = validateHermesAgentConfig(config);
     if (!validated.ok) {
       throw new Error(validated.error);
     }
 
-    const fullPrompt = await buildAgentPrompt(ctx);
+    const threadInput = await buildThreadInput(ctx);
+    const fullPrompt = `${prompt}\n\n${threadInput}`;
     const args = [
       "chat",
       "-q",
@@ -55,5 +61,5 @@ export function createHermesAgent(config: HermesAgentConfig): AgentFn {
       throwHermesSpawnError(run.error);
     }
     return run.value;
-  };
+  });
 }

@@ -1,11 +1,5 @@
-import {
-  type AgentContext,
-  type AgentFn,
-  err,
-  type LlmProvider,
-  ok,
-  type Result,
-} from "@uncaged/workflow-runtime";
+import { type AdapterFn, err, type LlmProvider, ok, type Result } from "@uncaged/workflow-runtime";
+import { createTextAdapter } from "@uncaged/workflow-util-agent";
 
 /** OpenAI chat completion message shape (passed to `/chat/completions`). */
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -97,13 +91,13 @@ export async function chatCompletionText(options: {
   return parseAssistantText(res.value);
 }
 
-/** Single-turn chat adapter: system prompt comes from {@link AgentContext.currentRole}. */
-export function createLlmAdapter(provider: LlmProvider): AgentFn {
-  return async (ctx: AgentContext) => {
+/** Single-turn chat adapter: system prompt is passed by the workflow engine. */
+export function createLlmAdapter(provider: LlmProvider): AdapterFn {
+  return createTextAdapter(async (ctx, prompt) => {
     const result = await chatCompletionText({
       provider,
       messages: [
-        { role: "system", content: ctx.currentRole.systemPrompt },
+        { role: "system", content: prompt },
         { role: "user", content: ctx.start.content },
       ],
     });
@@ -111,5 +105,5 @@ export function createLlmAdapter(provider: LlmProvider): AgentFn {
       throw new Error(`llm: ${formatLlmChatError(result.error)}`);
     }
     return result.value;
-  };
+  });
 }

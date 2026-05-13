@@ -143,18 +143,6 @@ export type ExtractFn = <T extends Record<string, unknown>>(
   contentHash: string,
 ) => Promise<ExtractResult<T>>;
 
-/** @deprecated Use {@link AdapterFn} instead. Will be removed in a future release. */
-export type AgentFnResult = string | { output: string; childThread: string | null };
-
-/** @deprecated Use {@link AdapterFn} instead. Will be removed in a future release. */
-export type AgentFn = (ctx: AgentContext) => Promise<AgentFnResult>;
-
-/** @deprecated Use {@link AdapterBinding} instead. Will be removed in a future release. */
-export type AgentBinding = {
-  agent: AgentFn;
-  overrides: Partial<Record<string, AgentFn>> | null;
-};
-
 // ── Adapter (replaces Agent) ────────────────────────────────────────
 
 export type RoleResult<T> = { meta: T; childThread: string | null };

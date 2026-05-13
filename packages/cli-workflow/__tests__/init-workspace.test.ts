@@ -91,7 +91,7 @@ describe("init workspace", () => {
       "RoleDefinition",
       "WorkflowDefinition",
       "ModeratorTable",
-      "AgentFn",
+      "AdapterFn",
       "ExtractFn",
       "RoleMeta",
     ]) {

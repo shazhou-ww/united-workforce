@@ -4,10 +4,7 @@ export { err, ok } from "./result.js";
 export type {
   AdapterBinding,
   AdapterFn,
-  AgentBinding,
   AgentContext,
-  AgentFn,
-  AgentFnResult,
   CasStore,
   ExtractFn,
   ExtractResult,

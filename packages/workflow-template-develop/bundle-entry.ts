@@ -6,7 +6,6 @@
 import { createCursorAgent } from "@uncaged/workflow-agent-cursor";
 import { createWorkflow } from "@uncaged/workflow-runtime";
 import { optionalEnv, requireEnv } from "@uncaged/workflow-util";
-import { wrapAgentAsAdapter } from "@uncaged/workflow-util-agent";
 import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
 const llmProvider = {
@@ -18,7 +17,7 @@ const llmProvider = {
   model: optionalEnv("WORKFLOW_LLM_MODEL", "qwen-plus"),
 };
 
-const agent = createCursorAgent({
+const adapter = createCursorAgent({
   command: requireEnv("WORKFLOW_CURSOR_COMMAND", "set WORKFLOW_CURSOR_COMMAND (e.g. cursor-agent)"),
   model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
   timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
@@ -27,8 +26,6 @@ const agent = createCursorAgent({
   workspace: null,
   llmProvider,
 });
-
-const adapter = wrapAgentAsAdapter(agent);
 
 const wf = createWorkflow(developWorkflowDefinition, { adapter, overrides: null });
 

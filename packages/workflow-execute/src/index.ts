@@ -42,4 +42,7 @@ export {
   llmErrorToCause,
   llmExtract,
 } from "./extract/index.js";
+export { type WorkflowAdapterOptions, workflowAdapter } from "./workflow-adapter.js";
+
+/** @deprecated Use {@link workflowAdapter} instead. */
 export { type WorkflowAsAgentOptions, workflowAsAgent } from "./workflow-as-agent.js";
