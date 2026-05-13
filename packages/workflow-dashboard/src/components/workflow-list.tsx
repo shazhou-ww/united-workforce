@@ -45,38 +45,45 @@ function ExpandedWorkflowBody({
   const edgeCount = descriptor !== null ? descriptor.graph.edges.length : 0;
   const vc = versionCount(detail);
 
+  const hasGraph = descriptor !== null && edgeCount > 0;
+
   return (
-    <div className="pt-3 space-y-3 border-t" style={{ borderColor: "var(--color-border)" }}>
-      <div>
-        <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
-          {detail.name}
+    <div
+      className="pt-3 border-t flex gap-4"
+      style={{ borderColor: "var(--color-border)" }}
+    >
+      <div className="space-y-3 shrink-0" style={{ minWidth: 200, maxWidth: 280 }}>
+        <div>
+          <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+            {detail.name}
+          </p>
+          <p className="text-xs mt-1 mb-1" style={{ color: "var(--color-text-muted)" }}>
+            Hash
+          </p>
+          <code className="text-xs font-mono block" style={{ color: "var(--color-accent)" }}>
+            {detail.hash}
+          </code>
+        </div>
+        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+          {vc} version{vc !== 1 ? "s" : ""}
         </p>
-        <p className="text-xs mt-1 mb-1" style={{ color: "var(--color-text-muted)" }}>
-          Hash
-        </p>
-        <code className="text-xs font-mono block" style={{ color: "var(--color-accent)" }}>
-          {detail.hash}
-        </code>
+        <div>
+          <p className="text-xs mb-1 font-medium" style={{ color: "var(--color-text-muted)" }}>
+            Description
+          </p>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text)" }}>
+            {descriptor !== null && descriptor.description !== ""
+              ? descriptor.description
+              : descriptor !== null
+                ? "—"
+                : "No descriptor available for this workflow version."}
+          </p>
+        </div>
       </div>
-      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-        {vc} version{vc !== 1 ? "s" : ""}
-      </p>
-      <div>
-        <p className="text-xs mb-1 font-medium" style={{ color: "var(--color-text-muted)" }}>
-          Description
-        </p>
-        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text)" }}>
-          {descriptor !== null && descriptor.description !== ""
-            ? descriptor.description
-            : descriptor !== null
-              ? "—"
-              : "No descriptor available for this workflow version."}
-        </p>
-      </div>
-      {descriptor !== null && edgeCount > 0 ? (
+      {hasGraph ? (
         <div
-          className="rounded-lg border overflow-hidden"
-          style={{ borderColor: "var(--color-border)", background: "var(--color-bg)" }}
+          className="rounded-lg border overflow-hidden flex-1"
+          style={{ borderColor: "var(--color-border)", background: "var(--color-bg)", minHeight: 500 }}
         >
           <div
             className="px-3 py-2 text-xs flex justify-between items-center"
@@ -87,7 +94,7 @@ function ExpandedWorkflowBody({
               {edgeCount} edge{edgeCount === 1 ? "" : "s"}
             </span>
           </div>
-          <div style={{ height: 300, width: "100%" }}>
+          <div style={{ height: 600, width: "100%" }}>
             <WorkflowGraph
               graph={descriptor.graph}
               roles={descriptor.roles}
@@ -148,18 +155,17 @@ export function WorkflowList({ agent }: Props) {
   );
 
   function toggleExpanded(name: string) {
-    let shouldLoad = false;
+    const wasExpanded = expanded.has(name);
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(name)) {
         next.delete(name);
-        return next;
+      } else {
+        next.add(name);
       }
-      next.add(name);
-      shouldLoad = true;
       return next;
     });
-    if (shouldLoad) {
+    if (!wasExpanded) {
       ensureDetailLoaded(name);
     }
   }

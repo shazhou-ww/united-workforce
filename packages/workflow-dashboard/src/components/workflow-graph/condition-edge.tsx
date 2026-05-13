@@ -2,7 +2,6 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   type EdgeProps,
-  getBezierPath,
   getSmoothStepPath,
 } from "@xyflow/react";
 import type { ConditionEdgeData } from "./types.ts";
@@ -21,31 +20,28 @@ export function ConditionEdge(props: EdgeProps) {
     data,
     markerEnd,
   } = props;
-  const edgeData = data as ConditionEdgeData | undefined;
+  const edgeData = data as (ConditionEdgeData & { elkLabelX?: number | null; elkLabelY?: number | null }) | undefined;
   const isFallback = edgeData?.isFallback ?? false;
   const isSelfLoop = source === target;
 
-  const [path, labelX, labelY] = isSelfLoop
-    ? getSmoothStepPath({
-        sourceX,
-        sourceY,
-        targetX,
-        targetY,
-        sourcePosition,
-        targetPosition,
-        borderRadius: 20,
-      })
-    : getBezierPath({
-        sourceX,
-        sourceY,
-        targetX,
-        targetY,
-        sourcePosition,
-        targetPosition,
-      });
+  const [path, defaultLabelX, defaultLabelY] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    borderRadius: isSelfLoop ? 20 : 8,
+    offset: isSelfLoop ? 50 : undefined,
+  });
 
-  const stroke = isFallback ? "var(--color-text-muted)" : "var(--color-text)";
+  const stroke = isFallback ? "var(--color-text-muted)" : "var(--color-accent)";
   const strokeDasharray = isFallback ? "5 4" : undefined;
+  const label = edgeData?.condition ?? "";
+
+  // Use ELK-computed label position if available, otherwise fall back to ReactFlow default
+  const labelX = edgeData?.elkLabelX ?? defaultLabelX;
+  const labelY = edgeData?.elkLabelY ?? defaultLabelY;
 
   return (
     <>
@@ -55,19 +51,21 @@ export function ConditionEdge(props: EdgeProps) {
         markerEnd={markerEnd}
         style={{ stroke, strokeWidth: 1.5, strokeDasharray }}
       />
-      {edgeData && !isFallback && edgeData.condition !== "" && (
+      {label !== "" && (
         <EdgeLabelRenderer>
           <div
             className="absolute px-1.5 py-0.5 rounded text-[10px] font-mono pointer-events-auto"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              background: "var(--color-bg)",
+              background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
-              color: "var(--color-text)",
+              color: isFallback ? "var(--color-text-muted)" : "var(--color-text)",
+              whiteSpace: "nowrap",
+              zIndex: 10,
             }}
-            title={edgeData.conditionDescription ?? undefined}
+            title={edgeData?.conditionDescription ?? undefined}
           >
-            {edgeData.condition}
+            {label}
           </div>
         </EdgeLabelRenderer>
       )}
