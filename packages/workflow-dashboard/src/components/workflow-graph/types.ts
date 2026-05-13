@@ -21,8 +21,10 @@ export type ConditionEdgeData = {
   condition: string;
   conditionDescription: string | null;
   isFallback: boolean;
-  elkLabelX: number | null;
-  elkLabelY: number | null;
+  isFeedback: boolean;
+  isSelfLoop: boolean;
+  labelX: number | null;
+  labelY: number | null;
   [key: string]: unknown;
 };
 
