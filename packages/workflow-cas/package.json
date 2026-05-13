@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-cas",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "files": [
     "dist",
     "package.json"

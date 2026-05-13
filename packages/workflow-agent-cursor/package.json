@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-agent-cursor",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "files": [
     "dist",
     "package.json"
@@ -18,5 +18,11 @@
     "@uncaged/workflow-util": "workspace:*",
     "@uncaged/workflow-util-agent": "workspace:*",
     "zod": "^4.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    }
   }
 }

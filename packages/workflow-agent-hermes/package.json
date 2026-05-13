@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-agent-hermes",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "files": [
     "dist",
     "package.json"
@@ -14,5 +14,11 @@
   "dependencies": {
     "@uncaged/workflow-runtime": "workspace:*",
     "@uncaged/workflow-util-agent": "workspace:*"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    }
   }
 }
