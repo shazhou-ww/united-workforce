@@ -30,6 +30,7 @@ workflow/
     workflow-agent-cursor/          # @uncaged/workflow-agent-cursor
     workflow-agent-hermes/          # @uncaged/workflow-agent-hermes
     workflow-agent-llm/             # @uncaged/workflow-agent-llm
+    workflow-agent-react/             # @uncaged/workflow-agent-react
     workflow-util-agent/            # @uncaged/workflow-util-agent — buildAgentPrompt, spawnCli
     workflow-template-develop/      # @uncaged/workflow-template-develop
     workflow-template-solve-issue/  # @uncaged/workflow-template-solve-issue
@@ -40,7 +41,7 @@ workflow/
 ```
 
 - Execution stack layers: `workflow-protocol` → (`workflow-runtime`, `workflow-util`, `workflow-reactor`) → (`workflow-cas`, `workflow-register`) → `workflow-execute` → `cli-workflow`
-- Packages use `workspace:*` protocol
+- Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
 
 ## Language & Paradigm
 
@@ -245,61 +246,47 @@ bun run format      # biome format --write
 bun test            # run tests
 ```
 
-### Publishing to Gitea npm Registry
+### Version Management & Publishing
 
-All public `@uncaged/*` packages are published to the Gitea npm registry at `git.shazhou.work`. Workflow workspaces consume packages from this registry via `bunfig.toml`.
-
-```bash
-# Publish all packages (bun pm pack resolves workspace:* → actual versions)
-bun run publish:gitea
-
-# Dry run — see what would be published
-bun run publish:gitea:dry
-```
-
-Prerequisites: `.npmrc` in monorepo root with Gitea auth token (`//git.shazhou.work/api/packages/shazhou/npm/:_authToken=<token>`).
-
-### Workflow Workspace Setup
-
-External workflow repos (e.g. `xingyue-workflows`) use the Gitea registry for `@uncaged/*` packages. Add a `bunfig.toml`:
-
-```toml
-[install.scopes]
-"@uncaged" = "https://git.shazhou.work/api/packages/shazhou/npm/"
-```
-
-Then `bun install` resolves `@uncaged/*` from Gitea, all other packages from npmjs.
-
-### Cross-repo Development (bun link)
-
-Alternative for development against un-published local changes:
+All public `@uncaged/*` packages are published to **npmjs.org** via `@changesets/cli` with **fixed mode** (all packages share the same version number). `workflow-dashboard` is private and excluded.
 
 ```bash
-bun run link            # Register all packages (from monorepo root)
-bun run link:consume    # Link into CWD's project (⚠️ don't bun install after)
-bun run link:unlink     # Restore original deps
+# 1. After making changes, add a changeset describing the change
+bun changeset
+
+# 2. Before release, bump all package versions + generate CHANGELOGs
+bun version
+
+# 3. Build, test, and publish to npmjs
+bun release
 ```
+
+- `workspace:^` dependencies resolve to `^x.y.z` on publish
+- Changesets config: `.changeset/config.json` (fixed mode, public access)
+- Each package has auto-generated `CHANGELOG.md`
+
+### Consuming @uncaged/* Packages
+
+External workflow repos just `bun install` — packages come from npmjs like any other dependency. No special registry config needed.
 
 ### End-to-end: Monorepo → Registry → Workspace → Bundle
 
-The recommended development flow for building workflows:
-
 ```
 workflow/ (monorepo)           — engine, runtime, templates, agents
-  │  bun run publish:gitea     — auto topo-sort, bun pm pack → npm publish
+  │  bun release               — build + test + changeset publish
   ▼
-git.shazhou.work npm registry  — @uncaged/* scoped packages
-  │  bun install               — via bunfig.toml scoped registry
+npmjs.org                      — @uncaged/* scoped packages (public)
+  │  bun install
   ▼
-my-workflows/ (workspace)     — bunfig.toml + normal package.json
+my-workflows/ (workspace)     — normal package.json
   │  bun run build:develop     — bun build → single .esm.js
   ▼
 uncaged-workflow workflow add  — register bundle locally
 uncaged-workflow run           — execute workflow
 ```
 
-1. **Monorepo changes** → `bun run publish:gitea` (packages auto-discovered from `packages/*/`, topologically sorted, `workspace:*` resolved to real versions)
-2. **Workspace** → `bun install` fetches latest from Gitea, `bun install` is safe to run anytime
+1. **Monorepo changes** → `bun changeset` (describe change) → `bun version` (bump) → `bun release` (publish)
+2. **Workspace** → `bun install` fetches latest from npmjs
 3. **Build** → produces single-file ESM bundle with `@uncaged/*` as externals
 4. **Register & Run** → `uncaged-workflow workflow add <name> <bundle>` then `uncaged-workflow run <name>`
 
