@@ -7,16 +7,9 @@
 import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
 import { workflowAsAgent } from "@uncaged/workflow-execute";
 import { createWorkflow } from "@uncaged/workflow-runtime";
+import { optionalEnv } from "@uncaged/workflow-util";
 import { wrapAgentAsAdapter } from "@uncaged/workflow-util-agent";
 import { buildSolveIssueDescriptor, solveIssueWorkflowDefinition } from "./src/index.js";
-
-function optionalEnv(name: string): string | null {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    return null;
-  }
-  return value;
-}
 
 const hermesAgent = createHermesAgent({
   model: optionalEnv("WORKFLOW_HERMES_MODEL"),

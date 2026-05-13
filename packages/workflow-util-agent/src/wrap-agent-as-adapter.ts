@@ -19,12 +19,18 @@ export function wrapAgentAsAdapter(
 ): AdapterFn {
   return <T>(prompt: string, schema: z.ZodType<T>) => {
     return async (ctx: ThreadContext, runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
-      const agentCtx: AgentContext = { ...ctx, currentRole: { name: "agent", systemPrompt: prompt } };
+      const agentCtx: AgentContext = {
+        ...ctx,
+        currentRole: { name: "agent", systemPrompt: prompt },
+      };
       const result = await agentFn(agentCtx);
       const output = typeof result === "string" ? result : result.output;
       const childThread = typeof result === "string" ? null : result.childThread;
       const contentHash = await putContentNodeWithRefs(runtime.cas, output, []);
-      const extracted = await runtime.extract(schema as z.ZodType<Record<string, unknown>>, contentHash);
+      const extracted = await runtime.extract(
+        schema as z.ZodType<Record<string, unknown>>,
+        contentHash,
+      );
       return { meta: extracted.meta as T, childThread };
     };
   };

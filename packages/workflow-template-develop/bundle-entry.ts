@@ -5,34 +5,21 @@
  */
 import { createCursorAgent } from "@uncaged/workflow-agent-cursor";
 import { createWorkflow } from "@uncaged/workflow-runtime";
+import { optionalEnv, requireEnv } from "@uncaged/workflow-util";
 import { wrapAgentAsAdapter } from "@uncaged/workflow-util-agent";
 import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    throw new Error(`missing required env var: ${name}`);
-  }
-  return value;
-}
-
-function optionalEnv(name: string): string | null {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    return null;
-  }
-  return value;
-}
-
 const llmProvider = {
-  baseUrl:
-    optionalEnv("WORKFLOW_LLM_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  apiKey: requireEnv("WORKFLOW_LLM_API_KEY"),
-  model: optionalEnv("WORKFLOW_LLM_MODEL") ?? "qwen-plus",
+  baseUrl: optionalEnv(
+    "WORKFLOW_LLM_BASE_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  ),
+  apiKey: requireEnv("WORKFLOW_LLM_API_KEY", "set WORKFLOW_LLM_API_KEY for meta extraction"),
+  model: optionalEnv("WORKFLOW_LLM_MODEL", "qwen-plus"),
 };
 
 const agent = createCursorAgent({
-  command: requireEnv("WORKFLOW_CURSOR_COMMAND"),
+  command: requireEnv("WORKFLOW_CURSOR_COMMAND", "set WORKFLOW_CURSOR_COMMAND (e.g. cursor-agent)"),
   model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
   timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
     ? Number(optionalEnv("WORKFLOW_CURSOR_TIMEOUT"))

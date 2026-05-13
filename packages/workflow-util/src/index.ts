@@ -6,6 +6,7 @@ export {
   encodeCrockfordBase32Bits,
   encodeUint64AsCrockford,
 } from "./base32.js";
+export { optionalEnv, requireEnv } from "./env.js";
 export { createLogger } from "./logger.js";
 export { mergeRefsWithContentHash, normalizeRefsField } from "./refs-field.js";
 export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
