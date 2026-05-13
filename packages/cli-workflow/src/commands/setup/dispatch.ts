@@ -1,11 +1,15 @@
 import { existsSync } from "node:fs";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
+import { createLogger } from "@uncaged/workflow-util";
+
 import { printCliError, printCliLine, printCliWarn } from "../../cli-output.js";
+
+const setupDispatchLog = createLogger({ sink: { kind: "stderr" } });
 import { loadPresetProviders } from "./preset-providers.js";
 import { cmdSetup, printSetupSummary } from "./setup.js";
 import type { SetupCliArgs } from "./types.js";
@@ -153,7 +157,7 @@ async function promptLine(
 /** Read a line with terminal echo disabled (for secrets). */
 async function promptSecret(label: string): Promise<string> {
   process.stdout.write(label);
-  return new Promise((resolve) => {
+  return new Promise((fulfill) => {
     let buf = "";
     const rawWasSet = process.stdin.isRaw;
     if (process.stdin.isTTY) {
@@ -171,7 +175,7 @@ async function promptSecret(label: string): Promise<string> {
           process.stdin.pause();
           process.stdin.removeListener("data", onData);
           process.stdout.write("\n");
-          resolve(buf.trim());
+          fulfill(buf.trim());
           return;
         }
         if (c === "\u007F" || c === "\b") {
@@ -182,6 +186,9 @@ async function promptSecret(label: string): Promise<string> {
           continue;
         }
         if (c === "\u0003") {
+          if (process.stdin.isTTY) {
+            process.stdin.setRawMode(rawWasSet);
+          }
           process.exit(130);
         }
         buf += c;
@@ -205,19 +212,23 @@ async function fetchAvailableModels(
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
+      setupDispatchLog("R5KH7WM3", `GET ${url} returned ${res.status}`);
       return [];
     }
     const body = (await res.json()) as OpenAiModelsResponse;
     if (!Array.isArray(body.data)) {
       return [];
     }
+    // Filter out non-chat models. Some patterns are DashScope-specific (sambert, cosyvoice,
+    // wordart, wanx, wan2, paraformer) but harmless for other providers.
     const NON_CHAT_RE =
       /speech|embed|image|video|audio|ocr|rerank|tts|asr|paraformer|sambert|cosyvoice|wordart|wanx|wan2|flux|stable-diffusion|z-image|s2s|livetranslate|realtime|gui-/i;
     return body.data
       .map((m) => m.id)
       .filter((id) => !NON_CHAT_RE.test(id))
       .sort();
-  } catch {
+  } catch (e) {
+    setupDispatchLog("V8NQ4JT6", `fetch models failed: ${e instanceof Error ? e.message : String(e)}`);
     return [];
   }
 }
@@ -242,6 +253,7 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     const choice = await promptLine(rl, `Choose [1-${presets.length + 1}]: `);
     const choiceNum = Number.parseInt(choice, 10);
     if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > presets.length + 1) {
+      rl.close();
       return err(`invalid choice: ${choice}`);
     }
 
@@ -331,7 +343,7 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
       }
       const candidate = wsPath === "" ? "./workflows" : wsPath;
       // Validate path before passing to cmdSetup.
-      const resolved = resolve(process.cwd(), candidate);
+      const resolved = resolvePath(process.cwd(), candidate);
       if (existsSync(resolved)) {
         printCliWarn(`directory already exists: ${resolved}`);
         printCliLine("Please enter a different path, or type 'skip' to skip.");

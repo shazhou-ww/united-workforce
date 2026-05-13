@@ -8,14 +8,6 @@
   label: OpenAI
   baseUrl: https://api.openai.com/v1
 
-- name: anthropic
-  label: Anthropic
-  baseUrl: https://api.anthropic.com/v1
-
-- name: gemini
-  label: Google Gemini
-  baseUrl: https://generativelanguage.googleapis.com/v1beta
-
 - name: xai
   label: xAI
   baseUrl: https://api.x.ai/v1
@@ -52,7 +44,7 @@
 
 - name: glm
   label: GLM (Zhipu AI)
-  baseUrl: https://api.z.ai/api/paas/v4
+  baseUrl: https://open.bigmodel.cn/api/paas/v4
 
 - name: stepfun
   label: StepFun

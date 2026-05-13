@@ -3,11 +3,9 @@ import { join } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
-export type PresetProvider = {
-	name: string;
-	label: string;
-	baseUrl: string;
-};
+import type { PresetProvider } from "./types.js";
+
+
 
 type RawPresetEntry = {
 	name: unknown;

@@ -9,18 +9,11 @@ import { createLogger } from "@uncaged/workflow-util";
 
 import { printCliLine } from "../../cli-output.js";
 import { cmdInitWorkspace } from "../init/index.js";
-import type { SetupCliArgs } from "./types.js";
+import type { CmdSetupSuccess, SetupCliArgs } from "./types.js";
 
 const setupLog = createLogger({ sink: { kind: "stderr" } });
 
-export type CmdSetupSuccess = {
-  registryPath: string;
-  provider: string;
-  defaultModel: string;
-  maxDepth: number;
-  supervisorInterval: number;
-  initWorkspaceRootPath: string | null;
-};
+
 
 function mergeWorkflowConfig(
   prev: WorkflowConfig | null,

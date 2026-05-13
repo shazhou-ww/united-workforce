@@ -6,3 +6,18 @@ export type SetupCliArgs = {
   defaultModel: string;
   initWorkspaceName: string | null;
 };
+
+export type PresetProvider = {
+  name: string;
+  label: string;
+  baseUrl: string;
+};
+
+export type CmdSetupSuccess = {
+  registryPath: string;
+  provider: string;
+  defaultModel: string;
+  maxDepth: number;
+  supervisorInterval: number;
+  initWorkspaceRootPath: string | null;
+};
