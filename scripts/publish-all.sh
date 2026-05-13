@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MONOREPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-REGISTRY="https://git.shazhou.work/api/packages/shazhou/npm/"
+REGISTRY="https://git.shazhou.work/api/packages/uncaged/npm/"
 DRY_RUN=""
 
 if [[ "${1:-}" == "--dry-run" ]]; then
