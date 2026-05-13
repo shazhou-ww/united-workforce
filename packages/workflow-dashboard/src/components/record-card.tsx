@@ -3,7 +3,7 @@ import { Markdown } from "./markdown.tsx";
 
 const ROLE_COLORS: Record<string, string> = {
   preparer: "#8b5cf6",
-  agent: "#3b82f6",
+  client: "#3b82f6",
   extractor: "#f59e0b",
 };
 

@@ -14,7 +14,7 @@ import { RecordCard } from "./record-card.tsx";
 import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
 
 type Props = {
-  agent: string;
+  client: string;
   threadId: string;
   onBack: () => void;
 };
@@ -52,9 +52,9 @@ function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeSt
   return states;
 }
 
-export function ThreadDetail({ agent, threadId, onBack }: Props) {
-  const sse = useSSE(agent, threadId);
-  const { status, data, error } = useFetch(() => getThread(agent, threadId), [agent, threadId]);
+export function ThreadDetail({ client, threadId, onBack }: Props) {
+  const sse = useSSE(client, threadId);
+  const { status, data, error } = useFetch(() => getThread(client, threadId), [client, threadId]);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const recordsEndRef = useRef<HTMLDivElement>(null);
   const firstCardByRoleRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -72,8 +72,8 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
 
   const descriptorFetch = useFetch<WorkflowDescriptor | null>(
     () =>
-      workflowName === null ? Promise.resolve(null) : getWorkflowDescriptor(agent, workflowName),
-    [agent, workflowName],
+      workflowName === null ? Promise.resolve(null) : getWorkflowDescriptor(client, workflowName),
+    [client, workflowName],
   );
 
   const descriptor = descriptorFetch.status === "ok" ? descriptorFetch.data : null;
@@ -117,7 +117,7 @@ export function ThreadDetail({ agent, threadId, onBack }: Props) {
     setActionStatus(`${action}ing...`);
     try {
       const fn = action === "kill" ? killThread : action === "pause" ? pauseThread : resumeThread;
-      await fn(agent, threadId);
+      await fn(client, threadId);
       setActionStatus(`${action} sent ✓`);
     } catch (e) {
       setActionStatus(`${action} failed: ${e instanceof Error ? e.message : String(e)}`);

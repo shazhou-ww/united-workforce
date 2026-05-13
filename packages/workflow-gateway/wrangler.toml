@@ -7,10 +7,14 @@ binding = "ENDPOINTS"
 id = "88b118d1cfab4c049f9c1684848811a3"
 
 [durable_objects]
-bindings = [{ name = "AGENT_SOCKET", class_name = "AgentSocket" }]
+bindings = [{ name = "CLIENT_SOCKET", class_name = "ClientSocket" }]
 
 [[migrations]]
 tag = "add-agent-socket"
-new_sqlite_classes = ["AgentSocket"]
+new_sqlite_classes = ["ClientSocket"]
+
+[[migrations]]
+tag = "rename-agent-to-client"
+renamed_classes = [{ from = "AgentSocket", to = "ClientSocket" }]
 
 # GATEWAY_SECRET is set via `wrangler secret put`

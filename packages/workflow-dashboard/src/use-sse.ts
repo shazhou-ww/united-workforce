@@ -57,17 +57,17 @@ function handleRecordEvent(ev: Event, ctx: RecordEventContext): void {
   ctx.cleanupEs();
 }
 
-function sseUrl(agent: string, threadId: string): string {
+function sseUrl(client: string, threadId: string): string {
   const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "";
   const key = getApiKey();
   const keyParam = key ? `?key=${encodeURIComponent(key)}` : "";
   if (gatewayUrl) {
-    return `${gatewayUrl}/api/${agent}/threads/${encodeURIComponent(threadId)}/live${keyParam}`;
+    return `${gatewayUrl}/api/${client}/threads/${encodeURIComponent(threadId)}/live${keyParam}`;
   }
   return `/api/threads/${encodeURIComponent(threadId)}/live`;
 }
 
-export function useSSE(agent: string | null, threadId: string | null): UseSSEReturn {
+export function useSSE(client: string | null, threadId: string | null): UseSSEReturn {
   const [records, setRecords] = useState<ThreadRecord[]>([]);
   const [connected, setConnected] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -76,7 +76,7 @@ export function useSSE(agent: string | null, threadId: string | null): UseSSERet
   const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
-    if (threadId === null || agent === null) {
+    if (threadId === null || client === null) {
       completedRef.current = false;
       reconnectAttemptsRef.current = 0;
       setRecords([]);
@@ -86,7 +86,7 @@ export function useSSE(agent: string | null, threadId: string | null): UseSSERet
     }
 
     const tid = threadId;
-    const agentName = agent;
+    const clientName = client;
 
     completedRef.current = false;
     reconnectAttemptsRef.current = 0;
@@ -125,7 +125,7 @@ export function useSSE(agent: string | null, threadId: string | null): UseSSERet
       }
 
       cleanupEs();
-      const url = sseUrl(agentName, tid);
+      const url = sseUrl(clientName, tid);
       es = new EventSource(url);
 
       es.onopen = () => {
@@ -177,7 +177,7 @@ export function useSSE(agent: string | null, threadId: string | null): UseSSERet
       }
       cleanupEs();
     };
-  }, [agent, threadId]);
+  }, [client, threadId]);
 
   return { records, connected, completed };
 }

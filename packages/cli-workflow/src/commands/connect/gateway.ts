@@ -5,13 +5,13 @@ export async function registerWithGateway(
   name: string,
   localUrl: string,
   secret: string,
-  agentToken: string,
+  clientToken: string,
 ): Promise<boolean> {
   try {
     const resp = await fetch(`${gatewayUrl}/api/gateway/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, url: localUrl, secret, agentToken }),
+      body: JSON.stringify({ name, url: localUrl, secret, clientToken }),
     });
     if (!resp.ok) {
       const body = await resp.text();
@@ -45,10 +45,10 @@ export function startHeartbeat(
   name: string,
   localUrl: string,
   secret: string,
-  agentToken: string,
+  clientToken: string,
   intervalMs: number,
 ): ReturnType<typeof setInterval> {
   return setInterval(() => {
-    registerWithGateway(gatewayUrl, name, localUrl, secret, agentToken).catch(() => {});
+    registerWithGateway(gatewayUrl, name, localUrl, secret, clientToken).catch(() => {});
   }, intervalMs);
 }

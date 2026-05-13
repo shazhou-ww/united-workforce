@@ -86,11 +86,11 @@ ${commandSections.join("\n\n")}
 | \`run\` | \`thread run\` | Shortcut to start a thread |
 | \`live\` | \`thread live\` | Shortcut to attach to a thread |
 
-### serve
+### connect
 
 | Command | Args | Description |
 |---------|------|-------------|
-| \`serve\` | \`[--port N] [--host ADDR] [--name NAME]\` | Start HTTP API server with WebSocket gateway connection. \`--name\` registers with the gateway. |
+| \`connect\` | \`[--name NAME] [--gateway URL]\` | Connect to workflow gateway via WebSocket. \`--name\` registers with the gateway. |
 
 ## Typical Workflow
 

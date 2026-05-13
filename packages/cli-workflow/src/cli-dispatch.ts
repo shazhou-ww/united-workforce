@@ -4,7 +4,7 @@ import { getCommandRegistry } from "./cli-registry.js";
 import { formatCliUsage as formatCliUsageWithGroups } from "./cli-usage.js";
 import { createCasDispatcher } from "./commands/cas/index.js";
 import { createInitDispatcher } from "./commands/init/index.js";
-import { dispatchServe } from "./commands/serve/index.js";
+import { dispatchConnect } from "./commands/connect/index.js";
 import { dispatchSetup } from "./commands/setup/index.js";
 import { createThreadDispatcher, dispatchLive, dispatchRun } from "./commands/thread/index.js";
 import { createWorkflowDispatcher } from "./commands/workflow/index.js";
@@ -71,7 +71,7 @@ const COMMAND_TABLE: Record<string, DispatchFn> = {
   skill: dispatchSkill,
   run: dispatchRun,
   live: dispatchLive,
-  serve: dispatchServe,
+  connect: dispatchConnect,
 };
 
 export async function runCli(storageRoot: string, argv: string[]): Promise<number> {

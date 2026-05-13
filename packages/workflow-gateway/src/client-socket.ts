@@ -1,14 +1,14 @@
-/** One Durable Object instance per agent name; holds the reverse WebSocket from the agent CLI. */
+/** One Durable Object instance per client name; holds the reverse WebSocket from the client CLI. */
 import { DurableObject } from "cloudflare:workers";
 
 import { parseWsRequestJson, parseWsResponseJson, type WsResponse } from "./ws-protocol.js";
 
-type AgentSocketEnv = {
+type ClientSocketEnv = {
   GATEWAY_SECRET: string;
 };
 
-export const AGENT_SOCKET_INTERNAL_STATUS_PATH = "/internal/agent-socket/status";
-export const AGENT_SOCKET_INTERNAL_PROXY_PATH = "/internal/agent-socket/proxy";
+export const CLIENT_SOCKET_INTERNAL_STATUS_PATH = "/internal/client-socket/status";
+export const CLIENT_SOCKET_INTERNAL_PROXY_PATH = "/internal/client-socket/proxy";
 
 const PROXY_TIMEOUT_MS = 30_000;
 
@@ -32,7 +32,7 @@ function wsResponseToHttp(wr: WsResponse): Response {
   return new Response(wr.body, { status: wr.status, headers });
 }
 
-export class AgentSocket extends DurableObject<AgentSocketEnv> {
+export class ClientSocket extends DurableObject<ClientSocketEnv> {
   private readonly pending = new Map<string, PendingEntry>();
 
   private requireAuth(request: Request): Response | null {
@@ -100,11 +100,11 @@ export class AgentSocket extends DurableObject<AgentSocketEnv> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === AGENT_SOCKET_INTERNAL_STATUS_PATH && request.method === "GET") {
+    if (url.pathname === CLIENT_SOCKET_INTERNAL_STATUS_PATH && request.method === "GET") {
       return this.handleStatusGet(request);
     }
 
-    if (url.pathname === AGENT_SOCKET_INTERNAL_PROXY_PATH && request.method === "POST") {
+    if (url.pathname === CLIENT_SOCKET_INTERNAL_PROXY_PATH && request.method === "POST") {
       return this.handleProxyPost(request);
     }
 
@@ -144,11 +144,11 @@ export class AgentSocket extends DurableObject<AgentSocketEnv> {
     _reason: string,
     _wasClean: boolean,
   ): Promise<void> {
-    this.rejectAllPending("agent websocket closed");
+    this.rejectAllPending("client websocket closed");
   }
 
   async webSocketError(_ws: WebSocket, _error: unknown): Promise<void> {
-    this.rejectAllPending("agent websocket error");
+    this.rejectAllPending("client websocket error");
   }
 
   private rejectAllPending(message: string): void {

@@ -26,11 +26,11 @@ function authHeaders(): Record<string, string> {
   return {};
 }
 
-function agentBase(agent: string): string {
+function clientBase(client: string): string {
   if (GATEWAY_URL) {
-    return `${GATEWAY_URL}/api/agents/${agent}`;
+    return `${GATEWAY_URL}/api/clients/${client}`;
   }
-  // Local dev: proxy via vite, no agent prefix
+  // Local dev: proxy via vite, no client prefix
   return "/api";
 }
 
@@ -57,7 +57,7 @@ async function fetchJson<T>(base: string, path: string): Promise<T> {
 
 // ── Endpoint types ──────────────────────────────────────────────────
 
-export type AgentEndpoint = {
+export type ClientEndpoint = {
   name: string;
   url: string;
   status: string;
@@ -141,61 +141,61 @@ export type WorkflowDetail = {
 
 // ── Gateway endpoints ───────────────────────────────────────────────
 
-export function listAgents(): Promise<AgentEndpoint[]> {
+export function listClients(): Promise<ClientEndpoint[]> {
   const url = GATEWAY_URL || "";
   return fetchJson(url, "/api/gateway/endpoints");
 }
 
-// ── Agent-scoped endpoints ──────────────────────────────────────────
+// ── Client-scoped endpoints ──────────────────────────────────────────
 
-export function listWorkflows(agent: string): Promise<{ workflows: WorkflowSummary[] }> {
-  return fetchJson(agentBase(agent), "/workflows");
+export function listWorkflows(client: string): Promise<{ workflows: WorkflowSummary[] }> {
+  return fetchJson(clientBase(client), "/workflows");
 }
 
-export async function getWorkflowDetail(agent: string, name: string): Promise<WorkflowDetail> {
-  return fetchJson<WorkflowDetail>(agentBase(agent), `/workflows/${encodeURIComponent(name)}`);
+export async function getWorkflowDetail(client: string, name: string): Promise<WorkflowDetail> {
+  return fetchJson<WorkflowDetail>(clientBase(client), `/workflows/${encodeURIComponent(name)}`);
 }
 
 export async function getWorkflowDescriptor(
-  agent: string,
+  client: string,
   name: string,
 ): Promise<WorkflowDescriptor | null> {
-  const res = await getWorkflowDetail(agent, name);
+  const res = await getWorkflowDetail(client, name);
   return res.descriptor;
 }
 
-export function listThreads(agent: string): Promise<{ threads: ThreadSummary[] }> {
-  return fetchJson(agentBase(agent), "/threads");
+export function listThreads(client: string): Promise<{ threads: ThreadSummary[] }> {
+  return fetchJson(clientBase(client), "/threads");
 }
 
-export function listRunningThreads(agent: string): Promise<{ threads: ThreadSummary[] }> {
-  return fetchJson(agentBase(agent), "/threads/running");
+export function listRunningThreads(client: string): Promise<{ threads: ThreadSummary[] }> {
+  return fetchJson(clientBase(client), "/threads/running");
 }
 
-export function getThread(agent: string, id: string): Promise<{ records: ThreadRecord[] }> {
-  return fetchJson(agentBase(agent), `/threads/${id}`);
+export function getThread(client: string, id: string): Promise<{ records: ThreadRecord[] }> {
+  return fetchJson(clientBase(client), `/threads/${id}`);
 }
 
 export function runThread(
-  agent: string,
+  client: string,
   workflow: string,
   prompt: string,
 ): Promise<{ threadId: string }> {
-  return postJson(agentBase(agent), "/threads", { workflow, prompt });
+  return postJson(clientBase(client), "/threads", { workflow, prompt });
 }
 
-export function killThread(agent: string, threadId: string): Promise<{ ok: boolean }> {
-  return postJson(agentBase(agent), `/threads/${threadId}/kill`, {});
+export function killThread(client: string, threadId: string): Promise<{ ok: boolean }> {
+  return postJson(clientBase(client), `/threads/${threadId}/kill`, {});
 }
 
-export function pauseThread(agent: string, threadId: string): Promise<{ ok: boolean }> {
-  return postJson(agentBase(agent), `/threads/${threadId}/pause`, {});
+export function pauseThread(client: string, threadId: string): Promise<{ ok: boolean }> {
+  return postJson(clientBase(client), `/threads/${threadId}/pause`, {});
 }
 
-export function resumeThread(agent: string, threadId: string): Promise<{ ok: boolean }> {
-  return postJson(agentBase(agent), `/threads/${threadId}/resume`, {});
+export function resumeThread(client: string, threadId: string): Promise<{ ok: boolean }> {
+  return postJson(clientBase(client), `/threads/${threadId}/resume`, {});
 }
 
-export function getAgentHealth(agent: string): Promise<{ ok: boolean }> {
-  return fetchJson(agentBase(agent), "/healthz");
+export function getClientHealth(client: string): Promise<{ ok: boolean }> {
+  return fetchJson(clientBase(client), "/healthz");
 }

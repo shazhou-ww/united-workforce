@@ -2,27 +2,27 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import {
-  AGENT_SOCKET_INTERNAL_PROXY_PATH,
-  AGENT_SOCKET_INTERNAL_STATUS_PATH,
-  AgentSocket,
-} from "./agent-socket.js";
+  CLIENT_SOCKET_INTERNAL_PROXY_PATH,
+  CLIENT_SOCKET_INTERNAL_STATUS_PATH,
+  ClientSocket,
+} from "./client-socket.js";
 import type { WsRequest } from "./ws-protocol.js";
 
-export { AgentSocket };
+export { ClientSocket };
 
 type Env = {
   Bindings: {
     ENDPOINTS: KVNamespace;
     GATEWAY_SECRET: string;
     DASHBOARD_API_KEY: string;
-    AGENT_SOCKET: DurableObjectNamespace<AgentSocket>;
+    CLIENT_SOCKET: DurableObjectNamespace<ClientSocket>;
   };
 };
 
 type EndpointRecord = {
   name: string;
   url: string;
-  agentToken: string;
+  clientToken: string;
   registeredAt: number;
   lastHeartbeat: number;
 };
@@ -43,7 +43,7 @@ function checkDashboardAuth(c: {
   return key === c.env.DASHBOARD_API_KEY;
 }
 
-function isLocalAgentUrl(url: string): boolean {
+function isLocalClientUrl(url: string): boolean {
   try {
     const u = new URL(url);
     return u.hostname === "localhost" || u.hostname === "127.0.0.1";
@@ -52,7 +52,7 @@ function isLocalAgentUrl(url: string): boolean {
   }
 }
 
-function buildForwardHeaders(raw: Headers, agentToken: string): Record<string, string> {
+function buildForwardHeaders(raw: Headers, clientToken: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of raw) {
     const lower = key.toLowerCase();
@@ -70,8 +70,8 @@ function buildForwardHeaders(raw: Headers, agentToken: string): Record<string, s
     }
     out[key] = value;
   }
-  if (agentToken !== "") {
-    out["X-Agent-Token"] = agentToken;
+  if (clientToken !== "") {
+    out["X-Client-Token"] = clientToken;
   }
   return out;
 }
@@ -81,7 +81,7 @@ function buildDashboardProxyHeaders(raw: Headers, token: string): Headers {
   headers.delete("host");
   headers.delete("Authorization");
   if (token !== "") {
-    headers.set("X-Agent-Token", token);
+    headers.set("X-Client-Token", token);
   }
   return headers;
 }
@@ -94,15 +94,15 @@ async function readBodyForWsProxy(method: string, req: Request): Promise<string 
   return buf.byteLength === 0 ? null : new TextDecoder().decode(buf);
 }
 
-async function fetchThroughAgentSocket(
+async function fetchThroughClientSocket(
   bindings: Env["Bindings"],
-  agent: string,
+  client: string,
   gateSecret: string,
   wsRequest: WsRequest,
 ): Promise<Response> {
-  const stub = bindings.AGENT_SOCKET.get(bindings.AGENT_SOCKET.idFromName(agent));
+  const stub = bindings.CLIENT_SOCKET.get(bindings.CLIENT_SOCKET.idFromName(client));
   return stub.fetch(
-    new Request(`https://do.internal${AGENT_SOCKET_INTERNAL_PROXY_PATH}`, {
+    new Request(`https://do.internal${CLIENT_SOCKET_INTERNAL_PROXY_PATH}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${gateSecret}`,
@@ -113,7 +113,7 @@ async function fetchThroughAgentSocket(
   );
 }
 
-async function fetchAgentWithRecordHeaders(
+async function fetchClientWithRecordHeaders(
   targetUrl: string,
   method: string,
   forwardRecord: Record<string, string>,
@@ -130,7 +130,7 @@ async function fetchAgentWithRecordHeaders(
   });
 }
 
-async function fetchAgentWithDashboardHeaders(
+async function fetchClientWithDashboardHeaders(
   targetUrl: string,
   method: string,
   headers: Headers,
@@ -143,15 +143,15 @@ async function fetchAgentWithDashboardHeaders(
   });
 }
 
-async function fetchAgentSocketStatus(
+async function fetchClientSocketStatus(
   env: Env["Bindings"],
   name: string,
 ): Promise<{ ok: true; connected: boolean } | { ok: false }> {
   try {
-    const id = env.AGENT_SOCKET.idFromName(name);
-    const stub = env.AGENT_SOCKET.get(id);
+    const id = env.CLIENT_SOCKET.idFromName(name);
+    const stub = env.CLIENT_SOCKET.get(id);
     const resp = await stub.fetch(
-      new Request(`https://do${AGENT_SOCKET_INTERNAL_STATUS_PATH}`, {
+      new Request(`https://do${CLIENT_SOCKET_INTERNAL_STATUS_PATH}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${env.GATEWAY_SECRET}` },
       }),
@@ -171,7 +171,7 @@ function endpointStatusFromKvAndDo(record: EndpointRecord, doConnected: boolean 
     return "online";
   }
   if (doConnected === false) {
-    if (isLocalAgentUrl(record.url)) {
+    if (isLocalClientUrl(record.url)) {
       return "offline";
     }
     const age = Date.now() - record.lastHeartbeat;
@@ -184,7 +184,7 @@ function endpointStatusFromKvAndDo(record: EndpointRecord, doConnected: boolean 
 // ── Health ──────────────────────────────────────────────────────────
 app.get("/healthz", (c) => c.json({ ok: true }));
 
-// ── Agent reverse WebSocket (GATEWAY_SECRET query param) ────────────
+// ── Client reverse WebSocket (GATEWAY_SECRET query param) ────────────
 app.get("/ws/connect", async (c) => {
   const secret = c.req.query("secret");
   const name = c.req.query("name");
@@ -197,8 +197,8 @@ app.get("/ws/connect", async (c) => {
   if (c.req.header("Upgrade") !== "websocket") {
     return c.text("expected WebSocket upgrade", 426);
   }
-  const id = c.env.AGENT_SOCKET.idFromName(name);
-  const stub = c.env.AGENT_SOCKET.get(id);
+  const id = c.env.CLIENT_SOCKET.idFromName(name);
+  const stub = c.env.CLIENT_SOCKET.get(id);
   return stub.fetch(c.req.raw);
 });
 
@@ -210,9 +210,9 @@ gateway.post("/register", async (c) => {
     name?: string;
     url?: string;
     secret?: string;
-    agentToken?: string;
+    clientToken?: string;
   }>();
-  const { name, url, secret, agentToken } = body;
+  const { name, url, secret, clientToken } = body;
 
   if (!name || !url) {
     return c.json({ error: "name and url required" }, 400);
@@ -227,7 +227,7 @@ gateway.post("/register", async (c) => {
   const record: EndpointRecord = {
     name,
     url: url.replace(/\/+$/, ""), // strip trailing slash
-    agentToken: agentToken ?? existing?.agentToken ?? "",
+    clientToken: clientToken ?? existing?.clientToken ?? "",
     registeredAt: existing?.registeredAt ?? now,
     lastHeartbeat: now,
   };
@@ -261,7 +261,7 @@ gateway.get("/endpoints", async (c) => {
   for (const key of list.keys) {
     const record = await c.env.ENDPOINTS.get<EndpointRecord>(key.name, "json");
     if (record) {
-      const doStatus = await fetchAgentSocketStatus(c.env, record.name);
+      const doStatus = await fetchClientSocketStatus(c.env, record.name);
       const doConnected = doStatus.ok ? doStatus.connected : null;
       endpoints.push({
         name: record.name,
@@ -277,25 +277,25 @@ gateway.get("/endpoints", async (c) => {
 
 app.route("/api/gateway", gateway);
 
-// ── API proxy: /api/agents/:agent/* → WebSocket (preferred) or agent tunnel URL (dashboard auth) ──
-app.all("/api/agents/:agent/*", async (c) => {
+// ── API proxy: /api/clients/:client/* → WebSocket (preferred) or client tunnel URL (dashboard auth) ──
+app.all("/api/clients/:client/*", async (c) => {
   if (!checkDashboardAuth(c)) return c.json({ error: "unauthorized" }, 401);
-  const agent = c.req.param("agent");
-  const record = await c.env.ENDPOINTS.get<EndpointRecord>(agent, "json");
+  const client = c.req.param("client");
+  const record = await c.env.ENDPOINTS.get<EndpointRecord>(client, "json");
 
   if (!record) {
-    return c.json({ error: "agent not found" }, 404);
+    return c.json({ error: "client not found" }, 404);
   }
 
   const url = new URL(c.req.url);
-  const pathAfterAgent = url.pathname.replace(`/api/agents/${agent}`, "");
+  const pathAfterAgent = url.pathname.replace(`/api/clients/${client}`, "");
   const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
   const proxyPath = `/api${pathAfterAgent}${url.search}`;
   const method = c.req.method;
-  const token = record.agentToken ?? "";
+  const token = record.clientToken ?? "";
   const forwardRecord = buildForwardHeaders(c.req.raw.headers, token);
 
-  const doStatus = await fetchAgentSocketStatus(c.env, agent);
+  const doStatus = await fetchClientSocketStatus(c.env, client);
   if (doStatus.ok && doStatus.connected) {
     const bodyStr = await readBodyForWsProxy(method, c.req.raw);
     const wsRequest: WsRequest = {
@@ -305,7 +305,7 @@ app.all("/api/agents/:agent/*", async (c) => {
       headers: forwardRecord,
       body: bodyStr,
     };
-    const proxyResp = await fetchThroughAgentSocket(c.env, agent, c.env.GATEWAY_SECRET, wsRequest);
+    const proxyResp = await fetchThroughClientSocket(c.env, client, c.env.GATEWAY_SECRET, wsRequest);
     if (proxyResp.status !== 503) {
       return new Response(proxyResp.body, {
         status: proxyResp.status,
@@ -313,25 +313,25 @@ app.all("/api/agents/:agent/*", async (c) => {
       });
     }
     try {
-      const resp = await fetchAgentWithRecordHeaders(targetUrl, method, forwardRecord, bodyStr);
+      const resp = await fetchClientWithRecordHeaders(targetUrl, method, forwardRecord, bodyStr);
       return new Response(resp.body, {
         status: resp.status,
         headers: resp.headers,
       });
     } catch (err) {
-      return c.json({ error: "agent unreachable", detail: String(err) }, 502);
+      return c.json({ error: "client unreachable", detail: String(err) }, 502);
     }
   }
 
   const headers = buildDashboardProxyHeaders(c.req.raw.headers, token);
   try {
-    const resp = await fetchAgentWithDashboardHeaders(targetUrl, method, headers, c.req.raw.body);
+    const resp = await fetchClientWithDashboardHeaders(targetUrl, method, headers, c.req.raw.body);
     return new Response(resp.body, {
       status: resp.status,
       headers: resp.headers,
     });
   } catch (err) {
-    return c.json({ error: "agent unreachable", detail: String(err) }, 502);
+    return c.json({ error: "client unreachable", detail: String(err) }, 502);
   }
 });
 
