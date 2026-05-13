@@ -20,7 +20,7 @@ export function ConditionEdge(props: EdgeProps) {
     data,
     markerEnd,
   } = props;
-  const edgeData = data as (ConditionEdgeData & { elkLabelX?: number | null; elkLabelY?: number | null }) | undefined;
+  const edgeData = data as ConditionEdgeData | undefined;
   const isFallback = edgeData?.isFallback ?? false;
   const isSelfLoop = source === target;
 
