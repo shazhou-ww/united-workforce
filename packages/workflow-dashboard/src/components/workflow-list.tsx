@@ -48,10 +48,7 @@ function ExpandedWorkflowBody({
   const hasGraph = descriptor !== null && edgeCount > 0;
 
   return (
-    <div
-      className="pt-3 border-t flex gap-4"
-      style={{ borderColor: "var(--color-border)" }}
-    >
+    <div className="pt-3 border-t flex gap-4" style={{ borderColor: "var(--color-border)" }}>
       <div className="space-y-3 shrink-0" style={{ minWidth: 200, maxWidth: 280 }}>
         <div>
           <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
@@ -83,7 +80,11 @@ function ExpandedWorkflowBody({
       {hasGraph ? (
         <div
           className="rounded-lg border overflow-hidden flex-1"
-          style={{ borderColor: "var(--color-border)", background: "var(--color-bg)", minHeight: 500 }}
+          style={{
+            borderColor: "var(--color-border)",
+            background: "var(--color-bg)",
+            minHeight: 500,
+          }}
         >
           <div
             className="px-3 py-2 text-xs flex justify-between items-center"

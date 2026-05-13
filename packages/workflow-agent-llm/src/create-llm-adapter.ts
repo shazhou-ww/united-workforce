@@ -93,7 +93,7 @@ export async function chatCompletionText(options: {
 
 /** Single-turn chat adapter: system prompt is passed by the workflow engine. */
 export function createLlmAdapter(provider: LlmProvider): AdapterFn {
-  return createTextAdapter(async (ctx, prompt) => {
+  return createTextAdapter(async (ctx, prompt, _runtime) => {
     const result = await chatCompletionText({
       provider,
       messages: [

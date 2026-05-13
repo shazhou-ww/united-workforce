@@ -1,5 +1,5 @@
-import type { AgentContext, LlmProvider } from "@uncaged/workflow-protocol";
-import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
+import { putContentNodeWithRefs } from "@uncaged/workflow-cas";
+import type { ThreadContext, WorkflowRuntime } from "@uncaged/workflow-runtime";
 import type { LogFn } from "@uncaged/workflow-util";
 import * as z from "zod/v4";
 
@@ -7,10 +7,7 @@ const workspaceSchema = z.object({
   workspace: z.string().describe("Absolute filesystem path of the project workspace"),
 });
 
-const EXTRACT_SYSTEM_FN = (_toolName: string) =>
-  `You are a workspace-path extractor. Given a workflow agent context (task description and previous step outputs), identify the absolute filesystem path of the project workspace where code changes should be made. Call the tool with the absolute path.`;
-
-function buildExtractionInput(ctx: AgentContext): string {
+function buildExtractionInput(ctx: ThreadContext): string {
   const lines: string[] = [];
   lines.push("## Task");
   lines.push(ctx.start.content);
@@ -21,48 +18,25 @@ function buildExtractionInput(ctx: AgentContext): string {
     lines.push(`Meta: ${JSON.stringify(step.meta)}`);
   }
 
+  lines.push("");
+  lines.push(
+    "Extract the absolute filesystem path of the project workspace where code changes should be made.",
+  );
+
   return lines.join("\n");
 }
 
 export async function extractWorkspacePath(
-  ctx: AgentContext,
-  provider: LlmProvider,
+  ctx: ThreadContext,
+  runtime: WorkflowRuntime,
   logger: LogFn,
 ): Promise<string | null> {
-  const reactor = createThreadReactor<null>({
-    llm: createLlmFn(provider),
-    maxRounds: 2,
-    staticTools: [],
-    structuredToolFromSchema: (schema) => {
-      const jsonSchema = z.toJSONSchema(schema);
-      return {
-        name: "set_workspace",
-        tool: {
-          type: "function" as const,
-          function: {
-            name: "set_workspace",
-            description: "Set the extracted workspace path",
-            parameters: jsonSchema as Record<string, unknown>,
-          },
-        },
-      };
-    },
-    systemPromptForStructuredTool: EXTRACT_SYSTEM_FN,
-    toolHandler: async () => "unknown tool",
-  });
+  const input = buildExtractionInput(ctx);
+  const contentHash = await putContentNodeWithRefs(runtime.cas, input, []);
 
-  const result = await reactor({
-    thread: null,
-    input: buildExtractionInput(ctx),
-    schema: workspaceSchema,
-  });
+  const result = await runtime.extract(workspaceSchema, contentHash);
+  const workspace = result.meta.workspace.trim();
 
-  if (!result.ok) {
-    logger("W8KN3QYT", `workspace extraction failed: ${result.error}`);
-    return null;
-  }
-
-  const workspace = result.value.workspace.trim();
   if (!workspace.startsWith("/")) {
     logger("H4PM7RXV", `workspace extraction returned non-absolute path: ${workspace}`);
     return null;

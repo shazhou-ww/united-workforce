@@ -33,7 +33,7 @@ function throwHermesSpawnError(error: SpawnCliError): never {
 export function createHermesAgent(config: HermesAgentConfig): AdapterFn {
   const timeoutMs = config.timeout;
 
-  return createTextAdapter(async (ctx, prompt) => {
+  return createTextAdapter(async (ctx, prompt, _runtime) => {
     const validated = validateHermesAgentConfig(config);
     if (!validated.ok) {
       throw new Error(validated.error);
