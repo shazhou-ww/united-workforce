@@ -13,8 +13,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-GITEA_TOKEN="${GITEA_TOKEN:?GITEA_TOKEN is required}"
-GITEA_NPM_REGISTRY="https://git.shazhou.work/api/packages/uncaged/npm/"
+GITEA_TOKEN="${GITEA_TOKEN:?GITEA_TOKEN is required}"  # needed by .npmrc
 
 # ─── Version ─────────────────────────────────────────────────────────────────
 current_version() {
@@ -35,24 +34,6 @@ bump_version() {
 CURRENT=$(current_version)
 VERSION=$(bump_version "$CURRENT" "${1:?Usage: publish.sh <version|patch|minor|major>}")
 echo "📦 Publish: $CURRENT → $VERSION"
-
-# ─── Topological publish order ───────────────────────────────────────────────
-PUBLISH_ORDER=(
-  workflow-protocol
-  workflow-util
-  workflow-cas
-  workflow-runtime
-  workflow-reactor
-  workflow-register
-  workflow-execute
-  cli-workflow
-  workflow-util-agent
-  workflow-agent-cursor
-  workflow-agent-hermes
-  workflow-agent-llm
-  workflow-template-develop
-  workflow-template-solve-issue
-)
 
 # ─── Bump version ────────────────────────────────────────────────────────────
 echo "🔢 Bumping versions..."
@@ -92,22 +73,16 @@ done
 echo "🔨 Building..."
 npm run build
 
-# ─── Publish ─────────────────────────────────────────────────────────────────
-echo "🚀 Publishing..."
-cat > "$REPO_ROOT/.npmrc" <<EOF
-@uncaged:registry=${GITEA_NPM_REGISTRY}
-//${GITEA_NPM_REGISTRY#https://}:_authToken=${GITEA_TOKEN}
-EOF
+# ─── Self-test ────────────────────────────────────────────────────────────────
+echo "🧪 Running tests..."
+if ! bun test; then
+  echo "❌ Tests failed — aborting publish"
+  exit 1
+fi
 
-FAIL=0
-for pkg_dir in "${PUBLISH_ORDER[@]}"; do
-  if (cd "packages/$pkg_dir" && npm publish 2>&1); then
-    echo "  ✅ @uncaged/$pkg_dir@$VERSION"
-  else
-    echo "  ❌ @uncaged/$pkg_dir"
-    FAIL=1
-  fi
-done
+# ─── Publish (delegate to publish-all.sh) ────────────────────────────────────
+echo "🚀 Publishing via publish-all.sh..."
+"$REPO_ROOT/scripts/publish-all.sh"
 
 # ─── Restore workspace:* ─────────────────────────────────────────────────────
 echo "🔄 Restoring workspace:*..."
@@ -136,4 +111,4 @@ git commit -m "chore: publish v${VERSION}
 小橘 <xiaoju@shazhou.work>"
 git push
 
-[[ "$FAIL" -eq 0 ]] && echo "✅ v${VERSION} published" || echo "⚠️ v${VERSION} published with errors"
+echo "✅ v${VERSION} published"
