@@ -1,27 +1,27 @@
 import { useEffect } from "react";
-import type { AgentEndpoint } from "../api.ts";
-import { listAgents } from "../api.ts";
+import type { ClientEndpoint } from "../api.ts";
+import { listClients } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 
 type Props = {
   view: "threads" | "workflows";
-  agent: string | null;
+  client: string | null;
   onViewChange: (v: "threads" | "workflows") => void;
-  onAgentChange: (a: string | null) => void;
+  onClientChange: (a: string | null) => void;
   onLogout: () => void;
 };
 
-export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: Props) {
-  const { status, data } = useFetch(() => listAgents(), []);
+export function Sidebar({ view, client, onViewChange, onClientChange, onLogout }: Props) {
+  const { status, data } = useFetch(() => listClients(), []);
 
-  const agents: AgentEndpoint[] = status === "ok" ? data : [];
+  const clients: ClientEndpoint[] = status === "ok" ? data : [];
 
-  // Auto-select first agent when none is selected
+  // Auto-select first client when none is selected
   useEffect(() => {
-    if (agent === null && agents.length > 0) {
-      onAgentChange(agents[0].name);
+    if (client === null && clients.length > 0) {
+      onClientChange(clients[0].name);
     }
-  }, [agent, agents, onAgentChange]);
+  }, [client, clients, onClientChange]);
 
   const viewItems = [
     { key: "threads" as const, label: "Threads", icon: "⚡" },
@@ -42,33 +42,33 @@ export function Sidebar({ view, agent, onViewChange, onAgentChange, onLogout }: 
         </p>
       </div>
 
-      {/* Agent selector */}
+      {/* Client selector */}
       <div className="px-4 py-3 border-b" style={{ borderColor: "var(--color-border)" }}>
         <label
           className="block text-xs font-medium mb-1"
           style={{ color: "var(--color-text-muted)" }}
-          htmlFor="agent-select"
+          htmlFor="client-select"
         >
-          Agent
+          Client
         </label>
         <select
-          id="agent-select"
+          id="client-select"
           className="w-full rounded px-2 py-1.5 text-xs"
           style={{
             background: "var(--color-bg)",
             color: "var(--color-text)",
             border: "1px solid var(--color-border)",
           }}
-          value={agent ?? ""}
-          onChange={(e) => onAgentChange(e.target.value || null)}
+          value={client ?? ""}
+          onChange={(e) => onClientChange(e.target.value || null)}
           disabled={status === "loading"}
         >
           {status === "loading" ? (
             <option value="">Loading…</option>
-          ) : agents.length === 0 ? (
-            <option value="">No agents online</option>
+          ) : clients.length === 0 ? (
+            <option value="">No clients online</option>
           ) : (
-            agents.map((a) => (
+            clients.map((a) => (
               <option key={a.name} value={a.name}>
                 {a.status === "online" ? "🟢" : "🔴"} {a.name}
               </option>

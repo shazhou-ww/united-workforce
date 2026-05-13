@@ -5,7 +5,7 @@ import { useFetch } from "../hooks.ts";
 import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
 
 type Props = {
-  agent: string;
+  client: string;
 };
 
 type DetailCacheEntry =
@@ -108,8 +108,8 @@ function ExpandedWorkflowBody({
   );
 }
 
-export function WorkflowList({ agent }: Props) {
-  const { status, data, error } = useFetch(() => listWorkflows(agent), [agent]);
+export function WorkflowList({ client }: Props) {
+  const { status, data, error } = useFetch(() => listWorkflows(client), [client]);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [detailsByName, setDetailsByName] = useState<Map<string, DetailCacheEntry>>(
     () => new Map(),
@@ -117,11 +117,11 @@ export function WorkflowList({ agent }: Props) {
 
   const staticNodeStates = useMemo(() => new Map<string, NodeState>(), []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset expansion when switching agents
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset expansion when switching clients
   useEffect(() => {
     setExpanded(new Set());
     setDetailsByName(new Map());
-  }, [agent]);
+  }, [client]);
 
   const ensureDetailLoaded = useCallback(
     (name: string) => {
@@ -135,7 +135,7 @@ export function WorkflowList({ agent }: Props) {
 
       void (async () => {
         try {
-          const detail = await getWorkflowDetail(agent, name);
+          const detail = await getWorkflowDetail(client, name);
           setDetailsByName((prev) => {
             const next = new Map(prev);
             next.set(name, { status: "ok", detail });
@@ -151,7 +151,7 @@ export function WorkflowList({ agent }: Props) {
         }
       })();
     },
-    [agent],
+    [client],
   );
 
   function toggleExpanded(name: string) {

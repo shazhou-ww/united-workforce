@@ -11,7 +11,7 @@ import { useHashRoute } from "./use-hash-route.ts";
 
 export function App() {
   const [authed, setAuthed] = useState(hasApiKey());
-  const { view, agent, threadId, setView, setAgent, setThreadId } = useHashRoute();
+  const { view, client, threadId, setView, setClient, setThreadId } = useHashRoute();
   const [showRun, setShowRun] = useState(false);
 
   if (!authed) {
@@ -22,36 +22,36 @@ export function App() {
     <div className="flex h-screen">
       <Sidebar
         view={view}
-        agent={agent}
+        client={client}
         onViewChange={setView}
-        onAgentChange={setAgent}
+        onClientChange={setClient}
         onLogout={() => {
           clearApiKey();
           setAuthed(false);
         }}
       />
       <main className="flex-1 overflow-hidden flex flex-col">
-        <StatusBar agent={agent} onRun={() => setShowRun(true)} />
+        <StatusBar client={client} onRun={() => setShowRun(true)} />
         <div className="flex-1 overflow-auto p-6">
-          {!agent && (
+          {!client && (
             <div className="flex items-center justify-center h-full">
               <p style={{ color: "var(--color-text-muted)" }}>
-                Select an agent from the sidebar to get started.
+                Select an client from the sidebar to get started.
               </p>
             </div>
           )}
-          {agent && view === "threads" && threadId === null && (
-            <ThreadList agent={agent} onSelect={setThreadId} />
+          {client && view === "threads" && threadId === null && (
+            <ThreadList client={client} onSelect={setThreadId} />
           )}
-          {agent && view === "threads" && threadId !== null && (
-            <ThreadDetail agent={agent} threadId={threadId} onBack={() => setThreadId(null)} />
+          {client && view === "threads" && threadId !== null && (
+            <ThreadDetail client={client} threadId={threadId} onBack={() => setThreadId(null)} />
           )}
-          {agent && view === "workflows" && <WorkflowList agent={agent} />}
+          {client && view === "workflows" && <WorkflowList client={client} />}
         </div>
       </main>
-      {showRun && agent && (
+      {showRun && client && (
         <RunDialog
-          agent={agent}
+          client={client}
           onClose={() => setShowRun(false)}
           onCreated={(id) => {
             setShowRun(false);

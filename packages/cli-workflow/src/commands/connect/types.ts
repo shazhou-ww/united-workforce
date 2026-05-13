@@ -1,6 +1,4 @@
-export type ServeOptions = {
-  port: number;
-  hostname: string;
+export type ConnectOptions = {
   name: string;
   gatewayUrl: string;
   gatewaySecret: string;

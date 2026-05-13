@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 
 import { createContentMerkleNode, serializeMerkleNode } from "@uncaged/workflow-cas";
 
-import { createApp } from "../src/commands/serve/app.js";
+import { createApp } from "../src/commands/connect/app.js";
 
 function casStoredForm(raw: string): string {
   return serializeMerkleNode(createContentMerkleNode(raw));
 }
 
 function buildApp(storageRoot: string) {
-  const app = createApp(storageRoot);
+  const app = createApp(storageRoot, null);
   return {
     fetch: (path: string, init?: RequestInit) =>
       app.fetch(new Request(`http://localhost${path}`, init)),
@@ -115,7 +115,7 @@ describe("serve error handling", () => {
   });
 
   test("global error handler returns 500 with JSON", async () => {
-    const app = createApp("/tmp/uncaged-serve-test-nonexistent");
+    const app = createApp("/tmp/uncaged-serve-test-nonexistent", null);
     app.get("/test-error", () => {
       throw new Error("boom");
     });
@@ -128,7 +128,7 @@ describe("serve error handling", () => {
 
 describe("serve security", () => {
   test("CORS headers present on responses", async () => {
-    const app = createApp("/tmp/uncaged-serve-test-nonexistent");
+    const app = createApp("/tmp/uncaged-serve-test-nonexistent", null);
     const res2 = await app.fetch(
       new Request("http://localhost/healthz", {
         headers: { Origin: "http://localhost:5173" },

@@ -8,7 +8,7 @@ import { createWorkflowRoutes } from "./routes-workflow.js";
 
 const MAX_BODY_SIZE = 1_048_576; // 1 MB
 
-export function createApp(storageRoot: string, agentToken: string | null): Hono {
+export function createApp(storageRoot: string, clientToken: string | null): Hono {
   const app = new Hono();
 
   app.onError((_err, c) => {
@@ -37,11 +37,11 @@ export function createApp(storageRoot: string, agentToken: string | null): Hono 
     await next();
   });
 
-  // ── Agent token auth (skip healthz) ───────────────────────────────
-  if (agentToken !== null) {
+  // ── Client token auth (skip healthz) ───────────────────────────────
+  if (clientToken !== null) {
     app.use("/api/*", async (c, next) => {
-      const token = c.req.header("X-Agent-Token");
-      if (token !== agentToken) {
+      const token = c.req.header("X-Client-Token");
+      if (token !== clientToken) {
         return c.json({ error: "unauthorized" }, 401);
       }
       await next();

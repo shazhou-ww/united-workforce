@@ -5,7 +5,7 @@ export type GatewayWsClientParams = {
   gatewayUrl: string;
   name: string;
   secret: string;
-  localPort: number;
+  appFetch: (request: Request) => Response | Promise<Response>;
   log: LogFn;
 };
 
@@ -44,20 +44,17 @@ async function handleGatewayMessage(
     params.log("ZM8K2PQ1", "gateway WebSocket dropped non-request message");
     return;
   }
-  const localUrl = `http://127.0.0.1:${String(params.localPort)}${req.path}`;
-  const initHeaders = new Headers();
-  for (const [k, v] of Object.entries(req.headers)) {
-    initHeaders.set(k, v);
-  }
+  const localUrl = `http://localhost${req.path}`;
+  const headers = new Headers(req.headers);
   let resp: Response;
   try {
-    resp = await fetch(localUrl, {
+    resp = await params.appFetch(new Request(localUrl, {
       method: req.method,
-      headers: initHeaders,
+      headers,
       body: req.body === null ? undefined : req.body,
-    });
+    }));
   } catch (e) {
-    params.log("R4N7BQ3C", `local proxy fetch failed: ${String(e)}`);
+    params.log("R4N7BQ3C", `app.fetch failed: ${String(e)}`);
     const errBody: WsResponse = {
       id: req.id,
       status: 502,

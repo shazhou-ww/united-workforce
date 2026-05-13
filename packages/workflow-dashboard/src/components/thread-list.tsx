@@ -2,12 +2,12 @@ import { listThreads } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 
 type Props = {
-  agent: string;
+  client: string;
   onSelect: (id: string) => void;
 };
 
-export function ThreadList({ agent, onSelect }: Props) {
-  const { status, data, error } = useFetch(() => listThreads(agent), [agent]);
+export function ThreadList({ client, onSelect }: Props) {
+  const { status, data, error } = useFetch(() => listThreads(client), [client]);
 
   if (status === "loading")
     return <p style={{ color: "var(--color-text-muted)" }}>Loading threads...</p>;

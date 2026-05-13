@@ -59,12 +59,12 @@ export function formatCliUsage(
   );
   lines.push("");
 
-  lines.push("Server:");
+  lines.push("Gateway:");
   lines.push(
     ...formatUsageCommandLines([
       {
-        prefix: "serve [--port N] [--host ADDR]",
-        description: "Start HTTP API server (default: 127.0.0.1:7860)",
+        prefix: "connect [--name NAME] [--gateway URL]",
+        description: "Connect to workflow gateway via WebSocket",
       },
     ]),
   );

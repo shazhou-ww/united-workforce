@@ -4,35 +4,35 @@ type View = "threads" | "workflows";
 
 type HashRoute = {
   view: View;
-  agent: string | null;
+  client: string | null;
   threadId: string | null;
 };
 
 function parseHash(hash: string): HashRoute {
   const raw = hash.replace(/^#\/?/, "");
-  // Format: #agent/threads/id or #agent/workflows or #threads or #workflows
+  // Format: #client/threads/id or #client/workflows or #threads or #workflows
   const parts = raw.split("/");
 
   // Check if first part is a known view
   if (parts[0] === "threads" || parts[0] === "workflows") {
     return {
       view: parts[0] as View,
-      agent: null,
+      client: null,
       threadId: parts[0] === "threads" && parts.length > 1 ? parts.slice(1).join("/") : null,
     };
   }
 
-  // First part is agent name
-  const agent = parts[0] || null;
+  // First part is client name
+  const client = parts[0] || null;
   const viewPart = parts[1] ?? "threads";
   const view: View = viewPart === "workflows" ? "workflows" : "threads";
   const threadId = view === "threads" && parts.length > 2 ? parts.slice(2).join("/") : null;
 
-  return { view, agent, threadId };
+  return { view, client, threadId };
 }
 
 function buildHash(route: HashRoute): string {
-  const prefix = route.agent ? `${route.agent}/` : "";
+  const prefix = route.client ? `${route.client}/` : "";
   if (route.view === "workflows") {
     return `#${prefix}workflows`;
   }
@@ -44,10 +44,10 @@ function buildHash(route: HashRoute): string {
 
 export function useHashRoute(): {
   view: View;
-  agent: string | null;
+  client: string | null;
   threadId: string | null;
   setView: (v: View) => void;
-  setAgent: (a: string | null) => void;
+  setClient: (a: string | null) => void;
   setThreadId: (id: string | null) => void;
 } {
   const [route, setRoute] = useState<HashRoute>(() => parseHash(window.location.hash));
@@ -67,26 +67,26 @@ export function useHashRoute(): {
   }, []);
 
   const setView = useCallback(
-    (v: View) => navigate({ view: v, agent: route.agent, threadId: null }),
-    [navigate, route.agent],
+    (v: View) => navigate({ view: v, client: route.client, threadId: null }),
+    [navigate, route.client],
   );
 
-  const setAgent = useCallback(
-    (a: string | null) => navigate({ view: route.view, agent: a, threadId: null }),
+  const setClient = useCallback(
+    (a: string | null) => navigate({ view: route.view, client: a, threadId: null }),
     [navigate, route.view],
   );
 
   const setThreadId = useCallback(
-    (id: string | null) => navigate({ view: "threads", agent: route.agent, threadId: id }),
-    [navigate, route.agent],
+    (id: string | null) => navigate({ view: "threads", client: route.client, threadId: id }),
+    [navigate, route.client],
   );
 
   return {
     view: route.view,
-    agent: route.agent,
+    client: route.client,
     threadId: route.threadId,
     setView,
-    setAgent,
+    setClient,
     setThreadId,
   };
 }
