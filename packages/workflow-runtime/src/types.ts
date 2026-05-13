@@ -3,6 +3,8 @@
 // imports from "@uncaged/workflow-runtime" continues to work.
 
 export type {
+  AdapterBinding,
+  AdapterFn,
   AdvanceOutcome,
   AgentBinding,
   AgentContext,
@@ -21,6 +23,7 @@ export type {
   ResolvedModel,
   Result,
   RoleDefinition,
+  RoleFn,
   RoleMeta,
   RoleOutput,
   RoleStep,
