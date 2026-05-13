@@ -7,7 +7,7 @@
   ],
   "type": "module",
   "bin": {
-    "uncaged-workflow": "src/cli.ts"
+    "uncaged-workflow": "dist/cli.js"
   },
   "dependencies": {
     "@uncaged/workflow-gateway": "workspace:*",
