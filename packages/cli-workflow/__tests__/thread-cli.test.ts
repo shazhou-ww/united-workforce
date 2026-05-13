@@ -70,10 +70,10 @@ const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 const abortablePlannerBundleSource = `${threadFixtureDescriptor}
 ${wfPutImport}
 export const run = async function* (input, options) {
-  await new Promise((r) => setTimeout(r, 600));
   const cas = options.cas;
   let h = await putContentMerkleNode(cas, "plan");
   yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
+  await new Promise((r) => setTimeout(r, 10000));
   h = await putContentMerkleNode(cas, "code");
   yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };

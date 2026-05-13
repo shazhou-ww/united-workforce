@@ -299,7 +299,37 @@ async function driveWorkflowGenerator(params: {
       });
     }
 
-    const iterResult = await gen.next();
+    const iterResult = await Promise.race([
+      gen.next(),
+      new Promise<never>((_, reject) => {
+        if (executeOptions.signal.aborted) {
+          reject(new DOMException("The operation was aborted", "AbortError"));
+          return;
+        }
+        executeOptions.signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("The operation was aborted", "AbortError")),
+          { once: true },
+        );
+      }),
+    ]).catch((e) => {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return { done: true as const, value: { returnCode: 130, summary: "thread aborted" } };
+      }
+      throw e;
+    });
+
+    if (executeOptions.signal.aborted || (iterResult.done && iterResult.value.returnCode === 130)) {
+      return await finalizeAbortedThread({
+        cas,
+        bundleDir,
+        threadId,
+        startHash,
+        chain,
+        logger,
+        abortLogTag: "H4KQ7RW3",
+      });
+    }
 
     if (iterResult.done) {
       logger("F3HN8QKP", `thread ${threadId} generator finished`);
