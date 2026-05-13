@@ -1,5 +1,7 @@
+import { existsSync } from "node:fs";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { resolve } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
@@ -317,14 +319,28 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
     const defaultModel = `${provider}/${bare}`;
     printCliLine(`  → ${defaultModel}`);
 
-    const wsPath = await promptLine(
-      rl2,
-      "\nWorkflow workspace path (default: ./workflows, type 'skip' to skip): ",
-    );
+    let initWorkspaceName: string | null = null;
+    // Loop until a valid workspace path is provided or the user skips.
+    while (true) {
+      const wsPath = await promptLine(
+        rl2,
+        "\nWorkflow workspace path (default: ./workflows, type 'skip' to skip): ",
+      );
+      if (wsPath.toLowerCase() === "skip") {
+        break;
+      }
+      const candidate = wsPath === "" ? "./workflows" : wsPath;
+      // Validate path before passing to cmdSetup.
+      const resolved = resolve(process.cwd(), candidate);
+      if (existsSync(resolved)) {
+        printCliWarn(`directory already exists: ${resolved}`);
+        printCliLine("Please enter a different path, or type 'skip' to skip.");
+        continue;
+      }
+      initWorkspaceName = candidate;
+      break;
+    }
     rl2.close();
-
-    const initWorkspaceName =
-      wsPath.toLowerCase() === "skip" ? null : wsPath === "" ? "./workflows" : wsPath;
 
     return ok({
       provider,

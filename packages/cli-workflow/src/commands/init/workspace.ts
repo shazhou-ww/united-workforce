@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
@@ -297,27 +297,30 @@ export async function cmdInitWorkspace(
   parentDir: string,
   workspaceName: string,
 ): Promise<Result<CmdInitWorkspaceSuccess, string>> {
-  const validated = validateWorkspaceSegment(workspaceName);
-  if (!validated.ok) {
-    return validated;
+  // Accept a relative/absolute path: resolve it and derive the dir name for package.json.
+  const resolved = resolve(parentDir, workspaceName);
+  const rootPath = resolved;
+  const dirName = basename(resolved);
+
+  if (dirName === "" || dirName === "." || dirName === "..") {
+    return err(`invalid workspace path: ${workspaceName}`);
   }
 
-  const rootPath = join(parentDir, workspaceName);
   if (await pathExists(rootPath)) {
     return err(`directory already exists: ${rootPath}`);
   }
 
-  await mkdir(rootPath, { recursive: false });
-  await mkdir(join(rootPath, "templates"), { recursive: false });
-  await mkdir(join(rootPath, "workflows"), { recursive: false });
-  await mkdir(join(rootPath, "scripts"), { recursive: false });
+  await mkdir(rootPath, { recursive: true });
+  await mkdir(join(rootPath, "templates"), { recursive: true });
+  await mkdir(join(rootPath, "workflows"), { recursive: true });
+  await mkdir(join(rootPath, "scripts"), { recursive: true });
 
   await Promise.all([
-    writeFile(join(rootPath, "package.json"), rootPackageJson(workspaceName), "utf8"),
+    writeFile(join(rootPath, "package.json"), rootPackageJson(dirName), "utf8"),
     writeFile(join(rootPath, "biome.json"), biomeJson(), "utf8"),
     writeFile(join(rootPath, "tsconfig.json"), tsconfigJson(), "utf8"),
     writeFile(join(rootPath, "AGENTS.md"), agentsMd(), "utf8"),
-    writeFile(join(rootPath, "README.md"), readmeMd(workspaceName), "utf8"),
+    writeFile(join(rootPath, "README.md"), readmeMd(dirName), "utf8"),
     writeFile(join(rootPath, "templates", ".gitkeep"), "", "utf8"),
     writeFile(join(rootPath, "workflows", "package.json"), workflowsPackageJson(), "utf8"),
     writeFile(join(rootPath, "workflows", ".gitkeep"), "", "utf8"),

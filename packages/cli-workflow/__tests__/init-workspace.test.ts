@@ -125,14 +125,19 @@ describe("init workspace", () => {
   });
 
   test("errors on invalid workspace name", async () => {
-    const slash = await cmdInitWorkspace(parent, "a/b");
-    expect(slash.ok).toBe(false);
-
     const dots = await cmdInitWorkspace(parent, "..");
     expect(dots.ok).toBe(false);
 
     const empty = await cmdInitWorkspace(parent, "");
     expect(empty.ok).toBe(false);
+  });
+
+  test("accepts nested path as workspace name", async () => {
+    const nested = await cmdInitWorkspace(parent, "a/b");
+    expect(nested.ok).toBe(true);
+    if (nested.ok) {
+      expect(nested.value.rootPath).toContain("a/b");
+    }
   });
 
   test("usage lists init subcommands", () => {
