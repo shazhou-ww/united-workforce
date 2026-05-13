@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-reactor",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "files": [
     "dist",
     "package.json"
