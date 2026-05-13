@@ -16,9 +16,8 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 export function startServer(
   storageRoot: string,
   options: ServeOptions,
-  agentToken: string | null,
 ): void {
-  const app = createApp(storageRoot, agentToken);
+  const app = createApp(storageRoot, null);
 
   const server = serve({
     fetch: app.fetch,
@@ -95,33 +94,32 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
 
   if (options.gatewaySecret === "") {
     // No gateway — local-only mode
-    startServer(storageRoot, options, null);
+    startServer(storageRoot, options);
     printCliLine("no WORKFLOW_GATEWAY_SECRET — running in local-only mode");
     await new Promise(() => {});
     return 0;
   }
 
+  // Gateway mode — no HTTP server, WS client calls app.fetch directly
   const agentToken = randomUUID();
-  startServer(storageRoot, options, agentToken);
+  const app = createApp(storageRoot, agentToken);
 
-  // Start WebSocket reverse connection to gateway
   const log = createLogger({ sink: { kind: "stderr" } });
   const stopWsClient = startGatewayWsClient({
     gatewayUrl: options.gatewayUrl,
     name: options.name,
     secret: options.gatewaySecret,
-    localPort: options.port,
+    appFetch: app.fetch,
     log,
   });
 
-  printCliLine("connected to gateway via WebSocket");
+  printCliLine("connected to gateway via WebSocket (no local HTTP server)");
 
   // Register with gateway for discovery
-  const localUrl = `http://127.0.0.1:${options.port}`;
   const registered = await registerWithGateway(
     options.gatewayUrl,
     options.name,
-    localUrl,
+    `ws://${options.name}`,
     options.gatewaySecret,
     agentToken,
   );
@@ -132,7 +130,7 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
   const heartbeatTimer = startHeartbeat(
     options.gatewayUrl,
     options.name,
-    localUrl,
+    `ws://${options.name}`,
     options.gatewaySecret,
     agentToken,
     HEARTBEAT_INTERVAL_MS,
