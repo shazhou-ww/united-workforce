@@ -1,5 +1,11 @@
 # @uncaged/workflow-gateway
 
+## 0.4.3
+
+### Patch Changes
+
+- Include src/ in published packages so bun runtime can resolve the 'bun' exports condition.
+
 ## 0.4.2
 
 ### Patch Changes

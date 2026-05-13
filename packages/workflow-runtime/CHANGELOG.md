@@ -1,5 +1,14 @@
 # @uncaged/workflow-runtime
 
+## 0.4.3
+
+### Patch Changes
+
+- Include src/ in published packages so bun runtime can resolve the 'bun' exports condition.
+- Updated dependencies
+  - @uncaged/workflow-cas@0.4.3
+  - @uncaged/workflow-protocol@0.4.3
+
 ## 0.4.2
 
 ### Patch Changes
