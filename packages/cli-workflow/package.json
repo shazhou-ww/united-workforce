@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/cli-workflow",
-  "version": "0.3.11",
+  "version": "0.3.15",
   "type": "module",
   "bin": {
     "uncaged-workflow": "src/cli.ts"
