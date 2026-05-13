@@ -86,7 +86,7 @@ for name, dirname in name_to_dir.items():
     local_deps = set()
     for section in ('dependencies', 'devDependencies', 'peerDependencies'):
         for dep, ver in data.get(section, {}).items():
-            if dep.startswith('@uncaged/') and dep in name_to_dir and ver == 'workspace:*':
+            if dep.startswith('@uncaged/') and dep in name_to_dir and ver.startswith('workspace:'):
                 local_deps.add(dep)
     deps_graph[name] = local_deps
 

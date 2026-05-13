@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-execute",
-  "version": "0.3.21",
+  "version": "0.4.0",
   "files": [
     "dist",
     "package.json"
@@ -8,8 +8,9 @@
   "type": "module",
   "exports": {
     ".": {
+      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./src/index.ts"
+      "import": "./dist/index.js"
     }
   },
   "scripts": {

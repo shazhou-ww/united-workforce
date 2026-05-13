@@ -14,10 +14,14 @@
     "link:consume": "./scripts/link-all.sh --consume",
     "link:unlink": "./scripts/link-all.sh --unlink",
     "publish:gitea": "./scripts/publish.sh patch",
-    "publish:gitea:dry": "./scripts/publish.sh --dry-run patch"
+    "publish:gitea:dry": "./scripts/publish.sh --dry-run patch",
+    "changeset": "bunx changeset",
+    "version": "bunx changeset version",
+    "release": "bunx changeset publish --no-git-tag"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^25.7.0",
     "@types/xxhashjs": "^0.2.4",
     "bun-types": "^1.3.13"
