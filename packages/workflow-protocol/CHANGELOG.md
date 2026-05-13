@@ -1,5 +1,17 @@
 # @uncaged/workflow-protocol
 
+## 0.4.5
+
+### Patch Changes
+
+- Add publishConfig to all packages for Gitea registry compatibility with changeset publish.
+
+## 0.4.4
+
+### Patch Changes
+
+- Test changeset publish with Gitea registry.
+
 ## 0.4.3
 
 ### Patch Changes

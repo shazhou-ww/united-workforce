@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-agent-react",
-  "version": "0.4.3",
+  "version": "0.4.5",
   "files": [
     "src",
     "dist",
@@ -28,5 +28,8 @@
   },
   "peerDependencies": {
     "zod": "^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

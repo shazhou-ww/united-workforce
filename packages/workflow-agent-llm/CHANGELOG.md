@@ -1,5 +1,19 @@
 # @uncaged/workflow-agent-llm
 
+## 0.4.5
+
+### Patch Changes
+
+- @uncaged/workflow-runtime@0.4.5
+- @uncaged/workflow-util-agent@0.4.5
+
+## 0.4.4
+
+### Patch Changes
+
+- @uncaged/workflow-runtime@0.4.4
+- @uncaged/workflow-util-agent@0.4.4
+
 ## 0.4.3
 
 ### Patch Changes

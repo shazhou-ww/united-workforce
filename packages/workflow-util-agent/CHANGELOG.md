@@ -1,5 +1,19 @@
 # @uncaged/workflow-util-agent
 
+## 0.4.5
+
+### Patch Changes
+
+- @uncaged/workflow-cas@0.4.5
+- @uncaged/workflow-runtime@0.4.5
+
+## 0.4.4
+
+### Patch Changes
+
+- @uncaged/workflow-cas@0.4.4
+- @uncaged/workflow-runtime@0.4.4
+
 ## 0.4.3
 
 ### Patch Changes

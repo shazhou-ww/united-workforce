@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-reactor",
-  "version": "0.4.3",
+  "version": "0.4.5",
   "files": [
     "src",
     "dist",
@@ -23,5 +23,8 @@
   "devDependencies": {
     "zod": "^4.0.0",
     "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

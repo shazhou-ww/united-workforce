@@ -1,5 +1,21 @@
 # @uncaged/workflow-register
 
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-protocol@0.4.5
+  - @uncaged/workflow-util@0.4.5
+
+## 0.4.4
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-protocol@0.4.4
+  - @uncaged/workflow-util@0.4.4
+
 ## 0.4.3
 
 ### Patch Changes

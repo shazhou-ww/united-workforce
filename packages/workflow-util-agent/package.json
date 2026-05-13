@@ -1,6 +1,6 @@
 {
   "name": "@uncaged/workflow-util-agent",
-  "version": "0.4.3",
+  "version": "0.4.5",
   "files": [
     "src",
     "dist",
@@ -22,5 +22,8 @@
     "@uncaged/workflow-runtime": "workspace:^",
     "@uncaged/workflow-cas": "workspace:^",
     "zod": "^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
