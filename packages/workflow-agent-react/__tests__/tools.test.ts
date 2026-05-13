@@ -1,9 +1,9 @@
-import { describe, test, expect, afterAll } from "bun:test";
-import { readFileTool, writeFileTool, patchFileTool, shellExecTool } from "../src/tools/index.js";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { readFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { mkdirSync, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { patchFileTool, readFileTool, shellExecTool, writeFileTool } from "../src/tools/index.js";
 
 const TMP_DIR = join(tmpdir(), `tools-test-${randomBytes(4).toString("hex")}`);
 mkdirSync(TMP_DIR, { recursive: true });
@@ -14,9 +14,17 @@ const cleanupFiles: string[] = [];
 
 afterAll(() => {
   for (const f of cleanupFiles) {
-    try { unlinkSync(f); } catch { /* ignore */ }
+    try {
+      unlinkSync(f);
+    } catch {
+      /* ignore */
+    }
   }
-  try { unlinkSync(TMP_DIR); } catch { /* ignore */ }
+  try {
+    unlinkSync(TMP_DIR);
+  } catch {
+    /* ignore */
+  }
 });
 
 describe("read_file", () => {
@@ -26,7 +34,9 @@ describe("read_file", () => {
     const content = "line1\nline2\nline3\n";
     require("node:fs").writeFileSync(p, content);
 
-    const result = await readFileTool.handler(JSON.stringify({ path: p, offset: null, limit: null }));
+    const result = await readFileTool.handler(
+      JSON.stringify({ path: p, offset: null, limit: null }),
+    );
     expect(result).toContain("1|line1");
     expect(result).toContain("2|line2");
     expect(result).toContain("3|line3");
@@ -42,7 +52,9 @@ describe("read_file", () => {
   });
 
   test("returns error for missing file", async () => {
-    const result = await readFileTool.handler(JSON.stringify({ path: "/nonexistent/file.txt", offset: null, limit: null }));
+    const result = await readFileTool.handler(
+      JSON.stringify({ path: "/nonexistent/file.txt", offset: null, limit: null }),
+    );
     expect(result).toContain("Error:");
   });
 });
@@ -64,7 +76,9 @@ describe("patch_file", () => {
     cleanupFiles.push(p);
     require("node:fs").writeFileSync(p, "foo bar baz");
 
-    const result = await patchFileTool.handler(JSON.stringify({ path: p, old_string: "bar", new_string: "qux" }));
+    const result = await patchFileTool.handler(
+      JSON.stringify({ path: p, old_string: "bar", new_string: "qux" }),
+    );
     expect(result).toContain("Successfully");
     expect(readFileSync(p, "utf-8")).toBe("foo qux baz");
   });
@@ -74,7 +88,9 @@ describe("patch_file", () => {
     cleanupFiles.push(p);
     require("node:fs").writeFileSync(p, "foo");
 
-    const result = await patchFileTool.handler(JSON.stringify({ path: p, old_string: "xyz", new_string: "abc" }));
+    const result = await patchFileTool.handler(
+      JSON.stringify({ path: p, old_string: "xyz", new_string: "abc" }),
+    );
     expect(result).toContain("not found");
   });
 
@@ -83,14 +99,18 @@ describe("patch_file", () => {
     cleanupFiles.push(p);
     require("node:fs").writeFileSync(p, "aaa bbb aaa");
 
-    const result = await patchFileTool.handler(JSON.stringify({ path: p, old_string: "aaa", new_string: "ccc" }));
+    const result = await patchFileTool.handler(
+      JSON.stringify({ path: p, old_string: "aaa", new_string: "ccc" }),
+    );
     expect(result).toContain("not unique");
   });
 });
 
 describe("shell_exec", () => {
   test("runs echo", async () => {
-    const result = await shellExecTool.handler(JSON.stringify({ command: "echo hello", timeout: null }));
+    const result = await shellExecTool.handler(
+      JSON.stringify({ command: "echo hello", timeout: null }),
+    );
     expect(result.trim()).toBe("hello");
   });
 

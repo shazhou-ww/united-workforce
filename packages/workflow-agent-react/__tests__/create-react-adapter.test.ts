@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { ok, START, type ThreadContext, type WorkflowRuntime } from "@uncaged/workflow-protocol";
 import type { LlmFn, ToolDefinition } from "@uncaged/workflow-reactor";
-import { ok } from "@uncaged/workflow-protocol";
-import { START, type ThreadContext, type WorkflowRuntime } from "@uncaged/workflow-protocol";
 import * as z from "zod/v4";
 
 import { createReactAdapter } from "../src/create-react-adapter.js";
@@ -39,10 +38,12 @@ const STUB_RUNTIME: WorkflowRuntime = {
   }),
 };
 
-const TEST_SCHEMA = z.object({
-  summary: z.string(),
-  score: z.number(),
-}).meta({ title: "resolve", description: "Submit the final result." });
+const TEST_SCHEMA = z
+  .object({
+    summary: z.string(),
+    score: z.number(),
+  })
+  .meta({ title: "resolve", description: "Submit the final result." });
 
 function makeChatResponse(content: string | null, toolCalls: unknown[] | null): string {
   const message: Record<string, unknown> = { role: "assistant" };
@@ -156,7 +157,9 @@ describe("createReactAdapter", () => {
       callCount += 1;
       if (callCount === 1) {
         // Invalid: score should be number, not string
-        return ok(makeToolCallResponse("resolve", { summary: "bad", score: "not-a-number" }, "call_1"));
+        return ok(
+          makeToolCallResponse("resolve", { summary: "bad", score: "not-a-number" }, "call_1"),
+        );
       }
       return ok(makeToolCallResponse("resolve", { summary: "fixed", score: 10 }, "call_2"));
     };

@@ -59,17 +59,26 @@ export function workflowAsAgent(
 
     const registryResult = await readWorkflowRegistry(storageRoot);
     if (!registryResult.ok) {
-      return { output: `ERROR: failed to read workflow registry: ${registryResult.error.message}`, childThread: null };
+      return {
+        output: `ERROR: failed to read workflow registry: ${registryResult.error.message}`,
+        childThread: null,
+      };
     }
 
     const maxDepth = workflowAsAgentMaxDepth(registryResult.value.config);
     if (nextDepth > maxDepth) {
-      return { output: `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`, childThread: null };
+      return {
+        output: `ERROR: workflow-as-agent depth limit exceeded (max ${maxDepth})`,
+        childThread: null,
+      };
     }
 
     const entry = getRegisteredWorkflow(registryResult.value, workflowName);
     if (entry === null) {
-      return { output: `ERROR: workflow "${workflowName}" not found in registry`, childThread: null };
+      return {
+        output: `ERROR: workflow "${workflowName}" not found in registry`,
+        childThread: null,
+      };
     }
 
     const bundlePath = join(storageRoot, "bundles", `${entry.hash}.esm.js`);

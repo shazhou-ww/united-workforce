@@ -14,7 +14,7 @@ import type {
 } from "@uncaged/workflow-runtime";
 
 import { executeThread } from "../src/engine/engine.js";
-import type { ExecuteThreadIo, ExecuteThreadOptions } from "../src/engine/types.js";
+import type { ExecuteThreadOptions } from "../src/engine/types.js";
 
 const TEST_REGISTRY_YAML = `config:
   maxDepth: 3

@@ -31,13 +31,20 @@ export const shellExecTool: ToolEntry = {
       });
       return output.length > MAX_OUTPUT ? `${output.slice(0, MAX_OUTPUT)}\n...(truncated)` : output;
     } catch (err: unknown) {
-      if (err && typeof err === "object" && "status" in err && (err as { status: unknown }).status === null) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "status" in err &&
+        (err as { status: unknown }).status === null
+      ) {
         return "Error: command timed out";
       }
       if (err && typeof err === "object" && "stderr" in err) {
         const e = err as { stderr: string; stdout: string; status: number };
         const combined = `${e.stdout ?? ""}${e.stderr ?? ""}`;
-        return combined.length > MAX_OUTPUT ? `${combined.slice(0, MAX_OUTPUT)}\n...(truncated)` : combined || `Error: command exited with status ${e.status}`;
+        return combined.length > MAX_OUTPUT
+          ? `${combined.slice(0, MAX_OUTPUT)}\n...(truncated)`
+          : combined || `Error: command exited with status ${e.status}`;
       }
       return `Error: ${err instanceof Error ? err.message : String(err)}`;
     }

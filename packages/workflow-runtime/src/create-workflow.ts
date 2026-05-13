@@ -37,7 +37,7 @@ function resolveExtractedRefs(
   return extractRefsFn(meta as Record<string, unknown>);
 }
 
-function mergeUniqueHashes(a: readonly string[], b: readonly string[]): string[] {
+function _mergeUniqueHashes(a: readonly string[], b: readonly string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const h of [...a, ...b]) {
@@ -83,7 +83,10 @@ async function advanceOneRound<M extends RoleMeta>(
   }
 
   const adapter = adapterForRole(binding, next);
-  const roleFn = adapter(roleDef.systemPrompt, roleDef.schema as z.ZodType<Record<string, unknown>>);
+  const roleFn = adapter(
+    roleDef.systemPrompt,
+    roleDef.schema as z.ZodType<Record<string, unknown>>,
+  );
   const result = await roleFn(modCtx as unknown as ThreadContext, runtime);
   const meta = result.meta;
 

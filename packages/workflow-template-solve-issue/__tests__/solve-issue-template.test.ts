@@ -215,10 +215,7 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
     });
     const gen = run(makeThread("task"), {
       cas,
-      extract: createExtract(
-        { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
-        { cas },
-      ),
+      extract: createExtract({ baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" }, { cas }),
     });
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -261,10 +258,7 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
     });
     const gen = run(makeThread("task"), {
       cas,
-      extract: createExtract(
-        { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
-        { cas },
-      ),
+      extract: createExtract({ baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" }, { cas }),
     });
     await gen.next();
     expect(calls).toEqual(["preparer"]);

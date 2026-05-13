@@ -70,7 +70,6 @@ export function LoginPage({ onLogin }: Props) {
               borderColor: "var(--color-border)",
               color: "var(--color-text)",
             }}
-            autoFocus
           />
           {error && (
             <p className="text-xs mb-3" style={{ color: "var(--color-error)" }}>

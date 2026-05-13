@@ -1,7 +1,10 @@
 {
   "name": "@uncaged/workflow-dashboard",
   "version": "0.1.0",
-  "files": ["dist", "package.json"],
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "private": true,
   "type": "module",
   "scripts": {

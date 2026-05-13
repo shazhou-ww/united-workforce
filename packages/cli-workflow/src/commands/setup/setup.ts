@@ -13,8 +13,6 @@ import type { CmdSetupSuccess, SetupCliArgs } from "./types.js";
 
 const setupLog = createLogger({ sink: { kind: "stderr" } });
 
-
-
 function mergeWorkflowConfig(
   prev: WorkflowConfig | null,
   input: SetupCliArgs,

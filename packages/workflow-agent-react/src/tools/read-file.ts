@@ -11,7 +11,10 @@ export const readFileTool: ToolEntry = {
         type: "object",
         properties: {
           path: { type: "string", description: "Path to the file to read" },
-          offset: { type: ["number", "null"], description: "Start line number (1-indexed, default: 1)" },
+          offset: {
+            type: ["number", "null"],
+            description: "Start line number (1-indexed, default: 1)",
+          },
           limit: { type: ["number", "null"], description: "Max lines to read (default: all)" },
         },
         required: ["path"],
@@ -20,12 +23,17 @@ export const readFileTool: ToolEntry = {
   },
   handler: async (args: string): Promise<string> => {
     try {
-      const parsed = JSON.parse(args) as { path: string; offset: number | null; limit: number | null };
+      const parsed = JSON.parse(args) as {
+        path: string;
+        offset: number | null;
+        limit: number | null;
+      };
       const content = await readFile(parsed.path, "utf-8");
       const allLines = content.split("\n");
       const offset = parsed.offset ?? 1;
       const start = Math.max(0, offset - 1);
-      const end = parsed.limit != null ? Math.min(allLines.length, start + parsed.limit) : allLines.length;
+      const end =
+        parsed.limit != null ? Math.min(allLines.length, start + parsed.limit) : allLines.length;
       const lines = allLines.slice(start, end);
       return lines.map((line, i) => `${start + i + 1}|${line}`).join("\n");
     } catch (err) {

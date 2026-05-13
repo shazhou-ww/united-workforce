@@ -5,7 +5,6 @@ import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { pathExists } from "../../fs-utils.js";
 import type { CmdInitWorkspaceSuccess } from "./types.js";
-import { validateWorkspaceSegment } from "./validate.js";
 
 function rootPackageJson(workspaceName: string): string {
   return `${JSON.stringify(

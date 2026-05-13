@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { resolve as resolvePath } from "node:path";
 
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
@@ -10,6 +10,7 @@ import { createLogger } from "@uncaged/workflow-util";
 import { printCliError, printCliLine, printCliWarn } from "../../cli-output.js";
 
 const setupDispatchLog = createLogger({ sink: { kind: "stderr" } });
+
 import { loadPresetProviders } from "./preset-providers.js";
 import { cmdSetup, printSetupSummary } from "./setup.js";
 import type { SetupCliArgs } from "./types.js";
@@ -201,11 +202,8 @@ async function promptSecret(label: string): Promise<string> {
 }
 
 /** Fetch available models from an OpenAI-compatible /models endpoint. */
-async function fetchAvailableModels(
-  baseUrl: string,
-  apiKey: string,
-): Promise<string[]> {
-  const url = baseUrl.replace(/\/+$/, "") + "/models";
+async function fetchAvailableModels(baseUrl: string, apiKey: string): Promise<string[]> {
+  const url = `${baseUrl.replace(/\/+$/, "")}/models`;
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -228,7 +226,10 @@ async function fetchAvailableModels(
       .filter((id) => !NON_CHAT_RE.test(id))
       .sort();
   } catch (e) {
-    setupDispatchLog("V8NQ4JT6", `fetch models failed: ${e instanceof Error ? e.message : String(e)}`);
+    setupDispatchLog(
+      "V8NQ4JT6",
+      `fetch models failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
     return [];
   }
 }

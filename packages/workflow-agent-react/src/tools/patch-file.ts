@@ -30,7 +30,10 @@ export const patchFileTool: ToolEntry = {
       if (secondIdx !== -1) {
         return `Error: old_string is not unique in ${parsed.path} (found multiple occurrences)`;
       }
-      const updated = content.slice(0, firstIdx) + parsed.new_string + content.slice(firstIdx + parsed.old_string.length);
+      const updated =
+        content.slice(0, firstIdx) +
+        parsed.new_string +
+        content.slice(firstIdx + parsed.old_string.length);
       await writeFile(parsed.path, updated);
       return `Successfully patched ${parsed.path}`;
     } catch (err) {
