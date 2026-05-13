@@ -6,15 +6,26 @@ export const phaseSchema = z.object({
   title: z.string(),
 });
 
-export const plannerMetaSchema = z.object({
-  phases: z.array(phaseSchema),
-});
+export const plannerMetaSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("planned"),
+    phases: z.array(phaseSchema),
+  }),
+  z.object({
+    status: z.literal("aborted"),
+    reason: z.string().describe("Why the task cannot proceed"),
+  }),
+]);
 
 export type PlannerMeta = z.infer<typeof plannerMetaSchema>;
 
-const PLANNER_SYSTEM = `You are a **planner** for a software task. Break the work into **sequential phases** the coder will execute one at a time.
+const PLANNER_SYSTEM = `You are a **planner** for a software task. Break the work into **sequential phases** the coder will execute one at a time. **Abort** if the prompt lacks critical information (e.g. no project/workspace path, ambiguous target repo).
 
 Run \`uncaged-workflow skill develop\` for thread ID lookup, CAS commands, and meta output guide.
+
+## Prerequisites — check FIRST
+
+The prompt MUST include an **absolute filesystem path** to the project workspace (e.g. \`/home/user/repos/my-project\`). If no workspace path is given and you cannot reliably infer one from context, **abort immediately** with a clear reason explaining what information is missing. Do NOT guess paths.
 
 ## Storing phase details — MANDATORY
 
@@ -37,7 +48,10 @@ Fewer phases is always better. Each phase must justify its existence — if two 
 ## Output format
 
 After storing all phases via the CLI, output compact JSON only:
-  { "phases": [{ "hash": "<hash-from-cas-put>", "title": "<one-line-summary>" }] }
+  { "status": "planned", "phases": [{ "hash": "<hash-from-cas-put>", "title": "<one-line-summary>" }] }
+
+If aborting:
+  { "status": "aborted", "reason": "<what is missing>" }
 
 Order phases so earlier steps unblock later ones. Cover root cause, edge cases, and verification across the phases.
 
@@ -49,5 +63,5 @@ export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
   schema: plannerMetaSchema,
-  extractRefs: (meta) => meta.phases.map((p) => p.hash),
+  extractRefs: (meta) => meta.status === "planned" ? meta.phases.map((p) => p.hash) : [],
 };

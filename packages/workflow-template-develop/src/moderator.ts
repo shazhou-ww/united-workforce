@@ -30,6 +30,18 @@ function coderFinishedAllPlannedPhases(
 
 // ── Conditions ─────────────────────────────────────────────────────
 
+const plannerAborted: ModeratorCondition<DevelopMeta> = {
+  name: "plannerAborted",
+  description: "The planner aborted due to insufficient information",
+  check: (ctx) => {
+    const plannerStep = ctx.steps.find((s) => s.role === "planner");
+    if (plannerStep === undefined) {
+      return false;
+    }
+    return plannerStep.meta.status === "aborted";
+  },
+};
+
 const allPhasesComplete: ModeratorCondition<DevelopMeta> = {
   name: "allPhasesComplete",
   description: "All planned phases have been completed by the coder",
@@ -38,7 +50,7 @@ const allPhasesComplete: ModeratorCondition<DevelopMeta> = {
     if (plannerStep === undefined) {
       return true;
     }
-    const phases = plannerStep.meta.phases;
+    const phases = plannerStep.meta.status === "planned" ? plannerStep.meta.phases : [];
     if (!Array.isArray(phases)) {
       return true;
     }
@@ -71,7 +83,10 @@ const testsPassed: ModeratorCondition<DevelopMeta> = {
 
 const table: ModeratorTable<DevelopMeta> = {
   [START]: [{ condition: "FALLBACK", role: "planner" }],
-  planner: [{ condition: "FALLBACK", role: "coder" }],
+  planner: [
+    { condition: plannerAborted, role: END },
+    { condition: "FALLBACK", role: "coder" },
+  ],
   coder: [
     { condition: allPhasesComplete, role: "reviewer" },
     { condition: "FALLBACK", role: "coder" },

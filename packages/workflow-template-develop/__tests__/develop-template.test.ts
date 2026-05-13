@@ -9,7 +9,9 @@ import type { DevelopMeta } from "../src/roles.js";
 
 const developModerator = tableToModerator(developTable);
 
-const DEFAULT_PHASES: PlannerMeta["phases"] = [
+type PlannedMeta = Extract<PlannerMeta, { status: "planned" }>;
+
+const DEFAULT_PHASES: PlannedMeta["phases"] = [
   {
     hash: "4KNMR2PX",
     title: "Do the work",
@@ -36,11 +38,11 @@ function makeCtx(steps: ModeratorContext<DevelopMeta>["steps"]): ModeratorContex
   };
 }
 
-function plannerStep(phases: PlannerMeta["phases"] = DEFAULT_PHASES): RoleStep<DevelopMeta> {
+function plannerStep(phases: PlannedMeta["phases"] = DEFAULT_PHASES): RoleStep<DevelopMeta> {
   return {
     role: "planner",
     contentHash: "STUBHASHPLANNER001",
-    meta: { phases },
+    meta: { status: "planned" as const, phases },
     refs: phases.map((p) => p.hash),
     timestamp: 1,
   };
@@ -153,7 +155,7 @@ describe("developModerator", () => {
   });
 
   test("multiple planner phases → coder until all complete, then reviewer", () => {
-    const phases: PlannerMeta["phases"] = [
+    const phases: PlannedMeta["phases"] = [
       { hash: "AA000001", title: "first phase" },
       { hash: "AA000002", title: "second phase" },
     ];
@@ -167,7 +169,7 @@ describe("developModerator", () => {
   });
 
   test("one-shot coder reports only last phase hash → reviewer (moderator treats as all phases done)", () => {
-    const phases: PlannerMeta["phases"] = [
+    const phases: PlannedMeta["phases"] = [
       { hash: "BB000001", title: "setup branch" },
       { hash: "BB000002", title: "write tests" },
       { hash: "BB000003", title: "verify" },
@@ -179,7 +181,7 @@ describe("developModerator", () => {
   });
 
   test("unrecognised completedPhase hash → coder retry when budget allows", () => {
-    const phases: PlannerMeta["phases"] = [
+    const phases: PlannedMeta["phases"] = [
       { hash: "CC000001", title: "first phase" },
       { hash: "CC000002", title: "second phase" },
     ];
@@ -187,7 +189,7 @@ describe("developModerator", () => {
   });
 
   test("incomplete phases → coder retry (supervisor controls termination)", () => {
-    const phases: PlannerMeta["phases"] = [
+    const phases: PlannedMeta["phases"] = [
       { hash: "DD000001", title: "first phase" },
       { hash: "DD000002", title: "second phase" },
     ];
@@ -196,6 +198,17 @@ describe("developModerator", () => {
       coderStep("DD000001"),
     ];
     expect(developModerator(makeCtx(steps))).toBe("coder");
+  });
+
+  test("planner aborted → END", () => {
+    const abortedStep: RoleStep<DevelopMeta> = {
+      role: "planner",
+      contentHash: "STUBHASHABORT001",
+      meta: { status: "aborted", reason: "No workspace path provided" },
+      refs: [],
+      timestamp: 1,
+    };
+    expect(developModerator(makeCtx([abortedStep]))).toBe("__end__");
   });
 
   test("committer → END for any committer meta status", () => {
