@@ -75,7 +75,7 @@ npm run build
 
 # ─── Self-test ────────────────────────────────────────────────────────────────
 echo "🧪 Running tests..."
-if ! npm test; then
+if ! bun test; then
   echo "❌ Tests failed — aborting publish"
   exit 1
 fi
