@@ -5,11 +5,9 @@
  * developer → workflow-as-agent (delegates to "develop" workflow)
  */
 import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
-import { putContentNodeWithRefs } from "@uncaged/workflow-cas";
 import { workflowAsAgent } from "@uncaged/workflow-execute";
-import type { AdapterFn, AgentContext, AgentFnResult, ThreadContext, WorkflowRuntime } from "@uncaged/workflow-runtime";
 import { createWorkflow } from "@uncaged/workflow-runtime";
-import type * as z from "zod/v4";
+import { wrapAgentAsAdapter } from "@uncaged/workflow-util-agent";
 import { buildSolveIssueDescriptor, solveIssueWorkflowDefinition } from "./src/index.js";
 
 function optionalEnv(name: string): string | null {
@@ -18,19 +16,6 @@ function optionalEnv(name: string): string | null {
     return null;
   }
   return value;
-}
-
-function wrapAgentAsAdapter(agentFn: (ctx: AgentContext) => Promise<AgentFnResult>): AdapterFn {
-  return <T>(prompt: string, schema: z.ZodType<T>) => {
-    return async (ctx: ThreadContext, runtime: WorkflowRuntime): Promise<T> => {
-      const agentCtx: AgentContext = { ...ctx, currentRole: { name: "agent", systemPrompt: prompt } };
-      const result = await agentFn(agentCtx);
-      const output = typeof result === "string" ? result : result.output;
-      const contentHash = await putContentNodeWithRefs(runtime.cas, output, []);
-      const extracted = await runtime.extract(schema as z.ZodType<Record<string, unknown>>, contentHash);
-      return extracted.meta as T;
-    };
-  };
 }
 
 const hermesAgent = createHermesAgent({
