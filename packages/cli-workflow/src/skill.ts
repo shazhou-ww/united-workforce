@@ -183,35 +183,63 @@ How to build, test, and publish workflow bundles for uncaged-workflow.
 A workflow bundle is a single ESM file (\`.esm.js\`) that exports:
 
 \`\`\`typescript
-// Required exports
+// Required named exports (no default export)
 export const descriptor: WorkflowDescriptor;
-export const run: WorkflowRun;
+export const run: WorkflowFn;
 \`\`\`
 
 ## WorkflowDescriptor
 
-Serialized metadata for the registry (per-role JSON Schema plus a static routing graph):
+Serialized metadata for the registry. Every role must include both \`description\` and \`schema\` (JSON Schema object). The graph uses an edges array where each edge has \`from\`, \`to\`, and \`condition\`.
 
 \`\`\`typescript
 type WorkflowDescriptor = {
   description: string;
-  roles: Record<string, { description: string; schema: unknown /* JSON Schema */ }>;
+  roles: Record<string, {
+    description: string;
+    schema: object;  // JSON Schema — use z.toJSONSchema(zodSchema) to generate
+  }>;
   graph: {
     edges: Array<{
-      from: string;
-      to: string;
-      condition: string;
-      conditionDescription: string | null;
+      from: string;       // role name, or "__start__"
+      to: string;         // role name, or "__end__"
+      condition: string;  // e.g. "FALLBACK"
+      conditionDescription?: string | null;
     }>;
   };
 };
 \`\`\`
 
-## WorkflowRun
+**descriptor is static data** — it is read at \`workflow add\` (register) time via \`import()\`. It must NOT trigger any side effects or read environment variables.
+
+## WorkflowFn
 
 Async generator from \`createWorkflow(definition, binding)\` (**@uncaged/workflow-runtime**) — yields each role output until the workflow completes.
 
-The **ModeratorTable** on **WorkflowDefinition** is declarative routing (from each role and \`START\` to the next role or \`END\`); the engine evaluates conditions at runtime.
+## ModeratorTable
+
+Declarative routing table. Transitions use the \`role\` field (not \`next\`):
+
+\`\`\`typescript
+import { START, END, type ModeratorTable } from "@uncaged/workflow-runtime";
+
+const table: ModeratorTable<MyMeta> = {
+  [START]: [{ condition: "FALLBACK", role: "firstRole" }],
+  firstRole: [{ condition: "FALLBACK", role: END }],
+};
+\`\`\`
+
+## AdapterFn / AdapterBinding
+
+The adapter receives a system prompt and Zod schema, returns a \`RoleFn<T>\` that produces typed meta:
+
+\`\`\`typescript
+type AdapterFn = <T>(prompt: string, schema: ZodType<T>) => RoleFn<T>;
+type AdapterBinding = {
+  adapter: AdapterFn;
+  overrides: Partial<Record<string, AdapterFn>> | null;
+};
+\`\`\`
 
 ## Role Definition
 
@@ -230,15 +258,16 @@ Each role has:
 # 1. Initialize a workspace
 uncaged-workflow init workspace my-workflow
 
-# 2. Write your template (roles + ModeratorTable + descriptor)
+# 2. Write your template (roles + ModeratorTable + definition)
+# 3. Write entry file (workflows/*-entry.ts) with adapter binding + descriptor
 
-# 3. Build the ESM bundle
-bun run build
+# 4. Build the ESM bundle
+bun run bundle   # uses scripts/bundle.ts
 
-# 4. Register locally
-uncaged-workflow workflow add my-workflow ./dist/my-workflow.esm.js
+# 5. Register locally
+uncaged-workflow workflow add my-workflow ./dist/my-workflow-entry.esm.js
 
-# 5. Test
+# 6. Test
 uncaged-workflow run my-workflow --prompt "test task"
 uncaged-workflow live --latest
 \`\`\`
@@ -246,5 +275,46 @@ uncaged-workflow live --latest
 ## Versioning
 
 Bundles are immutable and identified by XXH64 hash. Re-registering a workflow with a new bundle creates a new version. Use \`workflow history\` and \`workflow rollback\` to manage versions.
+
+## Pitfalls
+
+### Lazy initialization is mandatory
+
+The bundle is \`import()\`-ed at register time (\`workflow add\`) to read the descriptor. At that point, no runtime env vars (API keys, etc.) are available.
+
+**Never read env at module top-level.** Wrap provider/adapter creation in a lazy closure:
+
+\`\`\`typescript
+// ❌ WRONG — breaks register
+const provider = { apiKey: process.env.MY_KEY! };
+const adapter = createAdapter(provider);
+
+// ✅ CORRECT — only reads env when run() is called
+function createLazyAdapter(): AdapterFn {
+  let cached: Provider | null = null;
+  return (prompt, schema) => {
+    return async (ctx, runtime) => {
+      if (!cached) cached = { apiKey: process.env.MY_KEY! };
+      // ... use cached provider
+    };
+  };
+}
+\`\`\`
+
+### Bundle import restrictions
+
+The bundle validator only allows these import specifiers:
+- Node built-ins (\`node:fs\`, \`node:path\`, etc.)
+- \`@uncaged/workflow-*\` packages
+
+Third-party packages (**including zod**) must be bundled into the \`.esm.js\` file, not left as external imports. When using \`bun build\`, only mark \`@uncaged/*\` as external.
+
+### No default exports
+
+The engine only reads named exports \`run\` and \`descriptor\`. Using \`export default\` will cause registration to fail silently.
+
+### Single-file ESM
+
+The bundle must be a single \`.esm.js\` file. No dynamic \`import()\` inside the bundle — it breaks hash verification and the loader sandbox.
 `;
 }
