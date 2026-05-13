@@ -1,0 +1,27 @@
+{
+  "name": "@uncaged/workflow-agent-react",
+  "version": "0.3.5",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow-protocol": "workspace:*",
+    "@uncaged/workflow-reactor": "workspace:*",
+    "@uncaged/workflow-util-agent": "workspace:*"
+  },
+  "devDependencies": {
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  }
+}

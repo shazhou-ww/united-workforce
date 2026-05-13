@@ -11,6 +11,7 @@ import {
   createWorkflow,
   END,
   type ModeratorContext,
+  type RoleResult,
   type RoleStep,
   START,
   type ThreadContext,
@@ -112,13 +113,13 @@ function makeThread(prompt: string) {
 function createSequenceAdapter(sequence: ReadonlyArray<Record<string, unknown>>): AdapterFn {
   let i = 0;
   return <T>(_prompt: string, _schema: z.ZodType<T>) => {
-    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<T> => {
+    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
       const meta = sequence[i] ?? sequence[sequence.length - 1];
       if (meta === undefined) {
         throw new Error("createSequenceAdapter: empty sequence");
       }
       i += 1;
-      return meta as T;
+      return { meta: meta as T, childThread: null };
     };
   };
 }
@@ -130,9 +131,9 @@ function createTrackingAdapter(
   meta: Record<string, unknown>,
 ): AdapterFn {
   return <T>(_prompt: string, _schema: z.ZodType<T>) => {
-    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<T> => {
+    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
       calls.push(name);
-      return meta as T;
+      return { meta: meta as T, childThread: null };
     };
   };
 }

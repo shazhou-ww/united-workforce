@@ -20,6 +20,7 @@ export type {
   Result,
   RoleDefinition,
   RoleFn,
+  RoleResult,
   RoleMeta,
   RoleOutput,
   RoleStep,

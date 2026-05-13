@@ -6,5 +6,9 @@
     "composite": true
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../workflow-runtime" }, { "path": "../workflow-cas" }]
+  "references": [
+    { "path": "../workflow-protocol" },
+    { "path": "../workflow-reactor" },
+    { "path": "../workflow-util-agent" }
+  ]
 }

@@ -157,7 +157,9 @@ export type AgentBinding = {
 
 // ── Adapter (replaces Agent) ────────────────────────────────────────
 
-export type RoleFn<T> = (ctx: ThreadContext, runtime: WorkflowRuntime) => Promise<T>;
+export type RoleResult<T> = { meta: T; childThread: string | null };
+
+export type RoleFn<T> = (ctx: ThreadContext, runtime: WorkflowRuntime) => Promise<RoleResult<T>>;
 
 export type AdapterFn = <T>(prompt: string, schema: z.ZodType<T>) => RoleFn<T>;
 

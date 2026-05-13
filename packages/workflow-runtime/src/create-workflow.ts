@@ -84,7 +84,8 @@ async function advanceOneRound<M extends RoleMeta>(
 
   const adapter = adapterForRole(binding, next);
   const roleFn = adapter(roleDef.systemPrompt, roleDef.schema as z.ZodType<Record<string, unknown>>);
-  const meta = await roleFn(modCtx as unknown as ThreadContext, runtime);
+  const result = await roleFn(modCtx as unknown as ThreadContext, runtime);
+  const meta = result.meta;
 
   const refsFromMeta = resolveExtractedRefs(
     roleDef as unknown as RoleDefinition<Record<string, unknown>>,
@@ -110,7 +111,7 @@ async function advanceOneRound<M extends RoleMeta>(
       contentHash: step.contentHash,
       meta: step.meta,
       refs: step.refs,
-      childThread: null,
+      childThread: result.childThread,
     },
     step,
   };
