@@ -29,6 +29,7 @@
     { "path": "packages/workflow-agent-cursor" },
     { "path": "packages/workflow-agent-hermes" },
     { "path": "packages/workflow-util-agent" },
+    { "path": "packages/workflow-agent-react" },
     { "path": "packages/cli-workflow" },
     { "path": "packages/workflow-template-solve-issue" },
     { "path": "packages/workflow-template-develop" }
