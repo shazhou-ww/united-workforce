@@ -1,6 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import type { WorkflowGraphEdge } from "../../api.ts";
 import type { ConditionEdgeData, NodeState, RoleNodeData, TerminalNodeData } from "./types.ts";
 
@@ -9,6 +8,11 @@ const END_ID = "__end__";
 const ROLE_NODE_WIDTH = 180;
 const ROLE_NODE_HEIGHT = 60;
 const TERMINAL_NODE_SIZE = 40;
+
+// Vertical gap between nodes in the spine
+const LAYER_GAP = 80;
+// Horizontal offset for feedback (back) edges routed on the right side
+const FEEDBACK_OFFSET_X = 100;
 
 type LayoutInput = {
   edges: readonly WorkflowGraphEdge[];
@@ -21,15 +25,6 @@ type LayoutResult = {
   edges: Edge[];
 };
 
-function collectNodeIds(edges: readonly WorkflowGraphEdge[]): Set<string> {
-  const ids = new Set<string>();
-  for (const e of edges) {
-    ids.add(e.from);
-    ids.add(e.to);
-  }
-  return ids;
-}
-
 function nodeSize(id: string): { width: number; height: number } {
   if (id === START_ID || id === END_ID) {
     return { width: TERMINAL_NODE_SIZE, height: TERMINAL_NODE_SIZE };
@@ -39,6 +34,75 @@ function nodeSize(id: string): { width: number; height: number } {
 
 function edgeKey(e: WorkflowGraphEdge): string {
   return `${e.from}->${e.to}::${e.condition}`;
+}
+
+/**
+ * Extract the linear spine from the graph using topological ordering.
+ * Forward edges go from lower rank to higher rank; feedback edges go backwards.
+ * Self-loops are neither forward nor feedback — they're handled separately.
+ */
+function extractSpine(edges: readonly WorkflowGraphEdge[]): string[] {
+  // Collect all node IDs
+  const ids = new Set<string>();
+  for (const e of edges) {
+    ids.add(e.from);
+    ids.add(e.to);
+  }
+
+  // Build adjacency for forward edges only (non-self-loop, non-FALLBACK-back)
+  // Strategy: BFS from __start__, picking the first non-FALLBACK forward edge,
+  // or FALLBACK if no other option.
+  const forwardAdj = new Map<string, string[]>();
+  for (const e of edges) {
+    if (e.from === e.to) continue;
+    const existing = forwardAdj.get(e.from) ?? [];
+    existing.push(e.to);
+    forwardAdj.set(e.from, existing);
+  }
+
+  // Walk the main path: prefer non-FALLBACK edges for the spine ordering
+  const visited = new Set<string>();
+  const spine: string[] = [];
+
+  // Build a set of "primary" next targets per node (non-FALLBACK first)
+  const primaryNext = new Map<string, string>();
+  const edgesByFrom = new Map<string, WorkflowGraphEdge[]>();
+  for (const e of edges) {
+    if (e.from === e.to) continue;
+    const list = edgesByFrom.get(e.from) ?? [];
+    list.push(e);
+    edgesByFrom.set(e.from, list);
+  }
+
+  // For each node, the "primary" next is the first non-FALLBACK target,
+  // or the FALLBACK target if all edges are FALLBACK
+  for (const [from, edgeList] of edgesByFrom) {
+    const nonFallback = edgeList.find((e) => e.condition !== "FALLBACK");
+    const fallback = edgeList.find((e) => e.condition === "FALLBACK");
+    primaryNext.set(from, nonFallback?.to ?? fallback?.to ?? "");
+  }
+
+  // Walk the spine from __start__
+  let current: string | null = START_ID;
+  while (current !== null && !visited.has(current)) {
+    visited.add(current);
+    spine.push(current);
+    const next = primaryNext.get(current);
+    if (next !== undefined && next !== "" && !visited.has(next)) {
+      current = next;
+    } else {
+      current = null;
+    }
+  }
+
+  // Add any remaining nodes not on the main path (shouldn't normally happen)
+  for (const id of ids) {
+    if (!visited.has(id)) {
+      spine.push(id);
+    }
+  }
+
+  return spine;
 }
 
 function buildRoleNode(
@@ -72,143 +136,95 @@ function buildTerminalNode(
   };
 }
 
-function buildEdge(e: WorkflowGraphEdge, elkEdgeMap: Map<string, ElkExtendedEdge>): Edge<ConditionEdgeData> {
-  const isFallback = e.condition === "FALLBACK";
-  const key = edgeKey(e);
-  const elkEdge = elkEdgeMap.get(key);
-
-  // Extract ELK's computed label position
-  let labelX: number | null = null;
-  let labelY: number | null = null;
-  if (elkEdge?.labels && elkEdge.labels.length > 0) {
-    const label = elkEdge.labels[0];
-    if (label.x !== undefined && label.y !== undefined) {
-      labelX = label.x + (label.width ?? 0) / 2;
-      labelY = label.y + (label.height ?? 0) / 2;
-    }
+function computeLayout(input: LayoutInput): LayoutResult {
+  const spine = extractSpine(input.edges);
+  const rank = new Map<string, number>();
+  for (let i = 0; i < spine.length; i++) {
+    rank.set(spine[i], i);
   }
 
-  return {
-    id: key,
-    source: e.from,
-    target: e.to,
-    type: "condition",
-    data: {
-      condition: e.condition,
-      conditionDescription: e.conditionDescription,
-      isFallback,
-      elkLabelX: labelX,
-      elkLabelY: labelY,
-    },
-  };
-}
+  // Position nodes along a vertical spine, centered horizontally
+  const centerX = ROLE_NODE_WIDTH / 2; // left edge at x=0, center at width/2
+  const nodePositions = new Map<string, { x: number; y: number; w: number; h: number }>();
 
-const elk = new ELK();
-
-async function computeLayout(input: LayoutInput): Promise<LayoutResult> {
-  const ids = collectNodeIds(input.edges);
-
-  const elkNodes: ElkNode[] = [];
-  for (const id of ids) {
+  let y = 0;
+  for (const id of spine) {
     const size = nodeSize(id);
-    elkNodes.push({ id, width: size.width, height: size.height });
+    // Center-align all nodes on the spine
+    const x = centerX - size.width / 2;
+    nodePositions.set(id, { x, y, w: size.width, h: size.height });
+    y += size.height + LAYER_GAP;
   }
 
-  const elkEdges: ElkExtendedEdge[] = input.edges
-    .filter((e) => e.from !== e.to)
-    .map((e) => ({
-      id: edgeKey(e),
-      sources: [e.from],
-      targets: [e.to],
-      labels: e.condition !== ""
-        ? [{ text: e.condition, width: Math.max(e.condition.length * 7 + 16, 60), height: 22 }]
-        : [],
-    }));
-
-  const graph: ElkNode = {
-    id: "root",
-    layoutOptions: {
-      "elk.algorithm": "layered",
-      "elk.direction": "DOWN",
-      // Node spacing
-      "elk.spacing.nodeNode": "30",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "50",
-      // Edge spacing — keep edges apart from each other and from nodes
-      "elk.spacing.edgeNode": "25",
-      "elk.spacing.edgeEdge": "15",
-      "elk.layered.spacing.edgeNodeBetweenLayers": "25",
-      "elk.layered.spacing.edgeEdgeBetweenLayers": "15",
-      // Edge routing
-      "elk.edgeRouting": "ORTHOGONAL",
-      "elk.layered.mergeEdges": "false",
-      // Node placement
-      "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-      // Edge label placement
-      "elk.edgeLabels.placement": "CENTER",
-      // Crossing minimization
-      "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-      // Compaction
-      "elk.layered.compaction.postCompaction.strategy": "EDGE_LENGTH",
-      // Cycle breaking — keep main flow top-to-bottom
-      "elk.layered.cycleBreaking.strategy": "DEPTH_FIRST",
-    },
-    children: elkNodes,
-    edges: elkEdges,
-  };
-
-  const laid = await elk.layout(graph);
-
-  // Build map of ELK edge results for label positions
-  const elkEdgeMap = new Map<string, ElkExtendedEdge>();
-  for (const e of laid.edges ?? []) {
-    elkEdgeMap.set(e.id, e);
-  }
-
+  // Build nodes
   const nodes: Node[] = [];
-  for (const child of laid.children ?? []) {
-    const pos = { x: child.x ?? 0, y: child.y ?? 0 };
-    const state = input.nodeStates.get(child.id) ?? "default";
-    if (child.id === START_ID || child.id === END_ID) {
-      nodes.push(buildTerminalNode(child.id, pos, state));
+  for (const id of spine) {
+    const pos = nodePositions.get(id);
+    if (pos === undefined) continue;
+    const state = input.nodeStates.get(id) ?? "default";
+    if (id === START_ID || id === END_ID) {
+      nodes.push(buildTerminalNode(id, { x: pos.x, y: pos.y }, state));
     } else {
-      nodes.push(buildRoleNode(child.id, pos, input.roles, state));
+      nodes.push(buildRoleNode(id, { x: pos.x, y: pos.y }, input.roles, state));
     }
   }
 
-  const edges: Edge[] = input.edges.map((e) => buildEdge(e, elkEdgeMap));
+  // Build edges with label positions
+  // For feedback edges (target rank < source rank), we'll compute label at midpoint
+  // of the right-side arc. The actual SVG path is drawn by ConditionEdge component.
+  const edges: Edge[] = input.edges.map((e) => {
+    const isFallback = e.condition === "FALLBACK";
+    const isSelfLoop = e.from === e.to;
+    const sourceRank = rank.get(e.from) ?? 0;
+    const targetRank = rank.get(e.to) ?? 0;
+    const isFeedback = !isSelfLoop && targetRank <= sourceRank;
+
+    const sourcePos = nodePositions.get(e.from);
+    const targetPos = nodePositions.get(e.to);
+
+    let labelX: number | null = null;
+    let labelY: number | null = null;
+
+    if (sourcePos !== undefined && targetPos !== undefined) {
+      if (isFeedback) {
+        // Label on the right side of the feedback arc
+        const rightX = centerX + ROLE_NODE_WIDTH / 2 + FEEDBACK_OFFSET_X;
+        const midY = (sourcePos.y + sourcePos.h / 2 + targetPos.y + targetPos.h / 2) / 2;
+        labelX = rightX;
+        labelY = midY;
+      } else if (!isSelfLoop) {
+        // Forward edge: label between source bottom and target top
+        const midX = centerX;
+        const midY = (sourcePos.y + sourcePos.h + targetPos.y) / 2;
+        labelX = midX;
+        labelY = midY;
+      }
+      // Self-loop: let ReactFlow default handle it
+    }
+
+    return {
+      id: edgeKey(e),
+      source: e.from,
+      target: e.to,
+      type: "condition",
+      data: {
+        condition: e.condition,
+        conditionDescription: e.conditionDescription,
+        isFallback,
+        isFeedback,
+        isSelfLoop,
+      labelX,
+      labelY,
+      },
+    };
+  });
 
   return { nodes, edges };
 }
 
-const EMPTY_LAYOUT: LayoutResult = { nodes: [], edges: [] };
-
 export function useLayout(input: LayoutInput): LayoutResult {
-  const [layout, setLayout] = useState<LayoutResult>(EMPTY_LAYOUT);
-
-  const edgeJson = JSON.stringify(input.edges);
-  const roleJson = JSON.stringify(input.roles);
-
-  useEffect(() => {
-    let cancelled = false;
-    const parsed = {
-      edges: JSON.parse(edgeJson) as readonly WorkflowGraphEdge[],
-      roles: JSON.parse(roleJson) as Record<string, { description: string }>,
-      nodeStates: input.nodeStates,
-    };
-    computeLayout(parsed)
-      .then((result) => {
-        if (!cancelled) setLayout(result);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          // biome-ignore lint/suspicious/noConsole: layout error reporting
-          console.error("ELK layout failed:", err);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [edgeJson, roleJson, input.nodeStates]);
-
-  return layout;
+  return useMemo(
+    () => computeLayout(input),
+    [input.edges, input.roles, input.nodeStates],
+  );
 }

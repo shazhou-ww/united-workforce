@@ -6,11 +6,9 @@ import {
   type NodeTypes,
   type OnNodeClick,
   ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import type { WorkflowGraph as WorkflowGraphData } from "../../api.ts";
 import { ConditionEdge } from "./condition-edge.tsx";
 import { RoleNode } from "./role-node.tsx";
@@ -39,29 +37,11 @@ function handleRoleNodeClick(onRoleClick: (roleName: string) => void, node: Node
   onRoleClick(node.id);
 }
 
-function WorkflowGraphInner({ graph, roles, nodeStates, onNodeClick }: Props) {
+export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) {
   const layout = useLayout({ edges: graph.edges, roles, nodeStates });
-  const { fitView } = useReactFlow();
 
   const onNodeClickHandler: OnNodeClick | undefined =
     onNodeClick !== null ? (_e, node) => handleRoleNodeClick(onNodeClick, node) : undefined;
-
-  // Re-fit when layout changes (ELK is async)
-  // Use requestAnimationFrame + setTimeout to ensure ReactFlow has processed nodes
-  useEffect(() => {
-    if (layout.nodes.length > 0) {
-      let cancelled = false;
-      requestAnimationFrame(() => {
-        if (cancelled) return;
-        setTimeout(() => {
-          if (!cancelled) fitView({ padding: 0.1, duration: 300 });
-        }, 300);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [layout.nodes, layout.edges, fitView]);
 
   const styledEdges = useMemo(
     () =>
@@ -77,25 +57,17 @@ function WorkflowGraphInner({ graph, roles, nodeStates, onNodeClick }: Props) {
     [layout.edges],
   );
 
-  // Generate a stable key that changes when layout changes, to force ReactFlow remount + fitView
-  const layoutKey = useMemo(
-    () => layout.nodes.map((n) => `${n.id}:${n.position.x}:${n.position.y}`).join(","),
-    [layout.nodes],
-  );
-
   return (
     <ReactFlow
-      key={layoutKey}
       nodes={layout.nodes}
       edges={styledEdges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodeClick={onNodeClickHandler}
       fitView
-      fitViewOptions={{ padding: 0.1, minZoom: 0.1, maxZoom: 1.5 }}
-      minZoom={0.1}
-      maxZoom={1.5}
-      defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+      fitViewOptions={{ padding: 0.15 }}
+      minZoom={0.3}
+      maxZoom={2}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={false}
@@ -105,13 +77,5 @@ function WorkflowGraphInner({ graph, roles, nodeStates, onNodeClick }: Props) {
     >
       <Background color="var(--color-border)" gap={20} size={1} />
     </ReactFlow>
-  );
-}
-
-export function WorkflowGraph(props: Props) {
-  return (
-    <ReactFlowProvider>
-      <WorkflowGraphInner {...props} />
-    </ReactFlowProvider>
   );
 }
