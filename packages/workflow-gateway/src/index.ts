@@ -288,9 +288,9 @@ app.all("/api/clients/:client/*", async (c) => {
   }
 
   const url = new URL(c.req.url);
-  const pathAfterAgent = url.pathname.replace(`/api/clients/${client}`, "");
-  const targetUrl = `${record.url}/api${pathAfterAgent}${url.search}`;
-  const proxyPath = `/api${pathAfterAgent}${url.search}`;
+  const pathAfterClient = url.pathname.replace(`/api/clients/${client}`, "");
+  const targetUrl = `${record.url}/api${pathAfterClient}${url.search}`;
+  const proxyPath = `/api${pathAfterClient}${url.search}`;
   const method = c.req.method;
   const token = record.clientToken ?? "";
   const forwardRecord = buildForwardHeaders(c.req.raw.headers, token);

@@ -11,7 +11,7 @@ bindings = [{ name = "CLIENT_SOCKET", class_name = "ClientSocket" }]
 
 [[migrations]]
 tag = "add-agent-socket"
-new_sqlite_classes = ["ClientSocket"]
+new_sqlite_classes = ["AgentSocket"]
 
 [[migrations]]
 tag = "rename-agent-to-client"
