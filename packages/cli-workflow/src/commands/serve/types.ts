@@ -3,6 +3,7 @@ export type ServeOptions = {
   hostname: string;
   name: string;
   noTunnel: boolean;
+  tunnelUrl: string | null;
   gatewayUrl: string;
   gatewaySecret: string;
 };

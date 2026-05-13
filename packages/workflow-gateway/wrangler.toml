@@ -6,4 +6,11 @@ compatibility_date = "2025-04-01"
 binding = "ENDPOINTS"
 id = "88b118d1cfab4c049f9c1684848811a3"
 
+[durable_objects]
+bindings = [{ name = "AGENT_SOCKET", class_name = "AgentSocket" }]
+
+[[migrations]]
+tag = "add-agent-socket"
+new_sqlite_classes = ["AgentSocket"]
+
 # GATEWAY_SECRET is set via `wrangler secret put`

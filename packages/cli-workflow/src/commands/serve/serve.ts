@@ -1,17 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { hostname as osHostname } from "node:os";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
+import { createLogger } from "@uncaged/workflow-util";
 import { serve } from "bun";
 
 import { printCliLine } from "../../cli-output.js";
 import { createApp } from "./app.js";
-import {
-  registerWithGateway,
-  startHeartbeat,
-  startTunnel,
-  unregisterFromGateway,
-} from "./tunnel.js";
+import { registerWithGateway, startHeartbeat, unregisterFromGateway } from "./tunnel.js";
 import type { ServeOptions } from "./types.js";
+import { startGatewayWsClient } from "./ws-client.js";
 
 const DEFAULT_GATEWAY_URL = "https://workflow-gateway.shazhou.workers.dev";
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -56,6 +53,7 @@ function parseServeArgv(argv: string[]): Result<ServeOptions, string> {
   let hostname = "127.0.0.1";
   let name = osHostname().split(".")[0].toLowerCase();
   let noTunnel = false;
+  let tunnelUrl: string | null = null;
   let gatewayUrl = DEFAULT_GATEWAY_URL;
   const gatewaySecret = process.env.WORKFLOW_GATEWAY_SECRET ?? "";
   const stringFlags: Record<string, (v: string) => void> = {
@@ -67,6 +65,9 @@ function parseServeArgv(argv: string[]): Result<ServeOptions, string> {
     },
     "--gateway": (v) => {
       gatewayUrl = v;
+    },
+    "--tunnel-url": (v) => {
+      tunnelUrl = v;
     },
   };
 
@@ -87,7 +88,7 @@ function parseServeArgv(argv: string[]): Result<ServeOptions, string> {
     }
   }
 
-  return ok({ port, hostname, name, noTunnel, gatewayUrl, gatewaySecret });
+  return ok({ port, hostname, name, noTunnel, tunnelUrl, gatewayUrl, gatewaySecret });
 }
 
 export async function dispatchServe(storageRoot: string, argv: string[]): Promise<number> {
@@ -107,47 +108,64 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
     return 0;
   }
 
-  // Start cloudflared quick tunnel
-  printCliLine("starting cloudflared quick tunnel...");
-  const tunnel = await startTunnel(options.port);
+  let resolvedTunnelUrl: string;
+  let stopWsClient: (() => void) | null = null;
 
-  if (!tunnel) {
-    printCliLine("failed to create tunnel — continuing without gateway registration");
-    await new Promise(() => {});
-    return 0;
+  if (options.tunnelUrl !== null) {
+    resolvedTunnelUrl = options.tunnelUrl;
+    printCliLine(`using tunnel URL: ${resolvedTunnelUrl}`);
+  } else {
+    if (options.gatewaySecret === "") {
+      printCliLine(
+        "WORKFLOW_GATEWAY_SECRET not set — cannot use WebSocket gateway connection (set env or pass --tunnel-url)",
+      );
+      await new Promise(() => {});
+      return 0;
+    }
+    resolvedTunnelUrl = `http://127.0.0.1:${options.port}`;
+    const log = createLogger({ sink: { kind: "stderr" } });
+    stopWsClient = startGatewayWsClient({
+      gatewayUrl: options.gatewayUrl,
+      name: options.name,
+      secret: options.gatewaySecret,
+      localPort: options.port,
+      log,
+    });
+    printCliLine("gateway WebSocket reverse connection (no cloudflared)");
   }
 
-  printCliLine(`tunnel: ${tunnel.url}`);
-
-  // Register with gateway
   if (options.gatewaySecret) {
+    if (agentToken === null) {
+      printCliLine("internal error: agent token missing");
+      await new Promise(() => {});
+      return 1;
+    }
+    const token = agentToken;
     const registered = await registerWithGateway(
       options.gatewayUrl,
       options.name,
-      tunnel.url,
+      resolvedTunnelUrl,
       options.gatewaySecret,
-      agentToken!,
+      token,
     );
     if (registered) {
       printCliLine(`registered with gateway as "${options.name}"`);
     }
 
-    // Start heartbeat
     const heartbeatTimer = startHeartbeat(
       options.gatewayUrl,
       options.name,
-      tunnel.url,
+      resolvedTunnelUrl,
       options.gatewaySecret,
-      agentToken!,
+      token,
       HEARTBEAT_INTERVAL_MS,
     );
 
-    // Cleanup on exit
     const cleanup = async () => {
       clearInterval(heartbeatTimer);
+      stopWsClient?.();
       printCliLine("unregistering from gateway...");
       await unregisterFromGateway(options.gatewayUrl, options.name, options.gatewaySecret);
-      tunnel.process.kill();
       process.exit(0);
     };
 
@@ -157,7 +175,6 @@ export async function dispatchServe(storageRoot: string, argv: string[]): Promis
     printCliLine("WORKFLOW_GATEWAY_SECRET not set — skipping gateway registration");
   }
 
-  // Keep process alive
   await new Promise(() => {});
   return 0;
 }
