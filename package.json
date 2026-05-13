@@ -13,8 +13,8 @@
     "link": "./scripts/link-all.sh",
     "link:consume": "./scripts/link-all.sh --consume",
     "link:unlink": "./scripts/link-all.sh --unlink",
-    "publish:gitea": "./scripts/publish-all.sh",
-    "publish:gitea:dry": "./scripts/publish-all.sh --dry-run"
+    "publish:gitea": "./scripts/publish.sh patch",
+    "publish:gitea:dry": "./scripts/publish.sh --dry-run patch"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",

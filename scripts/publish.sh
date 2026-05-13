@@ -1,32 +1,31 @@
 #!/usr/bin/env bash
-# publish.sh — Bump version, build, test & publish all @uncaged/workflow-* packages
+# publish.sh — Bump version, build, test, topologically publish @uncaged/* to Gitea npm
 #
 # Usage:
-#   ./scripts/publish.sh patch        # 0.3.1 → 0.3.2
-#   ./scripts/publish.sh minor        # 0.3.1 → 0.4.0
-#   ./scripts/publish.sh major        # 0.3.1 → 1.0.0
-#   ./scripts/publish.sh 0.5.0        # explicit version
-#   ./scripts/publish.sh patch --dry-run  # preview without publishing
+#   ./scripts/publish.sh 0.4.0             # explicit version
+#   ./scripts/publish.sh patch             # 0.3.1 → 0.3.2
+#   ./scripts/publish.sh minor             # 0.3.1 → 0.4.0
+#   ./scripts/publish.sh major             # 0.3.1 → 1.0.0
+#   ./scripts/publish.sh --dry-run patch   # dry-run bun publish only (no git commit/push)
 #
 # Env (via `cfg` or export):
-#   GITEA_TOKEN  — Gitea npm registry auth (used by .npmrc)
+#   GITEA_TOKEN — Gitea npm registry auth (see root .npmrc)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 GITEA_TOKEN="${GITEA_TOKEN:?GITEA_TOKEN is required}"
-REGISTRY="https://git.shazhou.work/api/packages/uncaged/npm/"
 
+REGISTRY="https://git.shazhou.work/api/packages/uncaged/npm/"
 DRY_RUN=""
-VERSION_ARG=""
-for arg in "$@"; do
-  case "$arg" in
-    --dry-run) DRY_RUN="--dry-run" ;;
-    *)         VERSION_ARG="$arg" ;;
-  esac
-done
-[[ -z "$VERSION_ARG" ]] && { echo "Usage: publish.sh <version|patch|minor|major> [--dry-run]"; exit 1; }
+
+if [[ "${1:-}" == "--dry-run" ]]; then
+  DRY_RUN="--dry-run"
+  shift
+  echo "🔍 Dry run — bun publish will not upload; git commit/push skipped"
+  echo
+fi
 
 # ─── Version ─────────────────────────────────────────────────────────────────
 current_version() {
@@ -45,11 +44,10 @@ bump_version() {
 }
 
 CURRENT=$(current_version)
-VERSION=$(bump_version "$CURRENT" "$VERSION_ARG")
+VERSION=$(bump_version "$CURRENT" "${1:?Usage: publish.sh [--dry-run] <version|patch|minor|major>}")
 echo "📦 Publish: $CURRENT → $VERSION"
-[[ -n "$DRY_RUN" ]] && echo "🔍 Dry run mode — no packages will be published"
 
-# ─── Bump version in all public packages ─────────────────────────────────────
+# ─── Bump version ─────────────────────────────────────────────────────────────
 echo "🔢 Bumping versions..."
 for dir in packages/*/; do
   pkg="$dir/package.json"
@@ -64,48 +62,39 @@ for dir in packages/*/; do
   "
 done
 
-# ─── Build ───────────────────────────────────────────────────────────────────
-echo "🔨 Building..."
-npm run build
-
-# ─── Self-test ───────────────────────────────────────────────────────────────
-echo "🧪 Running tests..."
-if ! bun test; then
-  echo "❌ Tests failed — aborting publish"
-  exit 1
-fi
-
-# ─── Topological sort of public packages ─────────────────────────────────────
-echo "📐 Resolving publish order..."
+# ─── Topological publish order (workspace:* deps first) ───────────────────────
 ORDERED=$(python3 -c "
-import json, os
+import json, sys
 from pathlib import Path
 
 pkgs_dir = Path('$REPO_ROOT/packages')
 name_to_dir = {}
-deps_graph = {}
-
 for d in sorted(pkgs_dir.iterdir()):
     pj = d / 'package.json'
     if not pj.exists():
         continue
     data = json.loads(pj.read_text())
     name = data.get('name', '')
-    if not name.startswith('@uncaged/'):
-        continue
-    if data.get('private'):
+    if not name.startswith('@uncaged/') or data.get('private'):
         continue
     name_to_dir[name] = d.name
+
+deps_graph = {}
+for name, dirname in name_to_dir.items():
+    pj = pkgs_dir / dirname / 'package.json'
+    data = json.loads(pj.read_text())
     local_deps = set()
     for section in ('dependencies', 'devDependencies', 'peerDependencies'):
         for dep, ver in data.get(section, {}).items():
-            if dep.startswith('@uncaged/') and ver == 'workspace:*':
+            if dep.startswith('@uncaged/') and dep in name_to_dir and ver == 'workspace:*':
                 local_deps.add(dep)
     deps_graph[name] = local_deps
 
-# Kahn's algorithm — deps-first order
-in_degree = {n: len([d for d in ds if d in deps_graph]) for n, ds in deps_graph.items()}
-queue = sorted(n for n, deg in in_degree.items() if deg == 0)
+in_degree = {n: 0 for n in deps_graph}
+for n, ds in deps_graph.items():
+    in_degree[n] = len(ds)
+
+queue = sorted([n for n, deg in in_degree.items() if deg == 0])
 result = []
 while queue:
     node = queue.pop(0)
@@ -117,60 +106,60 @@ while queue:
                 queue.append(n)
     queue.sort()
 
+if len(result) != len(deps_graph):
+    missing = set(deps_graph) - set(result)
+    sys.stderr.write('publish: cyclic @uncaged/ workspace:* dependencies among: ' + ', '.join(sorted(missing)) + '\n')
+    sys.exit(1)
+
 for name in result:
     print(name_to_dir[name])
 ")
 
-# ─── Regenerate lockfile for correct workspace:* resolution ──────────────────
-rm -f bun.lock
-bun install
+# ─── Build ────────────────────────────────────────────────────────────────────
+echo "🔨 Building..."
+bun run build
 
-# ─── Publish via bun pm pack + npm publish ───────────────────────────────────
-echo "🚀 Publishing..."
+# ─── Self-test ────────────────────────────────────────────────────────────────
+echo "🧪 Running tests..."
+if ! bun test; then
+  echo "❌ Tests failed — aborting publish"
+  exit 1
+fi
+
+# ─── Publish (bun resolves workspace:* for publish) ──────────────────────────
+echo "🚀 Publishing to $REGISTRY ..."
 ok=0
 fail=0
 
 while IFS= read -r pkg; do
+  [[ -n "$pkg" ]] || continue
   dir="$REPO_ROOT/packages/$pkg"
-  name=$(node -e "console.log(require('./$dir/package.json').name)")
+  name=$(node -e "console.log(require('$dir/package.json').name)")
 
-  cd "$dir"
-
-  # bun pm pack resolves workspace:* → actual versions in the tarball
-  tgz=$(bun pm pack 2>&1 | grep '\.tgz' | grep -v packed | head -1 | tr -d ' ')
-
-  if [[ -z "$tgz" || ! -f "$tgz" ]]; then
-    echo "❌ $name — pack failed"
-    ((fail++)) || true
-    continue
-  fi
-
-  if npm publish "$tgz" --registry="$REGISTRY" $DRY_RUN 2>&1 | tail -1 | grep -q '+'; then
-    echo "✅ $name@$VERSION"
-    ((ok++)) || true
+  if ( cd "$dir" && bun publish --registry="$REGISTRY" ${DRY_RUN:+"$DRY_RUN"} ); then
+    echo "✅ $name"
+    ok=$((ok + 1))
   else
-    echo "⚠️  $name (may already exist at this version)"
+    echo "⚠️  $name (publish failed or version may already exist)"
+    fail=$((fail + 1))
   fi
 
-  rm -f "$tgz"
 done <<< "$ORDERED"
-
-cd "$REPO_ROOT"
 
 echo
 echo "Published: $ok  Skipped/Failed: $fail"
 
-# ─── Restore workspace:* (bun pack doesn't modify source, but version bump did) ─
-echo "🔄 Restoring lockfile..."
-rm -f bun.lock
-bun install
-
-# ─── Commit ──────────────────────────────────────────────────────────────────
-if [[ -z "$DRY_RUN" ]]; then
-  echo "📝 Committing..."
-  git add -A
-  git commit -m "chore: publish v${VERSION}"
-  git push
+# ─── Commit ───────────────────────────────────────────────────────────────────
+if [[ -n "$DRY_RUN" ]]; then
+  echo "⏭️  Skipping git commit/push (dry run). Revert bumps with: git checkout -- packages/*/package.json"
+  exit 0
 fi
+
+echo "📝 Committing..."
+git add -A
+git commit -m "chore: publish v${VERSION}
+
+小橘 <xiaoju@shazhou.work>"
+git push
 
 echo "✅ v${VERSION} published"
