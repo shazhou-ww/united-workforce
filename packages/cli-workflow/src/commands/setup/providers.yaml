@@ -1,0 +1,77 @@
+# Preset LLM providers for `uncaged-workflow setup`.
+# Each entry needs a provider name (used in workflow.yaml) and an OpenAI-compatible base URL.
+# Add new providers here — no code changes required.
+
+# ── International ──────────────────────────────────────────
+
+- name: openai
+  label: OpenAI
+  baseUrl: https://api.openai.com/v1
+
+- name: anthropic
+  label: Anthropic
+  baseUrl: https://api.anthropic.com/v1
+
+- name: gemini
+  label: Google Gemini
+  baseUrl: https://generativelanguage.googleapis.com/v1beta
+
+- name: xai
+  label: xAI
+  baseUrl: https://api.x.ai/v1
+
+- name: openrouter
+  label: OpenRouter
+  baseUrl: https://openrouter.ai/api/v1
+
+- name: venice
+  label: Venice
+  baseUrl: https://api.venice.ai/api/v1
+
+# ── China ──────────────────────────────────────────────────
+
+- name: dashscope
+  label: DashScope (Alibaba)
+  baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+- name: deepseek
+  label: DeepSeek
+  baseUrl: https://api.deepseek.com/v1
+
+- name: siliconflow
+  label: SiliconFlow
+  baseUrl: https://api.siliconflow.cn/v1
+
+- name: volcengine
+  label: Volcengine (ByteDance)
+  baseUrl: https://ark.cn-beijing.volces.com/api/v3
+
+- name: kimi
+  label: Kimi (Moonshot)
+  baseUrl: https://api.moonshot.cn/v1
+
+- name: glm
+  label: GLM (Zhipu AI)
+  baseUrl: https://api.z.ai/api/paas/v4
+
+- name: stepfun
+  label: StepFun
+  baseUrl: https://api.stepfun.com/v1
+
+- name: minimax
+  label: MiniMax
+  baseUrl: https://api.minimax.io/v1
+
+- name: tencent
+  label: Tencent TokenHub
+  baseUrl: https://tokenhub.tencentmaas.com/v1
+
+- name: xiaomi
+  label: Xiaomi MiMo
+  baseUrl: https://api.xiaomimimo.com/v1
+
+# ── Local ──────────────────────────────────────────────────
+
+- name: ollama
+  label: Ollama (local)
+  baseUrl: http://localhost:11434/v1

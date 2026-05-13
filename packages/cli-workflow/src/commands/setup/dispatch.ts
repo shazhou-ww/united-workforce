@@ -4,6 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { err, ok, type Result } from "@uncaged/workflow-protocol";
 
 import { printCliError, printCliLine, printCliWarn } from "../../cli-output.js";
+import { loadPresetProviders } from "./preset-providers.js";
 import { cmdSetup, printSetupSummary } from "./setup.js";
 import type { SetupCliArgs } from "./types.js";
 
@@ -224,19 +225,40 @@ async function collectInteractiveSetup(): Promise<Result<SetupCliArgs, string>> 
   try {
     printCliLine("Configure the LLM provider that workflow agents will use.\n");
 
-    const provider = await promptLine(
-      rl,
-      "Provider name — a short label for this LLM service (e.g. openai, dashscope): ",
-    );
-    if (provider === "") {
-      return err("provider name must not be empty");
+    const presets = loadPresetProviders();
+    const numWidth = String(presets.length + 1).length;
+    printCliLine("Select a provider:\n");
+    for (let i = 0; i < presets.length; i++) {
+      const p = presets[i]!;
+      const num = String(i + 1).padStart(numWidth);
+      printCliLine(`  ${num}) ${p.label.padEnd(28)} ${p.baseUrl}`);
     }
-    const baseUrl = await promptLine(
-      rl,
-      "OpenAI-compatible API base URL\n  (e.g. https://api.openai.com/v1, https://dashscope.aliyuncs.com/compatible-mode/v1): ",
-    );
-    if (baseUrl === "") {
-      return err("base URL must not be empty");
+    const customNum = String(presets.length + 1).padStart(numWidth);
+    printCliLine(`  ${customNum}) Custom (enter name and URL manually)`);
+    printCliLine("");
+
+    const choice = await promptLine(rl, `Choose [1-${presets.length + 1}]: `);
+    const choiceNum = Number.parseInt(choice, 10);
+    if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > presets.length + 1) {
+      return err(`invalid choice: ${choice}`);
+    }
+
+    let provider: string;
+    let baseUrl: string;
+    if (choiceNum <= presets.length) {
+      const selected = presets[choiceNum - 1]!;
+      provider = selected.name;
+      baseUrl = selected.baseUrl;
+      printCliLine(`\n  → ${selected.label} (${baseUrl})\n`);
+    } else {
+      provider = await promptLine(rl, "Provider name (e.g. my-proxy): ");
+      if (provider === "") {
+        return err("provider name must not be empty");
+      }
+      baseUrl = await promptLine(rl, "OpenAI-compatible API base URL: ");
+      if (baseUrl === "") {
+        return err("base URL must not be empty");
+      }
     }
 
     // Close readline before raw-mode secret prompt, reopen after.
