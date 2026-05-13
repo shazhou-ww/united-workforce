@@ -5,3 +5,4 @@ bun.lock
 tsconfig.tsbuildinfo
 .npmrc
 
+bunfig.toml
