@@ -7,12 +7,16 @@ import { createExtract } from "@uncaged/workflow-execute";
 import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
 import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
 import {
+  type AdapterFn,
   createWorkflow,
   END,
   type ModeratorContext,
   type RoleStep,
   START,
+  type ThreadContext,
+  type WorkflowRuntime,
 } from "@uncaged/workflow-runtime";
+import type * as z from "zod/v4";
 import { buildSolveIssueDescriptor } from "../src/descriptor.js";
 import type { DeveloperMeta } from "../src/developer.js";
 import { solveIssueTable, solveIssueWorkflowDefinition } from "../src/index.js";
@@ -20,86 +24,6 @@ import type { PreparerMeta, SubmitterMeta } from "../src/roles/index.js";
 import type { SolveIssueMeta } from "../src/roles.js";
 
 const solveIssueModerator = tableToModerator(solveIssueTable);
-
-function jsonResponse(payload: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(payload), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function buildPlainJsonResponse(args: Record<string, unknown>): Response {
-  return jsonResponse({
-    choices: [{ message: { content: JSON.stringify(args) } }],
-  });
-}
-
-function installMockChatCompletions(sequence: ReadonlyArray<Record<string, unknown>>): () => void {
-  const origFetch = globalThis.fetch;
-  let i = 0;
-  const mockFetch = async (
-    _input: Parameters<typeof fetch>[0],
-    _init?: RequestInit,
-  ): Promise<Response> => {
-    const args = sequence[i] ?? sequence[sequence.length - 1];
-    if (args === undefined) {
-      throw new Error("installMockChatCompletions: empty sequence");
-    }
-    i += 1;
-    return buildPlainJsonResponse(args);
-  };
-  globalThis.fetch = Object.assign(mockFetch, {
-    preconnect: origFetch.preconnect.bind(origFetch),
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = origFetch;
-  };
-}
-
-function buildToolCallResponse(args: Record<string, unknown>): Response {
-  return jsonResponse({
-    choices: [
-      {
-        message: {
-          tool_calls: [
-            {
-              id: "tc_extract_1",
-              type: "function",
-              function: {
-                name: "extract",
-                arguments: JSON.stringify(args),
-              },
-            },
-          ],
-        },
-      },
-    ],
-  });
-}
-
-function installMockToolCallCompletions(
-  sequence: ReadonlyArray<Record<string, unknown>>,
-): () => void {
-  const origFetch = globalThis.fetch;
-  let i = 0;
-  const mockFetch = async (
-    _input: Parameters<typeof fetch>[0],
-    _init?: RequestInit,
-  ): Promise<Response> => {
-    const args = sequence[i] ?? sequence[sequence.length - 1];
-    if (args === undefined) {
-      throw new Error("installMockToolCallCompletions: empty sequence");
-    }
-    i += 1;
-    return buildToolCallResponse(args);
-  };
-  globalThis.fetch = Object.assign(mockFetch, {
-    preconnect: origFetch.preconnect.bind(origFetch),
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = origFetch;
-  };
-}
 
 function makeStart(): ModeratorContext<SolveIssueMeta>["start"] {
   return {
@@ -168,17 +92,6 @@ function submitterStep(meta: SubmitterMeta): RoleStep<SolveIssueMeta> {
   };
 }
 
-function createStubExtract(casDir: string) {
-  return createExtract(
-    {
-      baseUrl: "http://127.0.0.1:9",
-      apiKey: "",
-      model: "test",
-    },
-    { cas: createCasStore(casDir) },
-  );
-}
-
 function makeThread(prompt: string) {
   return {
     threadId: "01TEST000000000000000000TR",
@@ -192,6 +105,35 @@ function makeThread(prompt: string) {
       parentState: null,
     },
     steps: [],
+  };
+}
+
+/** Creates an AdapterFn that returns a fixed sequence of meta values. */
+function createSequenceAdapter(sequence: ReadonlyArray<Record<string, unknown>>): AdapterFn {
+  let i = 0;
+  return <T>(_prompt: string, _schema: z.ZodType<T>) => {
+    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<T> => {
+      const meta = sequence[i] ?? sequence[sequence.length - 1];
+      if (meta === undefined) {
+        throw new Error("createSequenceAdapter: empty sequence");
+      }
+      i += 1;
+      return meta as T;
+    };
+  };
+}
+
+/** Creates an AdapterFn that tracks calls and returns fixed meta. */
+function createTrackingAdapter(
+  name: string,
+  calls: string[],
+  meta: Record<string, unknown>,
+): AdapterFn {
+  return <T>(_prompt: string, _schema: z.ZodType<T>) => {
+    return async (_ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<T> => {
+      calls.push(name);
+      return meta as T;
+    };
   };
 }
 
@@ -227,8 +169,6 @@ describe("solveIssueModerator", () => {
   });
 
   test("returns END for any unexpected last step (defensive)", () => {
-    // A submitter step with a pseudo-unknown future status would still be
-    // routed to END, since the moderator is a closed switch over known roles.
     expect(
       solveIssueModerator(
         makeCtx([
@@ -242,19 +182,16 @@ describe("solveIssueModerator", () => {
 });
 
 describe("solveIssueWorkflowDefinition + createWorkflow", () => {
-  let restoreFetch: (() => void) | null = null;
   let casDir: string | undefined;
 
   afterEach(async () => {
-    restoreFetch?.();
-    restoreFetch = null;
     if (casDir !== undefined) {
       await rm(casDir, { recursive: true, force: true }).catch(() => {});
       casDir = undefined;
     }
   });
 
-  test("structured extraction yields preparer meta from mocked chat completions", async () => {
+  test("adapter yields preparer meta directly", async () => {
     const EXPECT_PREPARER_META: PreparerMeta = {
       repoPath: "/home/user/repos/test",
       defaultBranch: "main",
@@ -266,18 +203,21 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
         buildCommand: "bun run build",
       },
     };
-    restoreFetch = installMockChatCompletions([EXPECT_PREPARER_META]);
 
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
+    const adapter = createSequenceAdapter([EXPECT_PREPARER_META]);
     const run = createWorkflow(solveIssueWorkflowDefinition, {
-      agent: async () => "",
-      overrides: { developer: async () => "stub-root-hash" },
+      adapter,
+      overrides: null,
     });
     const gen = run(makeThread("task"), {
       cas,
-      extract: createStubExtract(casDir),
+      extract: createExtract(
+        { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
+        { cas },
+      ),
     });
     const first = await gen.next();
     expect(first.done).toBe(false);
@@ -288,41 +228,7 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
     expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
   });
 
-  test("structured extraction also accepts tool_calls extraction path", async () => {
-    const EXPECT_PREPARER_META: PreparerMeta = {
-      repoPath: "/home/user/repos/tool-call",
-      defaultBranch: "main",
-      conventions: null,
-      toolchain: {
-        packageManager: "bun",
-        testCommand: "bun test",
-        lintCommand: null,
-        buildCommand: "bun run build",
-      },
-    };
-    restoreFetch = installMockToolCallCompletions([EXPECT_PREPARER_META]);
-
-    casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
-    const cas = createCasStore(casDir);
-
-    const run = createWorkflow(solveIssueWorkflowDefinition, {
-      agent: async () => "",
-      overrides: { developer: async () => "stub-root-hash" },
-    });
-    const gen = run(makeThread("task"), {
-      cas,
-      extract: createStubExtract(casDir),
-    });
-    const first = await gen.next();
-    expect(first.done).toBe(false);
-    if (first.done) {
-      throw new Error("expected yield");
-    }
-    expect(first.value.role).toBe("preparer");
-    expect(first.value.meta).toEqual(EXPECT_PREPARER_META);
-  });
-
-  test("per-role agent overrides default", async () => {
+  test("per-role adapter overrides default", async () => {
     const PREPARER_META: PreparerMeta = {
       repoPath: "/tmp/r",
       defaultBranch: "main",
@@ -339,35 +245,25 @@ describe("solveIssueWorkflowDefinition + createWorkflow", () => {
       status: "submitted",
       prUrl: "https://github.com/example/repo/pull/2",
     };
-    restoreFetch = installMockChatCompletions([PREPARER_META, DEVELOPER_META, SUBMITTER_META]);
 
     casDir = await mkdtemp(join(tmpdir(), "solve-issue-cas-"));
     const cas = createCasStore(casDir);
 
     const calls: string[] = [];
     const run = createWorkflow(solveIssueWorkflowDefinition, {
-      agent: async () => {
-        calls.push("default");
-        return "";
-      },
+      adapter: createTrackingAdapter("default", calls, PREPARER_META),
       overrides: {
-        preparer: async () => {
-          calls.push("preparer");
-          return "";
-        },
-        developer: async () => {
-          calls.push("developer");
-          return "stub-root-hash";
-        },
-        submitter: async () => {
-          calls.push("submitter");
-          return "";
-        },
+        preparer: createTrackingAdapter("preparer", calls, PREPARER_META),
+        developer: createTrackingAdapter("developer", calls, DEVELOPER_META),
+        submitter: createTrackingAdapter("submitter", calls, SUBMITTER_META),
       },
     });
     const gen = run(makeThread("task"), {
       cas,
-      extract: createStubExtract(casDir),
+      extract: createExtract(
+        { baseUrl: "http://127.0.0.1:9", apiKey: "", model: "test" },
+        { cas },
+      ),
     });
     await gen.next();
     expect(calls).toEqual(["preparer"]);

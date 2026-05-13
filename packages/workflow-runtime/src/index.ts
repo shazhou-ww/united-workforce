@@ -2,6 +2,8 @@ export { buildThreadContext } from "./build-context.js";
 export { createWorkflow } from "./create-workflow.js";
 export { err, ok } from "./result.js";
 export type {
+  AdapterBinding,
+  AdapterFn,
   AgentBinding,
   AgentContext,
   AgentFn,
@@ -17,6 +19,7 @@ export type {
   ModeratorTransition,
   Result,
   RoleDefinition,
+  RoleFn,
   RoleMeta,
   RoleOutput,
   RoleStep,

@@ -143,13 +143,27 @@ export type ExtractFn = <T extends Record<string, unknown>>(
   contentHash: string,
 ) => Promise<ExtractResult<T>>;
 
+/** @deprecated Use {@link AdapterFn} instead. Will be removed in a future release. */
 export type AgentFnResult = string | { output: string; childThread: string | null };
 
+/** @deprecated Use {@link AdapterFn} instead. Will be removed in a future release. */
 export type AgentFn = (ctx: AgentContext) => Promise<AgentFnResult>;
 
+/** @deprecated Use {@link AdapterBinding} instead. Will be removed in a future release. */
 export type AgentBinding = {
   agent: AgentFn;
   overrides: Partial<Record<string, AgentFn>> | null;
+};
+
+// ── Adapter (replaces Agent) ────────────────────────────────────────
+
+export type RoleFn<T> = (ctx: ThreadContext, runtime: WorkflowRuntime) => Promise<T>;
+
+export type AdapterFn = <T>(prompt: string, schema: z.ZodType<T>) => RoleFn<T>;
+
+export type AdapterBinding = {
+  adapter: AdapterFn;
+  overrides: Partial<Record<string, AdapterFn>> | null;
 };
 
 // ── Workflow Runtime & Definition ──────────────────────────────────

@@ -1,10 +1,11 @@
-import type { AgentContext } from "@uncaged/workflow-runtime";
+import type { AgentContext, ThreadContext } from "@uncaged/workflow-runtime";
 
-/** Builds the full agent prompt: system instructions plus summarized thread history. */
-export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
+/**
+ * Builds a user-message string from thread context: task, previous steps, and tool hints.
+ * Does NOT include a system prompt — that is passed separately via the adapter.
+ */
+export async function buildThreadInput(ctx: ThreadContext): Promise<string> {
   const lines: string[] = [];
-  lines.push(ctx.currentRole.systemPrompt);
-  lines.push("");
 
   if (ctx.start.parentState !== null) {
     lines.push("## Parent Context");
@@ -57,4 +58,13 @@ export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
   );
 
   return lines.join("\n");
+}
+
+/**
+ * @deprecated Use {@link buildThreadInput} instead. This wrapper prepends the system prompt
+ * from `ctx.currentRole` for backward compatibility with existing agents.
+ */
+export async function buildAgentPrompt(ctx: AgentContext): Promise<string> {
+  const threadInput = await buildThreadInput(ctx);
+  return `${ctx.currentRole.systemPrompt}\n\n${threadInput}`;
 }
