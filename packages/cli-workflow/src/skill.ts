@@ -90,7 +90,7 @@ ${commandSections.join("\n\n")}
 
 | Command | Args | Description |
 |---------|------|-------------|
-| \`serve\` | \`[--port N] [--host ADDR] [--name NAME]\` | Start HTTP API server with auto-tunnel. \`--name\` registers with the gateway. |
+| \`serve\` | \`[--port N] [--host ADDR] [--name NAME]\` | Start HTTP API server with WebSocket gateway connection. \`--name\` registers with the gateway. |
 
 ## Typical Workflow
 
