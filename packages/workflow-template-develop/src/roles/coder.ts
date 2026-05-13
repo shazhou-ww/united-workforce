@@ -25,7 +25,11 @@ The thread ID (26-char Crockford Base32) appears in the first message. If unsure
 
 ## Completing a phase
 
-Report which phase you completed using the phase **hash** (not the title). If you legitimately finish every remaining phase in this single turn, set completedPhase to the **last** phase hash in the plan (the workflow treats that as full completion). List the files you changed and summarize what you did.`;
+Report which phase you completed using the phase **hash** (not the title). If you legitimately finish every remaining phase in this single turn, set completedPhase to the **last** phase hash in the plan (the workflow treats that as full completion). List the files you changed and summarize what you did.
+
+## Output rules
+
+Keep your final response **short** — a brief summary paragraph plus the structured meta output. Do NOT paste diffs, file contents, or code blocks in your response. The actual changes are already on disk; repeating them wastes tokens. Just say what you did and why.`;
 
 export const coderRole: RoleDefinition<CoderMeta> = {
   description:

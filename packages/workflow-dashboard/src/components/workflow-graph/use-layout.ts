@@ -1,7 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import { useMemo } from "react";
 import type { WorkflowGraphEdge } from "../../api.ts";
-import type { ConditionEdgeData, NodeState, RoleNodeData, TerminalNodeData } from "./types.ts";
+import type { NodeState, RoleNodeData, TerminalNodeData } from "./types.ts";
 
 const START_ID = "__start__";
 const END_ID = "__end__";
@@ -41,6 +41,7 @@ function edgeKey(e: WorkflowGraphEdge): string {
  * Forward edges go from lower rank to higher rank; feedback edges go backwards.
  * Self-loops are neither forward nor feedback — they're handled separately.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: topological sort is inherently branchy
 function extractSpine(edges: readonly WorkflowGraphEdge[]): string[] {
   // Collect all node IDs
   const ids = new Set<string>();
@@ -213,8 +214,8 @@ function computeLayout(input: LayoutInput): LayoutResult {
         isFallback,
         isFeedback,
         isSelfLoop,
-      labelX,
-      labelY,
+        labelX,
+        labelY,
       },
     };
   });
@@ -223,8 +224,5 @@ function computeLayout(input: LayoutInput): LayoutResult {
 }
 
 export function useLayout(input: LayoutInput): LayoutResult {
-  return useMemo(
-    () => computeLayout(input),
-    [input.edges, input.roles, input.nodeStates],
-  );
+  return useMemo(() => computeLayout(input), [input]);
 }

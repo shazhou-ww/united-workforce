@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# pre-push hook: typecheck + biome + lint-log-tags
+set -euo pipefail
+echo "🔍 pre-push: running checks..."
+bun run check
+echo "✅ pre-push: all checks passed"

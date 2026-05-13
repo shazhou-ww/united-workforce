@@ -100,7 +100,7 @@ export function startGatewayWsClient(params: GatewayWsClientParams): () => void 
     clearReconnectTimer();
     const delayMs = Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
     attempt++;
-    params.log("6CJX2RLP", `gateway WebSocket reconnect in ${delayMs}ms (attempt ${attempt})`);
+    params.log("6CJX2R8P", `gateway WebSocket reconnect in ${delayMs}ms (attempt ${attempt})`);
     reconnectTimer = setTimeout(connect, delayMs);
   };
 
@@ -143,7 +143,7 @@ export function startGatewayWsClient(params: GatewayWsClientParams): () => void 
     ws.addEventListener("message", (ev) => {
       const data = ev.data;
       if (typeof data !== "string") {
-        params.log("T9W2KL5H", "gateway WebSocket non-text frame ignored");
+        params.log("T9W2K35H", "gateway WebSocket non-text frame ignored");
         return;
       }
       void handleGatewayMessage(ws, data, params).catch((e: unknown) => {

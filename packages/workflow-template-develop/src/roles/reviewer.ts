@@ -32,7 +32,11 @@ const REVIEWER_SYSTEM = `You are a code reviewer. Review the git diff for correc
 - **Approve** only if there are zero issues
 - **Reject** with specific issues that must be fixed — every issue you find is blocking
 
-Be thorough. A false approve costs more than a false reject.`;
+Be thorough. A false approve costs more than a false reject.
+
+## Output rules
+
+Keep your final response **short**. Summarize findings in a few bullet points, then output the structured verdict. Do NOT paste the full diff or large code blocks in your response.`;
 
 export const reviewerRole: RoleDefinition<ReviewerMeta> = {
   description: "Runs git diff checks and sets approved when the change is ready.",

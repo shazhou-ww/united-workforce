@@ -1,9 +1,4 @@
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  type EdgeProps,
-  getSmoothStepPath,
-} from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from "@xyflow/react";
 import type { ConditionEdgeData } from "./types.ts";
 
 // Must match the FEEDBACK_OFFSET_X in use-layout.ts
@@ -15,12 +10,7 @@ const FEEDBACK_RADIUS = 16;
  * Build an SVG path for a feedback (back) edge that routes to the right of the nodes.
  * The path goes: source right → arc → vertical up → arc → target right
  */
-function feedbackPath(
-  sourceX: number,
-  sourceY: number,
-  targetX: number,
-  targetY: number,
-): string {
+function feedbackPath(sourceX: number, sourceY: number, targetX: number, targetY: number): string {
   const rightX = Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X;
   const r = FEEDBACK_RADIUS;
 
@@ -42,6 +32,7 @@ function feedbackPath(
   return segments.join(" ");
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: edge routing logic is inherently branchy
 export function ConditionEdge(props: EdgeProps) {
   const {
     id,
