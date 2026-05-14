@@ -32,16 +32,16 @@ const edgeTypes: EdgeTypes = {
   condition: ConditionEdge,
 };
 
-function handleRoleNodeClick(onRoleClick: (roleName: string) => void, node: Node): void {
-  if (node.type !== "role") return;
-  onRoleClick(node.id);
+function handleNodeClick(onNodeClick: (nodeId: string) => void, node: Node): void {
+  if (node.type !== "role" && node.type !== "terminal") return;
+  onNodeClick(node.id);
 }
 
 export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) {
   const layout = useLayout({ edges: graph.edges, roles, nodeStates });
 
   const onNodeClickHandler: OnNodeClick | undefined =
-    onNodeClick !== null ? (_e, node) => handleRoleNodeClick(onNodeClick, node) : undefined;
+    onNodeClick !== null ? (_e, node) => handleNodeClick(onNodeClick, node) : undefined;
 
   const styledEdges = useMemo(
     () =>

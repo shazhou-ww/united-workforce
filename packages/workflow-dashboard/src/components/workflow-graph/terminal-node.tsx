@@ -31,7 +31,7 @@ export function TerminalNode(props: NodeProps) {
 
   return (
     <div
-      className={`rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${isActive ? "wf-node-pulse" : ""}`}
+      className={`rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${isActive ? "wf-node-pulse" : ""} ${data.state !== "default" ? "cursor-pointer" : ""}`}
       style={{
         width: 40,
         height: 40,
