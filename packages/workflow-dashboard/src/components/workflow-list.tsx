@@ -17,21 +17,134 @@ function versionCount(detail: WorkflowDetail): number {
   return detail.history.length + 1;
 }
 
-function schemaPropertiesTable(schema: Record<string, unknown>): Array<{
+type SchemaRow = {
+  key: string;
   name: string;
   type: string;
   description: string;
-}> {
+  depth: number;
+  prefix: string;
+  isVariantHeader: boolean;
+};
+
+function resolveType(prop: Record<string, unknown>): string {
+  if (prop.type === "array") {
+    const items = prop.items as Record<string, unknown> | undefined;
+    if (items !== undefined) {
+      const itemType = String(items.type ?? "unknown");
+      return `${itemType}[]`;
+    }
+    return "array";
+  }
+  return String(prop.type ?? "unknown");
+}
+
+function flattenSchema(
+  schema: Record<string, unknown>,
+  depth: number,
+  parentPrefix: string,
+  keyPrefix: string,
+  parentRequired: Set<string>,
+): SchemaRow[] {
+  const rows: SchemaRow[] = [];
+
+  // Handle oneOf / discriminatedUnion
+  const oneOf = schema.oneOf as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(oneOf) && oneOf.length > 0) {
+    for (let vi = 0; vi < oneOf.length; vi++) {
+      const variant = oneOf[vi];
+      // Try to find a distinguishing literal (e.g. status: "approved")
+      const variantProps = (variant.properties ?? {}) as Record<string, Record<string, unknown>>;
+      let variantLabel = `Variant ${vi + 1}`;
+      for (const [pName, pDef] of Object.entries(variantProps)) {
+        if (pDef.const !== undefined) {
+          variantLabel = `${pName}: ${String(pDef.const)}`;
+          break;
+        }
+      }
+      const isLast = vi === oneOf.length - 1;
+      const connector = isLast ? "└" : "├";
+      rows.push({
+        key: `${keyPrefix}variant-${vi}`,
+        name: `${parentPrefix}${connector} ${variantLabel}`,
+        type: "",
+        description: "",
+        depth,
+        prefix: parentPrefix,
+        isVariantHeader: true,
+      });
+      const childPrefix = `${parentPrefix}${isLast ? "  " : "│ "}`;
+      const variantRequired = new Set<string>(
+        Array.isArray(variant.required) ? (variant.required as string[]) : [],
+      );
+      for (const [pName, pDef] of Object.entries(variantProps)) {
+        if (pDef.const !== undefined) continue; // skip discriminator field
+        const subRows = flattenProperty(pName, pDef, depth + 1, childPrefix, `${keyPrefix}v${vi}-`, variantRequired);
+        rows.push(...subRows);
+      }
+    }
+    return rows;
+  }
+
+  // Handle regular object with properties
   const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
   const required = new Set<string>(
     Array.isArray(schema.required) ? (schema.required as string[]) : [],
   );
-  return Object.entries(props).map(([name, prop]) => {
-    let type = String(prop.type ?? "unknown");
-    if (!required.has(name)) type += "?";
-    const description = String(prop.description ?? "");
-    return { name, type, description };
+  for (const [name, prop] of Object.entries(props)) {
+    const subRows = flattenProperty(name, prop, depth, parentPrefix, keyPrefix, required);
+    rows.push(...subRows);
+  }
+  return rows;
+}
+
+function flattenProperty(
+  name: string,
+  prop: Record<string, unknown>,
+  depth: number,
+  parentPrefix: string,
+  keyPrefix: string,
+  required: Set<string>,
+): SchemaRow[] {
+  const rows: SchemaRow[] = [];
+  const hasOneOf = Array.isArray(prop.oneOf) && (prop.oneOf as unknown[]).length > 0;
+  let type = hasOneOf ? "⊕ oneOf" : resolveType(prop);
+  if (!required.has(name)) type += "?";
+  const description = String(prop.description ?? "");
+  const displayName = depth > 0 ? `${parentPrefix}└─ ${name}` : name;
+
+  rows.push({
+    key: `${keyPrefix}${name}`,
+    name: displayName,
+    type,
+    description,
+    depth,
+    prefix: parentPrefix,
+    isVariantHeader: false,
   });
+
+  // Recurse into nested object
+  if (prop.type === "object" && prop.properties !== undefined) {
+    const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
+    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`, required));
+  }
+
+  // Recurse into array of objects
+  if (prop.type === "array") {
+    const items = prop.items as Record<string, unknown> | undefined;
+    if (items !== undefined && items.type === "object" && items.properties !== undefined) {
+      const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
+      rows.push(...flattenSchema(items, depth + 1, childPrefix, `${keyPrefix}${name}-`, new Set()));
+    }
+  }
+
+  // Recurse into oneOf
+  if (hasOneOf) {
+    const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
+    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`, required));
+  }
+
+  return rows;
 }
 
 function RoleCard({
@@ -41,7 +154,7 @@ function RoleCard({
   roleName: string;
   role: WorkflowRoleDescriptor;
 }) {
-  const fields = schemaPropertiesTable(role.schema);
+  const rows = flattenSchema(role.schema, 0, "", `${roleName}-`, new Set());
   return (
     <div
       id={`role-${roleName}`}
@@ -59,7 +172,7 @@ function RoleCard({
           {role.description}
         </p>
       )}
-      {fields.length > 0 && (
+      {rows.length > 0 && (
         <div>
           <p
             className="text-[10px] uppercase tracking-wider mb-1 font-medium"
@@ -76,18 +189,31 @@ function RoleCard({
               </tr>
             </thead>
             <tbody>
-              {fields.map((f) => (
-                <tr key={f.name} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-accent)" }}>{f.name}</td>
-                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-text-muted)" }}>{f.type}</td>
-                  <td className="py-1" style={{ color: "var(--color-text)" }}>{f.description || "—"}</td>
+              {rows.map((r) => (
+                <tr
+                  key={r.key}
+                  style={{
+                    borderBottom: r.isVariantHeader ? "none" : "1px solid var(--color-border)",
+                  }}
+                >
+                  <td
+                    className="py-1 pr-3 font-mono whitespace-pre"
+                    style={{
+                      color: r.isVariantHeader ? "var(--color-text-muted)" : "var(--color-accent)",
+                      fontStyle: r.isVariantHeader ? "italic" : "normal",
+                    }}
+                  >
+                    {r.name}
+                  </td>
+                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-text-muted)" }}>{r.type}</td>
+                  <td className="py-1" style={{ color: "var(--color-text)" }}>{r.description || (r.isVariantHeader ? "" : "—")}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {fields.length === 0 && Object.keys(role.schema).length > 0 && (
+      {rows.length === 0 && Object.keys(role.schema).length > 0 && (
         <pre
           className="text-[10px] font-mono p-2 rounded overflow-x-auto"
           style={{ background: "var(--color-bg)", color: "var(--color-text-muted)" }}
