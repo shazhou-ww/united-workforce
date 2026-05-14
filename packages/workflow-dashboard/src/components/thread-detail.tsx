@@ -39,7 +39,8 @@ function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeSt
     states.set(role, !hasResult && isLast ? "active" : "completed");
   }
 
-  if (roleRecords.length > 0) {
+  const hasStart = records.some((r) => r.type === "thread-start");
+  if (hasStart) {
     states.set("__start__", "completed");
   }
   if (hasResult) {
