@@ -78,9 +78,8 @@ export function ConditionEdge(props: EdgeProps) {
     defaultLabelY = result[2];
   }
 
-  const stroke = isFallback ? "var(--color-text-muted)" : "var(--color-accent)";
-  const strokeDasharray = isFallback ? "5 4" : undefined;
-  const label = edgeData?.condition ?? "";
+  const stroke = "var(--color-accent)";
+  const label = isFallback ? "" : (edgeData?.condition ?? "");
 
   // Use pre-computed label position if available, otherwise fall back to default
   const labelX = edgeData?.labelX ?? defaultLabelX;
@@ -92,7 +91,7 @@ export function ConditionEdge(props: EdgeProps) {
         id={id}
         path={path}
         markerEnd={markerEnd}
-        style={{ stroke, strokeWidth: 1.5, strokeDasharray }}
+        style={{ stroke, strokeWidth: 1.5 }}
       />
       {label !== "" && (
         <EdgeLabelRenderer>
@@ -102,7 +101,7 @@ export function ConditionEdge(props: EdgeProps) {
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
-              color: isFallback ? "var(--color-text-muted)" : "var(--color-text)",
+              color: "var(--color-text)",
               whiteSpace: "nowrap",
               zIndex: 10,
             }}
