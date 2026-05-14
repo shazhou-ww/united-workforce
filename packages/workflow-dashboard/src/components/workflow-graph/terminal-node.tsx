@@ -45,11 +45,12 @@ export function TerminalNode(props: NodeProps) {
         <Handle
           type="source"
           position={Position.Bottom}
+          id="bottom-out"
           style={handleStyle}
           isConnectable={false}
         />
       ) : (
-        <Handle type="target" position={Position.Top} style={handleStyle} isConnectable={false} />
+        <Handle type="target" position={Position.Top} id="top-in" style={handleStyle} isConnectable={false} />
       )}
       {isStart ? "▶" : "■"}
     </div>
