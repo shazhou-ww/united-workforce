@@ -5,6 +5,7 @@ export type {
   AdapterBinding,
   AdapterFn,
   AgentContext,
+  AgentFn,
   CasStore,
   ExtractFn,
   ExtractResult,

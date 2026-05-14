@@ -13,6 +13,7 @@ export type {
   AdapterFn,
   AdvanceOutcome,
   AgentContext,
+  AgentFn,
   CasStore,
   ExtractFn,
   ExtractResult,
