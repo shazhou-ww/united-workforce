@@ -31,7 +31,7 @@ export function RoleNode(props: NodeProps) {
 
   return (
     <div
-      className={`px-3 py-2 rounded-md border-2 text-xs font-medium ${t.state !== "default" ? "cursor-pointer" : ""} ${isActive ? "wf-node-pulse" : ""}`}
+      className={`px-3 py-2 rounded-md border-2 text-xs font-medium ${data.state !== "default" ? "cursor-pointer" : ""} ${isActive ? "wf-node-pulse" : ""}`}
       style={{
         width: 180,
         height: 60,
