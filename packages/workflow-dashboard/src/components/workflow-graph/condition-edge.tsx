@@ -7,25 +7,23 @@ const FEEDBACK_OFFSET_X = 100;
 const FEEDBACK_RADIUS = 16;
 
 /**
- * Build an SVG path for a feedback (back) edge that routes to the right of the nodes.
- * The path goes: source right → arc → vertical up → arc → target right
+ * Build an SVG path for a feedback (back) edge that routes to the given side of the nodes.
+ * The path goes: source → arc → vertical up → arc → target
  */
-function feedbackPath(sourceX: number, sourceY: number, targetX: number, targetY: number): string {
-  const rightX = Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X;
+function feedbackPath(sourceX: number, sourceY: number, targetX: number, targetY: number, side: "right" | "left"): string {
+  const d = side === "right" ? 1 : -1;
+  const offsetX =
+    side === "right"
+      ? Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X
+      : Math.min(sourceX, targetX) - FEEDBACK_OFFSET_X;
   const r = FEEDBACK_RADIUS;
 
-  // Start from source right side, go right, then up, then left to target right side
   const segments = [
     `M ${sourceX} ${sourceY}`,
-    // Horizontal to the right
-    `L ${rightX - r} ${sourceY}`,
-    // Arc turning upward
-    `Q ${rightX} ${sourceY} ${rightX} ${sourceY - r}`,
-    // Vertical upward
-    `L ${rightX} ${targetY + r}`,
-    // Arc turning left
-    `Q ${rightX} ${targetY} ${rightX - r} ${targetY}`,
-    // Horizontal left to target
+    `L ${offsetX - d * r} ${sourceY}`,
+    `Q ${offsetX} ${sourceY} ${offsetX} ${sourceY - r}`,
+    `L ${offsetX} ${targetY + r}`,
+    `Q ${offsetX} ${targetY} ${offsetX - d * r} ${targetY}`,
     `L ${targetX} ${targetY}`,
   ];
 
@@ -57,10 +55,13 @@ export function ConditionEdge(props: EdgeProps) {
   let defaultLabelY: number;
 
   if (isFeedback) {
-    // Custom feedback path routed to the right
-    path = feedbackPath(sourceX, sourceY, targetX, targetY);
-    const rightX = Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X;
-    defaultLabelX = rightX;
+    const side = edgeData?.feedbackSide ?? "right";
+    path = feedbackPath(sourceX, sourceY, targetX, targetY, side);
+    const offsetX =
+      side === "right"
+        ? Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X
+        : Math.min(sourceX, targetX) - FEEDBACK_OFFSET_X;
+    defaultLabelX = offsetX;
     defaultLabelY = (sourceY + targetY) / 2;
   } else {
     const result = getSmoothStepPath({

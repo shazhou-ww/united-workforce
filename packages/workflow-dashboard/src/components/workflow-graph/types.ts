@@ -23,6 +23,7 @@ export type ConditionEdgeData = {
   isFallback: boolean;
   isFeedback: boolean;
   isSelfLoop: boolean;
+  feedbackSide: "right" | "left" | null;
   labelX: number | null;
   labelY: number | null;
   [key: string]: unknown;

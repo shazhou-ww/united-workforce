@@ -173,6 +173,8 @@ function computeLayout(input: LayoutInput): LayoutResult {
   // Build edges with label positions
   // For feedback edges (target rank < source rank), we'll compute label at midpoint
   // of the right-side arc. The actual SVG path is drawn by ConditionEdge component.
+  // Track feedback edge count per target node for alternating sides
+  const feedbackCountByTarget = new Map<string, number>();
   const edges: Edge[] = input.edges.map((e) => {
     const isFallback = e.condition === "FALLBACK";
     const isSelfLoop = e.from === e.to;
@@ -185,13 +187,20 @@ function computeLayout(input: LayoutInput): LayoutResult {
 
     let labelX: number | null = null;
     let labelY: number | null = null;
+    let feedbackSide: "right" | "left" | null = null;
 
     if (sourcePos !== undefined && targetPos !== undefined) {
       if (isFeedback) {
-        // Label on the right side of the feedback arc
-        const rightX = centerX + ROLE_NODE_WIDTH / 2 + FEEDBACK_OFFSET_X;
+        // Alternate feedback edges left/right per target node
+        const count = feedbackCountByTarget.get(e.to) ?? 0;
+        feedbackCountByTarget.set(e.to, count + 1);
+        feedbackSide = count % 2 === 0 ? "right" : "left";
+        const offsetX =
+          feedbackSide === "right"
+            ? centerX + ROLE_NODE_WIDTH / 2 + FEEDBACK_OFFSET_X
+            : centerX - ROLE_NODE_WIDTH / 2 - FEEDBACK_OFFSET_X;
         const midY = (sourcePos.y + sourcePos.h / 2 + targetPos.y + targetPos.h / 2) / 2;
-        labelX = rightX;
+        labelX = offsetX;
         labelY = midY;
       } else if (!isSelfLoop) {
         // Forward edge: label between source bottom and target top
@@ -214,6 +223,7 @@ function computeLayout(input: LayoutInput): LayoutResult {
         isFallback,
         isFeedback,
         isSelfLoop,
+        feedbackSide,
         labelX,
         labelY,
       },
