@@ -12,7 +12,7 @@ const TERMINAL_NODE_SIZE = 40;
 // Vertical gap between nodes in the spine
 const LAYER_GAP = 80;
 // Horizontal offset for feedback (back) edges routed on the right side
-const FEEDBACK_OFFSET_X = 100;
+const FEEDBACK_OFFSET_X = 140;
 
 type LayoutInput = {
   edges: readonly WorkflowGraphEdge[];

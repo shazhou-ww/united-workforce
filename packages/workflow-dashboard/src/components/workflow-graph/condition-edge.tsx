@@ -2,7 +2,7 @@ import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from "
 import type { ConditionEdgeData } from "./types.ts";
 
 // Must match the FEEDBACK_OFFSET_X in use-layout.ts
-const FEEDBACK_OFFSET_X = 100;
+const FEEDBACK_OFFSET_X = 140;
 // Radius for feedback edge corners
 const FEEDBACK_RADIUS = 16;
 
