@@ -216,6 +216,8 @@ function computeLayout(input: LayoutInput): LayoutResult {
       id: edgeKey(e),
       source: e.from,
       target: e.to,
+      sourceHandle: isFeedback ? (feedbackSide === "left" ? "left-out" : "right-out") : undefined,
+      targetHandle: isFeedback ? (feedbackSide === "left" ? "left-in" : "right-in") : undefined,
       type: "condition",
       data: {
         condition: e.condition,
