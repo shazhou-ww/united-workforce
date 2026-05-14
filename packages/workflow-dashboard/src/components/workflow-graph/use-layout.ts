@@ -12,7 +12,7 @@ const TERMINAL_NODE_SIZE = 40;
 // Vertical gap between nodes in the spine
 const LAYER_GAP = 80;
 // Horizontal offset for feedback (back) edges routed on the right side
-const FEEDBACK_OFFSET_X = 140;
+const FEEDBACK_OFFSET_X = 80;
 
 type LayoutInput = {
   edges: readonly WorkflowGraphEdge[];
@@ -216,6 +216,8 @@ function computeLayout(input: LayoutInput): LayoutResult {
       id: edgeKey(e),
       source: e.from,
       target: e.to,
+      sourceHandle: isFeedback ? (feedbackSide === "left" ? "left-out" : "right-out") : "bottom-out",
+      targetHandle: isFeedback ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
       type: "condition",
       data: {
         condition: e.condition,

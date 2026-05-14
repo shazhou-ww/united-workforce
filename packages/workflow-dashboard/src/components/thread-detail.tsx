@@ -39,7 +39,8 @@ function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeSt
     states.set(role, !hasResult && isLast ? "active" : "completed");
   }
 
-  if (roleRecords.length > 0) {
+  const hasStart = records.some((r) => r.type === "thread-start");
+  if (hasStart) {
     states.set("__start__", "completed");
   }
   if (hasResult) {
@@ -79,28 +80,58 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
   const descriptor = descriptorFetch.status === "ok" ? descriptorFetch.data : null;
   const nodeStates = useMemo(() => computeNodeStates(records), [records]);
 
-  const firstIndexByRole = useMemo(() => {
-    const m = new Map<string, number>();
+  const indicesByRole = useMemo(() => {
+    const m = new Map<string, number[]>();
     for (let i = 0; i < records.length; i++) {
       const r = records[i];
-      if (r.type === "role" && !m.has(r.role)) {
-        m.set(r.role, i);
+      if (r.type === "role") {
+        const list = m.get(r.role) ?? [];
+        list.push(i);
+        m.set(r.role, list);
       }
     }
     return m;
   }, [records]);
 
-  const handleGraphNodeClick = useCallback((roleName: string) => {
-    const el = firstCardByRoleRef.current.get(roleName);
-    if (el == null) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
-    setHighlightedRole(roleName);
-    highlightTimerRef.current = setTimeout(() => {
-      setHighlightedRole(null);
-      highlightTimerRef.current = null;
-    }, 1500);
-  }, []);
+  // Track which occurrence to jump to next per role (cycling)
+  const clickCycleRef = useRef<Map<string, number>>(new Map());
+
+  const handleGraphNodeClick = useCallback((nodeId: string) => {
+    // Only allow clicks on lit (non-default) nodes
+    if (nodeStates.get(nodeId) === undefined || nodeStates.get(nodeId) === "default") return;
+
+    // __start__: scroll to the first record (thread-start prompt)
+    if (nodeId === "__start__") {
+      const firstCard = document.querySelector('[data-record-index="0"]');
+      if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    // __end__: scroll to bottom
+    if (nodeId === "__end__") {
+      recordsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      return;
+    }
+
+    // Role nodes: cycle through occurrences
+    const indices = indicesByRole.get(nodeId);
+    if (indices === undefined || indices.length === 0) return;
+
+    const cycle = clickCycleRef.current.get(nodeId) ?? 0;
+    const idx = indices[cycle % indices.length];
+    clickCycleRef.current.set(nodeId, cycle + 1);
+
+    const el = document.querySelector(`[data-record-index="${idx}"]`);
+    if (el !== null) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+      setHighlightedRole(nodeId);
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedRole(null);
+        highlightTimerRef.current = null;
+      }, 1500);
+    }
+  }, [nodeStates, indicesByRole]);
 
   useEffect(() => {
     return () => {
@@ -237,11 +268,13 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
               {records.map((r, i) => {
                 const key = `${threadId}-${i}`;
                 if (r.type === "role") {
-                  const isFirstForRole = firstIndexByRole.get(r.role) === i;
+                  const roleIndices = indicesByRole.get(r.role);
+                  const isFirstForRole = roleIndices !== undefined && roleIndices[0] === i;
                   const flash = highlightedRole === r.role;
                   return (
                     <div
                       key={key}
+                      data-record-index={i}
                       ref={(el) => {
                         if (!isFirstForRole) return;
                         if (el !== null) firstCardByRoleRef.current.set(r.role, el);
@@ -252,7 +285,7 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
                     </div>
                   );
                 }
-                return <RecordCard key={key} record={r} highlighted={false} />;
+                return <div key={key} data-record-index={i}><RecordCard record={r} highlighted={false} /></div>;
               })}
               <div ref={recordsEndRef} aria-hidden />
             </div>
