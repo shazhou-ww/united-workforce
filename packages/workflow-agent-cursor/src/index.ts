@@ -1,8 +1,8 @@
-import type { WorkflowRuntime } from "@uncaged/workflow-runtime";
-import { createLogger } from "@uncaged/workflow-util";
+import type { AdapterFn, AgentFn, WorkflowRuntime } from "@uncaged/workflow-runtime";
+import { createLogger, type LogFn } from "@uncaged/workflow-util";
 import {
   buildThreadInput,
-  createTextAdapter,
+  createAgentAdapter,
   type SpawnCliError,
   spawnCli,
 } from "@uncaged/workflow-util-agent";
@@ -33,25 +33,15 @@ function resolveCursorModel(model: string | null): string {
   return model === null ? "auto" : model;
 }
 
-/** Runs `cursor-agent` with workspace extracted from thread context via runtime.extract. */
-export function createCursorAgent(config: CursorAgentConfig) {
-  const modelFlag = resolveCursorModel(config.model);
-  const timeoutMs = config.timeout > 0 ? config.timeout : null;
-  const logger = createLogger({ sink: { kind: "stderr" } });
+type CursorAgentOpt = { prompt: string; workspace: string };
 
-  return createTextAdapter(async (ctx, prompt, runtime: WorkflowRuntime) => {
-    const validated = validateCursorAgentConfig(config);
-    if (!validated.ok) {
-      throw new Error(validated.error);
-    }
-
-    const workspace = await extractWorkspacePath(ctx, runtime, logger);
-    if (workspace === null) {
-      throw new Error(
-        "cursor-agent: failed to extract workspace path from context. Ensure the task prompt or previous steps include a project path.",
-      );
-    }
-
+function createCursorAgentFn(
+  config: CursorAgentConfig,
+  modelFlag: string,
+  timeoutMs: number | null,
+  logger: LogFn,
+): AgentFn<CursorAgentOpt> {
+  return async (ctx, { prompt, workspace }) => {
     logger("R5HN3YKQ", `cursor-agent workspace: ${workspace}`);
     const threadInput = await buildThreadInput(ctx);
     const fullPrompt = `${prompt}\n\n${threadInput}`;
@@ -75,5 +65,33 @@ export function createCursorAgent(config: CursorAgentConfig) {
       throwCursorSpawnError(run.error);
     }
     return run.value;
-  });
+  };
+}
+
+/** Runs `cursor-agent` with workspace from config or extracted from thread context via runtime.extract. */
+export function createCursorAgent(config: CursorAgentConfig): AdapterFn {
+  const modelFlag = resolveCursorModel(config.model);
+  const timeoutMs = config.timeout > 0 ? config.timeout : null;
+  const logger = createLogger({ sink: { kind: "stderr" } });
+
+  return createAgentAdapter(
+    createCursorAgentFn(config, modelFlag, timeoutMs, logger),
+    async (ctx, prompt, runtime: WorkflowRuntime) => {
+      const validated = validateCursorAgentConfig(config);
+      if (!validated.ok) {
+        throw new Error(validated.error);
+      }
+
+      const workspace =
+        config.workspace !== null
+          ? config.workspace
+          : await extractWorkspacePath(ctx, runtime, logger);
+      if (workspace === null) {
+        throw new Error(
+          "cursor-agent: failed to extract workspace path from context. Ensure the task prompt or previous steps include a project path.",
+        );
+      }
+      return { prompt, workspace };
+    },
+  );
 }
