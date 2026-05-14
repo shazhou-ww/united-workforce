@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { WorkflowDetail } from "../api.ts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { WorkflowDetail, WorkflowRoleDescriptor } from "../api.ts";
 import { getWorkflowDetail, listWorkflows } from "../api.ts";
 import { useFetch } from "../hooks.ts";
 import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
@@ -17,6 +17,88 @@ function versionCount(detail: WorkflowDetail): number {
   return detail.history.length + 1;
 }
 
+function schemaPropertiesTable(schema: Record<string, unknown>): Array<{
+  name: string;
+  type: string;
+  description: string;
+}> {
+  const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const required = new Set<string>(
+    Array.isArray(schema.required) ? (schema.required as string[]) : [],
+  );
+  return Object.entries(props).map(([name, prop]) => {
+    let type = String(prop.type ?? "unknown");
+    if (!required.has(name)) type += "?";
+    const description = String(prop.description ?? "");
+    return { name, type, description };
+  });
+}
+
+function RoleCard({
+  roleName,
+  role,
+}: {
+  roleName: string;
+  role: WorkflowRoleDescriptor;
+}) {
+  const fields = schemaPropertiesTable(role.schema);
+  return (
+    <div
+      id={`role-${roleName}`}
+      className="rounded-lg border p-4"
+      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+    >
+      <h4
+        className="text-sm font-semibold font-mono mb-1"
+        style={{ color: "var(--color-text)" }}
+      >
+        {roleName}
+      </h4>
+      {role.description !== "" && (
+        <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
+          {role.description}
+        </p>
+      )}
+      {fields.length > 0 && (
+        <div>
+          <p
+            className="text-[10px] uppercase tracking-wider mb-1 font-medium"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Meta Schema
+          </p>
+          <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+                <th className="text-left py-1 pr-3 font-medium" style={{ color: "var(--color-text-muted)" }}>Field</th>
+                <th className="text-left py-1 pr-3 font-medium" style={{ color: "var(--color-text-muted)" }}>Type</th>
+                <th className="text-left py-1 font-medium" style={{ color: "var(--color-text-muted)" }}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fields.map((f) => (
+                <tr key={f.name} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-accent)" }}>{f.name}</td>
+                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-text-muted)" }}>{f.type}</td>
+                  <td className="py-1" style={{ color: "var(--color-text)" }}>{f.description || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {fields.length === 0 && Object.keys(role.schema).length > 0 && (
+        <pre
+          className="text-[10px] font-mono p-2 rounded overflow-x-auto"
+          style={{ background: "var(--color-bg)", color: "var(--color-text-muted)" }}
+        >
+          {JSON.stringify(role.schema, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function ExpandedWorkflowBody({
   cacheEntry,
   staticNodeStates,
@@ -24,6 +106,9 @@ function ExpandedWorkflowBody({
   cacheEntry: DetailCacheEntry | undefined;
   staticNodeStates: Map<string, NodeState>;
 }) {
+  const [highlightedRole, setHighlightedRole] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   if (cacheEntry === undefined || cacheEntry.status === "loading") {
     return (
       <p className="text-sm py-2" style={{ color: "var(--color-text-muted)" }}>
@@ -46,65 +131,120 @@ function ExpandedWorkflowBody({
   const vc = versionCount(detail);
 
   const hasGraph = descriptor !== null && edgeCount > 0;
+  const roleEntries =
+    descriptor !== null ? Object.entries(descriptor.roles) : [];
+
+  function handleGraphNodeClick(nodeId: string) {
+    const el = document.getElementById(`role-${nodeId}`);
+    if (el === null) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+    setHighlightedRole(nodeId);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedRole(null);
+      highlightTimerRef.current = null;
+    }, 1500);
+  }
+
+  // All roles are "completed" (static view, all nodes lit)
+  const allLitStates = useMemo(() => {
+    const m = new Map<string, NodeState>();
+    m.set("__start__", "completed");
+    m.set("__end__", "completed");
+    for (const [name] of roleEntries) {
+      m.set(name, "completed");
+    }
+    return m;
+  }, [roleEntries]);
 
   return (
     <div className="pt-3 border-t flex gap-4" style={{ borderColor: "var(--color-border)" }}>
-      <div className="space-y-3 shrink-0" style={{ minWidth: 200, maxWidth: 280 }}>
-        <div>
-          <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
-            {detail.name}
-          </p>
-          <p className="text-xs mt-1 mb-1" style={{ color: "var(--color-text-muted)" }}>
-            Hash
-          </p>
-          <code className="text-xs font-mono block" style={{ color: "var(--color-accent)" }}>
-            {detail.hash}
-          </code>
+      {/* Left: graph sidebar */}
+      {hasGraph && (
+        <div
+          className="shrink-0"
+          style={{
+            width: 280,
+            position: "sticky",
+            top: 16,
+            height: "calc(100vh - 120px)",
+            alignSelf: "flex-start",
+          }}
+        >
+          <div
+            className="rounded-lg border h-full flex flex-col overflow-hidden"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+          >
+            <div
+              className="flex items-center justify-between px-3 py-2 text-xs"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              <span className="font-mono">Workflow graph</span>
+              <span>
+                {edgeCount} edge{edgeCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="flex-1">
+              <WorkflowGraph
+                graph={descriptor.graph}
+                roles={descriptor.roles}
+                nodeStates={allLitStates}
+                onNodeClick={handleGraphNodeClick}
+              />
+            </div>
+          </div>
         </div>
-        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-          {vc} version{vc !== 1 ? "s" : ""}
-        </p>
-        <div>
-          <p className="text-xs mb-1 font-medium" style={{ color: "var(--color-text-muted)" }}>
-            Description
-          </p>
-          <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text)" }}>
+      )}
+
+      {/* Right: workflow info + role cards */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {/* Workflow overview */}
+        <div
+          className="rounded-lg border p-4"
+          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+        >
+          <h3 className="text-base font-semibold mb-2" style={{ color: "var(--color-text)" }}>
+            {detail.name}
+          </h3>
+          <p className="text-sm whitespace-pre-wrap mb-3" style={{ color: "var(--color-text)" }}>
             {descriptor !== null && descriptor.description !== ""
               ? descriptor.description
               : descriptor !== null
                 ? "—"
                 : "No descriptor available for this workflow version."}
           </p>
-        </div>
-      </div>
-      {hasGraph ? (
-        <div
-          className="rounded-lg border overflow-hidden flex-1"
-          style={{
-            borderColor: "var(--color-border)",
-            background: "var(--color-bg)",
-            minHeight: 500,
-          }}
-        >
-          <div
-            className="px-3 py-2 text-xs flex justify-between items-center"
-            style={{ color: "var(--color-text-muted)", background: "var(--color-surface)" }}
-          >
-            <span className="font-mono">Workflow graph</span>
+          <div className="flex gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
             <span>
-              {edgeCount} edge{edgeCount === 1 ? "" : "s"}
+              Hash:{" "}
+              <code className="font-mono" style={{ color: "var(--color-accent)" }}>
+                {detail.hash}
+              </code>
             </span>
-          </div>
-          <div style={{ height: 600, width: "100%" }}>
-            <WorkflowGraph
-              graph={descriptor.graph}
-              roles={descriptor.roles}
-              nodeStates={staticNodeStates}
-              onNodeClick={null}
-            />
+            <span>
+              {vc} version{vc !== 1 ? "s" : ""}
+            </span>
+            {roleEntries.length > 0 && (
+              <span>
+                {roleEntries.length} role{roleEntries.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         </div>
-      ) : null}
+
+        {/* Role cards */}
+        {roleEntries.map(([name, role]) => (
+          <div
+            key={name}
+            style={{
+              transition: "box-shadow 0.3s",
+              boxShadow: highlightedRole === name ? "0 0 0 2px var(--color-accent)" : "none",
+              borderRadius: 8,
+            }}
+          >
+            <RoleCard roleName={name} role={role} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
