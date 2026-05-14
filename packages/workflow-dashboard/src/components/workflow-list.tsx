@@ -109,6 +109,21 @@ function ExpandedWorkflowBody({
   const [highlightedRole, setHighlightedRole] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const detail = cacheEntry?.status === "ok" ? cacheEntry.detail : null;
+  const descriptor = detail?.descriptor ?? null;
+  const roleEntries = descriptor !== null ? Object.entries(descriptor.roles) : [];
+
+  // All roles are "completed" (static view, all nodes lit) — must be before early returns
+  const allLitStates = useMemo(() => {
+    const m = new Map<string, NodeState>();
+    m.set("__start__", "completed");
+    m.set("__end__", "completed");
+    for (const [name] of roleEntries) {
+      m.set(name, "completed");
+    }
+    return m;
+  }, [roleEntries]);
+
   if (cacheEntry === undefined || cacheEntry.status === "loading") {
     return (
       <p className="text-sm py-2" style={{ color: "var(--color-text-muted)" }}>
@@ -125,14 +140,10 @@ function ExpandedWorkflowBody({
     );
   }
 
-  const { detail } = cacheEntry;
-  const descriptor = detail.descriptor;
   const edgeCount = descriptor !== null ? descriptor.graph.edges.length : 0;
-  const vc = versionCount(detail);
+  const vc = detail !== null ? versionCount(detail) : 0;
 
   const hasGraph = descriptor !== null && edgeCount > 0;
-  const roleEntries =
-    descriptor !== null ? Object.entries(descriptor.roles) : [];
 
   function handleGraphNodeClick(nodeId: string) {
     const el = document.getElementById(`role-${nodeId}`);
@@ -145,17 +156,6 @@ function ExpandedWorkflowBody({
       highlightTimerRef.current = null;
     }, 1500);
   }
-
-  // All roles are "completed" (static view, all nodes lit)
-  const allLitStates = useMemo(() => {
-    const m = new Map<string, NodeState>();
-    m.set("__start__", "completed");
-    m.set("__end__", "completed");
-    for (const [name] of roleEntries) {
-      m.set(name, "completed");
-    }
-    return m;
-  }, [roleEntries]);
 
   return (
     <div className="pt-3 border-t flex gap-4" style={{ borderColor: "var(--color-border)" }}>
