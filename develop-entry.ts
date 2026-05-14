@@ -9,6 +9,7 @@ const agent = createCursorAgent({
   command: "/home/azureuser/.local/bin/cursor-agent",
   model: "auto",
   timeout: 300_000,
+  workspace: null,
 });
 
 export const descriptor = buildDevelopDescriptor();

@@ -11,5 +11,8 @@ export function validateCursorAgentConfig(config: CursorAgentConfig): Result<voi
   if (config.timeout < 0) {
     return err("timeout must be a non-negative number (milliseconds); use 0 for no limit");
   }
+  if (config.workspace !== null && !isAbsolute(config.workspace)) {
+    return err("workspace must be an absolute filesystem path when set");
+  }
   return ok(undefined);
 }

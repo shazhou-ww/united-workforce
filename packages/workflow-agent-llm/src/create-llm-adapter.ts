@@ -1,5 +1,12 @@
-import { type AdapterFn, err, type LlmProvider, ok, type Result } from "@uncaged/workflow-runtime";
-import { createTextAdapter } from "@uncaged/workflow-util-agent";
+import {
+  type AdapterFn,
+  type AgentFn,
+  err,
+  type LlmProvider,
+  ok,
+  type Result,
+} from "@uncaged/workflow-runtime";
+import { createAgentAdapter } from "@uncaged/workflow-util-agent";
 
 /** OpenAI chat completion message shape (passed to `/chat/completions`). */
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -91,9 +98,10 @@ export async function chatCompletionText(options: {
   return parseAssistantText(res.value);
 }
 
-/** Single-turn chat adapter: system prompt is passed by the workflow engine. */
-export function createLlmAdapter(provider: LlmProvider): AdapterFn {
-  return createTextAdapter(async (ctx, prompt, _runtime) => {
+type LlmAgentOpt = { prompt: string };
+
+function createLlmAgent(provider: LlmProvider): AgentFn<LlmAgentOpt> {
+  return async (ctx, { prompt }) => {
     const result = await chatCompletionText({
       provider,
       messages: [
@@ -105,5 +113,12 @@ export function createLlmAdapter(provider: LlmProvider): AdapterFn {
       throw new Error(`llm: ${formatLlmChatError(result.error)}`);
     }
     return result.value;
-  });
+  };
+}
+
+/** Single-turn chat adapter: system prompt is passed by the workflow engine. */
+export function createLlmAdapter(provider: LlmProvider): AdapterFn {
+  return createAgentAdapter(createLlmAgent(provider), async (_ctx, prompt, _runtime) => ({
+    prompt,
+  }));
 }

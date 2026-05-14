@@ -1,7 +1,7 @@
-import type { AdapterFn } from "@uncaged/workflow-runtime";
+import type { AdapterFn, AgentFn } from "@uncaged/workflow-runtime";
 import {
   buildThreadInput,
-  createTextAdapter,
+  createAgentAdapter,
   type SpawnCliError,
   spawnCli,
 } from "@uncaged/workflow-util-agent";
@@ -10,6 +10,8 @@ import type { HermesAgentConfig } from "./types.js";
 import { validateHermesAgentConfig } from "./validate-config.js";
 
 const HERMES_DEFAULT_MAX_TURNS = 90;
+
+type HermesAgentOpt = { prompt: string };
 
 export type { HermesAgentConfig } from "./types.js";
 export { validateHermesAgentConfig } from "./validate-config.js";
@@ -29,16 +31,10 @@ function throwHermesSpawnError(error: SpawnCliError): never {
   throw new Error("hermes: unknown spawn error");
 }
 
-/** Runs `hermes chat` non-interactively with the Nerve-style argv contract (`-q`, `--yolo`, `--quiet`). */
-export function createHermesAgent(config: HermesAgentConfig): AdapterFn {
+function createHermesAgentFn(config: HermesAgentConfig): AgentFn<HermesAgentOpt> {
   const timeoutMs = config.timeout;
 
-  return createTextAdapter(async (ctx, prompt, _runtime) => {
-    const validated = validateHermesAgentConfig(config);
-    if (!validated.ok) {
-      throw new Error(validated.error);
-    }
-
+  return async (ctx, { prompt }) => {
     const threadInput = await buildThreadInput(ctx);
     const fullPrompt = `${prompt}\n\n${threadInput}`;
     const args = [
@@ -61,5 +57,16 @@ export function createHermesAgent(config: HermesAgentConfig): AdapterFn {
       throwHermesSpawnError(run.error);
     }
     return run.value;
+  };
+}
+
+/** Runs `hermes chat` non-interactively with the Nerve-style argv contract (`-q`, `--yolo`, `--quiet`). */
+export function createHermesAgent(config: HermesAgentConfig): AdapterFn {
+  return createAgentAdapter(createHermesAgentFn(config), async (_ctx, prompt, _runtime) => {
+    const validated = validateHermesAgentConfig(config);
+    if (!validated.ok) {
+      throw new Error(validated.error);
+    }
+    return { prompt };
   });
 }
