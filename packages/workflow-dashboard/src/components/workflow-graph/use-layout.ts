@@ -36,123 +36,139 @@ function edgeKey(e: WorkflowGraphEdge): string {
   return `${e.from}->${e.to}::${e.condition}`;
 }
 
+// ── Strategy 1: Longest-path layering (Sugiyama step 1) ─────────────
+
 /**
- * Compute node layers using a reachability-based partial order.
+ * Assign layers via longest path from sources.
  *
- * Definitions (where ~> means "has a directed path"):
- *   a « b  =  a ~> b  AND  NOT b ~> a       (a strictly precedes b)
- *   a ~ b  =  NOT a « b  AND  NOT b « a     (incomparable)
- *   depth(a) = shortest path length from __start__ to a
- *   a < b  =  a « b  OR  (a ~ b AND depth(a) < depth(b))
- *   a == b =  NOT a < b  AND  NOT b < a     (equivalence class → same row)
+ * For each node, rank = max(rank(pred) + 1) over all predecessors.
+ * This guarantees that if a -> b (and not b -> a), rank(a) < rank(b).
  *
- * Nodes in the same equivalence class are placed side-by-side horizontally.
+ * Back-edges (cycles) are detected and excluded from ranking:
+ * we first remove edges that create cycles (DFS-based), compute ranks
+ * on the resulting DAG, then the removed edges become feedback edges.
  */
-function computeLayers(edges: readonly WorkflowGraphEdge[]): string[][] {
+function computeLayersLongestPath(edges: readonly WorkflowGraphEdge[]): string[][] {
   // Collect all node IDs
   const ids = new Set<string>();
   for (const e of edges) {
     ids.add(e.from);
     ids.add(e.to);
   }
-  const nodeList = [...ids];
 
   // Build adjacency (excluding self-loops)
   const adj = new Map<string, string[]>();
-  for (const id of ids) adj.set(id, []);
-  for (const e of edges) {
-    if (e.from !== e.to) {
-      adj.get(e.from)?.push(e.to);
-    }
+  const inEdges = new Map<string, string[]>();
+  for (const id of ids) {
+    adj.set(id, []);
+    inEdges.set(id, []);
   }
-
-  // Compute reachability via BFS from each node
-  const reachable = new Map<string, Set<string>>();
-  for (const source of nodeList) {
-    const visited = new Set<string>();
-    const queue = [source];
-    while (queue.length > 0) {
-      const cur = queue.shift()!;
-      for (const next of adj.get(cur) ?? []) {
-        if (!visited.has(next)) {
-          visited.add(next);
-          queue.push(next);
-        }
-      }
-    }
-    reachable.set(source, visited);
-  }
-
-  const reaches = (a: string, b: string): boolean => reachable.get(a)?.has(b) ?? false;
-
-  // a « b = a ~> b AND NOT b ~> a
-  const strictlyPrecedes = (a: string, b: string): boolean => reaches(a, b) && !reaches(b, a);
-
-  // Compute depth = shortest path from __start__ via BFS
-  const depth = new Map<string, number>();
+  // Detect back-edges via DFS to break cycles
+  const backEdges = new Set<string>();
   {
-    const queue = [START_ID];
-    depth.set(START_ID, 0);
-    while (queue.length > 0) {
-      const cur = queue.shift()!;
-      const d = depth.get(cur)!;
-      for (const next of adj.get(cur) ?? []) {
-        if (!depth.has(next)) {
-          depth.set(next, d + 1);
-          queue.push(next);
+    const WHITE = 0;
+    const GRAY = 1;
+    const BLACK = 2;
+    const color = new Map<string, number>();
+    for (const id of ids) color.set(id, WHITE);
+
+    // Temporary full adjacency for cycle detection
+    const fullAdj = new Map<string, string[]>();
+    for (const id of ids) fullAdj.set(id, []);
+    for (const e of edges) {
+      if (e.from !== e.to) fullAdj.get(e.from)?.push(e.to);
+    }
+
+    function dfs(u: string): void {
+      color.set(u, GRAY);
+      for (const v of fullAdj.get(u) ?? []) {
+        const c = color.get(v) ?? WHITE;
+        if (c === GRAY) {
+          // Back-edge: u -> v where v is an ancestor
+          backEdges.add(`${u}->${v}`);
+        } else if (c === WHITE) {
+          dfs(v);
         }
       }
+      color.set(u, BLACK);
+    }
+
+    // Start DFS from __start__ first for determinism
+    if (ids.has(START_ID)) dfs(START_ID);
+    for (const id of ids) {
+      if ((color.get(id) ?? WHITE) === WHITE) dfs(id);
     }
   }
-  const depthOf = (a: string): number => depth.get(a) ?? Number.MAX_SAFE_INTEGER;
 
-  // a < b = a « b OR (a ~ b AND depth(a) < depth(b))
-  const lessThan = (a: string, b: string): boolean => {
-    if (strictlyPrecedes(a, b)) return true;
-    if (strictlyPrecedes(b, a)) return false;
-    // a ~ b: incomparable under «
-    return depthOf(a) < depthOf(b);
-  };
-
-  // Group into equivalence classes: a == b iff NOT a < b AND NOT b < a
-  const assigned = new Set<string>();
-  const groups: string[][] = [];
-
-  // Process in a stable order (sorted by depth, then alphabetical)
-  const sorted = [...nodeList].sort((a, b) => {
-    const dd = depthOf(a) - depthOf(b);
-    if (dd !== 0) return dd;
-    return a.localeCompare(b);
-  });
-
-  for (const node of sorted) {
-    if (assigned.has(node)) continue;
-    const group = [node];
-    assigned.add(node);
-    for (const other of sorted) {
-      if (assigned.has(other)) continue;
-      if (!lessThan(node, other) && !lessThan(other, node)) {
-        group.push(other);
-        assigned.add(other);
-      }
-    }
-    groups.push(group);
+  // Build DAG adjacency (without back-edges)
+  for (const e of edges) {
+    if (e.from === e.to) continue;
+    if (backEdges.has(`${e.from}->${e.to}`)) continue;
+    adj.get(e.from)?.push(e.to);
+    inEdges.get(e.to)?.push(e.from);
   }
 
-  // Topological sort the groups by <
-  groups.sort((ga, gb) => {
-    // Use representative: if any a in ga < any b in gb, ga comes first
-    for (const a of ga) {
-      for (const b of gb) {
-        if (lessThan(a, b)) return -1;
-        if (lessThan(b, a)) return 1;
+  // Longest-path ranking via topological order (Kahn's algorithm)
+  const inDegree = new Map<string, number>();
+  for (const id of ids) inDegree.set(id, 0);
+  for (const id of ids) {
+    for (const next of adj.get(id) ?? []) {
+      inDegree.set(next, (inDegree.get(next) ?? 0) + 1);
+    }
+  }
+
+  const rank = new Map<string, number>();
+  const queue: string[] = [];
+  for (const id of ids) {
+    if ((inDegree.get(id) ?? 0) === 0) {
+      queue.push(id);
+      rank.set(id, 0);
+    }
+  }
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const curRank = rank.get(cur) ?? 0;
+    for (const next of adj.get(cur) ?? []) {
+      // Longest path: take max
+      const prevRank = rank.get(next) ?? 0;
+      if (curRank + 1 > prevRank) {
+        rank.set(next, curRank + 1);
+      }
+      const deg = (inDegree.get(next) ?? 1) - 1;
+      inDegree.set(next, deg);
+      if (deg === 0) {
+        queue.push(next);
       }
     }
-    return 0;
-  });
+  }
 
-  return groups;
+  // Group by rank
+  const maxRank = Math.max(...[...rank.values()], 0);
+  const layers: string[][] = [];
+  for (let r = 0; r <= maxRank; r++) {
+    layers.push([]);
+  }
+  for (const [id, r] of rank) {
+    layers[r].push(id);
+  }
+
+  // Sort within layers alphabetically for stability, but __start__ first, __end__ last
+  for (const layer of layers) {
+    layer.sort((a, b) => {
+      if (a === START_ID) return -1;
+      if (b === START_ID) return 1;
+      if (a === END_ID) return 1;
+      if (b === END_ID) return -1;
+      return a.localeCompare(b);
+    });
+  }
+
+  // Remove empty layers
+  return layers.filter((l) => l.length > 0);
 }
+
+// ── Shared helpers ──────────────────────────────────────────────────
 
 function buildRoleNode(
   id: string,
@@ -185,9 +201,11 @@ function buildTerminalNode(
   };
 }
 
+// ── Longest-path layout (uses same edge-building as before) ─────────
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: layout logic is inherently branchy
-function computeLayout(input: LayoutInput): LayoutResult {
-  const layers = computeLayers(input.edges);
+function computeLayoutLongestPath(input: LayoutInput): LayoutResult {
+  const layers = computeLayersLongestPath(input.edges);
 
   // Flatten layers into a rank map (layer index = rank)
   const rank = new Map<string, number>();
@@ -247,9 +265,6 @@ function computeLayout(input: LayoutInput): LayoutResult {
   }
 
   // Build edges with label positions
-  // Feedback edges (target rank < source rank) and skip-forward edges (span > 1 layer)
-  // are routed to the side. Adjacent forward edges go straight down.
-  // Track routed edge count per side for alternating
   const routedCountByTarget = new Map<string, number>();
   const edges: Edge[] = input.edges.map((e) => {
     const isFallback = e.condition === "FALLBACK";
@@ -268,7 +283,6 @@ function computeLayout(input: LayoutInput): LayoutResult {
 
     if (sourcePos !== undefined && targetPos !== undefined) {
       if (isFeedback || isSkipForward) {
-        // Route to side — alternate left/right per target node
         const count = routedCountByTarget.get(e.to) ?? 0;
         routedCountByTarget.set(e.to, count + 1);
         feedbackSide = count % 2 === 0 ? "right" : "left";
@@ -280,13 +294,11 @@ function computeLayout(input: LayoutInput): LayoutResult {
         labelX = offsetX;
         labelY = midY;
       } else if (!isSelfLoop) {
-        // Forward edge: label between source bottom and target top
         const midX = centerX;
         const midY = (sourcePos.y + sourcePos.h + targetPos.y) / 2;
         labelX = midX;
         labelY = midY;
       }
-      // Self-loop: let ReactFlow default handle it
     }
 
     return {
@@ -318,6 +330,8 @@ function computeLayout(input: LayoutInput): LayoutResult {
   return { nodes, edges };
 }
 
+// ── Public hook ─────────────────────────────────────────────────────
+
 export function useLayout(input: LayoutInput): LayoutResult {
-  return useMemo(() => computeLayout(input), [input]);
+  return useMemo(() => computeLayoutLongestPath(input), [input]);
 }
