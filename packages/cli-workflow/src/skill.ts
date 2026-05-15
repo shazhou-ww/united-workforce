@@ -322,7 +322,7 @@ const adapter = createCursorAgent({
 
 // ✅ CORRECT — use \`which cursor-agent\` to find the path, then write it in
 const adapter = createCursorAgent({
-  command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "/home/azureuser/.local/bin/cursor-agent",
+  command: optionalEnv("WORKFLOW_CURSOR_COMMAND", "/home/you/.local/bin/cursor-agent"),
   ...
 });
 \`\`\`
