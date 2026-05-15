@@ -18,13 +18,13 @@ export async function cmdThreadRemove(
     return err(`thread not found: ${threadId}`);
   }
 
-  if (resolved.source === "active") {
-    await removeThreadEntry(resolved.bundleDir, threadId);
-  } else {
-    const hist = await removeThreadHistoryEntries(resolved.bundleDir, threadId);
-    if (!hist.ok) {
-      return hist;
-    }
+  // Always clear both stores: between resolve and delete the worker may finish and
+  // move the thread from threads.json into history; branching only on resolved.source
+  // would skip history removal and leave a dangling row.
+  await removeThreadEntry(resolved.bundleDir, threadId);
+  const hist = await removeThreadHistoryEntries(resolved.bundleDir, threadId);
+  if (!hist.ok) {
+    return hist;
   }
 
   const infoPath = join(storageRoot, "logs", resolved.bundleHash, `${threadId}.info.jsonl`);

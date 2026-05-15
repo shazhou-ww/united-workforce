@@ -180,6 +180,9 @@ describe("cli thread commands", () => {
     }
     expect(threads.value.some((l) => l.includes(threadId))).toBe(true);
 
+    const runningPath = join(storageRoot, "logs", added.value.hash, `${threadId}.running`);
+    await waitUntilRunningFileAbsent(runningPath, 120);
+
     const shown = await cmdThreadShow(storageRoot, threadId);
     expect(shown.ok).toBe(true);
     if (!shown.ok) {
