@@ -7,10 +7,11 @@ const FEEDBACK_OFFSET_X = 80;
 const FEEDBACK_RADIUS = 16;
 
 /**
- * Build an SVG path for a feedback (back) edge that routes to the given side of the nodes.
- * The path goes: source → arc → vertical up → arc → target
+ * Build an SVG path for an edge routed to the side of the nodes.
+ * Works for both feedback (bottom→up) and skip-forward (top→down) edges.
+ * The path goes: source → horizontal to side → vertical → horizontal to target
  */
-function feedbackPath(
+function sidePath(
   sourceX: number,
   sourceY: number,
   targetX: number,
@@ -24,11 +25,16 @@ function feedbackPath(
       : Math.min(sourceX, targetX) - FEEDBACK_OFFSET_X;
   const r = FEEDBACK_RADIUS;
 
+  // Direction: going up (feedback) or down (skip-forward)
+  const goingDown = targetY > sourceY;
+  const vertSourceY = goingDown ? sourceY + r : sourceY - r;
+  const vertTargetY = goingDown ? targetY - r : targetY + r;
+
   const segments = [
     `M ${sourceX} ${sourceY}`,
     `L ${offsetX - d * r} ${sourceY}`,
-    `Q ${offsetX} ${sourceY} ${offsetX} ${sourceY - r}`,
-    `L ${offsetX} ${targetY + r}`,
+    `Q ${offsetX} ${sourceY} ${offsetX} ${vertSourceY}`,
+    `L ${offsetX} ${vertTargetY}`,
     `Q ${offsetX} ${targetY} ${offsetX - d * r} ${targetY}`,
     `L ${targetX} ${targetY}`,
   ];
@@ -62,7 +68,7 @@ export function ConditionEdge(props: EdgeProps) {
 
   if (isFeedback) {
     const side = edgeData?.feedbackSide ?? "right";
-    path = feedbackPath(sourceX, sourceY, targetX, targetY, side);
+    path = sidePath(sourceX, sourceY, targetX, targetY, side);
     const offsetX =
       side === "right"
         ? Math.max(sourceX, targetX) + FEEDBACK_OFFSET_X
