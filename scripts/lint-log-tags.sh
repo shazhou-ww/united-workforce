@@ -10,7 +10,7 @@ while IFS= read -r match; do
   file="${match%%:*}"
   rest="${match#*:}"
   line="${rest%%:*}"
-  tag=$(echo "$rest" | grep -oP '\.log\(\s*"\K[A-Za-z0-9]+')
+  tag=$(echo "$rest" | sed -n 's/.*\.log( *"\([A-Za-z0-9]*\)".*/\1/p')
   if echo "$tag" | grep -qiE '[ILOU]'; then
     echo "  ❌ ${file}:${line}  tag \"${tag}\" contains invalid Crockford Base32 char (I/L/O/U)"
     BAD=1
