@@ -301,6 +301,26 @@ function createLazyAdapter(): AdapterFn {
 }
 \`\`\`
 
+### Agent CLI paths: use optionalEnv with defaults
+
+When binding agent adapters (cursor-agent, hermes, etc.), **always use \`optionalEnv\` with a sensible default** — never \`requireEnv\`. The worker process may start without the expected env vars, causing a silent crash.
+
+Discover the correct CLI path yourself (e.g. \`which cursor-agent\`, \`which hermes\`) and use it as the fallback:
+
+\`\`\`typescript
+// ❌ WRONG — worker crash if env var missing, thread silently fails with 0 steps
+const adapter = createCursorAgent({
+  command: requireEnv("WORKFLOW_CURSOR_COMMAND", "set it"),
+  ...
+});
+
+// ✅ CORRECT — env override with discovered default
+const adapter = createCursorAgent({
+  command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "cursor-agent",
+  ...
+});
+\`\`\`
+
 ### Bundle import restrictions
 
 The bundle validator only allows these import specifiers:

@@ -7,11 +7,11 @@
 import { createCursorAgent } from "@uncaged/workflow-agent-cursor";
 import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
 import { createWorkflow } from "@uncaged/workflow-runtime";
-import { optionalEnv, requireEnv } from "@uncaged/workflow-util";
+import { optionalEnv } from "@uncaged/workflow-util";
 import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
 const cursorAdapter = createCursorAgent({
-  command: requireEnv("WORKFLOW_CURSOR_COMMAND", "set WORKFLOW_CURSOR_COMMAND (e.g. cursor-agent)"),
+  command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "cursor-agent",
   model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
   timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
     ? Number(optionalEnv("WORKFLOW_CURSOR_TIMEOUT"))
@@ -20,7 +20,7 @@ const cursorAdapter = createCursorAgent({
 });
 
 const hermesAdapter = createHermesAgent({
-  command: requireEnv("WORKFLOW_HERMES_COMMAND", "set WORKFLOW_HERMES_COMMAND (absolute path to hermes CLI)"),
+  command: optionalEnv("WORKFLOW_HERMES_COMMAND") ?? "hermes",
   model: optionalEnv("WORKFLOW_HERMES_MODEL"),
   timeout: optionalEnv("WORKFLOW_HERMES_TIMEOUT")
     ? Number(optionalEnv("WORKFLOW_HERMES_TIMEOUT"))

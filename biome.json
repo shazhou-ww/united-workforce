@@ -1,7 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!packages/workflow/workflow"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!packages/workflow/workflow",
+      "!xiaoju/scripts/bundle.ts"
+    ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
