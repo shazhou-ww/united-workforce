@@ -305,7 +305,7 @@ function createLazyAdapter(): AdapterFn {
 
 When binding agent adapters (cursor-agent, hermes, etc.), **always use \`optionalEnv\` with a sensible default** — never \`requireEnv\`. The worker process may start without the expected env vars, causing a silent crash.
 
-Discover the correct CLI path yourself (e.g. \`which cursor-agent\`, \`which hermes\`) and use it as the fallback:
+Discover the correct CLI path yourself (e.g. \`which cursor-agent\`, \`which hermes\`) and hardcode it as the fallback:
 
 \`\`\`typescript
 // ❌ WRONG — worker crash if env var missing, thread silently fails with 0 steps
@@ -314,9 +314,15 @@ const adapter = createCursorAgent({
   ...
 });
 
-// ✅ CORRECT — env override with discovered default
+// ❌ WRONG — bare command name fails absolute-path validation
 const adapter = createCursorAgent({
   command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "cursor-agent",
+  ...
+});
+
+// ✅ CORRECT — use \`which cursor-agent\` to find the path, then write it in
+const adapter = createCursorAgent({
+  command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "/home/azureuser/.local/bin/cursor-agent",
   ...
 });
 \`\`\`
