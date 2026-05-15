@@ -216,7 +216,11 @@ function computeLayout(input: LayoutInput): LayoutResult {
       id: edgeKey(e),
       source: e.from,
       target: e.to,
-      sourceHandle: isFeedback ? (feedbackSide === "left" ? "left-out" : "right-out") : "bottom-out",
+      sourceHandle: isFeedback
+        ? feedbackSide === "left"
+          ? "left-out"
+          : "right-out"
+        : "bottom-out",
       targetHandle: isFeedback ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
       type: "condition",
       data: {

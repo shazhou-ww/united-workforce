@@ -28,7 +28,11 @@ export function WorkflowList({ client, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(w.name)}
               className="w-full text-left p-4 rounded-lg border hover:opacity-90"
-              style={{ background: "var(--color-surface)", borderColor: "var(--color-border)", color: "var(--color-text)" }}
+              style={{
+                background: "var(--color-surface)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text)",
+              }}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{w.name}</span>
@@ -40,10 +44,7 @@ export function WorkflowList({ client, onSelect }: Props) {
                 {w.hash !== null ? w.hash : "—"}
               </code>
               {w.timestamp !== null ? (
-                <span
-                  className="text-xs mt-1 block"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
+                <span className="text-xs mt-1 block" style={{ color: "var(--color-text-muted)" }}>
                   Updated {new Date(w.timestamp).toLocaleString()}
                 </span>
               ) : null}

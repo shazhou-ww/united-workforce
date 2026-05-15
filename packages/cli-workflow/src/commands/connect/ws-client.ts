@@ -48,11 +48,13 @@ async function handleGatewayMessage(
   const headers = new Headers(req.headers);
   let resp: Response;
   try {
-    resp = await params.appFetch(new Request(localUrl, {
-      method: req.method,
-      headers,
-      body: req.body === null ? undefined : req.body,
-    }));
+    resp = await params.appFetch(
+      new Request(localUrl, {
+        method: req.method,
+        headers,
+        body: req.body === null ? undefined : req.body,
+      }),
+    );
   } catch (e) {
     params.log("R4N7BQ3C", `app.fetch failed: ${String(e)}`);
     const errBody: WsResponse = {

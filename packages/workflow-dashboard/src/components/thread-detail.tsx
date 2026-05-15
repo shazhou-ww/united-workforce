@@ -96,42 +96,45 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
   // Track which occurrence to jump to next per role (cycling)
   const clickCycleRef = useRef<Map<string, number>>(new Map());
 
-  const handleGraphNodeClick = useCallback((nodeId: string) => {
-    // Only allow clicks on lit (non-default) nodes
-    if (nodeStates.get(nodeId) === undefined || nodeStates.get(nodeId) === "default") return;
+  const handleGraphNodeClick = useCallback(
+    (nodeId: string) => {
+      // Only allow clicks on lit (non-default) nodes
+      if (nodeStates.get(nodeId) === undefined || nodeStates.get(nodeId) === "default") return;
 
-    // __start__: scroll to the first record (thread-start prompt)
-    if (nodeId === "__start__") {
-      const firstCard = document.querySelector('[data-record-index="0"]');
-      if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
+      // __start__: scroll to the first record (thread-start prompt)
+      if (nodeId === "__start__") {
+        const firstCard = document.querySelector('[data-record-index="0"]');
+        if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
 
-    // __end__: scroll to bottom
-    if (nodeId === "__end__") {
-      recordsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-      return;
-    }
+      // __end__: scroll to bottom
+      if (nodeId === "__end__") {
+        recordsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        return;
+      }
 
-    // Role nodes: cycle through occurrences
-    const indices = indicesByRole.get(nodeId);
-    if (indices === undefined || indices.length === 0) return;
+      // Role nodes: cycle through occurrences
+      const indices = indicesByRole.get(nodeId);
+      if (indices === undefined || indices.length === 0) return;
 
-    const cycle = clickCycleRef.current.get(nodeId) ?? 0;
-    const idx = indices[cycle % indices.length];
-    clickCycleRef.current.set(nodeId, cycle + 1);
+      const cycle = clickCycleRef.current.get(nodeId) ?? 0;
+      const idx = indices[cycle % indices.length];
+      clickCycleRef.current.set(nodeId, cycle + 1);
 
-    const el = document.querySelector(`[data-record-index="${idx}"]`);
-    if (el !== null) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
-      setHighlightedRole(nodeId);
-      highlightTimerRef.current = setTimeout(() => {
-        setHighlightedRole(null);
-        highlightTimerRef.current = null;
-      }, 1500);
-    }
-  }, [nodeStates, indicesByRole]);
+      const el = document.querySelector(`[data-record-index="${idx}"]`);
+      if (el !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+        setHighlightedRole(nodeId);
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedRole(null);
+          highlightTimerRef.current = null;
+        }, 1500);
+      }
+    },
+    [nodeStates, indicesByRole],
+  );
 
   useEffect(() => {
     return () => {
@@ -285,7 +288,11 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
                     </div>
                   );
                 }
-                return <div key={key} data-record-index={i}><RecordCard record={r} highlighted={false} /></div>;
+                return (
+                  <div key={key} data-record-index={i}>
+                    <RecordCard record={r} highlighted={false} />
+                  </div>
+                );
               })}
               <div ref={recordsEndRef} aria-hidden />
             </div>
