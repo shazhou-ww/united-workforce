@@ -23,7 +23,7 @@ function requireNextArg(argv: string[], i: number, flag: string): Result<string,
 function parseConnectArgv(argv: string[]): Result<ConnectOptions, string> {
   let name = osHostname().split(".")[0].toLowerCase();
   let gatewayUrl = DEFAULT_GATEWAY_URL;
-  const gatewaySecret = process.env.WORKFLOW_GATEWAY_SECRET ?? "";
+  const gatewaySecret = process.env.WORKFLOW_DASHBOARD_SECRET ?? "";
   const stringFlags: Record<string, (v: string) => void> = {
     "--name": (v) => {
       name = v;
@@ -56,7 +56,7 @@ export async function dispatchConnect(storageRoot: string, argv: string[]): Prom
   const options = parsed.value;
 
   if (options.gatewaySecret === "") {
-    printCliLine("error: WORKFLOW_GATEWAY_SECRET is required");
+    printCliLine("error: WORKFLOW_DASHBOARD_SECRET is required");
     return 1;
   }
 

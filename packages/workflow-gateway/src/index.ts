@@ -13,8 +13,7 @@ export { ClientSocket };
 type Env = {
   Bindings: {
     ENDPOINTS: KVNamespace;
-    GATEWAY_SECRET: string;
-    DASHBOARD_API_KEY: string;
+    WORKFLOW_DASHBOARD_SECRET: string;
     CLIENT_SOCKET: DurableObjectNamespace<ClientSocket>;
   };
 };
@@ -40,7 +39,7 @@ function checkDashboardAuth(c: {
   const bearer = c.req.header("Authorization")?.replace("Bearer ", "");
   const query = c.req.query("key");
   const key = bearer ?? query;
-  return key === c.env.DASHBOARD_API_KEY;
+  return key === c.env.WORKFLOW_DASHBOARD_SECRET;
 }
 
 function isLocalClientUrl(url: string): boolean {
@@ -153,7 +152,7 @@ async function fetchClientSocketStatus(
     const resp = await stub.fetch(
       new Request(`https://do${CLIENT_SOCKET_INTERNAL_STATUS_PATH}`, {
         method: "GET",
-        headers: { Authorization: `Bearer ${env.GATEWAY_SECRET}` },
+        headers: { Authorization: `Bearer ${env.WORKFLOW_DASHBOARD_SECRET}` },
       }),
     );
     if (!resp.ok) {
@@ -184,14 +183,14 @@ function endpointStatusFromKvAndDo(record: EndpointRecord, doConnected: boolean 
 // ── Health ──────────────────────────────────────────────────────────
 app.get("/healthz", (c) => c.json({ ok: true }));
 
-// ── Client reverse WebSocket (GATEWAY_SECRET query param) ────────────
+// ── Client reverse WebSocket (WORKFLOW_DASHBOARD_SECRET query param) ────────────
 app.get("/ws/connect", async (c) => {
   const secret = c.req.query("secret");
   const name = c.req.query("name");
   if (name === undefined || name === "") {
     return c.json({ error: "name required" }, 400);
   }
-  if (secret !== c.env.GATEWAY_SECRET) {
+  if (secret !== c.env.WORKFLOW_DASHBOARD_SECRET) {
     return c.json({ error: "unauthorized" }, 401);
   }
   if (c.req.header("Upgrade") !== "websocket") {
@@ -202,7 +201,7 @@ app.get("/ws/connect", async (c) => {
   return stub.fetch(c.req.raw);
 });
 
-// ── Gateway management (GATEWAY_SECRET auth) ────────────────────────
+// ── Gateway management (WORKFLOW_DASHBOARD_SECRET auth) ────────────────────────
 const gateway = new Hono<Env>();
 
 gateway.post("/register", async (c) => {
@@ -217,7 +216,7 @@ gateway.post("/register", async (c) => {
   if (!name || !url) {
     return c.json({ error: "name and url required" }, 400);
   }
-  if (secret !== c.env.GATEWAY_SECRET) {
+  if (secret !== c.env.WORKFLOW_DASHBOARD_SECRET) {
     return c.json({ error: "unauthorized" }, 401);
   }
 
@@ -242,7 +241,7 @@ gateway.post("/register", async (c) => {
 
 gateway.delete("/register/:name", async (c) => {
   const auth = c.req.header("Authorization");
-  if (auth !== `Bearer ${c.env.GATEWAY_SECRET}`) {
+  if (auth !== `Bearer ${c.env.WORKFLOW_DASHBOARD_SECRET}`) {
     return c.json({ error: "unauthorized" }, 401);
   }
 
@@ -308,7 +307,7 @@ app.all("/api/clients/:client/*", async (c) => {
     const proxyResp = await fetchThroughClientSocket(
       c.env,
       client,
-      c.env.GATEWAY_SECRET,
+      c.env.WORKFLOW_DASHBOARD_SECRET,
       wsRequest,
     );
     if (proxyResp.status !== 503) {

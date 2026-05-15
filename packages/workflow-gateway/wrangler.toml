@@ -17,4 +17,4 @@ new_sqlite_classes = ["AgentSocket"]
 tag = "rename-agent-to-client"
 renamed_classes = [{ from = "AgentSocket", to = "ClientSocket" }]
 
-# GATEWAY_SECRET is set via `wrangler secret put`
+# WORKFLOW_DASHBOARD_SECRET is set via `wrangler secret put`

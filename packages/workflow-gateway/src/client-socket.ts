@@ -4,7 +4,7 @@ import { DurableObject } from "cloudflare:workers";
 import { parseWsRequestJson, parseWsResponseJson, type WsResponse } from "./ws-protocol.js";
 
 type ClientSocketEnv = {
-  GATEWAY_SECRET: string;
+  WORKFLOW_DASHBOARD_SECRET: string;
 };
 
 export const CLIENT_SOCKET_INTERNAL_STATUS_PATH = "/internal/client-socket/status";
@@ -37,7 +37,7 @@ export class ClientSocket extends DurableObject<ClientSocketEnv> {
 
   private requireAuth(request: Request): Response | null {
     const auth = request.headers.get("Authorization");
-    if (auth !== `Bearer ${this.env.GATEWAY_SECRET}`) {
+    if (auth !== `Bearer ${this.env.WORKFLOW_DASHBOARD_SECRET}`) {
       return jsonResponse(401, { error: "unauthorized" });
     }
     return null;
