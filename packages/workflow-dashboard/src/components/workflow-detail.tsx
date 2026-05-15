@@ -179,6 +179,28 @@ function RoleCard({ roleName, role }: { roleName: string; role: WorkflowRoleDesc
           {role.description}
         </p>
       )}
+      {role.systemPrompt !== "" && (
+        <details className="mb-3">
+          <summary
+            className="text-[10px] uppercase tracking-wider font-medium cursor-pointer select-none"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            System Prompt
+          </summary>
+          <pre
+            className="mt-1 text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
+            style={{
+              color: "var(--color-text)",
+              background: "var(--color-bg)",
+              border: "1px solid var(--color-border)",
+              maxHeight: "300px",
+              overflowY: "auto",
+            }}
+          >
+            {role.systemPrompt}
+          </pre>
+        </details>
+      )}
       {rows.length > 0 && (
         <div>
           <p
