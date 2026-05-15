@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { WorkflowDetail as WorkflowDetailData, WorkflowRoleDescriptor } from "../api.ts";
 import { getWorkflowDetail } from "../api.ts";
 import { useFetch } from "../hooks.ts";
+import { Markdown } from "./markdown.tsx";
 import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
 
 type Props = {
@@ -187,18 +188,16 @@ function RoleCard({ roleName, role }: { roleName: string; role: WorkflowRoleDesc
           >
             System Prompt
           </summary>
-          <pre
-            className="mt-1 text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
+          <div
+            className="mt-1 p-2 rounded overflow-y-auto text-xs"
             style={{
-              color: "var(--color-text)",
               background: "var(--color-bg)",
               border: "1px solid var(--color-border)",
               maxHeight: "300px",
-              overflowY: "auto",
             }}
           >
-            {role.systemPrompt}
-          </pre>
+            <Markdown content={role.systemPrompt} />
+          </div>
         </details>
       )}
       {rows.length > 0 && (
