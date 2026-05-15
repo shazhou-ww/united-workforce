@@ -62,7 +62,7 @@ function computeLayers(edges: readonly WorkflowGraphEdge[]): string[][] {
   for (const id of ids) adj.set(id, []);
   for (const e of edges) {
     if (e.from !== e.to) {
-      adj.get(e.from)!.push(e.to);
+      adj.get(e.from)?.push(e.to);
     }
   }
 
@@ -247,16 +247,17 @@ function computeLayout(input: LayoutInput): LayoutResult {
   }
 
   // Build edges with label positions
-  // For feedback edges (target rank < source rank), we'll compute label at midpoint
-  // of the right-side arc. The actual SVG path is drawn by ConditionEdge component.
-  // Track feedback edge count per target node for alternating sides
-  const feedbackCountByTarget = new Map<string, number>();
+  // Feedback edges (target rank < source rank) and skip-forward edges (span > 1 layer)
+  // are routed to the side. Adjacent forward edges go straight down.
+  // Track routed edge count per side for alternating
+  const routedCountByTarget = new Map<string, number>();
   const edges: Edge[] = input.edges.map((e) => {
     const isFallback = e.condition === "FALLBACK";
     const isSelfLoop = e.from === e.to;
     const sourceRank = rank.get(e.from) ?? 0;
     const targetRank = rank.get(e.to) ?? 0;
     const isFeedback = !isSelfLoop && targetRank <= sourceRank;
+    const isSkipForward = !isSelfLoop && !isFeedback && targetRank - sourceRank > 1;
 
     const sourcePos = nodePositions.get(e.from);
     const targetPos = nodePositions.get(e.to);
@@ -266,10 +267,10 @@ function computeLayout(input: LayoutInput): LayoutResult {
     let feedbackSide: "right" | "left" | null = null;
 
     if (sourcePos !== undefined && targetPos !== undefined) {
-      if (isFeedback) {
-        // Alternate feedback edges left/right per target node
-        const count = feedbackCountByTarget.get(e.to) ?? 0;
-        feedbackCountByTarget.set(e.to, count + 1);
+      if (isFeedback || isSkipForward) {
+        // Route to side — alternate left/right per target node
+        const count = routedCountByTarget.get(e.to) ?? 0;
+        routedCountByTarget.set(e.to, count + 1);
         feedbackSide = count % 2 === 0 ? "right" : "left";
         const offsetX =
           feedbackSide === "right"
@@ -292,18 +293,20 @@ function computeLayout(input: LayoutInput): LayoutResult {
       id: edgeKey(e),
       source: e.from,
       target: e.to,
-      sourceHandle: isFeedback
-        ? feedbackSide === "left"
-          ? "left-out"
-          : "right-out"
-        : "bottom-out",
-      targetHandle: isFeedback ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
+      sourceHandle:
+        isFeedback || isSkipForward
+          ? feedbackSide === "left"
+            ? "left-out"
+            : "right-out"
+          : "bottom-out",
+      targetHandle:
+        isFeedback || isSkipForward ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
       type: "condition",
       data: {
         condition: e.condition,
         conditionDescription: e.conditionDescription,
         isFallback,
-        isFeedback,
+        isFeedback: isFeedback || isSkipForward,
         isSelfLoop,
         feedbackSide,
         labelX,
