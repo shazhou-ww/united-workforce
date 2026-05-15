@@ -1,5 +1,16 @@
 # @uncaged/workflow-execute
 
+## 0.5.0-alpha.1
+
+### Patch Changes
+
+- @uncaged/workflow-cas@0.5.0-alpha.1
+- @uncaged/workflow-protocol@0.5.0-alpha.1
+- @uncaged/workflow-reactor@0.5.0-alpha.1
+- @uncaged/workflow-register@0.5.0-alpha.1
+- @uncaged/workflow-runtime@0.5.0-alpha.1
+- @uncaged/workflow-util@0.5.0-alpha.1
+
 ## 0.5.0-alpha.0
 
 ### Patch Changes

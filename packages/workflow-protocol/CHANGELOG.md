@@ -1,5 +1,7 @@
 # @uncaged/workflow-protocol
 
+## 0.5.0-alpha.1
+
 ## 0.5.0-alpha.0
 
 ### Minor Changes

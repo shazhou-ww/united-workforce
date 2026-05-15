@@ -1,5 +1,14 @@
 # @uncaged/workflow-agent-react
 
+## 0.5.0-alpha.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-util-agent@0.5.0-alpha.1
+  - @uncaged/workflow-protocol@0.5.0-alpha.1
+  - @uncaged/workflow-reactor@0.5.0-alpha.1
+
 ## 0.5.0-alpha.0
 
 ### Patch Changes

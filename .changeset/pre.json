@@ -21,6 +21,7 @@
     "@uncaged/workflow-util-agent": "0.4.5"
   },
   "changesets": [
+    "fix-publish-src",
     "rfc-252-agent-fn"
   ]
 }
