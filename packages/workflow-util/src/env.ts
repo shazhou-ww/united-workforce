@@ -1,23 +1,14 @@
 /**
- * Read a required environment variable. Throws with `message` if missing or empty.
+ * Read an environment variable with a required fallback default.
+ * Returns the env value if set and non-empty, otherwise returns `fallback`.
+ *
+ * Every env var in a bundle must have a sensible default — bundles must run
+ * without any env vars set. Env vars are overrides, not requirements.
  */
-export function requireEnv(name: string, message: string): string {
+export function env(name: string, fallback: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
-    throw new Error(message);
-  }
-  return value;
-}
-
-/**
- * Read an optional environment variable. Returns `fallback` if missing or empty.
- */
-export function optionalEnv(name: string, fallback: string): string;
-export function optionalEnv(name: string): string | null;
-export function optionalEnv(name: string, fallback?: string): string | null {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    return fallback ?? null;
+    return fallback;
   }
   return value;
 }

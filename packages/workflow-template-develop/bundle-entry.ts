@@ -7,24 +7,20 @@
 import { createCursorAgent } from "@uncaged/workflow-agent-cursor";
 import { createHermesAgent } from "@uncaged/workflow-agent-hermes";
 import { createWorkflow } from "@uncaged/workflow-runtime";
-import { optionalEnv } from "@uncaged/workflow-util";
+import { env } from "@uncaged/workflow-util";
 import { buildDevelopDescriptor, developWorkflowDefinition } from "./src/index.js";
 
 const cursorAdapter = createCursorAgent({
-  command: optionalEnv("WORKFLOW_CURSOR_COMMAND", "/home/azureuser/.local/bin/cursor-agent"),
-  model: optionalEnv("WORKFLOW_CURSOR_MODEL"),
-  timeout: optionalEnv("WORKFLOW_CURSOR_TIMEOUT")
-    ? Number(optionalEnv("WORKFLOW_CURSOR_TIMEOUT"))
-    : 0,
+  command: env("WORKFLOW_CURSOR_COMMAND", "/home/azureuser/.local/bin/cursor-agent"),
+  model: env("WORKFLOW_CURSOR_MODEL", "auto"),
+  timeout: Number(env("WORKFLOW_CURSOR_TIMEOUT", "0")),
   workspace: null,
 });
 
 const hermesAdapter = createHermesAgent({
-  command: optionalEnv("WORKFLOW_HERMES_COMMAND", "/home/azureuser/.local/bin/hermes"),
-  model: optionalEnv("WORKFLOW_HERMES_MODEL"),
-  timeout: optionalEnv("WORKFLOW_HERMES_TIMEOUT")
-    ? Number(optionalEnv("WORKFLOW_HERMES_TIMEOUT"))
-    : null,
+  command: env("WORKFLOW_HERMES_COMMAND", "/home/azureuser/.local/bin/hermes"),
+  model: env("WORKFLOW_HERMES_MODEL", "") || null,
+  timeout: Number(env("WORKFLOW_HERMES_TIMEOUT", "0")) || null,
 });
 
 const wf = createWorkflow(developWorkflowDefinition, {

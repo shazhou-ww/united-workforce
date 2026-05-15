@@ -301,28 +301,26 @@ function createLazyAdapter(): AdapterFn {
 }
 \`\`\`
 
-### Agent CLI paths: use optionalEnv with defaults
+### Agent CLI paths: use env() with absolute path defaults
 
-When binding agent adapters (cursor-agent, hermes, etc.), **always use \`optionalEnv\` with a sensible default** — never \`requireEnv\`. The worker process may start without the expected env vars, causing a silent crash.
+Every env var in a bundle must have a sensible default — bundles must run without any env vars set. Use \`env(name, fallback)\` from \`@uncaged/workflow-util\`.
 
 Discover the correct CLI path yourself (e.g. \`which cursor-agent\`, \`which hermes\`) and hardcode it as the fallback:
 
 \`\`\`typescript
-// ❌ WRONG — worker crash if env var missing, thread silently fails with 0 steps
+import { env } from "@uncaged/workflow-util";
+
+// ❌ WRONG — requireEnv and optionalEnv no longer exist
 const adapter = createCursorAgent({
   command: requireEnv("WORKFLOW_CURSOR_COMMAND", "set it"),
   ...
 });
 
-// ❌ WRONG — bare command name fails absolute-path validation
+// ✅ CORRECT — env var is an override, fallback is the discovered absolute path
 const adapter = createCursorAgent({
-  command: optionalEnv("WORKFLOW_CURSOR_COMMAND") ?? "cursor-agent",
-  ...
-});
-
-// ✅ CORRECT — use \`which cursor-agent\` to find the path, then write it in
-const adapter = createCursorAgent({
-  command: optionalEnv("WORKFLOW_CURSOR_COMMAND", "/home/you/.local/bin/cursor-agent"),
+  command: env("WORKFLOW_CURSOR_COMMAND", "/home/you/.local/bin/cursor-agent"),
+  model: env("WORKFLOW_CURSOR_MODEL", "auto"),
+  timeout: Number(env("WORKFLOW_CURSOR_TIMEOUT", "300000")),
   ...
 });
 \`\`\`
