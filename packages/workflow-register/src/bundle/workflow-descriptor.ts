@@ -88,8 +88,10 @@ export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescr
     if (schema === null || typeof schema !== "object" || Array.isArray(schema)) {
       return err(`descriptor.roles.${roleName}.schema must be a non-array object`);
     }
+    const systemPrompt = typeof spec.systemPrompt === "string" ? spec.systemPrompt : "";
     roles[roleName] = {
       description: roleDesc,
+      systemPrompt,
       schema: schema as WorkflowRoleSchema,
     };
   }

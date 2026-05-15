@@ -24,6 +24,7 @@ export type WorkflowRoleSchema = Record<string, unknown>;
 
 export type WorkflowRoleDescriptor = {
   description: string;
+  systemPrompt: string;
   schema: WorkflowRoleSchema;
 };
 

@@ -122,6 +122,7 @@ export type WorkflowGraph = {
 
 export type WorkflowRoleDescriptor = {
   description: string;
+  systemPrompt: string;
   schema: Record<string, unknown>;
 };
 

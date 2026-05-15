@@ -35,11 +35,12 @@ export function buildDescriptor<M extends RoleMeta>(
 ): WorkflowDescriptor {
   const roles: WorkflowDescriptor["roles"] = {};
   for (const [key, roleDef] of Object.entries(def.roles) as Array<
-    [string, { description: string; schema: z.ZodType }]
+    [string, { description: string; systemPrompt: string; schema: z.ZodType }]
   >) {
     const rawJsonSchema = z.toJSONSchema(roleDef.schema) as Record<string, unknown>;
     roles[key] = {
       description: roleDef.description,
+      systemPrompt: roleDef.systemPrompt,
       schema: stripJsonSchemaMeta(rawJsonSchema),
     };
   }
