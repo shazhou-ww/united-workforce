@@ -1,5 +1,12 @@
 # @uncaged/workflow-agent-hermes
 
+## 0.5.0-alpha.4
+
+### Patch Changes
+
+- @uncaged/workflow-runtime@0.5.0-alpha.4
+- @uncaged/workflow-util-agent@0.5.0-alpha.4
+
 ## 0.5.0-alpha.3
 
 ### Patch Changes

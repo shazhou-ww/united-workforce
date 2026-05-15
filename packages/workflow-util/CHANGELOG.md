@@ -1,5 +1,14 @@
 # @uncaged/workflow-util
 
+## 0.5.0-alpha.4
+
+### Patch Changes
+
+- Replace optionalEnv/requireEnv with unified env(name, fallback) API
+- Updated dependencies [f74b482]
+- Updated dependencies [f74b482]
+  - @uncaged/workflow-protocol@0.5.0-alpha.4
+
 ## 0.5.0-alpha.3
 
 ### Patch Changes

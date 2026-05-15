@@ -1,5 +1,12 @@
 # @uncaged/workflow-protocol
 
+## 0.5.0-alpha.4
+
+### Patch Changes
+
+- f74b482: fix: correct internal dependency versions for prerelease
+- f74b482: fix: use npm publish with pinned deps instead of bun publish (workspace:^ resolution bug)
+
 ## 0.5.0-alpha.3
 
 ### Patch Changes
