@@ -50,13 +50,29 @@ export function TerminalNode(props: NodeProps) {
           isConnectable={false}
         />
       ) : (
-        <Handle
-          type="target"
-          position={Position.Top}
-          id="top-in"
-          style={handleStyle}
-          isConnectable={false}
-        />
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            id="top-in"
+            style={handleStyle}
+            isConnectable={false}
+          />
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="left-in"
+            style={handleStyle}
+            isConnectable={false}
+          />
+          <Handle
+            type="target"
+            position={Position.Right}
+            id="right-in"
+            style={handleStyle}
+            isConnectable={false}
+          />
+        </>
       )}
       {isStart ? "▶" : "■"}
     </div>
