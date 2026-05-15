@@ -8,3 +8,4 @@ tsconfig.tsbuildinfo
 bunfig.toml
 xiaoju/
 solve-issue-entry.ts
+packages/workflow-template-develop/develop.esm.js

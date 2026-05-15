@@ -61,10 +61,8 @@ for (const name of publishOrder) {
       }
     }
   }
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
-
-console.log(`Pinned workspace:^ deps to actual versions`);
 
 // Step 3: Publish
 let failed = false;
@@ -74,16 +72,13 @@ for (const name of publishOrder) {
   const cmd = `npm publish --access public ${tagFlag}`;
 
   if (dryRun) {
-    console.log(`[dry-run] ${name}: ${cmd}`);
     continue;
   }
 
   try {
     const out = execSync(cmd, { cwd: pkgDir, stdio: "pipe" }).toString().trim();
-    const lastLine = out.split("\n").pop();
-    console.log(`✅ ${name}: ${lastLine}`);
-  } catch (err) {
-    console.error(`❌ ${name}: ${err.stderr?.toString().trim() || err.message}`);
+    const _lastLine = out.split("\n").pop();
+  } catch (_err) {
     failed = true;
     break;
   }
@@ -93,7 +88,6 @@ for (const name of publishOrder) {
 for (const [pkgPath, raw] of originals) {
   writeFileSync(pkgPath, raw);
 }
-console.log(`Restored workspace:^ references`);
 
 if (failed) {
   process.exit(1);
