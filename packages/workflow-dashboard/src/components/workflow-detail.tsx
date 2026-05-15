@@ -43,7 +43,6 @@ function flattenSchema(
   depth: number,
   parentPrefix: string,
   keyPrefix: string,
-  _parentRequired: Set<string>,
 ): SchemaRow[] {
   const rows: SchemaRow[] = [];
 
@@ -122,20 +121,20 @@ function flattenProperty(
 
   if (prop.type === "object" && prop.properties !== undefined) {
     const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`, required));
+    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`));
   }
 
   if (prop.type === "array") {
     const items = prop.items as Record<string, unknown> | undefined;
     if (items !== undefined && items.type === "object" && items.properties !== undefined) {
       const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-      rows.push(...flattenSchema(items, depth + 1, childPrefix, `${keyPrefix}${name}-`, new Set()));
+      rows.push(...flattenSchema(items, depth + 1, childPrefix, `${keyPrefix}${name}-`));
     }
   }
 
   if (hasOneOf) {
     const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`, required));
+    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`));
   }
 
   return rows;
@@ -150,7 +149,7 @@ function RoleCard({
   roleName: string;
   role: WorkflowRoleDescriptor;
 }) {
-  const rows = flattenSchema(role.schema, 0, "", `${roleName}-`, new Set());
+  const rows = flattenSchema(role.schema, 0, "", `${roleName}-`);
   return (
     <div
       id={`role-${roleName}`}
