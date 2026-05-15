@@ -1,5 +1,19 @@
 # @uncaged/workflow-template-solve-issue
 
+## 0.5.0-alpha.3
+
+### Patch Changes
+
+- @uncaged/workflow-register@0.5.0-alpha.3
+- @uncaged/workflow-runtime@0.5.0-alpha.3
+
+## 0.5.0-alpha.2
+
+### Patch Changes
+
+- @uncaged/workflow-register@0.5.0-alpha.2
+- @uncaged/workflow-runtime@0.5.0-alpha.2
+
 ## 0.5.0-alpha.1
 
 ### Patch Changes

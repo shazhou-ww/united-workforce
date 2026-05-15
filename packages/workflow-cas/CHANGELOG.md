@@ -1,5 +1,21 @@
 # @uncaged/workflow-cas
 
+## 0.5.0-alpha.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-protocol@0.5.0-alpha.3
+  - @uncaged/workflow-util@0.5.0-alpha.3
+
+## 0.5.0-alpha.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-protocol@0.5.0-alpha.2
+  - @uncaged/workflow-util@0.5.0-alpha.2
+
 ## 0.5.0-alpha.1
 
 ### Patch Changes

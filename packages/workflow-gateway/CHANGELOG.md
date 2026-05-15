@@ -1,5 +1,9 @@
 # @uncaged/workflow-gateway
 
+## 0.5.0-alpha.3
+
+## 0.5.0-alpha.2
+
 ## 0.5.0-alpha.1
 
 ## 0.5.0-alpha.0
