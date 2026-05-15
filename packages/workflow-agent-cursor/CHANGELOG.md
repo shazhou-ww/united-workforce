@@ -1,5 +1,16 @@
 # @uncaged/workflow-agent-cursor
 
+## 0.5.0-alpha.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @uncaged/workflow-protocol@0.5.0-alpha.0
+  - @uncaged/workflow-cas@0.5.0-alpha.0
+  - @uncaged/workflow-runtime@0.5.0-alpha.0
+  - @uncaged/workflow-util@0.5.0-alpha.0
+  - @uncaged/workflow-util-agent@0.5.0-alpha.0
+
 ## 0.4.5
 
 ### Patch Changes

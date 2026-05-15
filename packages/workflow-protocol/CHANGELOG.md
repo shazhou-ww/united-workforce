@@ -1,5 +1,11 @@
 # @uncaged/workflow-protocol
 
+## 0.5.0-alpha.0
+
+### Minor Changes
+
+- feat: AgentFn<Opt> type boundary and createAgentAdapter bridging function (RFC #252)
+
 ## 0.4.5
 
 ### Patch Changes

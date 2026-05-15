@@ -1,0 +1,26 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@uncaged/cli-workflow": "0.4.5",
+    "@uncaged/workflow-agent-cursor": "0.4.5",
+    "@uncaged/workflow-agent-hermes": "0.4.5",
+    "@uncaged/workflow-agent-llm": "0.4.5",
+    "@uncaged/workflow-agent-react": "0.4.5",
+    "@uncaged/workflow-cas": "0.4.5",
+    "@uncaged/workflow-dashboard": "0.1.0",
+    "@uncaged/workflow-execute": "0.4.5",
+    "@uncaged/workflow-gateway": "0.4.5",
+    "@uncaged/workflow-protocol": "0.4.5",
+    "@uncaged/workflow-reactor": "0.4.5",
+    "@uncaged/workflow-register": "0.4.5",
+    "@uncaged/workflow-runtime": "0.4.5",
+    "@uncaged/workflow-template-develop": "0.4.5",
+    "@uncaged/workflow-template-solve-issue": "0.4.5",
+    "@uncaged/workflow-util": "0.4.5",
+    "@uncaged/workflow-util-agent": "0.4.5"
+  },
+  "changesets": [
+    "rfc-252-agent-fn"
+  ]
+}
