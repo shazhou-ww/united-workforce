@@ -45,11 +45,41 @@ export function RoleNode(props: NodeProps) {
       }}
       title={data.description}
     >
-      <Handle type="target" position={Position.Top} id="top-in" style={handleStyle} isConnectable={false} />
-      <Handle type="target" position={Position.Left} id="left-in" style={handleStyle} isConnectable={false} />
-      <Handle type="target" position={Position.Right} id="right-in" style={handleStyle} isConnectable={false} />
-      <Handle type="source" position={Position.Left} id="left-out" style={handleStyle} isConnectable={false} />
-      <Handle type="source" position={Position.Right} id="right-out" style={handleStyle} isConnectable={false} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top-in"
+        style={handleStyle}
+        isConnectable={false}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-in"
+        style={handleStyle}
+        isConnectable={false}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-in"
+        style={handleStyle}
+        isConnectable={false}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-out"
+        style={handleStyle}
+        isConnectable={false}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-out"
+        style={handleStyle}
+        isConnectable={false}
+      />
       <div className="flex items-center gap-1.5 font-mono">
         {icon !== null && (
           <span
@@ -67,7 +97,13 @@ export function RoleNode(props: NodeProps) {
           {data.description}
         </div>
       )}
-      <Handle type="source" position={Position.Bottom} id="bottom-out" style={handleStyle} isConnectable={false} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom-out"
+        style={handleStyle}
+        isConnectable={false}
+      />
     </div>
   );
 }

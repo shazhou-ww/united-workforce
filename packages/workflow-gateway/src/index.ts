@@ -305,7 +305,12 @@ app.all("/api/clients/:client/*", async (c) => {
       headers: forwardRecord,
       body: bodyStr,
     };
-    const proxyResp = await fetchThroughClientSocket(c.env, client, c.env.GATEWAY_SECRET, wsRequest);
+    const proxyResp = await fetchThroughClientSocket(
+      c.env,
+      client,
+      c.env.GATEWAY_SECRET,
+      wsRequest,
+    );
     if (proxyResp.status !== 503) {
       return new Response(proxyResp.body, {
         status: proxyResp.status,

@@ -12,7 +12,8 @@ import { useHashRoute } from "./use-hash-route.ts";
 
 export function App() {
   const [authed, setAuthed] = useState(hasApiKey());
-  const { view, client, threadId, workflowName, setView, setClient, setThreadId, setWorkflowName } = useHashRoute();
+  const { view, client, threadId, workflowName, setView, setClient, setThreadId, setWorkflowName } =
+    useHashRoute();
   const [showRun, setShowRun] = useState(false);
 
   if (!authed) {
@@ -51,7 +52,11 @@ export function App() {
             <WorkflowList client={client} onSelect={setWorkflowName} />
           )}
           {client && view === "workflows" && workflowName !== null && (
-            <WorkflowDetail client={client} workflowName={workflowName} onBack={() => setWorkflowName(null)} />
+            <WorkflowDetail
+              client={client}
+              workflowName={workflowName}
+              onBack={() => setWorkflowName(null)}
+            />
           )}
         </div>
       </main>

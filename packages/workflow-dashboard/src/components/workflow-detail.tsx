@@ -76,7 +76,14 @@ function flattenSchema(
       );
       for (const [pName, pDef] of Object.entries(variantProps)) {
         if (pDef.const !== undefined) continue;
-        const subRows = flattenProperty(pName, pDef, depth + 1, childPrefix, `${keyPrefix}v${vi}-`, variantRequired);
+        const subRows = flattenProperty(
+          pName,
+          pDef,
+          depth + 1,
+          childPrefix,
+          `${keyPrefix}v${vi}-`,
+          variantRequired,
+        );
         rows.push(...subRows);
       }
     }
@@ -121,7 +128,14 @@ function flattenProperty(
 
   if (prop.type === "object" && prop.properties !== undefined) {
     const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`));
+    rows.push(
+      ...flattenSchema(
+        prop as Record<string, unknown>,
+        depth + 1,
+        childPrefix,
+        `${keyPrefix}${name}-`,
+      ),
+    );
   }
 
   if (prop.type === "array") {
@@ -134,7 +148,14 @@ function flattenProperty(
 
   if (hasOneOf) {
     const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(...flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, `${keyPrefix}${name}-`));
+    rows.push(
+      ...flattenSchema(
+        prop as Record<string, unknown>,
+        depth + 1,
+        childPrefix,
+        `${keyPrefix}${name}-`,
+      ),
+    );
   }
 
   return rows;
@@ -142,13 +163,7 @@ function flattenProperty(
 
 // ── Components ──────────────────────────────────────────────────────
 
-function RoleCard({
-  roleName,
-  role,
-}: {
-  roleName: string;
-  role: WorkflowRoleDescriptor;
-}) {
+function RoleCard({ roleName, role }: { roleName: string; role: WorkflowRoleDescriptor }) {
   const rows = flattenSchema(role.schema, 0, "", `${roleName}-`);
   return (
     <div
@@ -156,10 +171,7 @@ function RoleCard({
       className="rounded-lg border p-4"
       style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
     >
-      <h4
-        className="text-sm font-semibold font-mono mb-1"
-        style={{ color: "var(--color-text)" }}
-      >
+      <h4 className="text-sm font-semibold font-mono mb-1" style={{ color: "var(--color-text)" }}>
         {roleName}
       </h4>
       {role.description !== "" && (
@@ -178,9 +190,24 @@ function RoleCard({
           <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <th className="text-left py-1 pr-3 font-medium" style={{ color: "var(--color-text-muted)" }}>Field</th>
-                <th className="text-left py-1 pr-3 font-medium" style={{ color: "var(--color-text-muted)" }}>Type</th>
-                <th className="text-left py-1 font-medium" style={{ color: "var(--color-text-muted)" }}>Description</th>
+                <th
+                  className="text-left py-1 pr-3 font-medium"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Field
+                </th>
+                <th
+                  className="text-left py-1 pr-3 font-medium"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Type
+                </th>
+                <th
+                  className="text-left py-1 font-medium"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Description
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -200,8 +227,12 @@ function RoleCard({
                   >
                     {r.name}
                   </td>
-                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-text-muted)" }}>{r.type}</td>
-                  <td className="py-1" style={{ color: "var(--color-text)" }}>{r.description || (r.isVariantHeader ? "" : "—")}</td>
+                  <td className="py-1 pr-3 font-mono" style={{ color: "var(--color-text-muted)" }}>
+                    {r.type}
+                  </td>
+                  <td className="py-1" style={{ color: "var(--color-text)" }}>
+                    {r.description || (r.isVariantHeader ? "" : "—")}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -274,12 +305,8 @@ export function WorkflowDetail({ client, workflowName, onBack }: Props) {
 
       <h2 className="text-xl font-semibold mb-4 font-mono">{workflowName}</h2>
 
-      {status === "loading" && (
-        <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>
-      )}
-      {status === "error" && (
-        <p style={{ color: "var(--color-error)" }}>Error: {error}</p>
-      )}
+      {status === "loading" && <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>}
+      {status === "error" && <p style={{ color: "var(--color-error)" }}>Error: {error}</p>}
 
       {detail !== null && (
         <div className="flex gap-4" style={{ minHeight: "calc(100vh - 160px)" }}>
@@ -327,7 +354,10 @@ export function WorkflowDetail({ client, workflowName, onBack }: Props) {
               className="rounded-lg border p-4"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
             >
-              <p className="text-sm whitespace-pre-wrap mb-3" style={{ color: "var(--color-text)" }}>
+              <p
+                className="text-sm whitespace-pre-wrap mb-3"
+                style={{ color: "var(--color-text)" }}
+              >
                 {descriptor !== null && descriptor.description !== ""
                   ? descriptor.description
                   : "—"}

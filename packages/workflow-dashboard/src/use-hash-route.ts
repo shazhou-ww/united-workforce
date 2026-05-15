@@ -80,17 +80,20 @@ export function useHashRoute(): {
   );
 
   const setClient = useCallback(
-    (a: string | null) => navigate({ view: route.view, client: a, threadId: null, workflowName: null }),
+    (a: string | null) =>
+      navigate({ view: route.view, client: a, threadId: null, workflowName: null }),
     [navigate, route.view],
   );
 
   const setThreadId = useCallback(
-    (id: string | null) => navigate({ view: "threads", client: route.client, threadId: id, workflowName: null }),
+    (id: string | null) =>
+      navigate({ view: "threads", client: route.client, threadId: id, workflowName: null }),
     [navigate, route.client],
   );
 
   const setWorkflowName = useCallback(
-    (name: string | null) => navigate({ view: "workflows", client: route.client, threadId: null, workflowName: name }),
+    (name: string | null) =>
+      navigate({ view: "workflows", client: route.client, threadId: null, workflowName: name }),
     [navigate, route.client],
   );
 

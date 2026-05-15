@@ -10,7 +10,13 @@ const FEEDBACK_RADIUS = 16;
  * Build an SVG path for a feedback (back) edge that routes to the given side of the nodes.
  * The path goes: source → arc → vertical up → arc → target
  */
-function feedbackPath(sourceX: number, sourceY: number, targetX: number, targetY: number, side: "right" | "left"): string {
+function feedbackPath(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  side: "right" | "left",
+): string {
   const d = side === "right" ? 1 : -1;
   const offsetX =
     side === "right"
@@ -88,12 +94,7 @@ export function ConditionEdge(props: EdgeProps) {
 
   return (
     <>
-      <BaseEdge
-        id={id}
-        path={path}
-        markerEnd={markerEnd}
-        style={{ stroke, strokeWidth: 1.5 }}
-      />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1.5 }} />
       {label !== "" && (
         <EdgeLabelRenderer>
           <div
