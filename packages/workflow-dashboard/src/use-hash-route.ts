@@ -6,6 +6,7 @@ type HashRoute = {
   view: View;
   client: string | null;
   threadId: string | null;
+  workflowName: string | null;
 };
 
 function parseHash(hash: string): HashRoute {
@@ -19,6 +20,7 @@ function parseHash(hash: string): HashRoute {
       view: parts[0] as View,
       client: null,
       threadId: parts[0] === "threads" && parts.length > 1 ? parts.slice(1).join("/") : null,
+      workflowName: parts[0] === "workflows" && parts.length > 1 ? parts.slice(1).join("/") : null,
     };
   }
 
@@ -27,13 +29,17 @@ function parseHash(hash: string): HashRoute {
   const viewPart = parts[1] ?? "threads";
   const view: View = viewPart === "workflows" ? "workflows" : "threads";
   const threadId = view === "threads" && parts.length > 2 ? parts.slice(2).join("/") : null;
+  const workflowName = view === "workflows" && parts.length > 2 ? parts.slice(2).join("/") : null;
 
-  return { view, client, threadId };
+  return { view, client, threadId, workflowName };
 }
 
 function buildHash(route: HashRoute): string {
   const prefix = route.client ? `${route.client}/` : "";
   if (route.view === "workflows") {
+    if (route.workflowName !== null) {
+      return `#${prefix}workflows/${route.workflowName}`;
+    }
     return `#${prefix}workflows`;
   }
   if (route.threadId !== null) {
@@ -46,9 +52,11 @@ export function useHashRoute(): {
   view: View;
   client: string | null;
   threadId: string | null;
+  workflowName: string | null;
   setView: (v: View) => void;
   setClient: (a: string | null) => void;
   setThreadId: (id: string | null) => void;
+  setWorkflowName: (name: string | null) => void;
 } {
   const [route, setRoute] = useState<HashRoute>(() => parseHash(window.location.hash));
 
@@ -67,17 +75,22 @@ export function useHashRoute(): {
   }, []);
 
   const setView = useCallback(
-    (v: View) => navigate({ view: v, client: route.client, threadId: null }),
+    (v: View) => navigate({ view: v, client: route.client, threadId: null, workflowName: null }),
     [navigate, route.client],
   );
 
   const setClient = useCallback(
-    (a: string | null) => navigate({ view: route.view, client: a, threadId: null }),
+    (a: string | null) => navigate({ view: route.view, client: a, threadId: null, workflowName: null }),
     [navigate, route.view],
   );
 
   const setThreadId = useCallback(
-    (id: string | null) => navigate({ view: "threads", client: route.client, threadId: id }),
+    (id: string | null) => navigate({ view: "threads", client: route.client, threadId: id, workflowName: null }),
+    [navigate, route.client],
+  );
+
+  const setWorkflowName = useCallback(
+    (name: string | null) => navigate({ view: "workflows", client: route.client, threadId: null, workflowName: name }),
     [navigate, route.client],
   );
 
@@ -85,8 +98,10 @@ export function useHashRoute(): {
     view: route.view,
     client: route.client,
     threadId: route.threadId,
+    workflowName: route.workflowName,
     setView,
     setClient,
     setThreadId,
+    setWorkflowName,
   };
 }

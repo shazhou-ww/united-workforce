@@ -6,12 +6,13 @@ import { Sidebar } from "./components/sidebar.tsx";
 import { StatusBar } from "./components/status-bar.tsx";
 import { ThreadDetail } from "./components/thread-detail.tsx";
 import { ThreadList } from "./components/thread-list.tsx";
+import { WorkflowDetail } from "./components/workflow-detail.tsx";
 import { WorkflowList } from "./components/workflow-list.tsx";
 import { useHashRoute } from "./use-hash-route.ts";
 
 export function App() {
   const [authed, setAuthed] = useState(hasApiKey());
-  const { view, client, threadId, setView, setClient, setThreadId } = useHashRoute();
+  const { view, client, threadId, workflowName, setView, setClient, setThreadId, setWorkflowName } = useHashRoute();
   const [showRun, setShowRun] = useState(false);
 
   if (!authed) {
@@ -46,7 +47,12 @@ export function App() {
           {client && view === "threads" && threadId !== null && (
             <ThreadDetail client={client} threadId={threadId} onBack={() => setThreadId(null)} />
           )}
-          {client && view === "workflows" && <WorkflowList client={client} />}
+          {client && view === "workflows" && workflowName === null && (
+            <WorkflowList client={client} onSelect={setWorkflowName} />
+          )}
+          {client && view === "workflows" && workflowName !== null && (
+            <WorkflowDetail client={client} workflowName={workflowName} onBack={() => setWorkflowName(null)} />
+          )}
         </div>
       </main>
       {showRun && client && (
