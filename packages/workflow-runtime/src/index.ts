@@ -26,5 +26,6 @@ export type {
 } from "@uncaged/workflow-protocol";
 export { END, START } from "@uncaged/workflow-protocol";
 export { buildThreadContext } from "./build-context.js";
+export { collectCasRefs } from "./collect-cas-refs.js";
 export { createWorkflow } from "./create-workflow.js";
 export { err, ok } from "./result.js";
