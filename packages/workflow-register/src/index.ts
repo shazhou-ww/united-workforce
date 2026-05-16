@@ -1,11 +1,6 @@
 export type {
   ExtractedBundleExports,
   WorkflowBundleValidationInput,
-  WorkflowDescriptor,
-  WorkflowGraph,
-  WorkflowGraphEdge,
-  WorkflowRoleDescriptor,
-  WorkflowRoleSchema,
 } from "./bundle/index.js";
 export {
   buildDescriptor,
@@ -19,18 +14,15 @@ export type { ProviderConfig, ResolvedModel } from "./config/index.js";
 export { resolveModel, splitProviderModelRef } from "./config/index.js";
 export type {
   WorkflowConfig,
-  WorkflowHistoryEntry,
   WorkflowRegistryEntry,
   WorkflowRegistryFile,
 } from "./registry/index.js";
 export {
   getRegisteredWorkflow,
   listRegisteredWorkflowNames,
-  parseWorkflowRegistryYaml,
   readWorkflowRegistry,
   registerWorkflowVersion,
   rollbackWorkflowToHistoryHash,
-  stringifyWorkflowRegistryYaml,
   unregisterWorkflow,
   workflowRegistryPath,
   writeWorkflowRegistry,
