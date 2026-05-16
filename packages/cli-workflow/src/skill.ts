@@ -329,9 +329,8 @@ const adapter = createCursorAgent({
 
 The bundle validator only allows these import specifiers:
 - Node built-ins (\`node:fs\`, \`node:path\`, etc.)
-- \`@uncaged/workflow-*\` packages
 
-Third-party packages (**including zod**) must be bundled into the \`.esm.js\` file, not left as external imports. When using \`bun build\`, only mark \`@uncaged/*\` as external.
+All other dependencies — including \`@uncaged/workflow-*\` packages, zod, and any third-party code — must be bundled into the \`.esm.js\` file. Bundles are fully self-contained: same Node/Bun version = same behavior.
 
 ### No default exports
 
