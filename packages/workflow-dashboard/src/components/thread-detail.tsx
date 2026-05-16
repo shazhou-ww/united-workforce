@@ -53,6 +53,35 @@ function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeSt
   return states;
 }
 
+function isClickableGraphNode(nodeStates: Map<string, NodeState>, nodeId: string): boolean {
+  const state = nodeStates.get(nodeId);
+  return state !== undefined && state !== "default";
+}
+
+function scrollToFirstRecord(): void {
+  const firstCard = document.querySelector('[data-record-index="0"]');
+  if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function scrollToRoleOccurrence(
+  nodeId: string,
+  indicesByRole: Map<string, number[]>,
+  clickCycleRef: { current: Map<string, number> },
+  onHighlight: (role: string) => void,
+): void {
+  const indices = indicesByRole.get(nodeId);
+  if (indices === undefined || indices.length === 0) return;
+
+  const cycle = clickCycleRef.current.get(nodeId) ?? 0;
+  const idx = indices[cycle % indices.length];
+  clickCycleRef.current.set(nodeId, cycle + 1);
+
+  const el = document.querySelector(`[data-record-index="${idx}"]`);
+  if (el === null) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  onHighlight(nodeId);
+}
+
 export function ThreadDetail({ client, threadId, onBack }: Props) {
   const sse = useSSE(client, threadId);
   const { status, data, error } = useFetch(() => getThread(client, threadId), [client, threadId]);
@@ -96,44 +125,29 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
   // Track which occurrence to jump to next per role (cycling)
   const clickCycleRef = useRef<Map<string, number>>(new Map());
 
+  const highlightRole = useCallback((role: string) => {
+    if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+    setHighlightedRole(role);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedRole(null);
+      highlightTimerRef.current = null;
+    }, 1500);
+  }, []);
+
   const handleGraphNodeClick = useCallback(
     (nodeId: string) => {
-      // Only allow clicks on lit (non-default) nodes
-      if (nodeStates.get(nodeId) === undefined || nodeStates.get(nodeId) === "default") return;
-
-      // __start__: scroll to the first record (thread-start prompt)
+      if (!isClickableGraphNode(nodeStates, nodeId)) return;
       if (nodeId === "__start__") {
-        const firstCard = document.querySelector('[data-record-index="0"]');
-        if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollToFirstRecord();
         return;
       }
-
-      // __end__: scroll to bottom
       if (nodeId === "__end__") {
         recordsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
         return;
       }
-
-      // Role nodes: cycle through occurrences
-      const indices = indicesByRole.get(nodeId);
-      if (indices === undefined || indices.length === 0) return;
-
-      const cycle = clickCycleRef.current.get(nodeId) ?? 0;
-      const idx = indices[cycle % indices.length];
-      clickCycleRef.current.set(nodeId, cycle + 1);
-
-      const el = document.querySelector(`[data-record-index="${idx}"]`);
-      if (el !== null) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
-        setHighlightedRole(nodeId);
-        highlightTimerRef.current = setTimeout(() => {
-          setHighlightedRole(null);
-          highlightTimerRef.current = null;
-        }, 1500);
-      }
+      scrollToRoleOccurrence(nodeId, indicesByRole, clickCycleRef, highlightRole);
     },
-    [nodeStates, indicesByRole],
+    [nodeStates, indicesByRole, highlightRole],
   );
 
   useEffect(() => {
