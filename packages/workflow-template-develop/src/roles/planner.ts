@@ -2,7 +2,7 @@ import type { RoleDefinition } from "@uncaged/workflow-runtime";
 import * as z from "zod/v4";
 
 export const phaseSchema = z.object({
-  hash: z.string(),
+  hash: z.string().meta({ casRef: true }),
   title: z.string(),
 });
 
@@ -63,5 +63,4 @@ export const plannerRole: RoleDefinition<PlannerMeta> = {
   description: "Breaks the task into sequential phases for the coder.",
   systemPrompt: PLANNER_SYSTEM,
   schema: plannerMetaSchema,
-  extractRefs: (meta) => (meta.status === "planned" ? meta.phases.map((p) => p.hash) : []),
 };

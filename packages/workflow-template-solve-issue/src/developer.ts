@@ -21,5 +21,4 @@ export const developerRole: RoleDefinition<DeveloperMeta> = {
     "Delegates the actual implementation to the develop workflow (workflow-as-agent). Produces a summary by traversing the child thread's Merkle DAG.",
   systemPrompt: DEVELOPER_SYSTEM,
   schema: developerMetaSchema,
-  extractRefs: () => [],
 };

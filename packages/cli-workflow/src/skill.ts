@@ -249,8 +249,7 @@ Each role has:
 |-------|------|---------|
 | \`description\` | string | What the role does |
 | \`systemPrompt\` | string | System prompt for the agent |
-| \`schema\` | ZodSchema | Validates the extracted meta |
-| \`extractRefs\` | fn or null | Extracts CAS hashes from meta for DAG linking |
+| \`schema\` | ZodSchema | Validates meta; annotate CAS hash strings with \`.meta({ casRef: true })\` for DAG linking |
 
 ## Development Workflow
 

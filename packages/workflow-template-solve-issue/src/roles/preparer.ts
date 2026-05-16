@@ -45,5 +45,4 @@ export const preparerRole: RoleDefinition<PreparerMeta> = {
     "Locates or clones the target repository, ensures it is up to date, and gathers project context (conventions, toolchain).",
   systemPrompt: PREPARER_SYSTEM,
   schema: preparerMetaSchema,
-  extractRefs: null,
 };

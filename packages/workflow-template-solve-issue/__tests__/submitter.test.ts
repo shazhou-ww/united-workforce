@@ -31,8 +31,4 @@ describe("submitterRole", () => {
     expect(submitterRole.systemPrompt).toContain("submitter");
     expect(submitterRole.systemPrompt).toContain("pull request");
   });
-
-  test("has no refs extractor", () => {
-    expect(submitterRole.extractRefs).toBeNull();
-  });
 });

@@ -2,13 +2,13 @@ import { putContentNodeWithRefs } from "@uncaged/workflow-cas";
 import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
 import type * as z from "zod/v4";
 
+import { collectCasRefs } from "./collect-cas-refs.js";
 import {
   type AdapterBinding,
   type AdapterFn,
   type AdvanceOutcome,
   END,
   type ModeratorContext,
-  type RoleDefinition,
   type RoleMeta,
   type RoleOutput,
   type RoleStep,
@@ -24,17 +24,6 @@ function isRoleNext<M extends RoleMeta>(
   next: (keyof M & string) | typeof END,
 ): next is keyof M & string {
   return next !== END;
-}
-
-function resolveExtractedRefs(
-  roleDef: RoleDefinition<Record<string, unknown>>,
-  meta: unknown,
-): string[] {
-  const extractRefsFn = roleDef.extractRefs;
-  if (extractRefsFn === null || typeof extractRefsFn !== "function") {
-    return [];
-  }
-  return extractRefsFn(meta as Record<string, unknown>);
 }
 
 function _mergeUniqueHashes(a: readonly string[], b: readonly string[]): string[] {
@@ -90,10 +79,7 @@ async function advanceOneRound<M extends RoleMeta>(
   const result = await roleFn(modCtx as unknown as ThreadContext, runtime);
   const meta = result.meta;
 
-  const refsFromMeta = resolveExtractedRefs(
-    roleDef as unknown as RoleDefinition<Record<string, unknown>>,
-    meta,
-  );
+  const refsFromMeta = collectCasRefs(roleDef.schema as z.ZodType, meta);
 
   const contentPayload = JSON.stringify(meta);
   const contentHash = await putContentNodeWithRefs(runtime.cas, contentPayload, refsFromMeta);

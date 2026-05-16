@@ -24,5 +24,4 @@ export const testerRole: RoleDefinition<TesterMeta> = {
   description: "Runs test, build, and lint commands and reports pass or fail with details.",
   systemPrompt: TESTER_SYSTEM,
   schema: testerMetaSchema,
-  extractRefs: null,
 };

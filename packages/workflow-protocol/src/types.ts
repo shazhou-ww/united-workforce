@@ -179,7 +179,6 @@ export type RoleDefinition<Meta extends Record<string, unknown>> = {
   description: string;
   systemPrompt: string;
   schema: z.ZodType<Meta>;
-  extractRefs: ((meta: Meta) => string[]) | null;
 };
 
 export type Moderator<M extends RoleMeta> = (

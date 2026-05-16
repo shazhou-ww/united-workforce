@@ -29,5 +29,4 @@ export const committerRole: RoleDefinition<CommitterMeta> = {
   description: "Creates a branch and commits changes.",
   systemPrompt: COMMITTER_SYSTEM,
   schema: committerMetaSchema,
-  extractRefs: null,
 };
