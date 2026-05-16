@@ -20,8 +20,3 @@ export type ExtractedBundleExports = {
   run: WorkflowFn;
   descriptor: WorkflowDescriptor;
 };
-
-export type ExtractBundleExportsOptions = {
-  /** When set, ensures `node_modules/@uncaged/workflow` exists under this root before import. */
-  storageRoot: string | null;
-};

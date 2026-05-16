@@ -4,7 +4,6 @@ import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 import { createCasStore } from "@uncaged/workflow-cas";
 import {
-  ensureUncagedWorkflowSymlink,
   importWorkflowBundleModule,
 } from "@uncaged/workflow-register";
 import type { RoleOutput, WorkflowFn } from "@uncaged/workflow-runtime";
@@ -365,7 +364,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  await ensureUncagedWorkflowSymlink(storageRoot);
   // Dynamic import required: user bundle path resolved at runtime
   const modUnknown: unknown = await importWorkflowBundleModule(bundlePath);
   const modRec = modUnknown as Record<string, unknown>;

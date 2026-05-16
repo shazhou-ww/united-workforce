@@ -1,5 +1,4 @@
 export type {
-  ExtractBundleExportsOptions,
   ExtractedBundleExports,
   WorkflowBundleValidationInput,
   WorkflowDescriptor,
@@ -10,7 +9,6 @@ export type {
 } from "./bundle/index.js";
 export {
   buildDescriptor,
-  ensureUncagedWorkflowSymlink,
   extractBundleExports,
   importWorkflowBundleModule,
   stringifyWorkflowDescriptor,
