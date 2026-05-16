@@ -2,7 +2,6 @@ export { buildThreadContext } from "./build-context.js";
 export { createWorkflow } from "./create-workflow.js";
 export { err, ok } from "./result.js";
 export type {
-  AdapterBinding,
   AdapterFn,
   AgentContext,
   AgentFn,
@@ -14,7 +13,6 @@ export type {
   ModeratorCondition,
   ModeratorContext,
   ModeratorTable,
-  ModeratorTransition,
   Result,
   RoleDefinition,
   RoleFn,
@@ -22,17 +20,11 @@ export type {
   RoleOutput,
   RoleResult,
   RoleStep,
-  StartStep,
   ThreadContext,
   WorkflowCompletion,
   WorkflowDefinition,
-  WorkflowDescriptor,
   WorkflowFn,
-  WorkflowGraph,
-  WorkflowGraphEdge,
   WorkflowResult,
-  WorkflowRoleDescriptor,
-  WorkflowRoleSchema,
   WorkflowRuntime,
-} from "./types.js";
-export { END, START } from "./types.js";
+} from "@uncaged/workflow-protocol";
+export { END, START } from "@uncaged/workflow-protocol";

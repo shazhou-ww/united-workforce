@@ -6,10 +6,5 @@ export { stringifyWorkflowDescriptor } from "./generate-descriptor.js";
 export type {
   ExtractedBundleExports,
   WorkflowBundleValidationInput,
-  WorkflowDescriptor,
-  WorkflowGraph,
-  WorkflowGraphEdge,
-  WorkflowRoleDescriptor,
-  WorkflowRoleSchema,
 } from "./types.js";
 export { validateWorkflowDescriptor } from "./workflow-descriptor.js";
