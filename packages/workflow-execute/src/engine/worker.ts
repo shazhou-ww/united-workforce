@@ -3,9 +3,7 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 import { createCasStore } from "@uncaged/workflow-cas";
-import {
-  importWorkflowBundleModule,
-} from "@uncaged/workflow-register";
+import { importWorkflowBundleModule } from "@uncaged/workflow-register";
 import type { RoleOutput, WorkflowFn } from "@uncaged/workflow-runtime";
 import {
   createLogger,

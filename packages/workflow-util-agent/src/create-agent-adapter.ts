@@ -29,10 +29,7 @@ export function createAgentAdapter<Opt>(
   return <T>(prompt: string, schema: z.ZodType<T>) => {
     return async (ctx: ThreadContext, runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
       const options = await extract(ctx, prompt, runtime);
-      const raw = await (agent as (ctx: ThreadContext, optionsParam: Opt) => Promise<string>)(
-        ctx,
-        options,
-      );
+      const raw = await agent(ctx, options);
       const contentHash = await putContentNodeWithRefs(runtime.cas, raw, []);
       const extracted = await runtime.extract(
         schema as z.ZodType<Record<string, unknown>>,
@@ -41,8 +38,4 @@ export function createAgentAdapter<Opt>(
       return { meta: extracted.meta as T, childThread: null };
     };
   };
-}
-
-export function createSimpleAgentAdapter(agent: AgentFn<void>): AdapterFn {
-  return createAgentAdapter(agent, async () => undefined as unknown as undefined);
 }

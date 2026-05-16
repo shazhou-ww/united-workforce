@@ -20,9 +20,6 @@ import { addCliArgs } from "./bundle-fixture.js";
 const fixtureDescriptor = `export const descriptor = { description: "fixture", roles: {}, graph: { edges: [] } };
 `;
 
-const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
-`;
-
 function casStoredForm(raw: string): string {
   return serializeMerkleNode(createContentMerkleNode(raw));
 }
@@ -52,12 +49,12 @@ describe("cli workflow commands", () => {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}import fs from "node:fs";
+      `${fixtureDescriptor}import fs from "node:fs";
 
 export const run = async function* (input, options) {
   fs.existsSync(".");
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, input.prompt);
+  const h = await cas.put(input.prompt);
   yield { role: "noop", contentHash: h, meta: { done: true }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 }
@@ -155,10 +152,9 @@ export const run = async function* (input) { return { returnCode: 0, summary: in
   },
   graph: { edges: [] },
 };
-${wfPutImport}
 export const run = async function* (input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, input.prompt);
+  const h = await cas.put( input.prompt);
   yield { role: "greeter", contentHash: h, meta: { greeting: "hi" }, refs: [h] };
   return { returnCode: 0, summary: "ok" };
 };
@@ -197,9 +193,9 @@ export const run = async function* (input, options) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
@@ -228,9 +224,9 @@ export const run = async function* (input, options) {
     const dtsPath = join(bundleDir, "types.d.ts");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
@@ -261,9 +257,9 @@ export const run = async function* (input, options) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
@@ -284,16 +280,16 @@ export const run = async function* (input, options) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+    const v1 = `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "v1");
+  const h = await cas.put( "v1");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+    const v2 = `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "v2");
+  const h = await cas.put( "v2");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v2" };
 }
@@ -326,16 +322,16 @@ export const run = async function* (input, options) {
     const bundleDir = join(storageRoot, "src");
     await mkdir(bundleDir, { recursive: true });
     const bundlePath = join(bundleDir, "demo.esm.js");
-    const v1 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+    const v1 = `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "v1");
+  const h = await cas.put( "v1");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v1" };
 }
 `;
-    const v2 = `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+    const v2 = `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "v2");
+  const h = await cas.put( "v2");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "v2" };
 }
@@ -378,9 +374,9 @@ export const run = async function* (input, options) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
@@ -391,9 +387,9 @@ export const run = async function* (input, options) {
     expect(add1.ok).toBe(true);
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "y");
+  const h = await cas.put( "y");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "y" };
 }
@@ -446,9 +442,9 @@ export const run = async function* (input, options) {
     const bundlePath = join(bundleDir, "demo.esm.js");
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "x" };
 }
@@ -463,9 +459,9 @@ export const run = async function* (input, options) {
     const hash1 = add1.value.hash;
     await writeFile(
       bundlePath,
-      `${fixtureDescriptor}${wfPutImport}export const run = async function* (_input, options) {
+      `${fixtureDescriptor}export const run = async function* (_input, options) {
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "y");
+  const h = await cas.put( "y");
   yield { role: "a", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "y" };
 }

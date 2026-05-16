@@ -12,6 +12,7 @@ import type { CursorAgentConfig } from "./types.js";
 import { validateCursorAgentConfig } from "./validate-config.js";
 
 export type { CursorAgentConfig } from "./types.js";
+export { validateCursorAgentConfig } from "./validate-config.js";
 
 function throwCursorSpawnError(error: SpawnCliError): never {
   if (error.kind === "non_zero_exit") {

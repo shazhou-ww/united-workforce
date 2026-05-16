@@ -1,4 +1,4 @@
-export { buildThreadInput } from "./build-agent-prompt.js";
+export { buildAgentPrompt, buildThreadInput } from "./build-agent-prompt.js";
 export { createAgentAdapter } from "./create-agent-adapter.js";
 export type { SpawnCliError } from "./spawn-cli.js";
 export { spawnCli } from "./spawn-cli.js";

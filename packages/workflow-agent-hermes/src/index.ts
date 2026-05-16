@@ -14,6 +14,7 @@ const HERMES_DEFAULT_MAX_TURNS = 90;
 type HermesAgentOpt = { prompt: string };
 
 export type { HermesAgentConfig } from "./types.js";
+export { validateHermesAgentConfig } from "./validate-config.js";
 
 function throwHermesSpawnError(error: SpawnCliError): never {
   if (error.kind === "non_zero_exit") {
