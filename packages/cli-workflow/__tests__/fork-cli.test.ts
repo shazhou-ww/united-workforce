@@ -15,9 +15,7 @@ import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
 /** Three-role workflow that respects `input.steps` for fork/resume. */
-const threeRoleBundleSource = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
-
-export const descriptor = {
+const threeRoleBundleSource = `export const descriptor = {
   description: "fork-cli",
   roles: {
     planner: { description: "planner", schema: {} },
@@ -30,16 +28,16 @@ export const run = async function* (input, options) {
   const cas = options.cas;
   const has = (r) => input.steps.some((s) => s.role === r);
   if (!has("planner")) {
-    const h = await putContentMerkleNode(cas, "p1");
+    const h = await cas.put( "p1");
     yield { role: "planner", contentHash: h, meta: { k: "planner" }, refs: [h] };
   }
   if (!has("coder")) {
-    const h = await putContentMerkleNode(cas, "c1");
+    const h = await cas.put( "c1");
     yield { role: "coder", contentHash: h, meta: { k: "coder" }, refs: [h] };
   }
   if (!has("reviewer")) {
     const body = "rev-" + String(input.steps.length);
-    const h = await putContentMerkleNode(cas, body);
+    const h = await cas.put( body);
     yield { role: "reviewer", contentHash: h, meta: { k: "reviewer" }, refs: [h] };
   }
   return { returnCode: 0, summary: "done" };

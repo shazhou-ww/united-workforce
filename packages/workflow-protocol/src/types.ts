@@ -154,12 +154,9 @@ export type AdapterFn = <T>(prompt: string, schema: z.ZodType<T>) => RoleFn<T>;
 
 /**
  * Core agent function. Input is always {@link ThreadContext}, output is always string.
- * `Opt` captures agent-specific structured options.
- * Agents with no extra options use `AgentFn` (Opt defaults to void).
+ * `Opt` captures agent-specific structured options (required second argument).
  */
-export type AgentFn<Opt = void> = Opt extends void
-  ? (ctx: ThreadContext) => Promise<string>
-  : (ctx: ThreadContext, options: Opt) => Promise<string>;
+export type AgentFn<Opt> = (ctx: ThreadContext, options: Opt) => Promise<string>;
 
 export type AdapterBinding = {
   adapter: AdapterFn;

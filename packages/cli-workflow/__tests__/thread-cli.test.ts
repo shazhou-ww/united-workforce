@@ -23,9 +23,6 @@ import { resolveThreadRecord } from "../src/thread-scan.js";
 import { addCliArgs } from "./bundle-fixture.js";
 import { ensureTestWorkflowRegistryConfig } from "./workflow-registry-fixture.js";
 
-const wfPutImport = `import { putContentMerkleNode } from "@uncaged/workflow-cas";
-`;
-
 const threadFixtureDescriptor = `export const descriptor = {
   description: "thread-cli",
   roles: {
@@ -41,25 +38,23 @@ const threadFixtureDescriptor = `export const descriptor = {
 `;
 
 const fastBundleSource = `${threadFixtureDescriptor}
-${wfPutImport}
 export const run = async function* (input, options) {
   const cas = options.cas;
-  let h = await putContentMerkleNode(cas, "plan");
+  let h = await cas.put( "plan");
   yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
-  h = await putContentMerkleNode(cas, "code");
+  h = await cas.put( "code");
   yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const slowPlannerBundleSource = `${threadFixtureDescriptor}
-${wfPutImport}
 export const run = async function* (input, options) {
   await new Promise((r) => setTimeout(r, 400));
   const cas = options.cas;
-  let h = await putContentMerkleNode(cas, "plan");
+  let h = await cas.put( "plan");
   yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
-  h = await putContentMerkleNode(cas, "code");
+  h = await cas.put( "code");
   yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
@@ -68,37 +63,34 @@ export const run = async function* (input, options) {
 const cliEntryPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
 const abortablePlannerBundleSource = `${threadFixtureDescriptor}
-${wfPutImport}
 export const run = async function* (input, options) {
   const cas = options.cas;
-  let h = await putContentMerkleNode(cas, "plan");
+  let h = await cas.put( "plan");
   yield { role: "planner", contentHash: h, meta: { plan: input.prompt }, refs: [h] };
   await new Promise((r) => setTimeout(r, 10000));
-  h = await putContentMerkleNode(cas, "code");
+  h = await cas.put( "code");
   yield { role: "coder", contentHash: h, meta: { diff: "y" }, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const pauseResumeBundleSource = `${threadFixtureDescriptor}
-${wfPutImport}
 export const run = async function* (_input, options) {
   const cas = options.cas;
-  let h = await putContentMerkleNode(cas, "f");
+  let h = await cas.put( "f");
   yield { role: "first", contentHash: h, meta: {}, refs: [h] };
   await new Promise((r) => setTimeout(r, 1500));
-  h = await putContentMerkleNode(cas, "s");
+  h = await cas.put( "s");
   yield { role: "second", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
 `;
 
 const delayedFirstYieldBundleSource = `${threadFixtureDescriptor}
-${wfPutImport}
 export const run = async function* (_input, options) {
   await new Promise((r) => setTimeout(r, 900));
   const cas = options.cas;
-  const h = await putContentMerkleNode(cas, "x");
+  const h = await cas.put( "x");
   yield { role: "only", contentHash: h, meta: {}, refs: [h] };
   return { returnCode: 0, summary: "done" };
 };
