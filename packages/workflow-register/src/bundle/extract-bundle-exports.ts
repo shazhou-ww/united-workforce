@@ -1,21 +1,15 @@
 import type { WorkflowFn } from "@uncaged/workflow-protocol";
 import { err, ok, type Result } from "@uncaged/workflow-util";
 import { importWorkflowBundleModule } from "./bundle-import-env.js";
-import { ensureUncagedWorkflowSymlink } from "./ensure-uncaged-workflow-symlink.js";
-import type { ExtractBundleExportsOptions, ExtractedBundleExports } from "./types.js";
+import type { ExtractedBundleExports } from "./types.js";
 import { validateWorkflowDescriptor } from "./workflow-descriptor.js";
 
 /** Load a workflow `.esm.js` bundle and read its named exports (`run`, `descriptor`). */
 export async function extractBundleExports(
   bundlePath: string,
-  options: ExtractBundleExportsOptions = { storageRoot: null },
 ): Promise<Result<ExtractedBundleExports, string>> {
   let modUnknown: unknown;
   try {
-    if (options.storageRoot !== null) {
-      await ensureUncagedWorkflowSymlink(options.storageRoot);
-    }
-    // Dynamic import required: user bundle path resolved at runtime
     modUnknown = await importWorkflowBundleModule(bundlePath);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

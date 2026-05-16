@@ -69,7 +69,7 @@ async function resolveWorkflowBundle(workflowName: string, storageRoot: string, 
   }
 
   const bundlePath = join(storageRoot, "bundles", `${entry.hash}.esm.js`);
-  const bundleExportsResult = await extractBundleExports(bundlePath, { storageRoot });
+  const bundleExportsResult = await extractBundleExports(bundlePath);
   if (!bundleExportsResult.ok) {
     throw new Error(String(bundleExportsResult.error));
   }
