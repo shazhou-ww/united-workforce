@@ -51,7 +51,6 @@ export const greeterRole: RoleDefinition<HelloTemplateMeta["greeter"]> = {
   description: "Says hello — replace with your first role.",
   systemPrompt: "You are a helpful assistant. Reply with one short friendly sentence.",
   schema: greeterMetaSchema,
-  extractRefs: null,
 };
 `;
 }

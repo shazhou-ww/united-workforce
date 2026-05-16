@@ -35,5 +35,4 @@ export const submitterRole: RoleDefinition<SubmitterMeta> = {
   description: "Pushes the developer's branch to the remote and opens a pull request.",
   systemPrompt: SUBMITTER_SYSTEM,
   schema: submitterMetaSchema,
-  extractRefs: null,
 };

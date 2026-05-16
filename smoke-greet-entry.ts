@@ -31,7 +31,6 @@ const roles: WorkflowDefinition<GreetMeta>["roles"] = {
     systemPrompt:
       "You are a friendly greeter. Given a user prompt, produce a warm greeting. Respond in valid JSON with keys: greeting (string), language (string).",
     schema: greeterSchema,
-    extractRefs: null,
   },
 };
 

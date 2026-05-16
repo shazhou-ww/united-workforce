@@ -42,5 +42,4 @@ export const reviewerRole: RoleDefinition<ReviewerMeta> = {
   description: "Runs git diff checks and sets approved when the change is ready.",
   systemPrompt: REVIEWER_SYSTEM,
   schema: reviewerMetaSchema,
-  extractRefs: null,
 };
