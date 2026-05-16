@@ -39,67 +39,119 @@ function resolveType(prop: Record<string, unknown>): string {
   return String(prop.type ?? "unknown");
 }
 
+function variantLabel(
+  variantProps: Record<string, Record<string, unknown>>,
+  variantIndex: number,
+): string {
+  for (const [pName, pDef] of Object.entries(variantProps)) {
+    if (pDef.const !== undefined) return `${pName}: ${String(pDef.const)}`;
+  }
+  return `Variant ${variantIndex + 1}`;
+}
+
+function childPrefixForDepth(depth: number, parentPrefix: string): string {
+  return depth > 0 ? `${parentPrefix}   ` : "  ";
+}
+
+function flattenOneOfVariants(
+  oneOf: Array<Record<string, unknown>>,
+  depth: number,
+  parentPrefix: string,
+  keyPrefix: string,
+): SchemaRow[] {
+  const rows: SchemaRow[] = [];
+  for (let vi = 0; vi < oneOf.length; vi++) {
+    const variant = oneOf[vi];
+    const variantProps = (variant.properties ?? {}) as Record<string, Record<string, unknown>>;
+    const isLast = vi === oneOf.length - 1;
+    const connector = isLast ? "└" : "├";
+    rows.push({
+      key: `${keyPrefix}variant-${vi}`,
+      name: `${parentPrefix}${connector} ${variantLabel(variantProps, vi)}`,
+      type: "",
+      description: "",
+      depth,
+      prefix: parentPrefix,
+      isVariantHeader: true,
+    });
+    const variantChildPrefix = `${parentPrefix}${isLast ? "  " : "│ "}`;
+    const variantRequired = new Set<string>(
+      Array.isArray(variant.required) ? (variant.required as string[]) : [],
+    );
+    for (const [pName, pDef] of Object.entries(variantProps)) {
+      if (pDef.const !== undefined) continue;
+      rows.push(
+        ...flattenProperty(
+          pName,
+          pDef,
+          depth + 1,
+          variantChildPrefix,
+          `${keyPrefix}v${vi}-`,
+          variantRequired,
+        ),
+      );
+    }
+  }
+  return rows;
+}
+
+function flattenSchemaProperties(
+  schema: Record<string, unknown>,
+  depth: number,
+  parentPrefix: string,
+  keyPrefix: string,
+): SchemaRow[] {
+  const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const required = new Set<string>(
+    Array.isArray(schema.required) ? (schema.required as string[]) : [],
+  );
+  const rows: SchemaRow[] = [];
+  for (const [name, prop] of Object.entries(props)) {
+    rows.push(...flattenProperty(name, prop, depth, parentPrefix, keyPrefix, required));
+  }
+  return rows;
+}
+
 function flattenSchema(
   schema: Record<string, unknown>,
   depth: number,
   parentPrefix: string,
   keyPrefix: string,
 ): SchemaRow[] {
-  const rows: SchemaRow[] = [];
-
-  // Handle oneOf / discriminatedUnion
   const oneOf = schema.oneOf as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(oneOf) && oneOf.length > 0) {
-    for (let vi = 0; vi < oneOf.length; vi++) {
-      const variant = oneOf[vi];
-      const variantProps = (variant.properties ?? {}) as Record<string, Record<string, unknown>>;
-      let variantLabel = `Variant ${vi + 1}`;
-      for (const [pName, pDef] of Object.entries(variantProps)) {
-        if (pDef.const !== undefined) {
-          variantLabel = `${pName}: ${String(pDef.const)}`;
-          break;
-        }
-      }
-      const isLast = vi === oneOf.length - 1;
-      const connector = isLast ? "└" : "├";
-      rows.push({
-        key: `${keyPrefix}variant-${vi}`,
-        name: `${parentPrefix}${connector} ${variantLabel}`,
-        type: "",
-        description: "",
-        depth,
-        prefix: parentPrefix,
-        isVariantHeader: true,
-      });
-      const childPrefix = `${parentPrefix}${isLast ? "  " : "│ "}`;
-      const variantRequired = new Set<string>(
-        Array.isArray(variant.required) ? (variant.required as string[]) : [],
-      );
-      for (const [pName, pDef] of Object.entries(variantProps)) {
-        if (pDef.const !== undefined) continue;
-        const subRows = flattenProperty(
-          pName,
-          pDef,
-          depth + 1,
-          childPrefix,
-          `${keyPrefix}v${vi}-`,
-          variantRequired,
-        );
-        rows.push(...subRows);
-      }
-    }
-    return rows;
+    return flattenOneOfVariants(oneOf, depth, parentPrefix, keyPrefix);
+  }
+  return flattenSchemaProperties(schema, depth, parentPrefix, keyPrefix);
+}
+
+function flattenNestedPropertyRows(
+  name: string,
+  prop: Record<string, unknown>,
+  depth: number,
+  parentPrefix: string,
+  keyPrefix: string,
+  hasOneOf: boolean,
+): SchemaRow[] {
+  const childPrefix = childPrefixForDepth(depth, parentPrefix);
+  const nestedKeyPrefix = `${keyPrefix}${name}-`;
+
+  if (prop.type === "object" && prop.properties !== undefined) {
+    return flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, nestedKeyPrefix);
   }
 
-  const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
-  const required = new Set<string>(
-    Array.isArray(schema.required) ? (schema.required as string[]) : [],
-  );
-  for (const [name, prop] of Object.entries(props)) {
-    const subRows = flattenProperty(name, prop, depth, parentPrefix, keyPrefix, required);
-    rows.push(...subRows);
+  if (prop.type === "array") {
+    const items = prop.items as Record<string, unknown> | undefined;
+    if (items !== undefined && items.type === "object" && items.properties !== undefined) {
+      return flattenSchema(items, depth + 1, childPrefix, nestedKeyPrefix);
+    }
   }
-  return rows;
+
+  if (hasOneOf) {
+    return flattenSchema(prop as Record<string, unknown>, depth + 1, childPrefix, nestedKeyPrefix);
+  }
+
+  return [];
 }
 
 function flattenProperty(
@@ -110,55 +162,23 @@ function flattenProperty(
   keyPrefix: string,
   required: Set<string>,
 ): SchemaRow[] {
-  const rows: SchemaRow[] = [];
   const hasOneOf = Array.isArray(prop.oneOf) && (prop.oneOf as unknown[]).length > 0;
   let type = hasOneOf ? "⊕ oneOf" : resolveType(prop);
   if (!required.has(name)) type += "?";
-  const description = String(prop.description ?? "");
-  const displayName = depth > 0 ? `${parentPrefix}└─ ${name}` : name;
 
-  rows.push({
-    key: `${keyPrefix}${name}`,
-    name: displayName,
-    type,
-    description,
-    depth,
-    prefix: parentPrefix,
-    isVariantHeader: false,
-  });
+  const rows: SchemaRow[] = [
+    {
+      key: `${keyPrefix}${name}`,
+      name: depth > 0 ? `${parentPrefix}└─ ${name}` : name,
+      type,
+      description: String(prop.description ?? ""),
+      depth,
+      prefix: parentPrefix,
+      isVariantHeader: false,
+    },
+  ];
 
-  if (prop.type === "object" && prop.properties !== undefined) {
-    const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(
-      ...flattenSchema(
-        prop as Record<string, unknown>,
-        depth + 1,
-        childPrefix,
-        `${keyPrefix}${name}-`,
-      ),
-    );
-  }
-
-  if (prop.type === "array") {
-    const items = prop.items as Record<string, unknown> | undefined;
-    if (items !== undefined && items.type === "object" && items.properties !== undefined) {
-      const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-      rows.push(...flattenSchema(items, depth + 1, childPrefix, `${keyPrefix}${name}-`));
-    }
-  }
-
-  if (hasOneOf) {
-    const childPrefix = depth > 0 ? `${parentPrefix}   ` : "  ";
-    rows.push(
-      ...flattenSchema(
-        prop as Record<string, unknown>,
-        depth + 1,
-        childPrefix,
-        `${keyPrefix}${name}-`,
-      ),
-    );
-  }
-
+  rows.push(...flattenNestedPropertyRows(name, prop, depth, parentPrefix, keyPrefix, hasOneOf));
   return rows;
 }
 

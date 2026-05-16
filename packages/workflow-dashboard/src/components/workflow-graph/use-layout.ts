@@ -36,6 +36,128 @@ function edgeKey(e: WorkflowGraphEdge): string {
   return `${e.from}->${e.to}::${e.condition}`;
 }
 
+function collectNodeIds(edges: readonly WorkflowGraphEdge[]): Set<string> {
+  const ids = new Set<string>();
+  for (const e of edges) {
+    ids.add(e.from);
+    ids.add(e.to);
+  }
+  return ids;
+}
+
+function detectBackEdges(ids: Set<string>, edges: readonly WorkflowGraphEdge[]): Set<string> {
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  const backEdges = new Set<string>();
+  const color = new Map<string, number>();
+  for (const id of ids) color.set(id, WHITE);
+
+  const fullAdj = new Map<string, string[]>();
+  for (const id of ids) fullAdj.set(id, []);
+  for (const e of edges) {
+    if (e.from !== e.to) fullAdj.get(e.from)?.push(e.to);
+  }
+
+  function dfs(u: string): void {
+    color.set(u, GRAY);
+    for (const v of fullAdj.get(u) ?? []) {
+      const c = color.get(v) ?? WHITE;
+      if (c === GRAY) {
+        backEdges.add(`${u}->${v}`);
+      } else if (c === WHITE) {
+        dfs(v);
+      }
+    }
+    color.set(u, BLACK);
+  }
+
+  if (ids.has(START_ID)) dfs(START_ID);
+  for (const id of ids) {
+    if ((color.get(id) ?? WHITE) === WHITE) dfs(id);
+  }
+  return backEdges;
+}
+
+function buildDagAdjacency(
+  ids: Set<string>,
+  edges: readonly WorkflowGraphEdge[],
+  backEdges: Set<string>,
+): Map<string, string[]> {
+  const adj = new Map<string, string[]>();
+  for (const id of ids) adj.set(id, []);
+  for (const e of edges) {
+    if (e.from === e.to) continue;
+    if (backEdges.has(`${e.from}->${e.to}`)) continue;
+    adj.get(e.from)?.push(e.to);
+  }
+  return adj;
+}
+
+function computeInDegrees(ids: Set<string>, adj: Map<string, string[]>): Map<string, number> {
+  const inDegree = new Map<string, number>();
+  for (const id of ids) inDegree.set(id, 0);
+  for (const id of ids) {
+    for (const next of adj.get(id) ?? []) {
+      inDegree.set(next, (inDegree.get(next) ?? 0) + 1);
+    }
+  }
+  return inDegree;
+}
+
+function relaxLongestPathNeighbors(
+  cur: string,
+  curRank: number,
+  adj: Map<string, string[]>,
+  rank: Map<string, number>,
+  inDegree: Map<string, number>,
+  queue: string[],
+): void {
+  for (const next of adj.get(cur) ?? []) {
+    const prevRank = rank.get(next) ?? 0;
+    if (curRank + 1 > prevRank) rank.set(next, curRank + 1);
+    const deg = (inDegree.get(next) ?? 1) - 1;
+    inDegree.set(next, deg);
+    if (deg === 0) queue.push(next);
+  }
+}
+
+function longestPathRanks(ids: Set<string>, adj: Map<string, string[]>): Map<string, number> {
+  const inDegree = computeInDegrees(ids, adj);
+  const rank = new Map<string, number>();
+  const queue: string[] = [];
+  for (const id of ids) {
+    if ((inDegree.get(id) ?? 0) === 0) {
+      queue.push(id);
+      rank.set(id, 0);
+    }
+  }
+
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    if (cur === undefined) break;
+    relaxLongestPathNeighbors(cur, rank.get(cur) ?? 0, adj, rank, inDegree, queue);
+  }
+  return rank;
+}
+
+function compareLayerNodes(a: string, b: string): number {
+  if (a === START_ID) return -1;
+  if (b === START_ID) return 1;
+  if (a === END_ID) return 1;
+  if (b === END_ID) return -1;
+  return a.localeCompare(b);
+}
+
+function ranksToLayers(rank: Map<string, number>): string[][] {
+  const maxRank = Math.max(...[...rank.values()], 0);
+  const layers: string[][] = [];
+  for (let r = 0; r <= maxRank; r++) layers.push([]);
+  for (const [id, r] of rank) layers[r].push(id);
+  for (const layer of layers) layer.sort(compareLayerNodes);
+  return layers.filter((l) => l.length > 0);
+}
+
 // ── Strategy 1: Longest-path layering (Sugiyama step 1) ─────────────
 
 /**
@@ -49,123 +171,11 @@ function edgeKey(e: WorkflowGraphEdge): string {
  * on the resulting DAG, then the removed edges become feedback edges.
  */
 function computeLayersLongestPath(edges: readonly WorkflowGraphEdge[]): string[][] {
-  // Collect all node IDs
-  const ids = new Set<string>();
-  for (const e of edges) {
-    ids.add(e.from);
-    ids.add(e.to);
-  }
-
-  // Build adjacency (excluding self-loops)
-  const adj = new Map<string, string[]>();
-  const inEdges = new Map<string, string[]>();
-  for (const id of ids) {
-    adj.set(id, []);
-    inEdges.set(id, []);
-  }
-  // Detect back-edges via DFS to break cycles
-  const backEdges = new Set<string>();
-  {
-    const WHITE = 0;
-    const GRAY = 1;
-    const BLACK = 2;
-    const color = new Map<string, number>();
-    for (const id of ids) color.set(id, WHITE);
-
-    // Temporary full adjacency for cycle detection
-    const fullAdj = new Map<string, string[]>();
-    for (const id of ids) fullAdj.set(id, []);
-    for (const e of edges) {
-      if (e.from !== e.to) fullAdj.get(e.from)?.push(e.to);
-    }
-
-    function dfs(u: string): void {
-      color.set(u, GRAY);
-      for (const v of fullAdj.get(u) ?? []) {
-        const c = color.get(v) ?? WHITE;
-        if (c === GRAY) {
-          // Back-edge: u -> v where v is an ancestor
-          backEdges.add(`${u}->${v}`);
-        } else if (c === WHITE) {
-          dfs(v);
-        }
-      }
-      color.set(u, BLACK);
-    }
-
-    // Start DFS from __start__ first for determinism
-    if (ids.has(START_ID)) dfs(START_ID);
-    for (const id of ids) {
-      if ((color.get(id) ?? WHITE) === WHITE) dfs(id);
-    }
-  }
-
-  // Build DAG adjacency (without back-edges)
-  for (const e of edges) {
-    if (e.from === e.to) continue;
-    if (backEdges.has(`${e.from}->${e.to}`)) continue;
-    adj.get(e.from)?.push(e.to);
-    inEdges.get(e.to)?.push(e.from);
-  }
-
-  // Longest-path ranking via topological order (Kahn's algorithm)
-  const inDegree = new Map<string, number>();
-  for (const id of ids) inDegree.set(id, 0);
-  for (const id of ids) {
-    for (const next of adj.get(id) ?? []) {
-      inDegree.set(next, (inDegree.get(next) ?? 0) + 1);
-    }
-  }
-
-  const rank = new Map<string, number>();
-  const queue: string[] = [];
-  for (const id of ids) {
-    if ((inDegree.get(id) ?? 0) === 0) {
-      queue.push(id);
-      rank.set(id, 0);
-    }
-  }
-
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
-    const curRank = rank.get(cur) ?? 0;
-    for (const next of adj.get(cur) ?? []) {
-      // Longest path: take max
-      const prevRank = rank.get(next) ?? 0;
-      if (curRank + 1 > prevRank) {
-        rank.set(next, curRank + 1);
-      }
-      const deg = (inDegree.get(next) ?? 1) - 1;
-      inDegree.set(next, deg);
-      if (deg === 0) {
-        queue.push(next);
-      }
-    }
-  }
-
-  // Group by rank
-  const maxRank = Math.max(...[...rank.values()], 0);
-  const layers: string[][] = [];
-  for (let r = 0; r <= maxRank; r++) {
-    layers.push([]);
-  }
-  for (const [id, r] of rank) {
-    layers[r].push(id);
-  }
-
-  // Sort within layers alphabetically for stability, but __start__ first, __end__ last
-  for (const layer of layers) {
-    layer.sort((a, b) => {
-      if (a === START_ID) return -1;
-      if (b === START_ID) return 1;
-      if (a === END_ID) return 1;
-      if (b === END_ID) return -1;
-      return a.localeCompare(b);
-    });
-  }
-
-  // Remove empty layers
-  return layers.filter((l) => l.length > 0);
+  const ids = collectNodeIds(edges);
+  const backEdges = detectBackEdges(ids, edges);
+  const adj = buildDagAdjacency(ids, edges, backEdges);
+  const rank = longestPathRanks(ids, adj);
+  return ranksToLayers(rank);
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────
@@ -201,132 +211,164 @@ function buildTerminalNode(
   };
 }
 
-// ── Longest-path layout (uses same edge-building as before) ─────────
+type EdgeLayoutContext = {
+  rank: Map<string, number>;
+  nodePositions: Map<string, { x: number; y: number; w: number; h: number }>;
+  centerX: number;
+  routedCountByTarget: Map<string, number>;
+};
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: layout logic is inherently branchy
-function computeLayoutLongestPath(input: LayoutInput): LayoutResult {
-  const layers = computeLayersLongestPath(input.edges);
+function computeEdgeLabelPosition(
+  e: WorkflowGraphEdge,
+  ctx: EdgeLayoutContext,
+  isFeedback: boolean,
+  isSkipForward: boolean,
+  isSelfLoop: boolean,
+): { labelX: number | null; labelY: number | null; feedbackSide: "right" | "left" | null } {
+  const sourcePos = ctx.nodePositions.get(e.from);
+  const targetPos = ctx.nodePositions.get(e.to);
+  if (sourcePos === undefined || targetPos === undefined) {
+    return { labelX: null, labelY: null, feedbackSide: null };
+  }
 
-  // Flatten layers into a rank map (layer index = rank)
+  if (isFeedback || isSkipForward) {
+    const count = ctx.routedCountByTarget.get(e.to) ?? 0;
+    ctx.routedCountByTarget.set(e.to, count + 1);
+    const feedbackSide = count % 2 === 0 ? "right" : "left";
+    const offsetX =
+      feedbackSide === "right"
+        ? ctx.centerX + ROLE_NODE_WIDTH / 2 + FEEDBACK_OFFSET_X
+        : ctx.centerX - ROLE_NODE_WIDTH / 2 - FEEDBACK_OFFSET_X;
+    const midY = (sourcePos.y + sourcePos.h / 2 + targetPos.y + targetPos.h / 2) / 2;
+    return { labelX: offsetX, labelY: midY, feedbackSide };
+  }
+
+  if (isSelfLoop) {
+    return { labelX: null, labelY: null, feedbackSide: null };
+  }
+
+  const midY = (sourcePos.y + sourcePos.h + targetPos.y) / 2;
+  return { labelX: ctx.centerX, labelY: midY, feedbackSide: null };
+}
+
+function buildConditionEdge(e: WorkflowGraphEdge, ctx: EdgeLayoutContext): Edge {
+  const isFallback = e.condition === "FALLBACK";
+  const isSelfLoop = e.from === e.to;
+  const sourceRank = ctx.rank.get(e.from) ?? 0;
+  const targetRank = ctx.rank.get(e.to) ?? 0;
+  const isFeedback = !isSelfLoop && targetRank <= sourceRank;
+  const isSkipForward = !isSelfLoop && !isFeedback && targetRank - sourceRank > 1;
+  const routed = isFeedback || isSkipForward;
+
+  const { labelX, labelY, feedbackSide } = computeEdgeLabelPosition(
+    e,
+    ctx,
+    isFeedback,
+    isSkipForward,
+    isSelfLoop,
+  );
+
+  return {
+    id: edgeKey(e),
+    source: e.from,
+    target: e.to,
+    sourceHandle: routed ? (feedbackSide === "left" ? "left-out" : "right-out") : "bottom-out",
+    targetHandle: routed ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
+    type: "condition",
+    data: {
+      condition: e.condition,
+      conditionDescription: e.conditionDescription,
+      isFallback,
+      isFeedback: routed,
+      isSelfLoop,
+      feedbackSide,
+      labelX,
+      labelY,
+    },
+  };
+}
+
+const LAYER_H_GAP = 40;
+
+type NodePosition = { x: number; y: number; w: number; h: number };
+
+function layerIndexRank(layers: string[][]): Map<string, number> {
   const rank = new Map<string, number>();
   for (let i = 0; i < layers.length; i++) {
-    for (const id of layers[i]) {
-      rank.set(id, i);
-    }
+    for (const id of layers[i]) rank.set(id, i);
   }
+  return rank;
+}
 
-  // Horizontal gap between nodes in the same layer
-  const H_GAP = 40;
-
-  // Position nodes: each layer is a horizontal row
-  const nodePositions = new Map<string, { x: number; y: number; w: number; h: number }>();
-
-  // Find max layer width for centering
-  const layerWidths: number[] = [];
-  for (const layer of layers) {
+function computeLayerWidths(layers: string[][], hGap: number): number[] {
+  return layers.map((layer) => {
     let w = 0;
-    for (const id of layer) {
-      w += nodeSize(id).width;
-    }
-    w += (layer.length - 1) * H_GAP;
-    layerWidths.push(w);
-  }
-  const maxLayerWidth = Math.max(...layerWidths, ROLE_NODE_WIDTH);
-  const centerX = maxLayerWidth / 2;
+    for (const id of layer) w += nodeSize(id).width;
+    return w + (layer.length - 1) * hGap;
+  });
+}
 
+function layoutNodePositions(
+  layers: string[][],
+  layerWidths: number[],
+  centerX: number,
+  hGap: number,
+): Map<string, NodePosition> {
+  const nodePositions = new Map<string, NodePosition>();
   let y = 0;
   for (let li = 0; li < layers.length; li++) {
     const layer = layers[li];
-    const totalWidth = layerWidths[li];
-    let x = centerX - totalWidth / 2;
+    let x = centerX - layerWidths[li] / 2;
     let maxH = 0;
     for (const id of layer) {
       const size = nodeSize(id);
       nodePositions.set(id, { x, y, w: size.width, h: size.height });
-      x += size.width + H_GAP;
+      x += size.width + hGap;
       if (size.height > maxH) maxH = size.height;
     }
     y += maxH + LAYER_GAP;
   }
+  return nodePositions;
+}
 
-  // Build nodes
+function buildLayoutNodes(
+  layers: string[][],
+  nodePositions: Map<string, NodePosition>,
+  input: LayoutInput,
+): Node[] {
   const nodes: Node[] = [];
   for (const layer of layers) {
     for (const id of layer) {
       const pos = nodePositions.get(id);
       if (pos === undefined) continue;
       const state = input.nodeStates.get(id) ?? "default";
+      const xy = { x: pos.x, y: pos.y };
       if (id === START_ID || id === END_ID) {
-        nodes.push(buildTerminalNode(id, { x: pos.x, y: pos.y }, state));
+        nodes.push(buildTerminalNode(id, xy, state));
       } else {
-        nodes.push(buildRoleNode(id, { x: pos.x, y: pos.y }, input.roles, state));
+        nodes.push(buildRoleNode(id, xy, input.roles, state));
       }
     }
   }
+  return nodes;
+}
 
-  // Build edges with label positions
-  const routedCountByTarget = new Map<string, number>();
-  const edges: Edge[] = input.edges.map((e) => {
-    const isFallback = e.condition === "FALLBACK";
-    const isSelfLoop = e.from === e.to;
-    const sourceRank = rank.get(e.from) ?? 0;
-    const targetRank = rank.get(e.to) ?? 0;
-    const isFeedback = !isSelfLoop && targetRank <= sourceRank;
-    const isSkipForward = !isSelfLoop && !isFeedback && targetRank - sourceRank > 1;
+// ── Longest-path layout (uses same edge-building as before) ─────────
 
-    const sourcePos = nodePositions.get(e.from);
-    const targetPos = nodePositions.get(e.to);
-
-    let labelX: number | null = null;
-    let labelY: number | null = null;
-    let feedbackSide: "right" | "left" | null = null;
-
-    if (sourcePos !== undefined && targetPos !== undefined) {
-      if (isFeedback || isSkipForward) {
-        const count = routedCountByTarget.get(e.to) ?? 0;
-        routedCountByTarget.set(e.to, count + 1);
-        feedbackSide = count % 2 === 0 ? "right" : "left";
-        const offsetX =
-          feedbackSide === "right"
-            ? centerX + ROLE_NODE_WIDTH / 2 + FEEDBACK_OFFSET_X
-            : centerX - ROLE_NODE_WIDTH / 2 - FEEDBACK_OFFSET_X;
-        const midY = (sourcePos.y + sourcePos.h / 2 + targetPos.y + targetPos.h / 2) / 2;
-        labelX = offsetX;
-        labelY = midY;
-      } else if (!isSelfLoop) {
-        const midX = centerX;
-        const midY = (sourcePos.y + sourcePos.h + targetPos.y) / 2;
-        labelX = midX;
-        labelY = midY;
-      }
-    }
-
-    return {
-      id: edgeKey(e),
-      source: e.from,
-      target: e.to,
-      sourceHandle:
-        isFeedback || isSkipForward
-          ? feedbackSide === "left"
-            ? "left-out"
-            : "right-out"
-          : "bottom-out",
-      targetHandle:
-        isFeedback || isSkipForward ? (feedbackSide === "left" ? "left-in" : "right-in") : "top-in",
-      type: "condition",
-      data: {
-        condition: e.condition,
-        conditionDescription: e.conditionDescription,
-        isFallback,
-        isFeedback: isFeedback || isSkipForward,
-        isSelfLoop,
-        feedbackSide,
-        labelX,
-        labelY,
-      },
-    };
-  });
-
+function computeLayoutLongestPath(input: LayoutInput): LayoutResult {
+  const layers = computeLayersLongestPath(input.edges);
+  const rank = layerIndexRank(layers);
+  const layerWidths = computeLayerWidths(layers, LAYER_H_GAP);
+  const centerX = Math.max(...layerWidths, ROLE_NODE_WIDTH) / 2;
+  const nodePositions = layoutNodePositions(layers, layerWidths, centerX, LAYER_H_GAP);
+  const nodes = buildLayoutNodes(layers, nodePositions, input);
+  const edgeCtx: EdgeLayoutContext = {
+    rank,
+    nodePositions,
+    centerX,
+    routedCountByTarget: new Map<string, number>(),
+  };
+  const edges: Edge[] = input.edges.map((e) => buildConditionEdge(e, edgeCtx));
   return { nodes, edges };
 }
 

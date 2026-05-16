@@ -60,6 +60,30 @@ function validateDescriptorGraph(graphRaw: unknown): Result<WorkflowGraph, strin
   return ok({ edges });
 }
 
+function validateDescriptorRole(
+  roleName: string,
+  specUnknown: unknown,
+): Result<WorkflowRoleDescriptor, string> {
+  if (specUnknown === null || typeof specUnknown !== "object" || Array.isArray(specUnknown)) {
+    return err(`descriptor.roles.${roleName} must be a non-array object`);
+  }
+  const spec = specUnknown as Record<string, unknown>;
+  const roleDesc = spec.description;
+  if (typeof roleDesc !== "string") {
+    return err(`descriptor.roles.${roleName}.description must be a string`);
+  }
+  const schema = spec.schema;
+  if (schema === null || typeof schema !== "object" || Array.isArray(schema)) {
+    return err(`descriptor.roles.${roleName}.schema must be a non-array object`);
+  }
+  const systemPrompt = typeof spec.systemPrompt === "string" ? spec.systemPrompt : "";
+  return ok({
+    description: roleDesc,
+    systemPrompt,
+    schema: schema as WorkflowRoleSchema,
+  });
+}
+
 export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescriptor, string> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return err("descriptor must be a non-array object");
@@ -76,24 +100,11 @@ export function validateWorkflowDescriptor(value: unknown): Result<WorkflowDescr
 
   const roles: Record<string, WorkflowRoleDescriptor> = {};
   for (const [roleName, specUnknown] of Object.entries(rolesRaw)) {
-    if (specUnknown === null || typeof specUnknown !== "object" || Array.isArray(specUnknown)) {
-      return err(`descriptor.roles.${roleName} must be a non-array object`);
+    const roleResult = validateDescriptorRole(roleName, specUnknown);
+    if (!roleResult.ok) {
+      return roleResult;
     }
-    const spec = specUnknown as Record<string, unknown>;
-    const roleDesc = spec.description;
-    if (typeof roleDesc !== "string") {
-      return err(`descriptor.roles.${roleName}.description must be a string`);
-    }
-    const schema = spec.schema;
-    if (schema === null || typeof schema !== "object" || Array.isArray(schema)) {
-      return err(`descriptor.roles.${roleName}.schema must be a non-array object`);
-    }
-    const systemPrompt = typeof spec.systemPrompt === "string" ? spec.systemPrompt : "";
-    roles[roleName] = {
-      description: roleDesc,
-      systemPrompt,
-      schema: schema as WorkflowRoleSchema,
-    };
+    roles[roleName] = roleResult.value;
   }
 
   const graphResult = validateDescriptorGraph(root.graph);
