@@ -21,6 +21,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@uncaged/json-cas": "^0.3.0",
     "@uncaged/uwf-agent-kit": "workspace:^"
   },
   "devDependencies": {

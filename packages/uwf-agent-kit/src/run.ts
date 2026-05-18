@@ -6,7 +6,7 @@ import { buildContextWithMeta } from "./context.js";
 import { extract } from "./extract.js";
 import type { AgentStore } from "./storage.js";
 import { getEnvPath, loadWorkflowConfig, resolveStorageRoot } from "./storage.js";
-import type { AgentContext, AgentOptions } from "./types.js";
+import type { AgentContext, AgentOptions, AgentRunResult } from "./types.js";
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
@@ -65,7 +65,7 @@ async function writeStepNode(options: {
   return hash;
 }
 
-async function runAgent(options: AgentOptions, ctx: AgentContext): Promise<string> {
+async function runAgent(options: AgentOptions, ctx: AgentContext): Promise<AgentRunResult> {
   return runWithMessage("agent run failed", () => options.run(ctx));
 }
 
@@ -85,12 +85,11 @@ async function extractOutput(
 
 async function persistStep(options: {
   ctx: Awaited<ReturnType<typeof buildContextWithMeta>>;
-  rawOutput: string;
   outputHash: CasRef;
+  detailHash: CasRef;
   agentName: string;
 }): Promise<CasRef> {
   const { store, schemas, chain, headHash } = options.ctx.meta;
-  const detailHash = await store.put(null, options.rawOutput);
   return writeStepNode({
     store,
     schemas,
@@ -98,7 +97,7 @@ async function persistStep(options: {
     prevHash: chain.headIsStart ? null : headHash,
     role: options.ctx.role,
     outputHash: options.outputHash,
-    detailHash,
+    detailHash: options.detailHash,
     agentName: options.agentName,
   });
 }
@@ -121,12 +120,12 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       fail(`unknown role: ${role}`);
     }
 
-    const rawOutput = await runAgent(options, ctx);
-    const outputHash = await extractOutput(rawOutput, roleDef.outputSchema, storageRoot);
+    const agentResult = await runAgent(options, ctx);
+    const outputHash = await extractOutput(agentResult.output, roleDef.outputSchema, storageRoot);
     const stepHash = await persistStep({
       ctx,
-      rawOutput,
       outputHash,
+      detailHash: agentResult.detailHash,
       agentName: agentLabel(options.name),
     });
 

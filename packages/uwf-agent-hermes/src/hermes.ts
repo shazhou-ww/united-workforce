@@ -1,9 +1,26 @@
 import { spawn } from "node:child_process";
 
-import { type AgentContext, createAgent } from "@uncaged/uwf-agent-kit";
+import { bootstrap, type JSONSchema, putSchema } from "@uncaged/json-cas";
+import {
+  type AgentContext,
+  type AgentRunResult,
+  createAgent,
+  createAgentStore,
+  resolveStorageRoot,
+} from "@uncaged/uwf-agent-kit";
 
 const HERMES_COMMAND = "hermes";
 const HERMES_MAX_TURNS = 90;
+
+const HERMES_RAW_OUTPUT_SCHEMA: JSONSchema = {
+  title: "hermes-raw-output",
+  type: "object",
+  required: ["text"],
+  properties: {
+    text: { type: "string" },
+  },
+  additionalProperties: false,
+};
 
 function buildHistorySummary(history: AgentContext["history"]): string {
   if (history.length === 0) {
@@ -76,9 +93,19 @@ function spawnHermesChat(prompt: string): Promise<string> {
   });
 }
 
-async function runHermes(ctx: AgentContext): Promise<string> {
+async function storeHermesRawOutput(rawOutput: string): Promise<string> {
+  const storageRoot = resolveStorageRoot();
+  const { store } = await createAgentStore(storageRoot);
+  await bootstrap(store);
+  const schemaHash = await putSchema(store, HERMES_RAW_OUTPUT_SCHEMA);
+  return store.put(schemaHash, { text: rawOutput });
+}
+
+async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildHermesPrompt(ctx);
-  return spawnHermesChat(fullPrompt);
+  const rawOutput = await spawnHermesChat(fullPrompt);
+  const detailHash = await storeHermesRawOutput(rawOutput);
+  return { output: rawOutput, detailHash };
 }
 
 /** Agent CLI factory: parses argv, runs Hermes, extracts output, writes StepNode. */

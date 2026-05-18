@@ -9,7 +9,12 @@ export type AgentContext = {
   workflow: WorkflowPayload;
 };
 
-export type AgentRunFn = (ctx: AgentContext) => Promise<string>;
+export type AgentRunResult = {
+  output: string;
+  detailHash: string;
+};
+
+export type AgentRunFn = (ctx: AgentContext) => Promise<AgentRunResult>;
 
 export type AgentOptions = {
   name: string;
