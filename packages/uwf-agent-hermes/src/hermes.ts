@@ -12,14 +12,14 @@ import {
 const HERMES_COMMAND = "hermes";
 const HERMES_MAX_TURNS = 90;
 
-function buildHistorySummary(history: AgentContext["history"]): string {
-  if (history.length === 0) {
+function buildHistorySummary(steps: AgentContext["steps"]): string {
+  if (steps.length === 0) {
     return "";
   }
 
   const lines: string[] = ["## Previous Steps"];
-  for (let i = 0; i < history.length; i++) {
-    const step = history[i];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
     if (step === undefined) {
       continue;
     }
@@ -33,8 +33,10 @@ function buildHistorySummary(history: AgentContext["history"]): string {
 
 /** Assemble system prompt, task, and prior step outputs for Hermes. */
 export function buildHermesPrompt(ctx: AgentContext): string {
-  const parts: string[] = [ctx.systemPrompt, "", "## Task", ctx.prompt];
-  const historyBlock = buildHistorySummary(ctx.history);
+  const roleDef = ctx.workflow.roles[ctx.role];
+  const systemPrompt = roleDef?.systemPrompt ?? "";
+  const parts: string[] = [systemPrompt, "", "## Task", ctx.start.prompt];
+  const historyBlock = buildHistorySummary(ctx.steps);
   if (historyBlock !== "") {
     parts.push("", historyBlock);
   }

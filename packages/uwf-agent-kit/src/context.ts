@@ -143,14 +143,13 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
     fail(`unknown role "${role}" in workflow "${workflow.name}"`);
   }
 
-  const history = await buildHistory(store, chain.stepsNewestFirst);
+  const steps = await buildHistory(store, chain.stepsNewestFirst);
 
   return {
     threadId,
     role,
-    systemPrompt: roleDef.systemPrompt,
-    prompt: chain.start.prompt,
-    history,
+    start: chain.start,
+    steps,
     workflow,
     store,
   };
@@ -188,14 +187,13 @@ export async function buildContextWithMeta(
     fail(`unknown role "${role}" in workflow "${workflow.name}"`);
   }
 
-  const history = await buildHistory(store, chain.stepsNewestFirst);
+  const steps = await buildHistory(store, chain.stepsNewestFirst);
 
   return {
     threadId,
     role,
-    systemPrompt: roleDef.systemPrompt,
-    prompt: chain.start.prompt,
-    history,
+    start: chain.start,
+    steps,
     workflow,
     store,
     meta: { storageRoot, store, schemas, headHash, chain },

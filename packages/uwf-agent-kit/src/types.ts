@@ -1,14 +1,11 @@
 import type { Store } from "@uncaged/json-cas";
-import type { StepContext, ThreadId, WorkflowPayload } from "@uncaged/uwf-protocol";
+import type { ModeratorContext, ThreadId, WorkflowPayload } from "@uncaged/uwf-protocol";
 
-export type AgentContext = {
+export type AgentContext = ModeratorContext & {
   threadId: ThreadId;
   role: string;
-  systemPrompt: string;
-  prompt: string;
-  history: StepContext[];
-  workflow: WorkflowPayload;
   store: Store;
+  workflow: WorkflowPayload;
 };
 
 export type AgentRunResult = {
