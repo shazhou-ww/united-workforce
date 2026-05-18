@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 
-import { bootstrap, type JSONSchema, putSchema } from "@uncaged/json-cas";
 import {
   type AgentContext,
   type AgentRunResult,
@@ -9,18 +8,15 @@ import {
   resolveStorageRoot,
 } from "@uncaged/uwf-agent-kit";
 
+import {
+  loadHermesSession,
+  parseSessionIdFromStdout,
+  storeHermesRawOutput,
+  storeHermesSessionDetail,
+} from "./session-detail.js";
+
 const HERMES_COMMAND = "hermes";
 const HERMES_MAX_TURNS = 90;
-
-const HERMES_RAW_OUTPUT_SCHEMA: JSONSchema = {
-  title: "hermes-raw-output",
-  type: "object",
-  required: ["text"],
-  properties: {
-    text: { type: "string" },
-  },
-  additionalProperties: false,
-};
 
 function buildHistorySummary(history: AgentContext["history"]): string {
   if (history.length === 0) {
@@ -93,18 +89,22 @@ function spawnHermesChat(prompt: string): Promise<string> {
   });
 }
 
-async function storeHermesRawOutput(rawOutput: string): Promise<string> {
-  const storageRoot = resolveStorageRoot();
-  const { store } = await createAgentStore(storageRoot);
-  await bootstrap(store);
-  const schemaHash = await putSchema(store, HERMES_RAW_OUTPUT_SCHEMA);
-  return store.put(schemaHash, { text: rawOutput });
-}
-
 async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildHermesPrompt(ctx);
   const rawOutput = await spawnHermesChat(fullPrompt);
-  const detailHash = await storeHermesRawOutput(rawOutput);
+  const storageRoot = resolveStorageRoot();
+  const { store } = await createAgentStore(storageRoot);
+
+  const sessionId = parseSessionIdFromStdout(rawOutput);
+  if (sessionId !== null) {
+    const session = await loadHermesSession(sessionId);
+    if (session !== null) {
+      const { detailHash, output } = await storeHermesSessionDetail(store, session);
+      return { output, detailHash };
+    }
+  }
+
+  const detailHash = await storeHermesRawOutput(store, rawOutput);
   return { output: rawOutput, detailHash };
 }
 
