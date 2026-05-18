@@ -15,9 +15,7 @@ function isRoleDefinition(value: unknown): boolean {
     return false;
   }
   const outputSchema = value.outputSchema;
-  const schemaOk =
-    typeof outputSchema === "string" ||
-    (isRecord(outputSchema) && typeof outputSchema.type === "string");
+  const schemaOk = isRecord(outputSchema) && typeof outputSchema.type === "string";
   return (
     typeof value.description === "string" && typeof value.systemPrompt === "string" && schemaOk
   );

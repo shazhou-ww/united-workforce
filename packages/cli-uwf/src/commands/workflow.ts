@@ -13,7 +13,7 @@ import {
   saveWorkflowRegistry,
   type UwfStore,
 } from "../store.js";
-import { isCasRef, parseWorkflowPayload } from "../validate.js";
+import { parseWorkflowPayload } from "../validate.js";
 
 export type WorkflowListEntry = {
   name: string;
@@ -45,25 +45,15 @@ function isJsonSchema(value: unknown): value is JSONSchema {
 async function resolveOutputSchemaRef(
   uwf: UwfStore,
   roleName: string,
-  outputSchema: string | JSONSchema,
+  outputSchema: unknown,
 ): Promise<CasRef> {
-  if (typeof outputSchema === "string") {
-    if (!isCasRef(outputSchema)) {
-      fail(`invalid outputSchema cas_ref: ${outputSchema}`);
-    }
-    if (!uwf.store.has(outputSchema)) {
-      fail(`outputSchema not found in CAS: ${outputSchema}`);
-    }
-    return outputSchema;
-  }
   if (!isJsonSchema(outputSchema)) {
-    fail("outputSchema must be a cas_ref string or JSON Schema object");
+    fail(`role "${roleName}": outputSchema must be a JSON Schema object`);
   }
-  // Auto-set title from role name if not already present
-  if (outputSchema.title === undefined) {
-    outputSchema = { ...outputSchema, title: roleName };
-  }
-  return putSchema(uwf.store, outputSchema);
+  const schema: JSONSchema = outputSchema.title === undefined
+    ? { ...outputSchema, title: roleName }
+    : outputSchema;
+  return putSchema(uwf.store, schema);
 }
 
 async function materializeWorkflowPayload(
@@ -75,7 +65,7 @@ async function materializeWorkflowPayload(
     const outputSchema = await resolveOutputSchemaRef(
       uwf,
       `${raw.name}.${roleName}`,
-      role.outputSchema as string | JSONSchema,
+      role.outputSchema,
     );
     roles[roleName] = {
       description: role.description,
