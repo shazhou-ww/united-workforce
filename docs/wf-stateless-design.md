@@ -37,7 +37,7 @@ uwf thread start <workflow> -p "Fix the login bug described in issue #42"
 
 ```jsonc
 {
-  "workflow": "0R3KFM8N2P1QW",   // workflow CAS hash
+  "workflow": "4KNM2PXR3B1QW",   // workflow CAS hash (XXH64, 13-char Crockford Base32)
   "thread": "01J7K9M2XN..."      // ULID
 }
 ```
@@ -62,19 +62,19 @@ uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
 ```jsonc
 // 正常 step
 {
-  "workflow": "0R3KFM8N2P1QW",
+  "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XN...",
   "progress": {
     "role": "developer",
     "meta": { "filesChanged": ["src/auth.ts"], "summary": "Fixed redirect" },
-    "detail": "0QWERTY12345A",   // agent 原始输出的 CAS hash
-    "agent": "0AGENT_CFG_HASH"   // 实际使用的 agent 配置 CAS hash
+    "detail": "7BQST3VW9F2MA",   // agent 原始输出的 CAS hash
+    "agent": "2RJHV6PN4D8WC"    // 实际使用的 agent 配置 CAS hash
   }
 }
 
 // thread 结束
 {
-  "workflow": "0R3KFM8N2P1QW",
+  "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XN...",
   "progress": null
 }
@@ -177,7 +177,7 @@ payload:
   systemPrompt: "You are a developer agent..."
   extractPrompt: "Extract the following from the agent output..."
   outputSchema:
-    $ref: "0ROLESCH_HASH1"    # cas_ref → RoleSchema 节点
+    $ref: "5GWKR8TN1V3JA"    # cas_ref → RoleSchema 节点
 ```
 
 #### `Moderator`
@@ -231,13 +231,13 @@ payload:
   description: "End-to-end issue resolution"
   roles:
     planner:
-      $ref: "0ROLE_PLANNER_H"     # cas_ref → Role
+      $ref: "3FXJM7QS2A9PB"     # cas_ref → Role
     developer:
-      $ref: "0ROLE_DEVELP_H"      # cas_ref → Role
+      $ref: "8CNWT4KR6D1HV"     # cas_ref → Role
     reviewer:
-      $ref: "0ROLE_REVIEW_H"      # cas_ref → Role
+      $ref: "1VPBG9SM5E7WK"     # cas_ref → Role
   moderator:
-    $ref: "0MODERATOR_HASH"        # cas_ref → Moderator
+    $ref: "6HJQX2FN8C4RA"        # cas_ref → Moderator
   defaultAgent: "uwf-hermes"       # 默认 agent 命令前缀
   agentOverrides:                   # per-role override
     developer: "uwf-cursor"
@@ -262,15 +262,15 @@ payload:
 type: <start-node-schema-hash>
 payload:
   workflow:
-    $ref: "0WORKFLOW_HASH"         # cas_ref → Workflow
+    $ref: "4KNM2PXR3B1QW"         # cas_ref → Workflow
   prompt: "Fix the login bug..."
   agentBinding:                     # 启动时确定的 agent 分配
     planner:
-      $ref: "0AGENTCFG_HRM"        # cas_ref → AgentConfig
+      $ref: "9DSVW3KM7B2PA"        # cas_ref → AgentConfig
     developer:
-      $ref: "0AGENTCFG_CUR"        # cas_ref → AgentConfig
+      $ref: "5RTJN8FQ1H6WC"        # cas_ref → AgentConfig
     reviewer:
-      $ref: "0AGENTCFG_HRM"        # cas_ref → AgentConfig
+      $ref: "9DSVW3KM7B2PA"        # cas_ref → AgentConfig
 ```
 
 没有 thread-id 在 payload 里 — thread-id 是索引层面的事，不进 CAS 内容。
@@ -285,17 +285,17 @@ payload:
     filesChanged: ["src/auth.ts"]
     summary: "Fixed redirect loop"
   content:
-    $ref: "0RAW_OUTPUT_HASH"       # cas_ref → 原始 agent 输出（content node）
+    $ref: "7BQST3VW9F2MA"         # cas_ref → 原始 agent 输出（content node）
   agent:
-    $ref: "0AGENTCFG_CUR"          # cas_ref → 实际使用的 AgentConfig
+    $ref: "5RTJN8FQ1H6WC"         # cas_ref → 实际使用的 AgentConfig
   prev:
-    $ref: "0PREV_STEP_HASH"        # cas_ref → 前一个 StepNode 或 StartNode
+    $ref: "2MXBG6PN4A8JR"         # cas_ref → 前一个 StepNode 或 StartNode
 ```
 
 ### 2.4 链式结构
 
 ```
-threads.json: { "01J7K9M2XN...": "0STEP3_HASH" }
+threads.json: { "01J7K9M2XN...": "8FWKR3TN5V1QA" }
                                       │
                                       ▼
                               StepNode (step 3)
@@ -322,8 +322,8 @@ threads.json: { "01J7K9M2XN...": "0STEP3_HASH" }
 ```jsonc
 // ~/.uncaged/workflow/threads.json
 {
-  "01J7K9M2XN...": "0STEP3_HASH",    // active thread → 链头
-  "01J8AB3QRM...": "0STEP1_HASH"
+  "01J7K9M2XN...": "8FWKR3TN5V1QA",    // active thread → 链头
+  "01J8AB3QRM...": "3CNWT9KR6D2HV"
 }
 ```
 
