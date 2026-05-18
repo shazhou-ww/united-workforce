@@ -109,7 +109,6 @@ export type ThreadStepsOutput = {
 export type ThreadForkOutput = {
   thread: ThreadId;
   forkedFrom: {
-    thread: ThreadId;
     step: CasRef;
   };
 };

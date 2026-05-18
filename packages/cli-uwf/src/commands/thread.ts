@@ -521,35 +521,15 @@ export async function cmdThreadSteps(
 
 export async function cmdThreadFork(
   storageRoot: string,
-  threadId: ThreadId,
   stepHash: CasRef,
 ): Promise<ThreadForkOutput> {
-  const headHash = await resolveHeadHash(storageRoot, threadId);
   const uwf = await createUwfStore(storageRoot);
-
-  // Verify stepHash belongs to this thread by walking the chain
-  let found = false;
-  let cur: CasRef | null = headHash;
-  while (cur !== null) {
-    if (cur === stepHash) {
-      found = true;
-      break;
-    }
-    const node = uwf.store.get(cur);
-    if (node === null) break;
-    if (node.type === uwf.schemas.startNode) {
-      // startHash check
-      if (cur === stepHash) {
-        found = true;
-      }
-      break;
-    }
-    const payload = node.payload as StepNodePayload;
-    cur = payload.prev;
+  const node = uwf.store.get(stepHash);
+  if (node === null) {
+    fail(`CAS node not found: ${stepHash}`);
   }
-
-  if (!found) {
-    fail(`step ${stepHash} not found in thread ${threadId}`);
+  if (node.type !== uwf.schemas.startNode && node.type !== uwf.schemas.stepNode) {
+    fail(`node ${stepHash} is not a StartNode or StepNode`);
   }
 
   const newThreadId = generateUlid(Date.now()) as ThreadId;
@@ -560,7 +540,6 @@ export async function cmdThreadFork(
   return {
     thread: newThreadId,
     forkedFrom: {
-      thread: threadId,
       step: stepHash,
     },
   };

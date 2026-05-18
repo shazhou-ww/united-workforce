@@ -161,12 +161,11 @@ thread
 thread
   .command("fork")
   .description("Fork a thread from a specific step")
-  .argument("<thread-id>", "Thread ULID")
-  .argument("<step-hash>", "CAS hash of the step to fork from")
-  .action((threadId: string, stepHash: string) => {
+  .argument("<step-hash>", "CAS hash of the StartNode or StepNode to fork from")
+  .action((stepHash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadFork(storageRoot, threadId, stepHash);
+      const result = await cmdThreadFork(storageRoot, stepHash);
       writeOutput(result);
     });
   });
