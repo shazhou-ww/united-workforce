@@ -100,10 +100,10 @@ export async function cmdCasSchemaList(
   // Include meta-schema itself
   entries.push({ hash: metaHash, title: "(meta-schema)" });
 
-  for (const hash of store.list()) {
+  for (const hash of store.listByType(metaHash)) {
     if (hash === metaHash) continue;
     const node = store.get(hash);
-    if (node !== null && node.type === metaHash) {
+    if (node !== null) {
       const schema = node.payload as JSONSchema;
       const title =
         (schema.title as string | undefined) ??
