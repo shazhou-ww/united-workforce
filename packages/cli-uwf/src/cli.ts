@@ -22,9 +22,11 @@ import {
   cmdCasWalk,
 } from "./commands/cas.js";
 import { resolveStorageRoot } from "./store.js";
+import { type OutputFormat, formatOutput } from "./format.js";
 
-function writeJson(data: unknown): void {
-  process.stdout.write(`${JSON.stringify(data)}\n`);
+function writeOutput(data: unknown): void {
+  const fmt = program.opts().format as OutputFormat;
+  process.stdout.write(`${formatOutput(data, fmt)}\n`);
 }
 
 function runAction(action: () => Promise<void>): void {
@@ -38,6 +40,7 @@ function runAction(action: () => Promise<void>): void {
 const program = new Command();
 
 program.name("uwf").description("Stateless workflow CLI");
+program.option("--format <fmt>", "Output format: json, yaml, table", "json");
 
 const workflow = program.command("workflow").description("Workflow registry and CAS");
 
@@ -49,7 +52,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowPut(storageRoot, file);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -61,7 +64,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowShow(storageRoot, id);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -72,7 +75,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowList(storageRoot);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -87,7 +90,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadStart(storageRoot, workflow, opts.prompt);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -101,7 +104,7 @@ thread
     runAction(async () => {
       const agentOverride = opts.agent ?? null;
       const result = await cmdThreadStep(storageRoot, threadId, agentOverride);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -113,7 +116,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadShow(storageRoot, threadId);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -125,7 +128,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadList(storageRoot, opts.all);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -137,7 +140,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadKill(storageRoot, threadId);
-      writeJson(result);
+      writeOutput(result);
     });
   });
 
@@ -167,7 +170,7 @@ program
           agent: opts.agent ?? undefined,
           storageRoot,
         });
-        writeJson(result);
+        writeOutput(result);
       } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
         await cmdSetupInteractive(storageRoot);
       } else {
@@ -187,7 +190,7 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasGet(storageRoot, hash));
+      writeOutput(await cmdCasGet(storageRoot, hash));
     });
   });
 
@@ -199,7 +202,7 @@ cas
   .action((hash: string, opts: { payload?: boolean }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasCat(storageRoot, hash, opts));
+      writeOutput(await cmdCasCat(storageRoot, hash, opts));
     });
   });
 
@@ -211,7 +214,7 @@ cas
   .action((typeHash: string, data: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasPut(storageRoot, typeHash, data));
+      writeOutput(await cmdCasPut(storageRoot, typeHash, data));
     });
   });
 
@@ -222,7 +225,7 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasHas(storageRoot, hash));
+      writeOutput(await cmdCasHas(storageRoot, hash));
     });
   });
 
@@ -233,7 +236,7 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasRefs(storageRoot, hash));
+      writeOutput(await cmdCasRefs(storageRoot, hash));
     });
   });
 
@@ -244,7 +247,7 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasWalk(storageRoot, hash));
+      writeOutput(await cmdCasWalk(storageRoot, hash));
     });
   });
 
@@ -256,7 +259,7 @@ casSchema
   .action(() => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasSchemaList(storageRoot));
+      writeOutput(await cmdCasSchemaList(storageRoot));
     });
   });
 
@@ -267,7 +270,7 @@ casSchema
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeJson(await cmdCasSchemaGet(storageRoot, hash));
+      writeOutput(await cmdCasSchemaGet(storageRoot, hash));
     });
   });
 
