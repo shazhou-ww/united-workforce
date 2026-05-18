@@ -1,3 +1,4 @@
+import type { Store } from "@uncaged/json-cas";
 import type { StepContext, ThreadId, WorkflowPayload } from "@uncaged/uwf-protocol";
 
 export type AgentContext = {
@@ -7,6 +8,7 @@ export type AgentContext = {
   prompt: string;
   history: StepContext[];
   workflow: WorkflowPayload;
+  store: Store;
 };
 
 export type AgentRunResult = {

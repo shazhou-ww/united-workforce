@@ -1,12 +1,6 @@
 import { spawn } from "node:child_process";
 
-import {
-  type AgentContext,
-  type AgentRunResult,
-  createAgent,
-  createAgentStore,
-  resolveStorageRoot,
-} from "@uncaged/uwf-agent-kit";
+import { type AgentContext, type AgentRunResult, createAgent } from "@uncaged/uwf-agent-kit";
 
 import {
   loadHermesSession,
@@ -92,8 +86,7 @@ function spawnHermesChat(prompt: string): Promise<string> {
 async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildHermesPrompt(ctx);
   const rawOutput = await spawnHermesChat(fullPrompt);
-  const storageRoot = resolveStorageRoot();
-  const { store } = await createAgentStore(storageRoot);
+  const { store } = ctx;
 
   const sessionId = parseSessionIdFromStdout(rawOutput);
   if (sessionId !== null) {

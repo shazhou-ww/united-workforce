@@ -1,3 +1,4 @@
+import type { Store } from "@uncaged/json-cas";
 import type {
   CasRef,
   StartNodePayload,
@@ -6,6 +7,7 @@ import type {
   ThreadId,
 } from "@uncaged/uwf-protocol";
 import { createAgentStore, loadThreadsIndex, resolveStorageRoot } from "./storage.js";
+import type { AgentStore } from "./storage.js";
 import type { AgentContext } from "./types.js";
 
 type ChainState = {
@@ -20,8 +22,8 @@ function fail(message: string): never {
 }
 
 function walkChain(
-  store: Awaited<ReturnType<typeof createAgentStore>>["store"],
-  schemas: Awaited<ReturnType<typeof createAgentStore>>["schemas"],
+  store: Store,
+  schemas: AgentStore["schemas"],
   headHash: CasRef,
 ): ChainState {
   const headNode = store.get(headHash);
@@ -77,7 +79,7 @@ function walkChain(
 }
 
 function expandOutput(
-  store: Awaited<ReturnType<typeof createAgentStore>>["store"],
+  store: Store,
   outputRef: CasRef,
 ): unknown {
   const node = store.get(outputRef);
@@ -88,7 +90,7 @@ function expandOutput(
 }
 
 async function buildHistory(
-  store: Awaited<ReturnType<typeof createAgentStore>>["store"],
+  store: Store,
   stepsNewestFirst: StepNodePayload[],
 ): Promise<StepContext[]> {
   const chronological = [...stepsNewestFirst].reverse();
@@ -105,8 +107,8 @@ async function buildHistory(
 }
 
 async function loadWorkflow(
-  store: Awaited<ReturnType<typeof createAgentStore>>["store"],
-  schemas: Awaited<ReturnType<typeof createAgentStore>>["schemas"],
+  store: Store,
+  schemas: AgentStore["schemas"],
   workflowRef: CasRef,
 ) {
   const node = store.get(workflowRef);
@@ -150,13 +152,14 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
     prompt: chain.start.prompt,
     history,
     workflow,
+    store,
   };
 }
 
 export type BuildContextMeta = {
   storageRoot: string;
-  store: Awaited<ReturnType<typeof createAgentStore>>["store"];
-  schemas: Awaited<ReturnType<typeof createAgentStore>>["schemas"];
+  store: Store;
+  schemas: AgentStore["schemas"];
   headHash: CasRef;
   chain: ChainState;
 };
@@ -194,6 +197,7 @@ export async function buildContextWithMeta(
     prompt: chain.start.prompt,
     history,
     workflow,
+    store,
     meta: { storageRoot, store, schemas, headHash, chain },
   };
 }
