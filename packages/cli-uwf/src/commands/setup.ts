@@ -34,7 +34,7 @@ type SetupArgs = {
   baseUrl: string;
   apiKey: string;
   model: string;
-  agent?: string;
+  agent?: string | undefined;
   storageRoot: string;
 };
 
@@ -325,7 +325,7 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
     console.log("  uwf thread step <thread-id>        Execute next step");
     console.log("");
 
-    return null;
+    return null as unknown as Record<string, unknown>;
   } finally {
     rl.close();
   }
