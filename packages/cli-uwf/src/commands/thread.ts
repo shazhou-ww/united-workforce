@@ -408,16 +408,18 @@ export async function cmdThreadStep(
   loadDotenv({ path: getEnvPath(storageRoot) });
   const newHead = spawnAgent(agent, threadId, role);
 
-  const newNode = uwf.store.get(newHead);
-  if (newNode === null || newNode.type !== uwf.schemas.stepNode) {
+  // Re-create store to pick up nodes written by the agent subprocess
+  const uwfAfter = await createUwfStore(storageRoot);
+  const newNode = uwfAfter.store.get(newHead);
+  if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
     fail(`agent returned hash that is not a StepNode: ${newHead}`);
   }
 
   index[threadId] = newHead;
   await saveThreadsIndex(storageRoot, index);
 
-  const chainAfter = walkChain(uwf, newHead);
-  const contextAfter = buildModeratorContext(uwf, chainAfter);
+  const chainAfter = walkChain(uwfAfter, newHead);
+  const contextAfter = buildModeratorContext(uwfAfter, chainAfter);
   const afterResult = evaluate(workflow, contextAfter);
   if (!afterResult.ok) {
     fail(afterResult.error.message);

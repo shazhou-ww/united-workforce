@@ -14,6 +14,9 @@
       "import": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@uncaged/json-cas": "workspace:^"
+  },
   "devDependencies": {
     "typescript": "^5.8.3"
   },
