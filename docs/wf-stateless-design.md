@@ -319,3 +319,143 @@ packages/
 - `workflow-template-solve-issue` — 变成 YAML 文件
 
 Agent adapters 从 monorepo 内的包变成独立的 CLI 项目（可以在同一个 monorepo，也可以分出去）。Workflow templates 从 ESM bundle 变成 YAML 文件。
+
+---
+
+## 4. 关键数据类型
+
+JSONata 求值上下文本质上是 thread 链表的线性化表达。StepNode payload 和上下文中的 step 共享大量字段，提取为公共类型。
+
+### 4.1 公共类型
+
+```typescript
+/** CAS hash — XXH64, 13-char Crockford Base32 */
+type CasRef = string;
+
+/** Thread ID — ULID, 26-char Crockford Base32 */
+type ThreadId = string;
+
+/** 一个 step 的核心数据，被 StepNode payload 和 JSONata 上下文共享 */
+type StepRecord = {
+  role: string;
+  output: CasRef;                    // cas_ref → 结构化输出节点（符合 role outputSchema）
+  detail: CasRef;                    // cas_ref → 执行详情（content node / 子 workflow terminal StepNode）
+  agent: string;                     // 实际使用的 agent 命令（纯字符串）
+};
+```
+
+### 4.2 Workflow 定义
+
+```typescript
+type RoleDefinition = {
+  description: string;
+  systemPrompt: string;
+  outputSchema: CasRef;              // cas_ref → json-cas 内置 JSON Schema 节点
+};
+
+type Transition = {
+  role: string;                      // 目标 role 名 或 "$END"
+  condition: string | null;          // 引用 conditions 中的 key，null = fallback
+};
+
+type WorkflowPayload = {
+  name: string;
+  description: string;
+  roles: Record<string, RoleDefinition>;
+  conditions: Record<string, string>;           // Record<Name, JSONata expression>
+  graph: Record<string, Transition[]>;          // Record<Role | "$START", Transition[]>
+};
+```
+
+### 4.3 Thread 节点
+
+```typescript
+type StartNodePayload = {
+  workflow: CasRef;                  // cas_ref → Workflow
+  prompt: string;
+};
+
+type StepNodePayload = StepRecord & {
+  start: CasRef;                     // cas_ref → StartNode（每个 step 都引用）
+  prev: CasRef | null;               // cas_ref → 前一个 StepNode，第一步为 null
+};
+```
+
+### 4.4 JSONata 求值上下文
+
+Thread 链表的线性化。`steps[n]` 的字段和 `StepRecord` 一致，但 `output` 被展开为实际内容。
+
+```typescript
+/** JSONata 上下文中的 step — output 被展开 */
+type StepContext = Omit<StepRecord, "output"> & {
+  output: unknown;                   // 展开后的 CAS 节点内容，非 hash
+};
+
+type ModeratorContext = {
+  start: StartNodePayload;
+  steps: StepContext[];              // 从旧到新
+};
+```
+
+### 4.5 CLI 输出
+
+```typescript
+/** uwf thread start */
+type StartOutput = {
+  workflow: CasRef;
+  thread: ThreadId;
+};
+
+/** uwf thread step / uwf thread show */
+type StepOutput = {
+  workflow: CasRef;
+  thread: ThreadId;
+  head: CasRef;
+  done: boolean;
+};
+
+/** uwf thread list */
+type ThreadListItem = {
+  thread: ThreadId;
+  workflow: CasRef;
+  head: CasRef;
+};
+```
+
+### 4.6 配置
+
+```typescript
+/** ~/.uncaged/workflow/config.yaml */
+type WorkflowConfig = {
+  defaultAgent: string;
+  agentOverrides: Record<string, Record<string, string>> | null;
+  //                     ^ workflow name  ^ role name  ^ agent command
+};
+
+/** ~/.uncaged/workflow/threads.yaml */
+type ThreadsIndex = Record<ThreadId, CasRef>;
+//                         ^ thread-id  ^ head StepNode/StartNode hash
+```
+
+### 4.7 类型关系图
+
+```
+WorkflowConfig (config.yaml)
+ThreadsIndex (threads.yaml)          ← 唯二可变状态
+    │
+    │ thread-id → head hash
+    ▼
+StepNodePayload ──extends──→ StepRecord ←──maps to──→ StepContext
+    │                           │                          │
+    ├── start → StartNodePayload│                          │ (output 展开)
+    ├── prev → StepNodePayload  │                          │
+    │                           ├── role                   ├── role
+    │                           ├── output (CasRef)        ├── output (展开)
+    │                           ├── detail (CasRef)        ├── detail (CasRef)
+    │                           └── agent (string)         └── agent (string)
+    │
+    └── start.workflow → WorkflowPayload
+                             ├── roles: Record<name, RoleDefinition>
+                             ├── conditions: Record<name, JSONata>
+                             └── graph: Record<role, Transition[]>
+```
