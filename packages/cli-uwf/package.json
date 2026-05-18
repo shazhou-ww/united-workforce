@@ -11,8 +11,8 @@
     "uwf": "./src/cli.ts"
   },
   "dependencies": {
-    "@uncaged/json-cas": "workspace:^",
-    "@uncaged/json-cas-fs": "workspace:^",
+    "@uncaged/json-cas": "^0.1.1",
+    "@uncaged/json-cas-fs": "^0.1.1",
     "@uncaged/uwf-agent-kit": "workspace:^",
     "@uncaged/uwf-moderator": "workspace:^",
     "@uncaged/uwf-protocol": "workspace:^",

@@ -18,8 +18,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@uncaged/json-cas": "workspace:^",
-    "@uncaged/json-cas-fs": "workspace:^",
+    "@uncaged/json-cas": "^0.1.1",
+    "@uncaged/json-cas-fs": "^0.1.1",
     "@uncaged/uwf-protocol": "workspace:^",
     "dotenv": "^16.6.1",
     "yaml": "^2.8.4"
