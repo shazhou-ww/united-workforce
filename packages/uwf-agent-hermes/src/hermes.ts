@@ -43,7 +43,7 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   return parts.join("\n");
 }
 
-function spawnHermesChat(prompt: string): Promise<string> {
+function spawnHermesChat(prompt: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const args = [
       "chat",
@@ -76,7 +76,7 @@ function spawnHermesChat(prompt: string): Promise<string> {
 
     child.on("close", (code) => {
       if (code === 0) {
-        resolve(stdout);
+        resolve({ stdout, stderr });
         return;
       }
       const detail = stderr.trim() !== "" ? ` stderr=${stderr.trim()}` : "";
@@ -87,10 +87,11 @@ function spawnHermesChat(prompt: string): Promise<string> {
 
 async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildHermesPrompt(ctx);
-  const rawOutput = await spawnHermesChat(fullPrompt);
+  const { stdout, stderr } = await spawnHermesChat(fullPrompt);
   const { store } = ctx;
 
-  const sessionId = parseSessionIdFromStdout(rawOutput);
+  // --quiet mode: session_id may be on stdout or stderr
+  const sessionId = parseSessionIdFromStdout(stderr) ?? parseSessionIdFromStdout(stdout);
   if (sessionId !== null) {
     const session = await loadHermesSession(sessionId);
     if (session !== null) {
@@ -99,8 +100,8 @@ async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
     }
   }
 
-  const detailHash = await storeHermesRawOutput(store, rawOutput);
-  return { output: rawOutput, detailHash };
+  const detailHash = await storeHermesRawOutput(store, stdout);
+  return { output: stdout, detailHash };
 }
 
 /** Agent CLI factory: parses argv, runs Hermes, extracts output, writes StepNode. */
