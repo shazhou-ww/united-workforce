@@ -40,7 +40,7 @@ function runAction(action: () => Promise<void>): void {
 const program = new Command();
 
 program.name("uwf").description("Stateless workflow CLI");
-program.option("--format <fmt>", "Output format: json, yaml, table", "json");
+program.option("--format <fmt>", "Output format: json or yaml", "json");
 
 const workflow = program.command("workflow").description("Workflow registry and CAS");
 
