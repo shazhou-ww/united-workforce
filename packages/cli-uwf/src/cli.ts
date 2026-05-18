@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { join } from "node:path";
 import { Command } from "commander";
 
 import {
@@ -166,6 +167,26 @@ program
         );
       }
     });
+  });
+
+program
+  .command("cas")
+  .description("Passthrough to json-cas CLI with uwf store path")
+  .allowUnknownOption(true)
+  .allowExcessArguments(true)
+  .action(async (_opts: unknown, cmd: import("commander").Command) => {
+    const storageRoot = resolveStorageRoot();
+    const casDir = join(storageRoot, "cas");
+    const casArgs = cmd.args;
+    const { execFileSync } = await import("node:child_process");
+    try {
+      execFileSync("json-cas", ["--store", casDir, ...casArgs], {
+        stdio: "inherit",
+      });
+    } catch (e) {
+      const err = e as { status?: number };
+      process.exit(err.status ?? 1);
+    }
   });
 
 program.parseAsync(process.argv).catch((e: unknown) => {
