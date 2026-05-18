@@ -16,7 +16,7 @@ const MOCK_RAW_OUTPUT_SCHEMA: JSONSchema = {
 const agent = createAgent({
   name: "mock",
   run: async (ctx) => {
-    const output = `Mock output for role ${ctx.role}: task was "${ctx.prompt}"`;
+    const output = `Mock output for role ${ctx.role}: task was "${ctx.start.prompt}"`;
     const { store } = ctx;
     await bootstrap(store);
     const schemaHash = await putSchema(store, MOCK_RAW_OUTPUT_SCHEMA);
