@@ -28,26 +28,18 @@ function readJsonArg(fileOrInline: string): unknown {
 export async function cmdCasGet(
   storageRoot: string,
   hash: string,
+  opts: { timestamp?: boolean },
 ): Promise<unknown> {
   const store = openStore(storageRoot);
   const node = store.get(hash);
   if (node === null) {
     throw new Error(`Node not found: ${hash}`);
   }
-  return node;
-}
-
-export async function cmdCasCat(
-  storageRoot: string,
-  hash: string,
-  opts: { payload?: boolean },
-): Promise<unknown> {
-  const store = openStore(storageRoot);
-  const node = store.get(hash);
-  if (node === null) {
-    throw new Error(`Node not found: ${hash}`);
+  if (opts.timestamp) {
+    return node;
   }
-  return opts.payload ? node.payload : node;
+  const { timestamp: _, ...rest } = node as Record<string, unknown>;
+  return rest;
 }
 
 export async function cmdCasPut(
