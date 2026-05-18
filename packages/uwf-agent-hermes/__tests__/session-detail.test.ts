@@ -16,7 +16,12 @@ describe("parseSessionIdFromStdout", () => {
     expect(parseSessionIdFromStdout(stdout)).toBe("20260518_223724_45ab80");
   });
 
-  test("returns null when trailing line is not session_id", () => {
+  test("reads session_id from the first line (quiet mode)", () => {
+    const stdout = "session_id: 20260518_165315_3467a1\nHello world\n";
+    expect(parseSessionIdFromStdout(stdout)).toBe("20260518_165315_3467a1");
+  });
+
+  test("returns null when no session_id line present", () => {
     expect(parseSessionIdFromStdout("only assistant text\n")).toBeNull();
   });
 });

@@ -24,19 +24,14 @@ export function getHermesSessionPath(sessionId: string): string {
   return join(getHermesSessionsDir(), `session_${sessionId}.json`);
 }
 
-/** Parse `session_id: …` from the last non-empty line of Hermes stdout. */
+/** Parse `session_id: …` from any line of Hermes stdout. */
 export function parseSessionIdFromStdout(stdout: string): string | null {
-  const lines = stdout.split(/\r?\n/).map((line) => line.trim());
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
-    if (line === undefined || line === "") {
-      continue;
-    }
-    const match = SESSION_ID_LINE.exec(line);
+  const lines = stdout.split(/\r?\n/);
+  for (const line of lines) {
+    const match = SESSION_ID_LINE.exec(line.trim());
     if (match?.[1] !== undefined) {
       return match[1];
     }
-    break;
   }
   return null;
 }
