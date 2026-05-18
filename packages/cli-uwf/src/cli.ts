@@ -12,7 +12,6 @@ import {
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
-  cmdCasCat,
   cmdCasGet,
   cmdCasHas,
   cmdCasPut,
@@ -185,24 +184,13 @@ const cas = program.command("cas").description("Content-addressable storage oper
 
 cas
   .command("get")
-  .description("Read a CAS node as JSON")
+  .description("Read a CAS node (type + payload; use --timestamp to include timestamp)")
   .argument("<hash>", "CAS hash (13 char)")
-  .action((hash: string) => {
+  .option("--timestamp", "Include timestamp in output")
+  .action((hash: string, opts: { timestamp?: boolean }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeOutput(await cmdCasGet(storageRoot, hash));
-    });
-  });
-
-cas
-  .command("cat")
-  .description("Output a CAS node (--payload for payload only)")
-  .argument("<hash>", "CAS hash (13 char)")
-  .option("--payload", "Output only the payload")
-  .action((hash: string, opts: { payload?: boolean }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasCat(storageRoot, hash, opts));
+      writeOutput(await cmdCasGet(storageRoot, hash, opts));
     });
   });
 
