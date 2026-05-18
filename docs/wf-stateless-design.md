@@ -164,8 +164,12 @@ payload:
       systemPrompt: "You are a code reviewer..."
       outputSchema: "1VPBG9SM5E7WK"    # cas_ref → JSON Schema 节点
   conditions:
-    needsClarification: "$exists(steps[-1].output.needsClarification)"
-    notApproved: "steps[-1].output.approved = false"
+    needsClarification:
+      description: "Planner requests clarification from user"
+      expression: "$exists(steps[-1].output.needsClarification)"
+    notApproved:
+      description: "Reviewer rejected the implementation"
+      expression: "steps[-1].output.approved = false"
   graph:
     $START:
       - role: "planner"
@@ -398,11 +402,16 @@ type Transition = {
   condition: string | null;          // 引用 conditions 中的 key，null = fallback
 };
 
+type ConditionDefinition = {
+  description: string;
+  expression: string;                           // JSONata expression
+};
+
 type WorkflowPayload = {
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;
-  conditions: Record<string, string>;           // Record<Name, JSONata expression>
+  conditions: Record<string, ConditionDefinition>;
   graph: Record<string, Transition[]>;          // Record<Role | "$START", Transition[]>
 };
 ```
