@@ -1,0 +1,32 @@
+{
+  "name": "@uncaged/uwf-agent-hermes",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf-hermes": "./src/cli.ts"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/uwf-agent-kit": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
