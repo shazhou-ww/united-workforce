@@ -53,35 +53,6 @@ function computeNodeStates(records: readonly ThreadRecord[]): Map<string, NodeSt
   return states;
 }
 
-function isClickableGraphNode(nodeStates: Map<string, NodeState>, nodeId: string): boolean {
-  const state = nodeStates.get(nodeId);
-  return state !== undefined && state !== "default";
-}
-
-function scrollToFirstRecord(): void {
-  const firstCard = document.querySelector('[data-record-index="0"]');
-  if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-function scrollToRoleOccurrence(
-  nodeId: string,
-  indicesByRole: Map<string, number[]>,
-  clickCycleRef: { current: Map<string, number> },
-  onHighlight: (role: string) => void,
-): void {
-  const indices = indicesByRole.get(nodeId);
-  if (indices === undefined || indices.length === 0) return;
-
-  const cycle = clickCycleRef.current.get(nodeId) ?? 0;
-  const idx = indices[cycle % indices.length];
-  clickCycleRef.current.set(nodeId, cycle + 1);
-
-  const el = document.querySelector(`[data-record-index="${idx}"]`);
-  if (el === null) return;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
-  onHighlight(nodeId);
-}
-
 export function ThreadDetail() {
   const params = useParams();
   const navigate = useNavigate();
@@ -128,29 +99,40 @@ export function ThreadDetail() {
 
   const clickCycleRef = useRef<Map<string, number>>(new Map());
 
-  const highlightRole = useCallback((role: string) => {
-    if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
-    setHighlightedRole(role);
-    highlightTimerRef.current = setTimeout(() => {
-      setHighlightedRole(null);
-      highlightTimerRef.current = null;
-    }, 1500);
-  }, []);
-
   const handleGraphNodeClick = useCallback(
     (nodeId: string) => {
-      if (!isClickableGraphNode(nodeStates, nodeId)) return;
+      if (nodeStates.get(nodeId) === undefined || nodeStates.get(nodeId) === "default") return;
+
       if (nodeId === "__start__") {
-        scrollToFirstRecord();
+        const firstCard = document.querySelector('[data-record-index="0"]');
+        if (firstCard !== null) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
+
       if (nodeId === "__end__") {
         recordsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
         return;
       }
-      scrollToRoleOccurrence(nodeId, indicesByRole, clickCycleRef, highlightRole);
+
+      const indices = indicesByRole.get(nodeId);
+      if (indices === undefined || indices.length === 0) return;
+
+      const cycle = clickCycleRef.current.get(nodeId) ?? 0;
+      const idx = indices[cycle % indices.length];
+      clickCycleRef.current.set(nodeId, cycle + 1);
+
+      const el = document.querySelector(`[data-record-index="${idx}"]`);
+      if (el !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+        setHighlightedRole(nodeId);
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedRole(null);
+          highlightTimerRef.current = null;
+        }, 1500);
+      }
     },
-    [nodeStates, indicesByRole, highlightRole],
+    [nodeStates, indicesByRole],
   );
 
   useEffect(() => {
