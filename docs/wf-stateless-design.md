@@ -64,21 +64,18 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 {
   "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
-  "progress": {
-    "role": "developer",
-    "meta": { "filesChanged": ["src/auth.ts"], "summary": "Fixed redirect" },
-    "detail": "7BQST3VW9F2MA",   // agent 原始输出的 CAS hash
-    "agent": "2RJHV6PN4D8WC"    // 实际使用的 agent 配置 CAS hash
-  }
+  "head": "8FWKR3TN5V1QA"       // 新链头 StepNode 的 CAS hash
 }
 
 // thread 结束
 {
   "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
-  "progress": null
+  "head": null                    // null = moderator 返回 END，thread 已归档
 }
 ```
+
+详细信息通过 `uwf thread show <thread-id>` 或 `json-cas get <head>` 查看。
 
 **做的事：**
 1. 读链头 → 当前 StepNode（或 StartNode）
