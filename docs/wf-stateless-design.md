@@ -278,6 +278,13 @@ agentOverrides:
     developer: "uwf-cursor"
   review-code:
     reviewer: "uwf-hermes"
+models:
+  default:
+    provider: "openrouter"
+    model: "anthropic/claude-sonnet-4"
+  extract:
+    provider: "openai"
+    model: "gpt-4o-mini"
 ```
 
 ```yaml
@@ -430,6 +437,17 @@ type WorkflowConfig = {
   defaultAgent: string;
   agentOverrides: Record<string, Record<string, string>> | null;
   //                     ^ workflow name  ^ role name  ^ agent command
+  models: ModelsConfig;
+};
+
+type ModelRef = {
+  provider: string;                  // e.g. "openai", "anthropic", "openrouter"
+  model: string;                     // e.g. "gpt-4o-mini", "claude-sonnet-4"
+};
+
+type ModelsConfig = {
+  default: ModelRef;                 // 默认 LLM
+  extract: ModelRef | null;          // extract 专用，null 时用 default
 };
 
 /** ~/.uncaged/workflow/threads.yaml */
