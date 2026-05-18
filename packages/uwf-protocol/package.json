@@ -1,0 +1,26 @@
+{
+  "name": "@uncaged/uwf-protocol",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

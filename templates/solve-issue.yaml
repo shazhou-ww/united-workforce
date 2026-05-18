@@ -1,0 +1,59 @@
+name: "solve-issue"
+description: "End-to-end issue resolution"
+roles:
+  planner:
+    description: "Creates implementation plan"
+    systemPrompt: "You are a planning agent. Analyze the issue and create a step-by-step plan."
+    outputSchema:
+      type: object
+      properties:
+        plan:
+          type: string
+        steps:
+          type: array
+          items:
+            type: string
+      required: [plan, steps]
+  developer:
+    description: "Implements code changes"
+    systemPrompt: "You are a developer agent. Implement the plan."
+    outputSchema:
+      type: object
+      properties:
+        filesChanged:
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+      required: [filesChanged, summary]
+  reviewer:
+    description: "Reviews code changes"
+    systemPrompt: "You are a code reviewer. Review the implementation."
+    outputSchema:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        comments:
+          type: string
+      required: [approved, comments]
+conditions:
+  notApproved:
+    description: "Reviewer rejected the implementation"
+    expression: "steps[-1].output.approved = false"
+graph:
+  $START:
+    - role: "planner"
+      condition: null
+  planner:
+    - role: "developer"
+      condition: null
+  developer:
+    - role: "reviewer"
+      condition: null
+  reviewer:
+    - role: "developer"
+      condition: "notApproved"
+    - role: "$END"
+      condition: null
