@@ -63,11 +63,12 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 {
   "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
-  "head": "8FWKR3TN5V1QA"       // 新链头 StepNode 的 CAS hash
+  "head": "8FWKR3TN5V1QA",       // 新链头 StepNode 的 CAS hash
+  "done": false                    // true = moderator 返回 END，thread 已归档
 }
 ```
 
-若 moderator 返回 END，thread 归档（从 threads.json 移除），本次 step 不产生新 StepNode，输出中 head 为归档前的最后一个链头。
+`done: true` 时 head 仍然有值（最后一个 StepNode），但 thread 已从 threads.json 移除。
 对已结束或不存在的 thread 调用 step 会报错（非 active thread）。
 
 详细信息通过 `uwf thread show <thread-id>` 或 `json-cas get <head>` 查看。
