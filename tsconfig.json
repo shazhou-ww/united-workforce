@@ -38,6 +38,7 @@
     { "path": "packages/cli-uwf" },
     { "path": "packages/uwf-agent-kit" },
     { "path": "packages/uwf-agent-hermes" },
-    { "path": "packages/workflow-template-document" }
+    { "path": "packages/workflow-template-document" },
+    { "path": "packages/workflow-agent-office" }
   ]
 }
