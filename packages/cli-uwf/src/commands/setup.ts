@@ -275,9 +275,22 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
     if (models.length > 0) {
       console.log(`\nAvailable models (${models.length}):\n`);
       const nw = String(models.length).length;
-      for (let i = 0; i < models.length; i++) {
-        const num = String(i + 1).padStart(nw);
-        console.log(`  ${num}) ${models[i]}`);
+      // Multi-column layout
+      const maxLen = models.reduce((m, s) => Math.max(m, s.length), 0);
+      const colWidth = nw + 2 + maxLen + 4; // "  N) name    "
+      const termCols = process.stdout.columns || 100;
+      const cols = Math.max(1, Math.floor(termCols / colWidth));
+      const rows = Math.ceil(models.length / cols);
+      for (let r = 0; r < rows; r++) {
+        let line = "";
+        for (let c = 0; c < cols; c++) {
+          const idx = c * rows + r;
+          if (idx >= models.length) break;
+          const num = String(idx + 1).padStart(nw);
+          const name = (models[idx] ?? "").padEnd(maxLen);
+          line += `  ${num}) ${name}  `;
+        }
+        console.log(line.trimEnd());
       }
       console.log(`\nChoose a number, or type a model name directly.`);
       const modelInput = (await rl2.question(`Default model [1-${models.length}]: `)).trim();
@@ -298,13 +311,21 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
 
     console.log(`  → ${providerName}/${model}\n`);
 
-    return await cmdSetup({
+    await cmdSetup({
       provider: providerName,
       baseUrl,
       apiKey,
       model,
       storageRoot,
     });
+
+    console.log("Setup complete! Get started:\n");
+    console.log("  uwf workflow put <workflow.yaml>   Register a workflow");
+    console.log('  uwf thread start <name> -p "..."   Start a thread');
+    console.log("  uwf thread step <thread-id>        Execute next step");
+    console.log("");
+
+    return null;
   } finally {
     rl.close();
   }

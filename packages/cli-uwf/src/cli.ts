@@ -159,8 +159,7 @@ program
         });
         writeJson(result);
       } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
-        const result = await cmdSetupInteractive(storageRoot);
-        writeJson(result);
+        await cmdSetupInteractive(storageRoot);
       } else {
         throw new Error(
           "Non-interactive setup requires all of: --provider, --base-url, --api-key, --model",
