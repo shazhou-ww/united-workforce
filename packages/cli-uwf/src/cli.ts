@@ -2,7 +2,13 @@
 
 import { Command } from "commander";
 
-import { cmdThreadKill, cmdThreadList, cmdThreadShow, cmdThreadStart } from "./commands/thread.js";
+import {
+  cmdThreadKill,
+  cmdThreadList,
+  cmdThreadShow,
+  cmdThreadStart,
+  cmdThreadStep,
+} from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
 import { resolveStorageRoot } from "./store.js";
 
@@ -79,9 +85,13 @@ thread
   .description("Execute one step")
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
-  .action(() => {
-    process.stderr.write("uwf thread step: not implemented\n");
-    process.exit(1);
+  .action((threadId: string, opts: { agent: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const agentOverride = opts.agent ?? null;
+      const result = await cmdThreadStep(storageRoot, threadId, agentOverride);
+      writeJson(result);
+    });
   });
 
 thread

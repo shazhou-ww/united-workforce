@@ -67,19 +67,37 @@ const START_NODE: JSONSchema = {
   additionalProperties: false,
 };
 
+const STEP_NODE: JSONSchema = {
+  type: "object",
+  required: ["start", "prev", "role", "output", "detail", "agent"],
+  properties: {
+    start: { type: "string", format: "cas_ref" },
+    prev: {
+      anyOf: [{ type: "string", format: "cas_ref" }, { type: "null" }],
+    },
+    role: { type: "string" },
+    output: { type: "string", format: "cas_ref" },
+    detail: { type: "string", format: "cas_ref" },
+    agent: { type: "string" },
+  },
+  additionalProperties: false,
+};
+
 export type UwfSchemaHashes = {
   workflow: Hash;
   startNode: Hash;
+  stepNode: Hash;
 };
 
 /**
- * Register Workflow and StartNode JSON Schemas in the CAS store.
+ * Register Workflow, StartNode, and StepNode JSON Schemas in the CAS store.
  * Idempotent: safe to call on every CLI invocation.
  */
 export async function registerUwfSchemas(store: Store): Promise<UwfSchemaHashes> {
-  const [workflow, startNode] = await Promise.all([
+  const [workflow, startNode, stepNode] = await Promise.all([
     putSchema(store, WORKFLOW),
     putSchema(store, START_NODE),
+    putSchema(store, STEP_NODE),
   ]);
-  return { workflow, startNode };
+  return { workflow, startNode, stepNode };
 }

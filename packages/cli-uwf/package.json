@@ -13,9 +13,12 @@
   "dependencies": {
     "@uncaged/json-cas": "workspace:^",
     "@uncaged/json-cas-fs": "workspace:^",
+    "@uncaged/uwf-agent-kit": "workspace:^",
+    "@uncaged/uwf-moderator": "workspace:^",
     "@uncaged/uwf-protocol": "workspace:^",
     "@uncaged/workflow-util": "workspace:^",
     "commander": "^14.0.3",
+    "dotenv": "^16.6.1",
     "yaml": "^2.8.4"
   },
   "scripts": {
