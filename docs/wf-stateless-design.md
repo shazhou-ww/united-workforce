@@ -138,30 +138,9 @@ uwf-hermes <thread-id> <role>
 沿用 json-cas 的三层：bootstrap meta-schema → JSON Schema nodes → data nodes。
 
 下面所有 CAS 节点都遵循 `{ type: cas_ref, payload: T, timestamp: number }` 的标准格式。
+`cas_ref` 类型的字符串字段在 json-cas 中已内置支持，不需要额外的 `$ref` 包装。
 
-### 2.2 Schema 节点
-
-以下每个 schema 本身是一个 CAS 节点（type 指向 meta-schema）。
-
-#### `RoleSchema`
-
-```yaml
-# 定义一个 role 的 meta 输出格式
-# 例：developer role 的输出 schema
-type: <meta-schema-hash>
-payload:
-  $id: "role-output-developer"
-  type: object
-  properties:
-    filesChanged:
-      type: array
-      items: { type: string }
-    summary:
-      type: string
-  required: [filesChanged, summary]
-```
-
-### 2.3 数据节点
+### 2.2 数据节点
 
 #### `Role`
 
@@ -171,52 +150,61 @@ payload:
   name: "developer"
   description: "Implements code changes"
   systemPrompt: "You are a developer agent..."
-  extractPrompt: "Extract the following from the agent output..."
-  outputSchema:
-    $ref: "5GWKR8TN1V3JA"    # cas_ref → RoleSchema 节点
+  outputSchema: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema 节点（json-cas 内置）
 ```
+
+- `outputSchema` 直接引用 json-cas 的 JSON Schema 节点，不单独定义 RoleSchema
+- 不需要 `extractPrompt`，extraction 逻辑由 agent-kit 统一处理
 
 #### `Moderator`
 
 ```yaml
 type: <moderator-schema-hash>
 payload:
+  conditions:
+    needsClarification: "$exists(output.needsClarification)"
+    notApproved: "output.approved = false"
   graph:
-    - from: "$START"
-      transitions:
-        - to: "planner"
-          condition: null           # 无条件（default/fallback）
-    - from: "planner"
-      transitions:
-        - to: "developer"
-          condition: "$not($exists(meta.needsClarification))"   # JSONata
-        - to: "$END"
-          condition: null           # fallback
-    - from: "developer"
-      transitions:
-        - to: "reviewer"
-          condition: null
-    - from: "reviewer"
-      transitions:
-        - to: "developer"
-          condition: "meta.approved = false"    # JSONata
-        - to: "$END"
-          condition: null
+    $START:
+      - role: "planner"
+        condition: null                # 无条件（fallback）
+    planner:
+      - role: "developer"
+        condition: "needsClarification"  # 引用 conditions 中的名字
+      - role: "$END"
+        condition: null
+    developer:
+      - role: "reviewer"
+        condition: null
+    reviewer:
+      - role: "developer"
+        condition: "notApproved"
+      - role: "$END"
+        condition: null
 ```
+
+- `conditions` — `Record<Name, JSONata>`，命名条件，方便画图描述
+- `graph` — `Record<Role | "$START", Transition[]>`，每个 Transition = `{ role, condition }`
+- `condition` 引用 conditions 中的 key，`null` = fallback
+- 按数组顺序求值，第一个匹配的 transition 胜出
 
 JSONata 表达式的求值上下文：
 
 ```jsonc
 {
-  "role": "reviewer",            // 刚完成的 role
-  "meta": { "approved": false }, // 刚完成的 role 的 meta
-  "depth": 3,                    // 当前第几步
-  "history": [                   // 所有历史 steps 的摘要
-    { "role": "planner", "meta": { ... } },
-    { "role": "developer", "meta": { ... } }
+  "start": {                          // StartNode 信息
+    "workflow": "4KNM2PXR3B1QW",
+    "prompt": "Fix the login bug..."
+  },
+  "steps": [                          // 所有已完成 steps，从旧到新
+    { "role": "planner", "output": { ... }, "detail": "...", "agent": "..." },
+    { "role": "developer", "output": { ... }, "detail": "...", "agent": "..." },
+    { "role": "reviewer", "output": { "approved": false }, "detail": "...", "agent": "..." }
   ]
 }
 ```
+
+当前 step（最后一个）的 output 可直接用 `output` 简写访问（语法糖）。
 
 #### `Workflow`
 
@@ -226,104 +214,94 @@ payload:
   name: "solve-issue"
   description: "End-to-end issue resolution"
   roles:
-    planner:
-      $ref: "3FXJM7QS2A9PB"     # cas_ref → Role
-    developer:
-      $ref: "8CNWT4KR6D1HV"     # cas_ref → Role
-    reviewer:
-      $ref: "1VPBG9SM5E7WK"     # cas_ref → Role
-  moderator:
-    $ref: "6HJQX2FN8C4RA"        # cas_ref → Moderator
-  defaultAgent: "uwf-hermes"       # 默认 agent 命令前缀
-  agentOverrides:                   # per-role override
-    developer: "uwf-cursor"
+    planner: "3FXJM7QS2A9PB"       # cas_ref → Role
+    developer: "8CNWT4KR6D1HV"     # cas_ref → Role
+    reviewer: "1VPBG9SM5E7WK"      # cas_ref → Role
+  moderator: "6HJQX2FN8C4RA"       # cas_ref → Moderator
 ```
 
-#### `AgentConfig`
-
-```yaml
-type: <agent-config-schema-hash>
-payload:
-  command: "uwf-hermes"
-  # 不存 env（从运行环境继承）
-  # 不存 thread-id（运行时变量）
-  # → 相同 command 的 steps 自然共享同一个 CAS hash
-```
-
-为什么只存 command？因为 env 从运行环境继承，不进 CAS。这样同一个 agent 命令在不同 step 间去重为同一个 hash。如果需要记录实际运行时的 env snapshot 用于审计，可以单独存一个 `AgentExecContext` 节点，但不作为默认行为。
+- 不含 agent binding — agent 配置在 `~/.uncaged/workflow/config.yaml` 中管理
+- roles 和 moderator 都是直接的 cas_ref 字符串
 
 #### `StartNode`（Thread 起点）
 
 ```yaml
 type: <start-node-schema-hash>
 payload:
-  workflow:
-    $ref: "4KNM2PXR3B1QW"         # cas_ref → Workflow
+  workflow: "4KNM2PXR3B1QW"        # cas_ref → Workflow
   prompt: "Fix the login bug..."
-  agentBinding:                     # 启动时确定的 agent 分配
-    planner:
-      $ref: "9DSVW3KM7B2PA"        # cas_ref → AgentConfig
-    developer:
-      $ref: "5RTJN8FQ1H6WC"        # cas_ref → AgentConfig
-    reviewer:
-      $ref: "9DSVW3KM7B2PA"        # cas_ref → AgentConfig
 ```
 
-没有 thread-id 在 payload 里 — thread-id 是索引层面的事，不进 CAS 内容。
+- 没有 thread-id — thread-id 是索引层面的事，不进 CAS 内容
+- 没有 agent binding — 运行时从 config.yaml 解析
 
 #### `StepNode`（Thread 每一步）
 
 ```yaml
 type: <step-node-schema-hash>
 payload:
+  start: "4TNVW8KR2B3MA"          # cas_ref → StartNode（每个 step 都引用）
+  prev: "2MXBG6PN4A8JR"           # cas_ref → 前一个 StepNode，第一步为 null
   role: "developer"
-  meta:
+  output:                           # 结构化输出，符合 role 的 outputSchema
     filesChanged: ["src/auth.ts"]
     summary: "Fixed redirect loop"
-  content:
-    $ref: "7BQST3VW9F2MA"         # cas_ref → 原始 agent 输出（content node）
-  agent:
-    $ref: "5RTJN8FQ1H6WC"         # cas_ref → 实际使用的 AgentConfig
-  prev:
-    $ref: "2MXBG6PN4A8JR"         # cas_ref → 前一个 StepNode 或 StartNode
+  detail: "7BQST3VW9F2MA"         # cas_ref → 原始 agent 输出（content node）
+  agent: "uwf-cursor"              # 实际使用的 agent 命令（纯字符串）
 ```
 
-### 2.4 链式结构
+- `start` — 每个 StepNode 都直接引用 StartNode，方便随机访问
+- `prev` — 前一个 StepNode 的 cas_ref，第一步为 `null`（不指向 StartNode）
+- `output` — 对应 role 的 `outputSchema`，内联存储
+- `detail` — 原始 agent 输出的 cas_ref
+- `agent` — 纯字符串，不是 CAS 节点
+
+### 2.3 链式结构
 
 ```
-threads.json: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
+threads.yaml: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
                                       │
                                       ▼
                               StepNode (step 3)
+                              ├── start ──→ StartNode
+                              │              ├── workflow → CAS(Workflow)
+                              │              └── prompt: "Fix..."
+                              ├── prev ──→ StepNode (step 2)
+                              │             ├── start ──→ (same StartNode)
+                              │             ├── prev ──→ StepNode (step 1)
+                              │             │             ├── start ──→ (same StartNode)
+                              │             │             ├── prev: null
+                              │             │             ├── role: "planner"
+                              │             │             └── ...
+                              │             ├── role: "developer"
+                              │             └── ...
                               ├── role: "reviewer"
-                              ├── meta: { approved: true }
-                              ├── content → CAS(raw output)
-                              ├── agent → CAS(AgentConfig)
-                              └── prev ──→ StepNode (step 2)
-                                           ├── role: "developer"
-                                           ├── ...
-                                           └── prev ──→ StepNode (step 1)
-                                                        ├── role: "planner"
-                                                        ├── ...
-                                                        └── prev ──→ StartNode
-                                                                     ├── workflow → CAS(Workflow)
-                                                                     ├── prompt: "Fix..."
-                                                                     └── agentBinding: {...}
+                              ├── output: { approved: true }
+                              ├── detail → CAS(raw output)
+                              └── agent: "uwf-hermes"
 ```
 
-### 2.5 可变状态
+### 2.4 可变状态
 
-整个系统唯一的可变文件：
+系统两个顶层 YAML 文件：
 
-```jsonc
-// ~/.uncaged/workflow/threads.json
-{
-  "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA",    // active thread → 链头
-  "01J8AB3QRMSTV6WKXZ2C4DF7GN": "3CNWT9KR6D2HV"
-}
+```yaml
+# ~/.uncaged/workflow/config.yaml — 全局配置
+defaultAgent: "uwf-hermes"
+agentOverrides:
+  solve-issue:                      # per-workflow
+    developer: "uwf-cursor"
+  review-code:
+    reviewer: "uwf-hermes"
 ```
 
-Thread 结束时从这个文件移除。可选：追加一行到 `history.jsonl` 做归档。
+```yaml
+# ~/.uncaged/workflow/threads.yaml — active thread 链头指针
+01J7K9M2XNPQR5VWBCDF8G3H4T: "8FWKR3TN5V1QA"
+01J8AB3QRMSTV6WKXZ2C4DF7GN: "3CNWT9KR6D2HV"
+```
+
+Thread 结束时从 threads.yaml 移除。可选：追加到 `history.jsonl` 做归档。
 
 ---
 
