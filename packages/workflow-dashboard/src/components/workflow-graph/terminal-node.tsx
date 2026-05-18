@@ -1,21 +1,22 @@
 import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { Play, Square } from "lucide-react";
 import type { TerminalNodeData } from "./types.ts";
 
 function borderColor(state: TerminalNodeData["state"]): string {
   switch (state) {
     case "completed":
-      return "var(--color-success)";
+      return "hsl(var(--success))";
     case "active":
-      return "var(--color-accent)";
+      return "hsl(var(--ring))";
     default:
-      return "var(--color-border)";
+      return "hsl(var(--border))";
   }
 }
 
 function bgColor(state: TerminalNodeData["state"]): string {
-  if (state === "completed") return "var(--color-success)";
-  if (state === "active") return "var(--color-accent)";
-  return "var(--color-surface)";
+  if (state === "completed") return "hsl(var(--success))";
+  if (state === "active") return "hsl(var(--ring))";
+  return "hsl(var(--card))";
 }
 
 export function TerminalNode(props: NodeProps) {
@@ -23,7 +24,7 @@ export function TerminalNode(props: NodeProps) {
   const isStart = data.kind === "start";
   const isActive = data.state === "active";
   const handleStyle = {
-    background: "var(--color-text-muted)",
+    background: "hsl(var(--muted-foreground))",
     width: 6,
     height: 6,
     border: "none",
@@ -31,13 +32,16 @@ export function TerminalNode(props: NodeProps) {
 
   return (
     <div
-      className={`rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${isActive ? "wf-node-pulse" : ""} ${data.state !== "default" ? "cursor-pointer" : ""}`}
+      className={`rounded-full border-2 flex items-center justify-center ${isActive ? "wf-node-pulse" : ""} ${data.state !== "default" ? "cursor-pointer" : ""}`}
       style={{
         width: 40,
         height: 40,
         background: bgColor(data.state),
         borderColor: borderColor(data.state),
-        color: data.state === "default" ? "var(--color-text-muted)" : "var(--color-bg)",
+        color:
+          data.state === "default"
+            ? "hsl(var(--muted-foreground))"
+            : "hsl(var(--primary-foreground))",
       }}
       title={isStart ? "Start" : "End"}
     >
@@ -74,7 +78,7 @@ export function TerminalNode(props: NodeProps) {
           />
         </>
       )}
-      {isStart ? "▶" : "■"}
+      {isStart ? <Play className="h-3 w-3" /> : <Square className="h-3 w-3" />}
     </div>
   );
 }

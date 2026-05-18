@@ -91,7 +91,7 @@ export function ConditionEdge(props: EdgeProps) {
     defaultLabelY = result[2];
   }
 
-  const stroke = "var(--color-accent)";
+  const stroke = "hsl(var(--ring))";
   const label = isFallback ? "" : (edgeData?.condition ?? "");
 
   // Use pre-computed label position if available, otherwise fall back to default
@@ -107,9 +107,9 @@ export function ConditionEdge(props: EdgeProps) {
             className="absolute px-1.5 py-0.5 rounded text-[10px] font-mono pointer-events-auto"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              color: "var(--color-text)",
+              background: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              color: "hsl(var(--foreground))",
               whiteSpace: "nowrap",
               zIndex: 10,
             }}

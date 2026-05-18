@@ -52,19 +52,23 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
 
   if (html !== null) {
     return (
-      <div
-        className="rounded overflow-x-auto text-xs my-2"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is safe
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="relative rounded-lg border border-border overflow-hidden my-3">
+        {lang !== "text" && (
+          <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">
+            {lang}
+          </span>
+        )}
+        <div
+          className="overflow-x-auto text-xs"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is safe
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     );
   }
 
   return (
-    <pre
-      className="rounded overflow-x-auto text-xs my-2 p-3"
-      style={{ background: "var(--color-bg)" }}
-    >
+    <pre className="rounded-lg overflow-x-auto text-xs my-3 p-3 bg-muted/50 border border-border">
       <code>{code}</code>
     </pre>
   );
@@ -80,8 +84,7 @@ export function Markdown({ content }: { content: string }) {
             if (isInline) {
               return (
                 <code
-                  className="text-xs px-1 py-0.5 rounded"
-                  style={{ background: "var(--color-border)", color: "var(--color-accent)" }}
+                  className="bg-muted rounded px-1.5 py-0.5 text-[13px] font-mono text-foreground"
                   {...props}
                 >
                   {children}
@@ -91,7 +94,7 @@ export function Markdown({ content }: { content: string }) {
             return <CodeBlock className={className}>{children}</CodeBlock>;
           },
           p({ children }) {
-            return <p className="my-1.5 leading-relaxed">{children}</p>;
+            return <p className="my-2 leading-relaxed">{children}</p>;
           },
           ul({ children }) {
             return <ul className="list-disc pl-4 my-1.5">{children}</ul>;
@@ -100,20 +103,25 @@ export function Markdown({ content }: { content: string }) {
             return <ol className="list-decimal pl-4 my-1.5">{children}</ol>;
           },
           h1({ children }) {
-            return <h1 className="text-lg font-bold mt-3 mb-1">{children}</h1>;
+            return (
+              <h1 className="text-lg font-bold mt-3 mb-2 border-b border-border pb-1">
+                {children}
+              </h1>
+            );
           },
           h2({ children }) {
-            return <h2 className="text-base font-bold mt-2 mb-1">{children}</h2>;
+            return (
+              <h2 className="text-base font-bold mt-2 mb-2 border-b border-border pb-1">
+                {children}
+              </h2>
+            );
           },
           h3({ children }) {
             return <h3 className="text-sm font-bold mt-2 mb-1">{children}</h3>;
           },
           blockquote({ children }) {
             return (
-              <blockquote
-                className="border-l-2 pl-3 my-2 text-sm"
-                style={{ borderColor: "var(--color-accent)", color: "var(--color-text-muted)" }}
-              >
+              <blockquote className="border-l-2 border-ring pl-3 my-2 text-sm text-muted-foreground bg-muted/30 rounded-r-md py-2">
                 {children}
               </blockquote>
             );

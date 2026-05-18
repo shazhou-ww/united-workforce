@@ -1,5 +1,7 @@
+import { Loader2, Play, Wifi, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getClientHealth } from "../api.ts";
+import { Button } from "./ui/button.tsx";
 
 type HealthStatus = "connected" | "disconnected" | "reconnecting";
 
@@ -8,14 +10,29 @@ type Props = {
   onRun: () => void;
 };
 
-function statusLabel(status: HealthStatus): { text: string; color: string } {
+function StatusIndicator({ status }: { status: HealthStatus }) {
   if (status === "connected") {
-    return { text: "● Connected", color: "var(--color-success)" };
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-success transition-colors duration-200">
+        <Wifi className="h-3.5 w-3.5" />
+        Connected
+      </span>
+    );
   }
   if (status === "reconnecting") {
-    return { text: "● Reconnecting...", color: "var(--color-warning, #f59e0b)" };
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-warning transition-colors duration-200">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Reconnecting…
+      </span>
+    );
   }
-  return { text: "● Offline", color: "var(--color-error)" };
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-destructive transition-colors duration-200">
+      <WifiOff className="h-3.5 w-3.5" />
+      Offline
+    </span>
+  );
 }
 
 export function StatusBar({ client, onRun }: Props) {
@@ -48,32 +65,24 @@ export function StatusBar({ client, onRun }: Props) {
     return () => clearInterval(interval);
   }, [checkHealth]);
 
-  const label = statusLabel(status);
-
   return (
-    <div
-      className="flex items-center justify-between px-6 py-2 text-xs border-b"
-      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
-    >
+    <div className="flex items-center justify-between px-6 py-2 text-xs border-b border-border bg-card/80 backdrop-blur-sm">
       <div className="flex items-center gap-4">
-        <span style={{ color: "var(--color-text-muted)" }}>
+        <span className="text-muted-foreground">
           {client ? `Client: ${client}` : "No client selected"}
         </span>
-        <button
-          type="button"
-          onClick={onRun}
+        <Button
+          variant="default"
+          size="sm"
           disabled={!client}
-          className="px-3 py-1 rounded text-xs font-medium"
-          style={{
-            background: client ? "var(--color-accent)" : "var(--color-border)",
-            color: "#fff",
-            opacity: client ? 1 : 0.5,
-          }}
+          onClick={onRun}
+          className="h-7 gap-1.5 transition-all duration-200"
         >
-          ▶ Run Thread
-        </button>
+          <Play className="h-3.5 w-3.5" />
+          Run Thread
+        </Button>
       </div>
-      <span style={{ color: label.color }}>{label.text}</span>
+      <StatusIndicator status={status} />
     </div>
   );
 }
