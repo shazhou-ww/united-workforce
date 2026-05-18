@@ -38,7 +38,7 @@ uwf thread start <workflow> -p "Fix the login bug described in issue #42"
 ```jsonc
 {
   "workflow": "4KNM2PXR3B1QW",   // workflow CAS hash (XXH64, 13-char Crockford Base32)
-  "thread": "01J7K9M2XN..."      // ULID
+  "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T"      // ULID
 }
 ```
 
@@ -53,8 +53,8 @@ uwf thread start <workflow> -p "Fix the login bug described in issue #42"
 ### 1.3 `uwf thread step`
 
 ```bash
-uwf thread step 01J7K9M2XN...
-uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
+uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T
+uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 ```
 
 **输出（JSON to stdout）：**
@@ -63,7 +63,7 @@ uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
 // 正常 step
 {
   "workflow": "4KNM2PXR3B1QW",
-  "thread": "01J7K9M2XN...",
+  "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
   "progress": {
     "role": "developer",
     "meta": { "filesChanged": ["src/auth.ts"], "summary": "Fixed redirect" },
@@ -75,7 +75,7 @@ uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
 // thread 结束
 {
   "workflow": "4KNM2PXR3B1QW",
-  "thread": "01J7K9M2XN...",
+  "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
   "progress": null
 }
 ```
@@ -96,8 +96,8 @@ uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
 ### 1.4 `uwf thread show`
 
 ```bash
-uwf thread show 01J7K9M2XN...          # 当前状态（最新 StepNode）
-uwf thread show 01J7K9M2XN... --full   # 遍历链，打印完整 step 历史
+uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T          # 当前状态（最新 StepNode）
+uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T --full   # 遍历链，打印完整 step 历史
 ```
 
 纯读操作，不改状态。CAS 节点查看用 `json-cas get <hash>`。
@@ -295,7 +295,7 @@ payload:
 ### 2.4 链式结构
 
 ```
-threads.json: { "01J7K9M2XN...": "8FWKR3TN5V1QA" }
+threads.json: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
                                       │
                                       ▼
                               StepNode (step 3)
@@ -322,8 +322,8 @@ threads.json: { "01J7K9M2XN...": "8FWKR3TN5V1QA" }
 ```jsonc
 // ~/.uncaged/workflow/threads.json
 {
-  "01J7K9M2XN...": "8FWKR3TN5V1QA",    // active thread → 链头
-  "01J8AB3QRM...": "3CNWT9KR6D2HV"
+  "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA",    // active thread → 链头
+  "01J8AB3QRMSTV6WKXZ2C4DF7GN": "3CNWT9KR6D2HV"
 }
 ```
 
