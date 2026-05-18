@@ -60,20 +60,15 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 **输出（JSON to stdout）：**
 
 ```jsonc
-// 正常 step
 {
   "workflow": "4KNM2PXR3B1QW",
   "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
   "head": "8FWKR3TN5V1QA"       // 新链头 StepNode 的 CAS hash
 }
-
-// thread 结束
-{
-  "workflow": "4KNM2PXR3B1QW",
-  "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
-  "head": null                    // null = moderator 返回 END，thread 已归档
-}
 ```
+
+若 moderator 返回 END，thread 归档（从 threads.json 移除），本次 step 不产生新 StepNode，输出中 head 为归档前的最后一个链头。
+对已结束或不存在的 thread 调用 step 会报错（非 active thread）。
 
 详细信息通过 `uwf thread show <thread-id>` 或 `json-cas get <head>` 查看。
 
@@ -81,7 +76,7 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 1. 读链头 → 当前 StepNode（或 StartNode）
 2. 收集 thread 历史（遍历链）
 3. 调 moderator：评估 JSONata conditions → 得到下一个 role（或 END）
-4. 若 END → 归档 thread，输出 `progress: null`
+4. 若 END → 归档 thread，输出最后链头，退出
 5. 确定 agent command（`--agent` override > thread binding > global default）
 6. 构建 prompt（role.systemPrompt + thread context + user prompt）
 7. 调用：`<agent-cmd> <thread-id>`，捕获 stdout
