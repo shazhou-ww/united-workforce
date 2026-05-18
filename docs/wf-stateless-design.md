@@ -9,23 +9,23 @@
 ### 1.1 命令总览
 
 ```
-wf start <workflow> -p <prompt>           # 创建 thread，不执行
-wf step  <thread-id> [--agent <cmd>]      # 单步执行
-wf show  <thread-id>                      # 查看 thread 当前状态
-wf log   <thread-id>                      # 查看完整 step 历史
-wf cas   <hash>                           # 读 CAS 节点
+# thread 组
+uwf start <workflow> -p <prompt>           # 创建 thread，不执行
+uwf step  <thread-id> [--agent <cmd>]      # 单步执行
+uwf show  <thread-id> [--full]             # 查看状态（--full 展开完整历史）
 
-wf workflow put   <file.yaml>             # 注册 workflow（YAML → CAS）
-wf workflow show  <workflow-id>            # 查看 workflow 定义
-wf workflow list                          # 列出已注册 workflows
+# workflow 组
+uwf workflow put   <file.yaml>             # 注册 workflow（YAML → CAS）
+uwf workflow show  <workflow-id>            # 查看 workflow 定义
+uwf workflow list                          # 列出已注册 workflows
 ```
 
-7 个命令，没有 run/pause/resume/kill/fork/connect。
+6 个命令。CAS 操作交给 `json-cas` CLI，不在 `uwf` 中重复。
 
-### 1.2 `wf start`
+### 1.2 `uwf start`
 
 ```bash
-wf start <workflow> -p "Fix the login bug described in issue #42"
+uwf start <workflow> -p "Fix the login bug described in issue #42"
 ```
 
 - `<workflow>` — workflow 名或 CAS hash
@@ -49,11 +49,11 @@ wf start <workflow> -p "Fix the login bug described in issue #42"
 5. 在 threads 索引中记录链头 → StartNode hash
 6. 输出 JSON
 
-### 1.3 `wf step`
+### 1.3 `uwf step`
 
 ```bash
-wf step 01J7K9M2XN...
-wf step 01J7K9M2XN... --agent "bunx uwf-cursor"
+uwf step 01J7K9M2XN...
+uwf step 01J7K9M2XN... --agent "bunx uwf-cursor"
 ```
 
 **输出（JSON to stdout）：**
@@ -92,29 +92,27 @@ wf step 01J7K9M2XN... --agent "bunx uwf-cursor"
 10. 更新链头指针
 11. 输出 JSON
 
-### 1.4 `wf show` / `wf log` / `wf cas`
+### 1.4 `uwf show`
 
 ```bash
-wf show 01J7K9M2XN...     # 当前链头的 StepNode，人类可读
-wf log  01J7K9M2XN...     # 遍历链，打印每一步的 role + meta 摘要
-wf cas  0QWERTY12345A     # 原始 CAS 节点内容（YAML/JSON）
+uwf show 01J7K9M2XN...          # 当前状态（最新 StepNode）
+uwf show 01J7K9M2XN... --full   # 遍历链，打印完整 step 历史
 ```
 
-这三个是纯读操作，不改状态。
+纯读操作，不改状态。CAS 节点查看用 `json-cas get <hash>`。
 
 ### 1.5 Agent CLI 协议
 
-每个 agent 是一个命令前缀：
+每个 agent 是一个命令，只接受一个参数 — thread-id：
 
 ```bash
-uwf-hermes -t <thread-id> -p <prompt>
-# 或
-bunx uwf-hermes -t <thread-id> -p <prompt>
+uwf-hermes <thread-id>
 ```
 
 **约定：**
-- `-t <thread-id>` — agent 可以用它读 CAS 获取 thread 上下文
-- `-p <prompt>` — 本次 step 的完整 prompt（wf 已经组装好）
+- agent-kit 从 CAS 读 thread 链 → 确定当前 role → 拿到 systemPrompt / extractPrompt / schema
+- agent-kit 组装完整 prompt（role systemPrompt + thread context + user prompt from StartNode）
+- agent 执行实际逻辑，agent-kit 负责 extract
 - stdout → progress 中 `meta` + raw output
 - 所有配置从环境变量读（LLM model、API key、extractor config）
 - exit 0 = 成功，非 0 = 失败
