@@ -268,7 +268,7 @@ threads.yaml: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
 
 ### 2.4 可变状态
 
-系统两个顶层 YAML 文件：
+系统两个顶层 YAML 文件和一个 env 文件：
 
 ```yaml
 # ~/.uncaged/workflow/config.yaml — 全局配置
@@ -294,6 +294,17 @@ models:
 ```
 
 Thread 结束时从 threads.yaml 移除。可选：追加到 `history.jsonl` 做归档。
+
+```bash
+# ~/.uncaged/workflow/.env — 敏感信息（API keys）
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+OPENROUTER_API_KEY=sk-or-...
+```
+
+- `config.yaml` — 非敏感配置（agent 命令、model 名、provider 名）
+- `.env` — 敏感信息（API keys），agent-kit 启动时自动加载
+- `threads.yaml` — 运行时状态
 
 ---
 
