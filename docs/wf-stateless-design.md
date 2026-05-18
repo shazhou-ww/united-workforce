@@ -272,19 +272,41 @@ threads.yaml: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
 
 ```yaml
 # ~/.uncaged/workflow/config.yaml — 全局配置
-defaultAgent: "uwf-hermes"
-agentOverrides:
-  solve-issue:                      # per-workflow
-    developer: "uwf-cursor"
-  review-code:
-    reviewer: "uwf-hermes"
+providers:
+  openai:
+    baseUrl: "https://api.openai.com/v1"
+    apiKeyEnv: "OPENAI_API_KEY"
+  anthropic:
+    baseUrl: "https://api.anthropic.com/v1"
+    apiKeyEnv: "ANTHROPIC_API_KEY"
+  openrouter:
+    baseUrl: "https://openrouter.ai/api/v1"
+    apiKeyEnv: "OPENROUTER_API_KEY"
+
 models:
-  default:
+  sonnet:
     provider: "openrouter"
-    model: "anthropic/claude-sonnet-4"
-  extract:
+    name: "anthropic/claude-sonnet-4"
+  gpt4o-mini:
     provider: "openai"
-    model: "gpt-4o-mini"
+    name: "gpt-4o-mini"
+
+agents:
+  hermes:
+    command: "uwf-hermes"
+    args: []
+  cursor:
+    command: "uwf-cursor"
+    args: []
+
+defaultAgent: "hermes"
+agentOverrides:
+  solve-issue:
+    developer: "cursor"
+
+defaultModel: "sonnet"
+modelOverrides:
+  extract: "gpt4o-mini"
 ```
 
 ```yaml
@@ -443,22 +465,38 @@ type ThreadListItem = {
 ### 4.6 配置
 
 ```typescript
+/** Alias types for config references */
+type AgentAlias = string;
+type ModelAlias = string;
+type ProviderAlias = string;
+type WorkflowName = string;
+type RoleName = string;
+type Scenario = string;              // e.g. "extract"
+
+type ProviderConfig = {
+  baseUrl: string;
+  apiKeyEnv: string;                 // env var name to read API key from
+};
+
+type ModelConfig = {
+  provider: ProviderAlias;
+  name: string;                      // e.g. "anthropic/claude-sonnet-4", "gpt-4o-mini"
+};
+
+type AgentConfig = {
+  command: string;
+  args: string[];
+};
+
 /** ~/.uncaged/workflow/config.yaml */
 type WorkflowConfig = {
-  defaultAgent: string;
-  agentOverrides: Record<string, Record<string, string>> | null;
-  //                     ^ workflow name  ^ role name  ^ agent command
-  models: ModelsConfig;
-};
-
-type ModelRef = {
-  provider: string;                  // e.g. "openai", "anthropic", "openrouter"
-  model: string;                     // e.g. "gpt-4o-mini", "claude-sonnet-4"
-};
-
-type ModelsConfig = {
-  default: ModelRef;                 // 默认 LLM
-  extract: ModelRef | null;          // extract 专用，null 时用 default
+  providers: Record<ProviderAlias, ProviderConfig>;
+  models: Record<ModelAlias, ModelConfig>;
+  agents: Record<AgentAlias, AgentConfig>;
+  defaultAgent: AgentAlias;
+  agentOverrides: Record<WorkflowName, Record<RoleName, AgentAlias>> | null;
+  defaultModel: ModelAlias;
+  modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 
 /** ~/.uncaged/workflow/threads.yaml */
