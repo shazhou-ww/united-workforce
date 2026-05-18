@@ -87,7 +87,7 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 4. 若 END → 归档 thread，输出 `progress: null`
 5. 确定 agent command（`--agent` override > thread binding > global default）
 6. 构建 prompt（role.systemPrompt + thread context + user prompt）
-7. 调用：`<agent-cmd> -t <thread-id> -p <prompt>`，捕获 stdout
+7. 调用：`<agent-cmd> <thread-id>`，捕获 stdout
 8. 解析 agent 输出为 progress JSON
 9. 写 StepNode 到 CAS（prev → 旧链头）
 10. 更新链头指针
