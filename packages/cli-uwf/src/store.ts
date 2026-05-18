@@ -100,11 +100,8 @@ export async function saveWorkflowRegistry(
   await writeFile(path, text, "utf8");
 }
 
-export function resolveWorkflowHash(registry: WorkflowRegistry, id: string): CasRef | null {
-  if (registry[id] !== undefined) {
-    return registry[id];
-  }
-  return id;
+export function resolveWorkflowHash(registry: WorkflowRegistry, id: string): CasRef {
+  return registry[id] !== undefined ? registry[id] : id;
 }
 
 export function findRegistryName(registry: WorkflowRegistry, hash: Hash): string | null {

@@ -21,9 +21,9 @@ function isTruthy(value: unknown): boolean {
   return true;
 }
 
-function evaluateJsonata(expression: string, context: ModeratorContext): Result<unknown, Error> {
+async function evaluateJsonata(expression: string, context: ModeratorContext): Promise<Result<unknown, Error>> {
   try {
-    const result = jsonata(expression).evaluate(context);
+    const result = await jsonata(expression).evaluate(context);
     return { ok: true, value: result };
   } catch (error) {
     return {
@@ -40,10 +40,10 @@ function currentRole(context: ModeratorContext): string {
   return context.steps[context.steps.length - 1].role;
 }
 
-export function evaluate(
+export async function evaluate(
   workflow: WorkflowPayload,
   context: ModeratorContext,
-): Result<string, Error> {
+): Promise<Result<string, Error>> {
   const role = currentRole(context);
   const transitions = workflow.graph[role];
   if (transitions === undefined) {
@@ -66,7 +66,7 @@ export function evaluate(
       };
     }
 
-    const evalResult = evaluateJsonata(conditionDef.expression, context);
+    const evalResult = await evaluateJsonata(conditionDef.expression, context);
     if (!evalResult.ok) {
       return evalResult;
     }

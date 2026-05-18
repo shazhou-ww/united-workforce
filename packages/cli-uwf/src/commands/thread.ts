@@ -61,9 +61,6 @@ async function resolveWorkflowCasRef(
 ): Promise<CasRef> {
   const registry = await loadWorkflowRegistry(storageRoot);
   const hash = resolveWorkflowHash(registry, workflowId);
-  if (hash === null) {
-    fail(`workflow not found: ${workflowId}`);
-  }
   if (!isCasRef(hash)) {
     fail(`workflow not found: ${workflowId}`);
   }
@@ -386,7 +383,7 @@ export async function cmdThreadStep(
   const workflow = loadWorkflowPayload(uwf, workflowHash);
   const context = buildModeratorContext(uwf, chain);
 
-  const nextResult = evaluate(workflow, context);
+  const nextResult = await evaluate(workflow, context);
   if (!nextResult.ok) {
     fail(nextResult.error.message);
   }
@@ -415,12 +412,14 @@ export async function cmdThreadStep(
     fail(`agent returned hash that is not a StepNode: ${newHead}`);
   }
 
-  index[threadId] = newHead;
-  await saveThreadsIndex(storageRoot, index);
+  // Reload threads index to avoid overwriting changes made by the agent subprocess
+  const freshIndex = await loadThreadsIndex(storageRoot);
+  freshIndex[threadId] = newHead;
+  await saveThreadsIndex(storageRoot, freshIndex);
 
   const chainAfter = walkChain(uwfAfter, newHead);
   const contextAfter = buildModeratorContext(uwfAfter, chainAfter);
-  const afterResult = evaluate(workflow, contextAfter);
+  const afterResult = await evaluate(workflow, contextAfter);
   if (!afterResult.ok) {
     fail(afterResult.error.message);
   }

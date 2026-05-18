@@ -58,12 +58,12 @@ function makeContext(steps: ModeratorContext["steps"]): ModeratorContext {
 }
 
 describe("evaluate", () => {
-  test("$START → first role (fallback)", () => {
-    const result = evaluate(solveIssueWorkflow, makeContext([]));
+  test("$START → first role (fallback)", async () => {
+    const result = await evaluate(solveIssueWorkflow, makeContext([]));
     expect(result).toEqual({ ok: true, value: "planner" });
   });
 
-  test("condition match (notApproved → developer)", () => {
+  test("condition match (notApproved → developer)", async () => {
     const context = makeContext([
       {
         role: "reviewer",
@@ -72,11 +72,11 @@ describe("evaluate", () => {
         agent: "uwf-hermes",
       },
     ]);
-    const result = evaluate(solveIssueWorkflow, context);
+    const result = await evaluate(solveIssueWorkflow, context);
     expect(result).toEqual({ ok: true, value: "developer" });
   });
 
-  test("fallback when condition does not match → $END", () => {
+  test("fallback when condition does not match → $END", async () => {
     const context = makeContext([
       {
         role: "reviewer",
@@ -85,11 +85,11 @@ describe("evaluate", () => {
         agent: "uwf-hermes",
       },
     ]);
-    const result = evaluate(solveIssueWorkflow, context);
+    const result = await evaluate(solveIssueWorkflow, context);
     expect(result).toEqual({ ok: true, value: "$END" });
   });
 
-  test("missing role in graph → error", () => {
+  test("missing role in graph → error", async () => {
     const context = makeContext([
       {
         role: "unknown-role",
@@ -98,14 +98,14 @@ describe("evaluate", () => {
         agent: "uwf-hermes",
       },
     ]);
-    const result = evaluate(solveIssueWorkflow, context);
+    const result = await evaluate(solveIssueWorkflow, context);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe('no transitions defined for role "unknown-role"');
     }
   });
 
-  test("output expansion in context works with JSONata", () => {
+  test("output expansion in context works with JSONata", async () => {
     const context = makeContext([
       {
         role: "planner",
@@ -114,7 +114,7 @@ describe("evaluate", () => {
         agent: "uwf-hermes",
       },
     ]);
-    const result = evaluate(solveIssueWorkflow, context);
+    const result = await evaluate(solveIssueWorkflow, context);
     expect(result).toEqual({ ok: true, value: "developer" });
   });
 });

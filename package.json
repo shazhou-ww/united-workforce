@@ -2,7 +2,9 @@
   "name": "@uncaged/workflow-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "../json-cas/packages/json-cas",
+    "../json-cas/packages/json-cas-fs"
   ],
   "scripts": {
     "build": "bunx tsc --build",

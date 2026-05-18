@@ -132,9 +132,6 @@ export async function cmdWorkflowShow(
   const uwf = await createUwfStore(storageRoot);
   const registry = await loadWorkflowRegistry(storageRoot);
   const hash = resolveWorkflowHash(registry, id);
-  if (hash === null) {
-    fail(`workflow not found: ${id}`);
-  }
 
   const node = uwf.store.get(hash);
   if (node === null) {

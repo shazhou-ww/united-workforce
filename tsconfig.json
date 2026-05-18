@@ -32,6 +32,11 @@
     { "path": "packages/workflow-agent-react" },
     { "path": "packages/cli-workflow" },
     { "path": "packages/workflow-template-solve-issue" },
-    { "path": "packages/workflow-template-develop" }
+    { "path": "packages/workflow-template-develop" },
+    { "path": "packages/uwf-protocol" },
+    { "path": "packages/uwf-moderator" },
+    { "path": "packages/cli-uwf" },
+    { "path": "packages/uwf-agent-kit" },
+    { "path": "packages/uwf-agent-hermes" }
   ]
 }
