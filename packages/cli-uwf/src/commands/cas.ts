@@ -115,6 +115,17 @@ export async function cmdCasSchemaList(
   return entries;
 }
 
+export async function cmdCasReindex(
+  storageRoot: string,
+): Promise<{ status: string }> {
+  const indexDir = join(storageRoot, "cas", "_index");
+  const { rmSync } = await import("node:fs");
+  rmSync(indexDir, { recursive: true, force: true });
+  // Re-open store to trigger migration rebuild
+  openStore(storageRoot);
+  return { status: "reindexed" };
+}
+
 export async function cmdCasSchemaGet(
   storageRoot: string,
   hash: string,
