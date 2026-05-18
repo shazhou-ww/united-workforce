@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 
-import { cmdThreadPlaceholder } from "./commands/thread.js";
+import { cmdThreadKill, cmdThreadList, cmdThreadShow, cmdThreadStart } from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
 import { resolveStorageRoot } from "./store.js";
 
@@ -59,15 +59,19 @@ workflow
     });
   });
 
-const thread = program.command("thread").description("Thread execution (Phase 4)");
+const thread = program.command("thread").description("Thread lifecycle and execution");
 
 thread
   .command("start")
   .description("Create a thread without executing")
   .argument("<workflow>", "Workflow name or hash")
   .requiredOption("-p, --prompt <text>", "User prompt")
-  .action(() => {
-    cmdThreadPlaceholder("start");
+  .action((workflow: string, opts: { prompt: string }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadStart(storageRoot, workflow, opts.prompt);
+      writeJson(result);
+    });
   });
 
 thread
@@ -76,31 +80,44 @@ thread
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
   .action(() => {
-    cmdThreadPlaceholder("step");
+    process.stderr.write("uwf thread step: not implemented\n");
+    process.exit(1);
   });
 
 thread
   .command("show")
   .description("Show thread head pointer")
   .argument("<thread-id>", "Thread ULID")
-  .action(() => {
-    cmdThreadPlaceholder("show");
+  .action((threadId: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadShow(storageRoot, threadId);
+      writeJson(result);
+    });
   });
 
 thread
   .command("list")
   .description("List active threads")
   .option("--all", "Include archived threads")
-  .action(() => {
-    cmdThreadPlaceholder("list");
+  .action((opts: { all: boolean }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadList(storageRoot, opts.all);
+      writeJson(result);
+    });
   });
 
 thread
   .command("kill")
   .description("Terminate and archive a thread")
   .argument("<thread-id>", "Thread ULID")
-  .action(() => {
-    cmdThreadPlaceholder("kill");
+  .action((threadId: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadKill(storageRoot, threadId);
+      writeJson(result);
+    });
   });
 
 program.parseAsync(process.argv).catch((e: unknown) => {
