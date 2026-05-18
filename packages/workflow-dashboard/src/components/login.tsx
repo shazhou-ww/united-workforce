@@ -1,14 +1,18 @@
+import { AlertCircle, Loader2, Moon, Settings, Sun } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { setApiKey } from "../api.ts";
+import { useTheme } from "../hooks/use-theme.tsx";
+import { Button } from "./ui/button.tsx";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card.tsx";
+import { Input } from "./ui/input.tsx";
 
-type Props = {
-  onLogin: () => void;
-};
-
-export function LoginPage({ onLogin }: Props) {
+export function LoginPage() {
+  const navigate = useNavigate();
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +21,6 @@ export function LoginPage({ onLogin }: Props) {
     setLoading(true);
     setError(null);
 
-    // Test the key by hitting the endpoints list
     const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "";
     try {
       const res = await fetch(`${gatewayUrl}/api/gateway/endpoints`, {
@@ -40,56 +43,59 @@ export function LoginPage({ onLogin }: Props) {
     }
 
     setApiKey(key.trim());
-    onLogin();
+    navigate("/", { replace: true });
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: "var(--color-bg)" }}
-    >
-      <div
-        className="p-8 rounded-lg border w-full max-w-sm"
-        style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
+    <div className="min-h-screen flex items-center justify-center bg-background relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 right-4 transition-colors duration-200"
+        onClick={toggleTheme}
       >
-        <h1 className="text-xl font-bold mb-1" style={{ color: "var(--color-accent)" }}>
-          ⚙ Workflow Dashboard
-        </h1>
-        <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
-          Enter your API key to continue
-        </p>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="password"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="API Key"
-            className="w-full px-3 py-2 rounded border text-sm mb-3 outline-none"
-            style={{
-              background: "var(--color-bg)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          />
-          {error && (
-            <p className="text-xs mb-3" style={{ color: "var(--color-error)" }}>
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={loading || !key.trim()}
-            className="w-full px-3 py-2 rounded text-sm font-medium"
-            style={{
-              background: "var(--color-accent)",
-              color: "var(--color-bg)",
-              opacity: loading || !key.trim() ? 0.5 : 1,
-            }}
-          >
-            {loading ? "Verifying..." : "Login"}
-          </button>
-        </form>
-      </div>
+        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </Button>
+      <Card className="w-full max-w-sm shadow-lg transition-all duration-200 hover:shadow-xl hover:border-primary/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl tracking-tight">
+            <Settings className="h-5 w-5" />
+            Workflow Dashboard
+          </CardTitle>
+          <CardDescription>Enter your API key to continue</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="password"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="API Key"
+              className="transition-all duration-200"
+            />
+            {error && (
+              <p className="text-xs text-destructive flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={loading || !key.trim()}
+              className="w-full transition-all duration-200"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying…
+                </span>
+              ) : (
+                "Login"
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

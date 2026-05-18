@@ -1,14 +1,27 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { listWorkflows, runThread } from "../api.ts";
 import { useFetch } from "../hooks.ts";
+import { Button } from "./ui/button.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select.tsx";
+import { Textarea } from "./ui/textarea.tsx";
 
 type Props = {
   client: string;
-  onClose: () => void;
-  onCreated: (threadId: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-export function RunDialog({ client, onClose, onCreated }: Props) {
+export function RunDialog({ client, open, onOpenChange }: Props) {
+  const navigate = useNavigate();
   const workflows = useFetch(() => listWorkflows(client), [client]);
   const [workflow, setWorkflow] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -22,7 +35,8 @@ export function RunDialog({ client, onClose, onCreated }: Props) {
     setError(null);
     try {
       const result = await runThread(client, workflow, prompt);
-      onCreated(result.threadId);
+      onOpenChange(false);
+      navigate(`/${client}/threads/${result.threadId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(false);
@@ -30,95 +44,54 @@ export function RunDialog({ client, onClose, onCreated }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ background: "rgba(0,0,0,0.6)" }}
-    >
-      <div
-        className="w-full max-w-lg p-6 rounded-lg border"
-        style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
-      >
-        <h3 className="text-lg font-semibold mb-4">Run Thread on {client}</h3>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Run Thread</DialogTitle>
+          <DialogDescription>Start a new thread on {client}</DialogDescription>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label
-              htmlFor="run-workflow"
-              className="text-sm block mb-1"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <label htmlFor="run-workflow" className="text-sm block mb-1.5 text-muted-foreground">
               Workflow
             </label>
-            <select
-              id="run-workflow"
-              value={workflow}
-              onChange={(e) => setWorkflow(e.target.value)}
-              className="w-full px-3 py-2 rounded border text-sm"
-              style={{
-                background: "var(--color-bg)",
-                borderColor: "var(--color-border)",
-                color: "var(--color-text)",
-              }}
-            >
-              <option value="">Select a workflow...</option>
-              {workflows.status === "ok" &&
-                workflows.data.workflows.map((w) => (
-                  <option key={w.name} value={w.name}>
-                    {w.name}
-                  </option>
-                ))}
-            </select>
+            <Select value={workflow} onValueChange={setWorkflow}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a workflow..." />
+              </SelectTrigger>
+              <SelectContent>
+                {workflows.status === "ok" &&
+                  workflows.data.workflows.map((w) => (
+                    <SelectItem key={w.name} value={w.name}>
+                      {w.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label
-              htmlFor="run-prompt"
-              className="text-sm block mb-1"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <label htmlFor="run-prompt" className="text-sm block mb-1.5 text-muted-foreground">
               Prompt
             </label>
-            <textarea
+            <Textarea
               id="run-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 rounded border text-sm"
-              style={{
-                background: "var(--color-bg)",
-                borderColor: "var(--color-border)",
-                color: "var(--color-text)",
-              }}
               placeholder="Enter the task prompt..."
             />
           </div>
-          {error && (
-            <p className="text-sm" style={{ color: "var(--color-error)" }}>
-              {error}
-            </p>
-          )}
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm rounded border"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !workflow || !prompt}
-              className="px-4 py-2 text-sm rounded"
-              style={{
-                background: submitting ? "var(--color-accent-dim)" : "var(--color-accent)",
-                color: "#fff",
-                opacity: !workflow || !prompt ? 0.5 : 1,
-              }}
-            >
+            </Button>
+            <Button type="submit" disabled={submitting || !workflow || !prompt}>
               {submitting ? "Starting..." : "Run"}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

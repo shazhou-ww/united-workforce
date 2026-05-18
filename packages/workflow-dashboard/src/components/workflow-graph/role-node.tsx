@@ -1,29 +1,23 @@
 import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { Check, Circle } from "lucide-react";
 import type { RoleNodeData } from "./types.ts";
 
 function borderColor(state: RoleNodeData["state"]): string {
   switch (state) {
     case "completed":
-      return "var(--color-success)";
+      return "hsl(var(--success))";
     case "active":
-      return "var(--color-accent)";
+      return "hsl(var(--ring))";
     default:
-      return "var(--color-border)";
+      return "hsl(var(--border))";
   }
-}
-
-function stateIcon(state: RoleNodeData["state"]): string | null {
-  if (state === "completed") return "✓";
-  if (state === "active") return "●";
-  return null;
 }
 
 export function RoleNode(props: NodeProps) {
   const data = props.data as RoleNodeData;
-  const icon = stateIcon(data.state);
   const isActive = data.state === "active";
   const handleStyle = {
-    background: "var(--color-text-muted)",
+    background: "hsl(var(--muted-foreground))",
     width: 6,
     height: 6,
     border: "none",
@@ -35,9 +29,9 @@ export function RoleNode(props: NodeProps) {
       style={{
         width: 180,
         height: 60,
-        background: "var(--color-surface)",
+        background: "hsl(var(--card))",
         borderColor: borderColor(data.state),
-        color: "var(--color-text)",
+        color: "hsl(var(--foreground))",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -81,19 +75,15 @@ export function RoleNode(props: NodeProps) {
         isConnectable={false}
       />
       <div className="flex items-center gap-1.5 font-mono">
-        {icon !== null && (
-          <span
-            style={{
-              color: data.state === "active" ? "var(--color-accent)" : "var(--color-success)",
-            }}
-          >
-            {icon}
-          </span>
-        )}
+        {data.state === "completed" && <Check className="h-3 w-3 text-success" />}
+        {data.state === "active" && <Circle className="h-3 w-3 fill-current text-ring" />}
         <span className="truncate">{data.label}</span>
       </div>
       {data.description !== "" && (
-        <div className="text-[10px] truncate mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+        <div
+          className="text-[10px] truncate mt-0.5"
+          style={{ color: "hsl(var(--muted-foreground))" }}
+        >
           {data.description}
         </div>
       )}

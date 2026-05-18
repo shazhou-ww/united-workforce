@@ -3,13 +3,14 @@ import {
   type EdgeTypes,
   MarkerType,
   type Node,
+  type NodeMouseHandler,
   type NodeTypes,
-  type OnNodeClick,
   ReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useMemo } from "react";
 import type { WorkflowGraph as WorkflowGraphData } from "../../api.ts";
+import { useTheme } from "../../hooks/use-theme.tsx";
 import { ConditionEdge } from "./condition-edge.tsx";
 import { RoleNode } from "./role-node.tsx";
 import { TerminalNode } from "./terminal-node.tsx";
@@ -39,9 +40,12 @@ function handleNodeClick(onNodeClick: (nodeId: string) => void, node: Node): voi
 
 export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) {
   const layout = useLayout({ edges: graph.edges, roles, nodeStates });
+  const { theme } = useTheme();
 
-  const onNodeClickHandler: OnNodeClick | undefined =
-    onNodeClick !== null ? (_e, node) => handleNodeClick(onNodeClick, node) : undefined;
+  const onNodeClickHandler: NodeMouseHandler | undefined =
+    onNodeClick !== null
+      ? (_e: React.MouseEvent, node: Node) => handleNodeClick(onNodeClick, node)
+      : undefined;
 
   const styledEdges = useMemo(
     () =>
@@ -51,7 +55,7 @@ export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) 
           type: MarkerType.ArrowClosed,
           width: 14,
           height: 14,
-          color: "var(--color-text)",
+          color: "hsl(var(--foreground))",
         },
       })),
     [layout.edges],
@@ -72,10 +76,10 @@ export function WorkflowGraph({ graph, roles, nodeStates, onNodeClick }: Props) 
       nodesConnectable={false}
       elementsSelectable={false}
       proOptions={{ hideAttribution: true }}
-      colorMode="dark"
-      style={{ background: "var(--color-bg)" }}
+      colorMode={theme}
+      style={{ background: "hsl(var(--background))" }}
     >
-      <Background color="var(--color-border)" gap={20} size={1} />
+      <Background color="hsl(var(--border))" gap={20} size={1} />
     </ReactFlow>
   );
 }

@@ -1,4 +1,6 @@
+import { AlertCircle, ArrowLeft, Layers, Loader2, Pause, Play, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import {
   getThread,
   getWorkflowDescriptor,
@@ -11,13 +13,11 @@ import {
 import { useFetch } from "../hooks.ts";
 import { useSSE } from "../use-sse.ts";
 import { RecordCard } from "./record-card.tsx";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import { Card } from "./ui/card.tsx";
+import { ResizablePanel } from "./ui/resizable-panel.tsx";
 import { type NodeState, WorkflowGraph } from "./workflow-graph/index.ts";
-
-type Props = {
-  client: string;
-  threadId: string;
-  onBack: () => void;
-};
 
 function extractWorkflowName(records: readonly ThreadRecord[]): string | null {
   for (const r of records) {
@@ -82,7 +82,11 @@ function scrollToRoleOccurrence(
   onHighlight(nodeId);
 }
 
-export function ThreadDetail({ client, threadId, onBack }: Props) {
+export function ThreadDetail() {
+  const params = useParams();
+  const navigate = useNavigate();
+  const client = params.client as string;
+  const threadId = params.threadId as string;
   const sse = useSSE(client, threadId);
   const { status, data, error } = useFetch(() => getThread(client, threadId), [client, threadId]);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
@@ -122,7 +126,6 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
     return m;
   }, [records]);
 
-  // Track which occurrence to jump to next per role (cycling)
   const clickCycleRef = useRef<Map<string, number>>(new Map());
 
   const highlightRole = useCallback((role: string) => {
@@ -166,7 +169,7 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
     try {
       const fn = action === "kill" ? killThread : action === "pause" ? pauseThread : resumeThread;
       await fn(client, threadId);
-      setActionStatus(`${action} sent ✓`);
+      setActionStatus(null);
     } catch (e) {
       setActionStatus(`${action} failed: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -175,88 +178,84 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm hover:underline"
-          style={{ color: "var(--color-accent)" }}
+        <Button
+          variant="ghost"
+          className="gap-1.5 px-2 text-muted-foreground hover:text-foreground transition-colors duration-200"
+          onClick={() => navigate(`/${client}/threads`)}
         >
-          ← Back to threads
-        </button>
-        <div className="flex gap-2">
-          <button
-            type="button"
+          <ArrowLeft className="h-4 w-4" />
+          Back to threads
+        </Button>
+        <div className="flex gap-1 rounded-lg border border-border bg-muted/30 p-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="transition-colors duration-200"
             onClick={() => handleAction("pause")}
-            className="px-3 py-1 text-xs rounded border"
-            style={{ borderColor: "var(--color-warning)", color: "var(--color-warning)" }}
           >
-            ⏸ Pause
-          </button>
-          <button
-            type="button"
+            <Pause className="h-3.5 w-3.5 text-warning" />
+            Pause
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="transition-colors duration-200"
             onClick={() => handleAction("resume")}
-            className="px-3 py-1 text-xs rounded border"
-            style={{ borderColor: "var(--color-success)", color: "var(--color-success)" }}
           >
-            ▶ Resume
-          </button>
-          <button
-            type="button"
+            <Play className="h-3.5 w-3.5 text-success" />
+            Resume
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="transition-colors duration-200"
             onClick={() => handleAction("kill")}
-            className="px-3 py-1 text-xs rounded border"
-            style={{ borderColor: "var(--color-error)", color: "var(--color-error)" }}
           >
-            ✕ Kill
-          </button>
+            <X className="h-3.5 w-3.5 text-destructive" />
+            Kill
+          </Button>
         </div>
       </div>
 
-      <h2 className="text-xl font-semibold mb-2 font-mono flex items-center gap-2 flex-wrap">
+      <h2 className="text-xl font-semibold mb-2 font-mono tracking-tight flex items-center gap-2 flex-wrap">
         <span>{threadId}</span>
         {sse.connected && !sse.completed && (
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded"
-            style={{ background: "var(--color-success)", color: "var(--color-bg)" }}
-          >
+          <Badge variant="success" className="animate-pulse flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-success-foreground" />
             Live
-          </span>
+          </Badge>
         )}
       </h2>
       {actionStatus && (
-        <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+        <Badge variant="secondary" className="mb-4 text-xs font-normal">
           {actionStatus}
-        </p>
+        </Badge>
       )}
 
       <div className="flex gap-4" style={{ minHeight: "calc(100vh - 120px)" }}>
         {descriptor !== null && descriptor.graph.edges.length > 0 && (
-          <div
-            className="shrink-0"
+          <ResizablePanel
+            defaultWidth={360}
+            minWidth={240}
+            maxWidth={560}
+            className={null}
             style={{
-              width: 280,
               position: "sticky",
               top: 16,
               height: "calc(100vh - 120px)",
               alignSelf: "flex-start",
             }}
           >
-            <div
-              className="rounded-lg border h-full flex flex-col overflow-hidden"
-              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
-            >
-              <div
-                className="flex items-center justify-between px-3 py-2 text-xs"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                <span className="font-mono">
+            <Card className="h-full flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-b border-border">
+                <span className="font-mono flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5" />
                   Workflow graph
                   {workflowName !== null && (
-                    <span className="ml-2" style={{ color: "var(--color-text)" }}>
-                      {workflowName}
-                    </span>
+                    <span className="ml-2 text-foreground">{workflowName}</span>
                   )}
                 </span>
-                <span>
+                <span className="tabular-nums">
                   {descriptor.graph.edges.length} edge
                   {descriptor.graph.edges.length === 1 ? "" : "s"}
                 </span>
@@ -269,19 +268,25 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
                   onNodeClick={handleGraphNodeClick}
                 />
               </div>
-            </div>
-          </div>
+            </Card>
+          </ResizablePanel>
         )}
 
         <div className="flex-1 min-w-0">
           {status === "loading" && !liveActive && records.length === 0 && (
-            <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-sm">Loading thread...</span>
+            </div>
           )}
           {status === "error" && !liveActive && (
-            <p style={{ color: "var(--color-error)" }}>Error: {error}</p>
+            <div className="flex items-center gap-2 py-8 justify-center text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <span className="text-sm">Error: {error}</span>
+            </div>
           )}
           {(status === "ok" || liveActive || records.length > 0) && (
-            <div className="space-y-3">
+            <div className="border-l-2 border-border ml-2 pl-4 space-y-3">
               {records.map((r, i) => {
                 const key = `${threadId}-${i}`;
                 if (r.type === "role") {
@@ -292,18 +297,21 @@ export function ThreadDetail({ client, threadId, onBack }: Props) {
                     <div
                       key={key}
                       data-record-index={i}
+                      className="relative"
                       ref={(el) => {
                         if (!isFirstForRole) return;
                         if (el !== null) firstCardByRoleRef.current.set(r.role, el);
                         else firstCardByRoleRef.current.delete(r.role);
                       }}
                     >
+                      <div className="absolute -left-[1.3rem] top-4 h-2.5 w-2.5 rounded-full border-2 border-border bg-background" />
                       <RecordCard record={r} highlighted={flash} />
                     </div>
                   );
                 }
                 return (
-                  <div key={key} data-record-index={i}>
+                  <div key={key} data-record-index={i} className="relative">
+                    <div className="absolute -left-[1.3rem] top-4 h-2.5 w-2.5 rounded-full border-2 border-border bg-background" />
                     <RecordCard record={r} highlighted={false} />
                   </div>
                 );
