@@ -1,0 +1,26 @@
+{
+  "name": "@uncaged/cli-uwf",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "workspace:^",
+    "@uncaged/json-cas-fs": "workspace:^",
+    "@uncaged/uwf-protocol": "workspace:^",
+    "commander": "^14.0.3",
+    "yaml": "^2.8.4"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
