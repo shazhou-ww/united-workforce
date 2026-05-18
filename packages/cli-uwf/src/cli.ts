@@ -3,11 +3,13 @@
 import { Command } from "commander";
 
 import {
+  cmdThreadFork,
   cmdThreadKill,
   cmdThreadList,
   cmdThreadShow,
   cmdThreadStart,
   cmdThreadStep,
+  cmdThreadSteps,
 } from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
@@ -140,6 +142,31 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadKill(storageRoot, threadId);
+      writeOutput(result);
+    });
+  });
+
+thread
+  .command("steps")
+  .description("List all steps in a thread")
+  .argument("<thread-id>", "Thread ULID")
+  .action((threadId: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadSteps(storageRoot, threadId);
+      writeOutput(result);
+    });
+  });
+
+thread
+  .command("fork")
+  .description("Fork a thread from a specific step")
+  .argument("<thread-id>", "Thread ULID")
+  .argument("<step-hash>", "CAS hash of the step to fork from")
+  .action((threadId: string, stepHash: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadFork(storageRoot, threadId, stepHash);
       writeOutput(result);
     });
   });

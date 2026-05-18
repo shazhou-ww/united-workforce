@@ -80,6 +80,40 @@ export type StepOutput = {
   done: boolean;
 };
 
+/** uwf thread steps — single step entry */
+export type StepEntry = {
+  hash: CasRef;
+  role: string;
+  output: unknown;
+  detail: CasRef;
+  agent: string;
+  timestamp: number;
+};
+
+/** uwf thread steps — start entry */
+export type StartEntry = {
+  hash: CasRef;
+  workflow: CasRef;
+  prompt: string;
+  timestamp: number;
+};
+
+/** uwf thread steps output */
+export type ThreadStepsOutput = {
+  thread: ThreadId;
+  workflow: CasRef;
+  steps: [StartEntry, ...StepEntry[]];
+};
+
+/** uwf thread fork output */
+export type ThreadForkOutput = {
+  thread: ThreadId;
+  forkedFrom: {
+    thread: ThreadId;
+    step: CasRef;
+  };
+};
+
 /** uwf thread list */
 export type ThreadListItem = {
   thread: ThreadId;
