@@ -32,6 +32,7 @@ const TRANSITION: JSONSchema = {
 };
 
 export const WORKFLOW_SCHEMA: JSONSchema = {
+  title: "Workflow",
   type: "object",
   required: ["name", "description", "roles", "conditions", "graph"],
   properties: {
@@ -57,6 +58,7 @@ export const WORKFLOW_SCHEMA: JSONSchema = {
 };
 
 export const START_NODE_SCHEMA: JSONSchema = {
+  title: "StartNode",
   type: "object",
   required: ["workflow", "prompt"],
   properties: {
@@ -67,6 +69,7 @@ export const START_NODE_SCHEMA: JSONSchema = {
 };
 
 export const STEP_NODE_SCHEMA: JSONSchema = {
+  title: "StepNode",
   type: "object",
   required: ["start", "prev", "role", "output", "detail", "agent"],
   properties: {

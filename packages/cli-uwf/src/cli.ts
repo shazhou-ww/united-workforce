@@ -15,7 +15,6 @@ import {
   cmdCasCat,
   cmdCasGet,
   cmdCasHas,
-  cmdCasList,
   cmdCasPut,
   cmdCasRefs,
   cmdCasSchemaGet,
@@ -220,14 +219,6 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(() => cmdCasHas(storageRoot, hash));
-  });
-
-cas
-  .command("list")
-  .description("List all CAS hashes")
-  .action(() => {
-    const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasList(storageRoot));
   });
 
 cas
