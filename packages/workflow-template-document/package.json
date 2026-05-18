@@ -1,0 +1,28 @@
+{
+  "name": "@uncaged/workflow-template-document",
+  "version": "0.1.0",
+  "files": ["src", "dist", "package.json"],
+  "type": "module",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/workflow-register": "workspace:^",
+    "@uncaged/workflow-runtime": "workspace:^",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@uncaged/workflow-protocol": "workspace:^"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

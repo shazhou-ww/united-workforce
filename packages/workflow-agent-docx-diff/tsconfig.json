@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../workflow-protocol" },
+    { "path": "../workflow-runtime" },
+    { "path": "../workflow-util-agent" },
+    { "path": "../workflow-template-document" }
+  ]
+}
