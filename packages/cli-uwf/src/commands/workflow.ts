@@ -44,6 +44,7 @@ function isJsonSchema(value: unknown): value is JSONSchema {
 
 async function resolveOutputSchemaRef(
   uwf: UwfStore,
+  roleName: string,
   outputSchema: string | JSONSchema,
 ): Promise<CasRef> {
   if (typeof outputSchema === "string") {
@@ -58,6 +59,10 @@ async function resolveOutputSchemaRef(
   if (!isJsonSchema(outputSchema)) {
     fail("outputSchema must be a cas_ref string or JSON Schema object");
   }
+  // Auto-set title from role name if not already present
+  if (outputSchema.title === undefined) {
+    outputSchema = { ...outputSchema, title: roleName };
+  }
   return putSchema(uwf.store, outputSchema);
 }
 
@@ -69,6 +74,7 @@ async function materializeWorkflowPayload(
   for (const [roleName, role] of Object.entries(raw.roles)) {
     const outputSchema = await resolveOutputSchemaRef(
       uwf,
+      `${raw.name}.${roleName}`,
       role.outputSchema as string | JSONSchema,
     );
     roles[roleName] = {
