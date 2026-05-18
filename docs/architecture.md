@@ -8,7 +8,7 @@
 
 A workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file identified by its XXH64 hash (Crockford Base32). No daemon — processes start on demand and exit when done.
 
-The implementation lives in **15** Bun workspace packages under `packages/`, using the `workspace:*` protocol.
+The implementation lives in **21** Bun workspace packages under `packages/`, using the `workspace:*` protocol.
 
 ## Package map
 
@@ -26,10 +26,13 @@ Grouped by responsibility (npm name → folder).
 | CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uncaged-workflow` binary (depends on engine, registry, CAS, protocol, util, runtime). |
 | Agent adapters | `@uncaged/workflow-agent-cursor` → `workflow-agent-cursor` | `AgentFn` via `cursor-agent` CLI + workspace extraction. |
 | | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `AgentFn` via `hermes chat` CLI. |
+| | `@uncaged/workflow-agent-office` → `workflow-agent-office` | `AdapterFn` via `office-agent` CLI; generates or edits Word documents, stores outputs per threadId. |
+| | `@uncaged/workflow-agent-docx-diff` → `workflow-agent-docx-diff` | `AdapterFn` via `docx-diff` CLI; produces Word-format diff reports for document edit workflows. |
 | | `@uncaged/workflow-agent-llm` → `workflow-agent-llm` | `AgentFn` via OpenAI-compatible HTTP (`LlmProvider` from runtime). |
 | Agent shared | `@uncaged/workflow-util-agent` → `workflow-util-agent` | `buildAgentPrompt`, `spawnCli` for CLI-backed agents. |
 | Templates | `@uncaged/workflow-template-develop` → `workflow-template-develop` | Develop workflow definition, roles, descriptor builder. |
 | | `@uncaged/workflow-template-solve-issue` → `workflow-template-solve-issue` | Solve-issue workflow definition, roles, descriptor builder. |
+| | `@uncaged/workflow-template-document` → `workflow-template-document` | Document generation/editing workflow definition (writer + differ roles, moderator table, descriptor). |
 | Dashboard | `@uncaged/workflow-dashboard` → `workflow-dashboard` | Private Vite + React app (`src/main.tsx`); only `react` / `react-dom` dependencies — no workspace packages. |
 
 ## Dependency graph (workspace packages)
@@ -265,4 +268,4 @@ Tags are 8-char Crockford Base32 (40-bit random), one per call site. `grep "4KNM
 | **Single-file ESM** | Hash = version, self-contained bundle |
 | **No daemon** | OS handles process lifecycle |
 | **Crockford Base32** | Filesystem-safe, readable, compact |
-| **15-package split** | Clear boundaries: protocol ↔ runtime author API ↔ util/CAS/register ↔ execute ↔ CLI ↔ agents/templates/UI |
+| **21-package split** | Clear boundaries: protocol ↔ runtime author API ↔ util/CAS/register ↔ execute ↔ CLI ↔ agents/templates/UI |
