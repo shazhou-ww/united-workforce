@@ -15,7 +15,7 @@
     }
   },
   "dependencies": {
-"@uncaged/json-cas-fs": "^0.2.0"
+"@uncaged/json-cas-fs": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
