@@ -13,7 +13,8 @@
 uwf thread start <workflow> -p <prompt>     # 创建 thread，不执行
 uwf thread step  <thread-id> [--agent]      # 单步执行
 uwf thread show  <thread-id> [--full]       # 查看状态（--full 展开完整历史）
-uwf thread list                             # 列出活跃 threads
+uwf thread list  [--all]                    # 列出活跃 threads（--all 含已归档）
+uwf thread kill  <thread-id>                # 终结 thread，归档
 
 # workflow 组
 uwf workflow put   <file.yaml>              # 注册 workflow（YAML → CAS）
