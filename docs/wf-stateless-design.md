@@ -79,12 +79,10 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 3. 调 moderator：评估 JSONata conditions → 得到下一个 role（或 END）
 4. 若 END → 归档 thread，输出最后链头，退出
 5. 确定 agent command（`--agent` override > thread binding > global default）
-6. 构建 prompt（role.systemPrompt + thread context + user prompt）
-7. 调用：`<agent-cmd> <thread-id>`，捕获 stdout
-8. 解析 agent 输出为 progress JSON
-9. 写 StepNode 到 CAS（prev → 旧链头）
-10. 更新链头指针
-11. 输出 JSON
+6. 调用：`<agent-cmd> <thread-id> <role>`，捕获 stdout 得到新 StepNode hash
+7. 更新链头指针
+8. 再次调 moderator（基于新 StepNode）判断 done
+9. 输出 JSON
 
 ### 1.4 `uwf thread show`
 
@@ -107,34 +105,29 @@ uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T
 
 ### 1.5 Agent CLI 协议
 
-每个 agent 是一个命令，只接受一个参数 — thread-id：
+每个 agent 是一个命令，接受 thread-id 和 role 两个参数：
 
 ```bash
-uwf-hermes <thread-id>
+uwf-hermes <thread-id> <role>
 ```
 
 **约定：**
-- agent-kit 从 CAS 读 thread 链 → 确定当前 role → 拿到 systemPrompt / extractPrompt / schema
+- `uwf step` 负责 moderator 决策，将 role 传给 agent CLI
+- agent-kit 根据 thread + role 从 CAS 读 systemPrompt / extractPrompt / schema
 - agent-kit 组装完整 prompt（role systemPrompt + thread context + user prompt from StartNode）
 - agent 执行实际逻辑，agent-kit 负责 extract
-- stdout → progress 中 `meta` + raw output
+- agent 将 StepNode 写入 CAS（含 meta、content、agent ref、prev ref），但**不挪链头指针**
+- stdout 输出新 StepNode 的 CAS hash（纯文本，一行）
 - 所有配置从环境变量读（LLM model、API key、extractor config）
 - exit 0 = 成功，非 0 = 失败
 
-**stdout 输出格式：**
+**stdout 输出：**
 
-```jsonc
-{
-  "meta": { ... },       // 结构化输出，符合 role schema
-  "content": "..."       // 原始输出文本（wf 负责存入 CAS）
-}
+```
+8FWKR3TN5V1QA
 ```
 
-agent 框架 package（`@uncaged/workflow-agent-kit`）帮 agent 作者完成：
-- 读 thread CAS 构建上下文
-- 调实际 agent 逻辑
-- 调 extractor LLM 从 raw output 提取 meta
-- 格式化 stdout JSON
+`uwf step` 拿到这个 hash 后更新链头指针、判断 done。
 
 ---
 
