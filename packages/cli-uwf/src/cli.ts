@@ -184,10 +184,11 @@ cas
   .command("get")
   .description("Read a CAS node as JSON")
   .argument("<hash>", "CAS hash (13 char)")
-  .option("--json", "Compact JSON output")
-  .action((hash: string, opts: { json?: boolean }) => {
+  .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasGet(storageRoot, hash, opts));
+    runAction(async () => {
+      writeJson(await cmdCasGet(storageRoot, hash));
+    });
   });
 
 cas
@@ -195,10 +196,11 @@ cas
   .description("Output a CAS node (--payload for payload only)")
   .argument("<hash>", "CAS hash (13 char)")
   .option("--payload", "Output only the payload")
-  .option("--json", "Compact JSON output")
-  .action((hash: string, opts: { payload?: boolean; json?: boolean }) => {
+  .action((hash: string, opts: { payload?: boolean }) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasCat(storageRoot, hash, opts));
+    runAction(async () => {
+      writeJson(await cmdCasCat(storageRoot, hash, opts));
+    });
   });
 
 cas
@@ -206,19 +208,22 @@ cas
   .description("Store a node, print its hash")
   .argument("<type-hash>", "Type (schema) hash")
   .argument("<data>", "JSON file path or inline JSON string")
-  .option("--json", "Compact JSON output")
-  .action((typeHash: string, data: string, opts: { json?: boolean }) => {
+  .action((typeHash: string, data: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasPut(storageRoot, typeHash, data, opts));
+    runAction(async () => {
+      writeJson(await cmdCasPut(storageRoot, typeHash, data));
+    });
   });
 
 cas
   .command("has")
-  .description("Check if a hash exists (prints true/false)")
+  .description("Check if a hash exists")
   .argument("<hash>", "CAS hash (13 char)")
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasHas(storageRoot, hash));
+    runAction(async () => {
+      writeJson(await cmdCasHas(storageRoot, hash));
+    });
   });
 
 cas
@@ -227,37 +232,43 @@ cas
   .argument("<hash>", "CAS hash (13 char)")
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasRefs(storageRoot, hash));
+    runAction(async () => {
+      writeJson(await cmdCasRefs(storageRoot, hash));
+    });
   });
 
 cas
   .command("walk")
   .description("Recursive traversal from a node")
   .argument("<hash>", "CAS hash (13 char)")
-  .option("--format <fmt>", "Output format: flat (default) or tree")
-  .action((hash: string, opts: { format?: string }) => {
+  .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasWalk(storageRoot, hash, opts));
+    runAction(async () => {
+      writeJson(await cmdCasWalk(storageRoot, hash));
+    });
   });
 
 const casSchema = cas.command("schema").description("CAS schema operations");
 
 casSchema
   .command("list")
-  .description("List all registered schemas (hash + name)")
+  .description("List all registered schemas")
   .action(() => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasSchemaList(storageRoot));
+    runAction(async () => {
+      writeJson(await cmdCasSchemaList(storageRoot));
+    });
   });
 
 casSchema
   .command("get")
   .description("Show a schema by its type hash")
   .argument("<hash>", "Schema type hash")
-  .option("--json", "Compact JSON output")
-  .action((hash: string, opts: { json?: boolean }) => {
+  .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
-    runAction(() => cmdCasSchemaGet(storageRoot, hash, opts));
+    runAction(async () => {
+      writeJson(await cmdCasSchemaGet(storageRoot, hash));
+    });
   });
 
 program.parseAsync(process.argv).catch((e: unknown) => {

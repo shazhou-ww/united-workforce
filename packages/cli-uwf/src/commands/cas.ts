@@ -11,12 +11,7 @@ function openStore(storageRoot: string): Store {
   return createFsStore(join(storageRoot, "cas"));
 }
 
-function out(data: unknown, compact = false): void {
-  console.log(compact ? JSON.stringify(data) : JSON.stringify(data, null, 2));
-}
-
 function readJsonArg(fileOrInline: string): unknown {
-  // Try as inline JSON first, then as file path
   try {
     return JSON.parse(fileOrInline);
   } catch {
@@ -28,138 +23,114 @@ function readJsonArg(fileOrInline: string): unknown {
   }
 }
 
-// ---- Commands ----
+// ---- Commands (all return JSON-serializable data) ----
 
 export async function cmdCasGet(
   storageRoot: string,
   hash: string,
-  opts: { json?: boolean },
-): Promise<void> {
+): Promise<unknown> {
   const store = openStore(storageRoot);
   const node = store.get(hash);
   if (node === null) {
     throw new Error(`Node not found: ${hash}`);
   }
-  out(node, opts.json);
+  return node;
 }
 
 export async function cmdCasCat(
   storageRoot: string,
   hash: string,
-  opts: { payload?: boolean; json?: boolean },
-): Promise<void> {
+  opts: { payload?: boolean },
+): Promise<unknown> {
   const store = openStore(storageRoot);
   const node = store.get(hash);
   if (node === null) {
     throw new Error(`Node not found: ${hash}`);
   }
-  out(opts.payload ? node.payload : node, opts.json);
+  return opts.payload ? node.payload : node;
 }
 
 export async function cmdCasPut(
   storageRoot: string,
   typeHash: string,
   data: string,
-  opts: { json?: boolean },
-): Promise<void> {
+): Promise<{ hash: string }> {
   const store = openStore(storageRoot);
   const payload = readJsonArg(data);
-  const hash = store.put(typeHash, payload);
-  console.log(hash);
+  const hash = await store.put(typeHash, payload);
+  return { hash };
 }
 
 export async function cmdCasHas(
   storageRoot: string,
   hash: string,
-): Promise<void> {
+): Promise<{ exists: boolean }> {
   const store = openStore(storageRoot);
-  console.log(String(store.has(hash)));
+  return { exists: store.has(hash) };
 }
 
-export async function cmdCasList(storageRoot: string): Promise<void> {
-  const store = openStore(storageRoot);
-  for (const hash of store.list()) {
-    console.log(hash);
-  }
-}
-
-export async function cmdCasRefs(storageRoot: string, hash: string): Promise<void> {
+export async function cmdCasRefs(
+  storageRoot: string,
+  hash: string,
+): Promise<{ refs: string[] }> {
   const store = openStore(storageRoot);
   const node = store.get(hash);
   if (node === null) {
     throw new Error(`Node not found: ${hash}`);
   }
-  const refHashes = refs(store, node);
-  for (const r of refHashes) {
-    console.log(r);
-  }
+  return { refs: refs(store, node) };
 }
 
 export async function cmdCasWalk(
   storageRoot: string,
   hash: string,
-  opts: { format?: string },
-): Promise<void> {
+): Promise<{ hashes: string[] }> {
   const store = openStore(storageRoot);
-
-  if (opts.format === "tree") {
-    const childMap = new Map<Hash, Hash[]>();
-    walk(store, hash, (h, node) => {
-      childMap.set(h, refs(store, node));
-    });
-
-    const printed = new Set<Hash>();
-
-    function printNode(h: Hash, prefix: string, isLast: boolean): void {
-      const connector = prefix === "" ? "" : isLast ? "└── " : "├── ";
-      if (printed.has(h)) {
-        console.log(`${prefix}${connector}${h} (seen)`);
-        return;
-      }
-      printed.add(h);
-      console.log(`${prefix}${connector}${h}`);
-
-      const kids = childMap.get(h) ?? [];
-      const childPrefix = prefix === "" ? "" : prefix + (isLast ? "    " : "│   ");
-      for (let i = 0; i < kids.length; i++) {
-        printNode(kids[i] as Hash, childPrefix, i === kids.length - 1);
-      }
-    }
-
-    printNode(hash, "", true);
-  } else {
-    walk(store, hash, (h) => {
-      console.log(h);
-    });
-  }
+  const result: string[] = [];
+  walk(store, hash, (h) => {
+    result.push(h);
+  });
+  return { hashes: result };
 }
 
-export async function cmdCasSchemaList(storageRoot: string): Promise<void> {
+export type SchemaListEntry = {
+  hash: string;
+  title: string;
+};
+
+export async function cmdCasSchemaList(
+  storageRoot: string,
+): Promise<SchemaListEntry[]> {
   const store = openStore(storageRoot);
   const metaHash = await bootstrap(store);
+  const entries: SchemaListEntry[] = [];
+
+  // Include meta-schema itself
+  entries.push({ hash: metaHash, title: "(meta-schema)" });
+
   for (const hash of store.list()) {
     if (hash === metaHash) continue;
     const node = store.get(hash);
     if (node !== null && node.type === metaHash) {
       const schema = node.payload as JSONSchema;
-      const name =
+      const title =
         (schema.title as string | undefined) ??
         (schema.description as string | undefined) ??
         "(unnamed)";
-      console.log(`${hash}  ${name}`);
+      entries.push({ hash, title });
     }
   }
+  return entries;
 }
 
 export async function cmdCasSchemaGet(
   storageRoot: string,
   hash: string,
-  opts: { json?: boolean },
-): Promise<void> {
+): Promise<unknown> {
   const store = openStore(storageRoot);
   const schema = getSchema(store, hash);
   if (schema === null) {
     throw new Error(`Schema not found: ${hash}`);
   }
-  out(schema, opts.json);
+  return schema;
 }
