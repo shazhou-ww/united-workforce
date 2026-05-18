@@ -10,6 +10,7 @@ import {
   cmdThreadStep,
 } from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
+import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { resolveStorageRoot } from "./store.js";
 
 function writeJson(data: unknown): void {
@@ -127,6 +128,44 @@ thread
     runAction(async () => {
       const result = await cmdThreadKill(storageRoot, threadId);
       writeJson(result);
+    });
+  });
+
+program
+  .command("setup")
+  .description("Configure provider, model, and agent")
+  .option("--provider <name>", "Provider name")
+  .option("--base-url <url>", "OpenAI-compatible API base URL")
+  .option("--api-key <key>", "API key")
+  .option("--model <name>", "Default model name")
+  .option("--agent <name>", "Default agent alias")
+  .action((opts: {
+    provider?: string;
+    baseUrl?: string;
+    apiKey?: string;
+    model?: string;
+    agent?: string;
+  }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      if (opts.provider && opts.baseUrl && opts.apiKey && opts.model) {
+        const result = await cmdSetup({
+          provider: opts.provider,
+          baseUrl: opts.baseUrl,
+          apiKey: opts.apiKey,
+          model: opts.model,
+          agent: opts.agent,
+          storageRoot,
+        });
+        writeJson(result);
+      } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
+        const result = await cmdSetupInteractive(storageRoot);
+        writeJson(result);
+      } else {
+        throw new Error(
+          "Non-interactive setup requires all of: --provider, --base-url, --api-key, --model",
+        );
+      }
     });
   });
 
