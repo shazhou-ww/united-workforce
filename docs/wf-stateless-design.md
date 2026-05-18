@@ -12,7 +12,7 @@
 # thread 组
 uwf thread start <workflow> -p <prompt>     # 创建 thread，不执行
 uwf thread step  <thread-id> [--agent]      # 单步执行
-uwf thread show  <thread-id> [--full]       # 查看状态（--full 展开完整历史）
+uwf thread show  <thread-id>                # thread-id → head 查询
 uwf thread list  [--all]                    # 列出活跃 threads（--all 含已归档）
 uwf thread kill  <thread-id>                # 终结 thread，归档
 
@@ -89,11 +89,21 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 ### 1.4 `uwf thread show`
 
 ```bash
-uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T          # 当前状态（最新 StepNode）
-uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T --full   # 遍历链，打印完整 step 历史
+uwf thread show 01J7K9M2XNPQR5VWBCDF8G3H4T
 ```
 
-纯读操作，不改状态。CAS 节点查看用 `json-cas get <hash>`。
+**输出（JSON to stdout）：**
+
+```jsonc
+{
+  "workflow": "4KNM2PXR3B1QW",
+  "thread": "01J7K9M2XNPQR5VWBCDF8G3H4T",
+  "head": "8FWKR3TN5V1QA",
+  "done": false
+}
+```
+
+纯 thread-id → head 查询。详细内容用 `json-cas get <head>` 或 `json-cas walk <head>` 查看。
 
 ### 1.5 Agent CLI 协议
 
