@@ -1,4 +1,4 @@
-# `wf` — Stateless Workflow CLI
+# `uwf` — Stateless Workflow CLI
 
 > 将 workflow 引擎降维为无状态单步 CLI。Workflow 是纯数据（CAS 节点），执行是单步原子操作，agent 是可插拔外部命令。
 
@@ -45,10 +45,9 @@ uwf thread start <workflow> -p "Fix the login bug described in issue #42"
 **做的事：**
 1. 解析 workflow（名字查 registry → CAS hash）
 2. 生成 thread ULID
-3. 解析系统 config，确定 agent binding
-4. 写 StartNode 到 CAS
-5. 在 threads 索引中记录链头 → StartNode hash
-6. 输出 JSON
+3. 写 StartNode 到 CAS
+4. 在 threads.yaml 中记录链头 → StartNode hash
+5. 输出 JSON
 
 ### 1.3 `uwf thread step`
 
@@ -68,7 +67,7 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 }
 ```
 
-`done: true` 时 head 仍然有值（最后一个 StepNode），但 thread 已从 threads.json 移除。
+`done: true` 时 head 仍然有值（最后一个 StepNode），但 thread 已从 threads.yaml 移除。
 对已结束或不存在的 thread 调用 step 会报错（非 active thread）。
 
 详细信息通过 `uwf thread show <thread-id>` 或 `json-cas get <head>` 查看。
@@ -78,7 +77,7 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 2. 收集 thread 历史（遍历链）
 3. 调 moderator：评估 JSONata conditions → 得到下一个 role（或 END）
 4. 若 END → 归档 thread，输出最后链头，退出
-5. 确定 agent command（`--agent` override > thread binding > global default）
+5. 确定 agent command（`--agent` override > config.yaml per-workflow/role > config.yaml defaultAgent）
 6. 调用：`<agent-cmd> <thread-id> <role>`，捕获 stdout 得到新 StepNode hash
 7. 更新链头指针
 8. 再次调 moderator（基于新 StepNode）判断 done
@@ -113,10 +112,10 @@ uwf-hermes <thread-id> <role>
 
 **约定：**
 - `uwf step` 负责 moderator 决策，将 role 传给 agent CLI
-- agent-kit 根据 thread + role 从 CAS 读 systemPrompt / extractPrompt / schema
+- agent-kit 根据 thread + role 从 CAS 读 systemPrompt / outputSchema
 - agent-kit 组装完整 prompt（role systemPrompt + thread context + user prompt from StartNode）
 - agent 执行实际逻辑，agent-kit 负责 extract
-- agent 将 StepNode 写入 CAS（含 meta、content、agent ref、prev ref），但**不挪链头指针**
+- agent 将 StepNode 写入 CAS（含 output、detail、agent、prev），但**不挪链头指针**
 - stdout 输出新 StepNode 的 CAS hash（纯文本，一行）
 - 所有配置从环境变量读（LLM model、API key、extractor config）
 - exit 0 = 成功，非 0 = 失败
@@ -202,9 +201,9 @@ JSONata 表达式的求值上下文：
     "prompt": "Fix the login bug..."
   },
   "steps": [                          // 所有已完成 steps，从旧到新
-    { "role": "planner", "output": "3FXJM7QS2A9PB", "detail": "...", "agent": "..." },
-    { "role": "developer", "output": "8CNWT4KR6D1HV", "detail": "...", "agent": "..." },
-    { "role": "reviewer", "output": "1VPBG9SM5E7WK", "detail": "...", "agent": "..." }
+    { "role": "planner", "output": { "phases": [...] }, "detail": "7BQST3VW9F2MA", "agent": "uwf-hermes" },
+    { "role": "developer", "output": { "filesChanged": ["src/auth.ts"], "summary": "Fixed redirect" }, "detail": "9KRVW3TN5F1QA", "agent": "uwf-cursor" },
+    { "role": "reviewer", "output": { "approved": false }, "detail": "2MXBG6PN4A8JR", "agent": "uwf-hermes" }
   ]
 }
 ```
