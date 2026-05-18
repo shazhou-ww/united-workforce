@@ -17,7 +17,11 @@
   "dependencies": {
     "@uncaged/workflow-runtime": "workspace:^",
     "@uncaged/workflow-util-agent": "workspace:^",
-    "@uncaged/workflow-template-document": "workspace:^"
+    "@uncaged/workflow-template-document": "workspace:^",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@uncaged/workflow-util": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
