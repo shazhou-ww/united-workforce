@@ -10,22 +10,23 @@
 
 ```
 # thread 组
-uwf start <workflow> -p <prompt>           # 创建 thread，不执行
-uwf step  <thread-id> [--agent <cmd>]      # 单步执行
-uwf show  <thread-id> [--full]             # 查看状态（--full 展开完整历史）
+uwf thread start <workflow> -p <prompt>     # 创建 thread，不执行
+uwf thread step  <thread-id> [--agent]      # 单步执行
+uwf thread show  <thread-id> [--full]       # 查看状态（--full 展开完整历史）
+uwf thread list                             # 列出活跃 threads
 
 # workflow 组
-uwf workflow put   <file.yaml>             # 注册 workflow（YAML → CAS）
+uwf workflow put   <file.yaml>              # 注册 workflow（YAML → CAS）
 uwf workflow show  <workflow-id>            # 查看 workflow 定义
-uwf workflow list                          # 列出已注册 workflows
+uwf workflow list                           # 列出已注册 workflows
 ```
 
-6 个命令。CAS 操作交给 `json-cas` CLI，不在 `uwf` 中重复。
+两组对称，各 3-4 个子命令。CAS 操作交给 `json-cas` CLI，不在 `uwf` 中重复。
 
-### 1.2 `uwf start`
+### 1.2 `uwf thread start`
 
 ```bash
-uwf start <workflow> -p "Fix the login bug described in issue #42"
+uwf thread start <workflow> -p "Fix the login bug described in issue #42"
 ```
 
 - `<workflow>` — workflow 名或 CAS hash
@@ -36,8 +37,7 @@ uwf start <workflow> -p "Fix the login bug described in issue #42"
 ```jsonc
 {
   "workflow": "0R3KFM8N2P1QW",   // workflow CAS hash
-  "thread": "01J7K9M2XN...",     // ULID
-  "progress": null               // null = 还没执行任何 step
+  "thread": "01J7K9M2XN..."      // ULID
 }
 ```
 
@@ -49,11 +49,11 @@ uwf start <workflow> -p "Fix the login bug described in issue #42"
 5. 在 threads 索引中记录链头 → StartNode hash
 6. 输出 JSON
 
-### 1.3 `uwf step`
+### 1.3 `uwf thread step`
 
 ```bash
-uwf step 01J7K9M2XN...
-uwf step 01J7K9M2XN... --agent "bunx uwf-cursor"
+uwf thread step 01J7K9M2XN...
+uwf thread step 01J7K9M2XN... --agent "bunx uwf-cursor"
 ```
 
 **输出（JSON to stdout）：**
@@ -92,11 +92,11 @@ uwf step 01J7K9M2XN... --agent "bunx uwf-cursor"
 10. 更新链头指针
 11. 输出 JSON
 
-### 1.4 `uwf show`
+### 1.4 `uwf thread show`
 
 ```bash
-uwf show 01J7K9M2XN...          # 当前状态（最新 StepNode）
-uwf show 01J7K9M2XN... --full   # 遍历链，打印完整 step 历史
+uwf thread show 01J7K9M2XN...          # 当前状态（最新 StepNode）
+uwf thread show 01J7K9M2XN... --full   # 遍历链，打印完整 step 历史
 ```
 
 纯读操作，不改状态。CAS 节点查看用 `json-cas get <hash>`。
