@@ -15,6 +15,7 @@ import {
   cmdCasGet,
   cmdCasHas,
   cmdCasPut,
+  cmdCasReindex,
   cmdCasRefs,
   cmdCasSchemaGet,
   cmdCasSchemaList,
@@ -236,6 +237,16 @@ cas
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       writeOutput(await cmdCasWalk(storageRoot, hash));
+    });
+  });
+
+cas
+  .command("reindex")
+  .description("Rebuild type index from all CAS nodes")
+  .action(() => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      writeOutput(await cmdCasReindex(storageRoot));
     });
   });
 
