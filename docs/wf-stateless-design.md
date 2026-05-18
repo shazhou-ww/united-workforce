@@ -334,35 +334,25 @@ OPENROUTER_API_KEY=sk-or-...
 
 ---
 
-## 3. 包结构（精简后）
+## 3. 包结构
+
+全新包，不复用现有 packages，避免命名冲突。CAS 直接依赖 `@uncaged/json-cas`。
 
 ```
 packages/
-├── workflow-protocol/    # 类型定义（复用，大幅精简）
-├── workflow-cas/         # CAS 存储（复用）
-├── workflow-util/        # Base32, ULID, logger（复用）
-├── workflow-moderator/   # JSONata moderator 引擎（新，从 #297 演化）
-├── workflow-agent-kit/   # Agent CLI 框架（新，含 extractor）
-└── cli-workflow/         # wf CLI（重写）
+├── cli-uwf/              # @uncaged/cli-uwf — uwf CLI（thread/workflow 命令）
+├── uwf-moderator/        # @uncaged/uwf-moderator — JSONata moderator 引擎
+├── uwf-agent-kit/        # @uncaged/uwf-agent-kit — Agent CLI 框架（含 extractor）
+├── uwf-agent-hermes/     # @uncaged/uwf-agent-hermes — uwf-hermes CLI
+├── uwf-agent-cursor/     # @uncaged/uwf-agent-cursor — uwf-cursor CLI
+└── uwf-protocol/         # @uncaged/uwf-protocol — 共享类型定义
 ```
 
-6 个包。砍掉 workflow-runtime, workflow-execute, workflow-register, workflow-reactor, workflow-dashboard, workflow-gateway, 4 个 agent adapter, 2 个 template, workflow（根包）。
+**外部依赖：**
+- `@uncaged/json-cas` — CAS 存储、hash、schema 校验
+- `@uncaged/json-cas-fs` — 文件系统 CAS 后端
 
-**可以删除的包（12 个）：**
-- `workflow-runtime` — createWorkflow / AsyncGenerator 不再需要
-- `workflow-execute` — 引擎循环移到 CLI 的 `step` 命令
-- `workflow-register` — ESM bundle 注册不再需要，workflow 是 CAS 节点
-- `workflow-reactor` — LLM tool-call 循环移到 agent-kit
-- `workflow-dashboard` — 没有长驻进程，不需要 dashboard
-- `workflow-gateway` — 同上
-- `workflow-agent-cursor` — 变成独立的 `uwf-cursor` CLI
-- `workflow-agent-hermes` — 变成独立的 `uwf-hermes` CLI
-- `workflow-agent-llm` — 变成独立的 `uwf-llm` CLI
-- `workflow-agent-react` — 变成独立的 `uwf-react` CLI
-- `workflow-template-develop` — 变成 YAML 文件
-- `workflow-template-solve-issue` — 变成 YAML 文件
-
-Agent adapters 从 monorepo 内的包变成独立的 CLI 项目（可以在同一个 monorepo，也可以分出去）。Workflow templates 从 ESM bundle 变成 YAML 文件。
+**现有包全部保留不动**，新旧并存，逐步迁移。
 
 ---
 
