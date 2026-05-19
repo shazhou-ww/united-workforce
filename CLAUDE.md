@@ -225,32 +225,45 @@ Test files (`__tests__/**`) are exempt.
 | **Biome** | Lint + format (replaces ESLint + Prettier) |
 | **vitest** | Test runner (`cli-workflow` uses vitest; other packages use `bun test`) |
 
-### Commands
+### Development Workflow
 
 ```bash
-bun run check       # tsc --build + biome check + lint-log-tags
-bun run format      # biome format --write
-bun test            # run tests across all packages
+# ── Setup ──
+bun install                 # install all workspace dependencies
+
+# ── Daily development ──
+bun run build               # tsc --build (all packages, dependency order)
+bun run check               # tsc --build + biome check + lint-log-tags
+bun run format              # biome format --write
+bun test                    # run tests across all packages
+
+# ── Before committing ──
+bun run check               # must pass — typecheck + lint + log tag validation
+bun test                    # must pass — all package tests
 ```
 
-### Version Management & Publishing
+### Publishing
 
-All public `@uncaged/*` packages are published to **npmjs.org** via `@changesets/cli` with **fixed mode** (all packages share the same version number).
+All public `@uncaged/*` packages are published to **npmjs.org** with **fixed mode** (all packages share the same version number).
 
 ```bash
-# 1. After making changes, add a changeset describing the change
+# 1. Add a changeset describing the change
 bun changeset
 
-# 2. Before release, bump all package versions + generate CHANGELOGs
+# 2. Bump all package versions + generate CHANGELOGs
 bun version
 
-# 3. Build, test, and publish to npmjs
+# 3. Build, test, and publish (runs scripts/publish-all.mjs)
 bun release
+
+# Or publish manually with a tag:
+node scripts/publish-all.mjs --tag alpha
+node scripts/publish-all.mjs --dry-run    # preview without publishing
 ```
 
 - `workspace:^` dependencies resolve to `^x.y.z` on publish
+- Publish order defined in `scripts/publish-all.mjs` (dependency order)
 - Changesets config: `.changeset/config.json` (fixed mode, public access)
-- Each package has auto-generated `CHANGELOG.md`
 
 ### End-to-end: Author → Register → Run
 

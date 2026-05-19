@@ -18,19 +18,9 @@ const dryRun = args.includes("--dry-run");
 const publishOrder = [
   "workflow-protocol",
   "workflow-util",
-  "workflow-runtime",
-  "workflow-cas",
-  "workflow-reactor",
-  "workflow-register",
-  "workflow-execute",
-  "workflow-util-agent",
-  "workflow-agent-cursor",
+  "workflow-moderator",
+  "workflow-agent-kit",
   "workflow-agent-hermes",
-  "workflow-agent-llm",
-  "workflow-agent-react",
-  "workflow-template-develop",
-  "workflow-template-solve-issue",
-  "workflow-gateway",
   "cli-workflow",
 ];
 
@@ -71,14 +61,18 @@ for (const name of publishOrder) {
   const tagFlag = tag ? `--tag ${tag}` : "";
   const cmd = `npm publish --access public ${tagFlag}`;
 
+  console.log(`📦 ${name}...`);
+
   if (dryRun) {
+    console.log(`  (dry-run) ${cmd}`);
     continue;
   }
 
   try {
     const out = execSync(cmd, { cwd: pkgDir, stdio: "pipe" }).toString().trim();
-    const _lastLine = out.split("\n").pop();
-  } catch (_err) {
+    console.log(`  ✅ published`);
+  } catch (err) {
+    console.error(`  ❌ failed: ${err.message}`);
     failed = true;
     break;
   }
@@ -92,3 +86,5 @@ for (const [pkgPath, raw] of originals) {
 if (failed) {
   process.exit(1);
 }
+
+console.log(dryRun ? "\n✅ Dry run complete" : "\n✅ All packages published");
