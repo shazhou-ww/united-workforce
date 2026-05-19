@@ -1,9 +1,11 @@
-import { validate } from "@uncaged/json-cas";
+import { getSchema, validate } from "@uncaged/json-cas";
 import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/uwf-protocol";
 import { config as loadDotenv } from "dotenv";
 
 import { buildContextWithMeta } from "./context.js";
+import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { extract } from "./extract.js";
+import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
 import { getEnvPath, loadWorkflowConfig, resolveStorageRoot } from "./storage.js";
 import type { AgentContext, AgentOptions, AgentRunResult } from "./types.js";
@@ -73,7 +75,16 @@ async function extractOutput(
   rawOutput: string,
   outputSchema: CasRef,
   storageRoot: string,
+  ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
 ): Promise<CasRef> {
+  const fastPath = await runWithMessage("frontmatter fast path", () =>
+    tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store),
+  ).catch(() => null);
+
+  if (fastPath !== null) {
+    return fastPath.outputHash;
+  }
+
   const config = await runWithMessage("failed to load config", () =>
     loadWorkflowConfig(storageRoot),
   );
@@ -120,8 +131,13 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       fail(`unknown role: ${role}`);
     }
 
+    const outputSchema = getSchema(ctx.meta.store, roleDef.outputSchema);
+    if (outputSchema !== null) {
+      ctx.outputFormatInstruction = buildOutputFormatInstruction(outputSchema);
+    }
+
     const agentResult = await runAgent(options, ctx);
-    const outputHash = await extractOutput(agentResult.output, roleDef.outputSchema, storageRoot);
+    const outputHash = await extractOutput(agentResult.output, roleDef.outputSchema, storageRoot, ctx);
     const stepHash = await persistStep({
       ctx,
       outputHash,

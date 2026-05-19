@@ -21,6 +21,7 @@
     "@uncaged/json-cas": "^0.3.0",
     "@uncaged/json-cas-fs": "^0.3.0",
     "@uncaged/uwf-protocol": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
     "dotenv": "^16.6.1",
     "yaml": "^2.8.4"
   },

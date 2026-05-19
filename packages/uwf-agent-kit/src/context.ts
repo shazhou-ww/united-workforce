@@ -152,6 +152,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
     steps,
     workflow,
     store,
+    outputFormatInstruction: "",
   };
 }
 
@@ -196,6 +197,7 @@ export async function buildContextWithMeta(
     steps,
     workflow,
     store,
+    outputFormatInstruction: "",
     meta: { storageRoot, store, schemas, headHash, chain },
   };
 }
