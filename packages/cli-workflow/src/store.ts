@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { Hash, Store } from "@uncaged/json-cas";
+import type { BootstrapCapableStore, Hash } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
 import type { CasRef, ThreadId, ThreadListItem, ThreadsIndex } from "@uncaged/workflow-protocol";
 import { parse, stringify } from "yaml";
@@ -54,7 +54,7 @@ export type ThreadHistoryLine = ThreadListItem & {
 
 export type UwfStore = {
   storageRoot: string;
-  store: Store;
+  store: BootstrapCapableStore;
   schemas: UwfSchemaHashes;
 };
 
