@@ -1,11 +1,14 @@
 #!/usr/bin/env bun
 
 import { Command } from "commander";
+import type { ThreadId } from "@uncaged/uwf-protocol";
 
 import {
   cmdThreadFork,
   cmdThreadKill,
   cmdThreadList,
+  cmdThreadRead,
+  THREAD_READ_DEFAULT_QUOTA,
   cmdThreadShow,
   cmdThreadStart,
   cmdThreadStep,
@@ -155,6 +158,28 @@ thread
     runAction(async () => {
       const result = await cmdThreadSteps(storageRoot, threadId);
       writeOutput(result);
+    });
+  });
+
+thread
+  .command("read")
+  .description("Read thread context as human-readable markdown")
+  .argument("<thread-id>", "Thread ULID")
+  .option("--quota <chars>", "Max output characters", String(THREAD_READ_DEFAULT_QUOTA))
+  .option("--before <step-hash>", "Load steps before this hash (exclusive)")
+  .option("--start", "Include start step in output")
+  .option("--detail", "Expand detail content for each step")
+  .action((threadId: string, opts: { quota: string; before: string | undefined; start: boolean; detail: boolean }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const quota = Number.parseInt(opts.quota, 10);
+      if (!Number.isFinite(quota) || quota < 1) {
+        process.stderr.write("invalid --quota: must be a positive integer\n");
+        process.exit(1);
+      }
+      const before = opts.before ?? null;
+      const markdown = await cmdThreadRead(storageRoot, threadId as ThreadId, quota, before, opts.start ?? false, opts.detail ?? false);
+      process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
     });
   });
 
