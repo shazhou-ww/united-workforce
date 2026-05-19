@@ -1,8 +1,6 @@
 import { execFileSync } from "node:child_process";
-
+import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
 import { getSchema, validate } from "@uncaged/json-cas";
-import type { JSONSchema, Store as CasStore } from "@uncaged/json-cas";
-import { stringify } from "yaml";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/uwf-agent-kit";
 import { evaluate } from "@uncaged/uwf-moderator";
 import type {
@@ -26,6 +24,7 @@ import type {
 } from "@uncaged/uwf-protocol";
 import { generateUlid } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
+import { stringify } from "yaml";
 
 import {
   appendThreadHistory,
@@ -293,7 +292,12 @@ function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unkno
   return expandValue(store, schema, node.payload, seen);
 }
 
-function expandValue(store: CasStore, schema: JSONSchema, value: unknown, visited: Set<string>): unknown {
+function expandValue(
+  store: CasStore,
+  schema: JSONSchema,
+  value: unknown,
+  visited: Set<string>,
+): unknown {
   // If this field is a cas_ref, expand it
   if (schema.format === "cas_ref") {
     if (typeof value === "string") {
@@ -383,6 +387,37 @@ function formatCompactStep(index: number, item: OrderedStepItem, outputYaml: str
   ].join("\n");
 }
 
+export function extractLastAssistantContent(uwf: UwfStore, detailRef: CasRef): string | null {
+  const detailNode = uwf.store.get(detailRef);
+  if (detailNode === null) {
+    return null;
+  }
+  const detail = detailNode.payload as Record<string, unknown>;
+  const turns = detail.turns;
+  if (!Array.isArray(turns) || turns.length === 0) {
+    return null;
+  }
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const turnRef = turns[i];
+    if (typeof turnRef !== "string") {
+      continue;
+    }
+    const turnNode = uwf.store.get(turnRef as CasRef);
+    if (turnNode === null) {
+      continue;
+    }
+    const turn = turnNode.payload as Record<string, unknown>;
+    if (
+      turn.role === "assistant" &&
+      typeof turn.content === "string" &&
+      turn.content.trim() !== ""
+    ) {
+      return turn.content;
+    }
+  }
+  return null;
+}
+
 function formatThreadReadMarkdown(options: {
   threadId: ThreadId;
   workflowName: string;
@@ -394,9 +429,8 @@ function formatThreadReadMarkdown(options: {
   quota: number;
   before: CasRef | null;
   showStart: boolean;
-  showDetail: boolean;
 }): string {
-  const { ordered, uwf, workflow, quota, before, showStart, showDetail } = options;
+  const { ordered, uwf, workflow, quota, before, showStart } = options;
 
   // Determine which steps to consider
   let candidates = ordered;
@@ -456,7 +490,10 @@ function formatThreadReadMarkdown(options: {
     if (item === undefined) continue;
     const stepNum = startIndex + i + 1;
     const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
-    const ts = new Date(item.timestamp).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    const ts = new Date(item.timestamp)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
     const stepLines = [
       `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
       `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
@@ -465,19 +502,13 @@ function formatThreadReadMarkdown(options: {
     if (roleDef) {
       stepLines.push("", "### Prompt", "", roleDef.systemPrompt);
     }
-    stepLines.push(
-      "",
-      "### Output",
-      "",
-      "```yaml",
-      outputYaml,
-      "```",
-    );
-    if (showDetail && item.payload.detail) {
-      const detailExpanded = expandDeep(uwf.store, item.payload.detail);
-      const detailYaml = formatYaml(detailExpanded);
-      stepLines.push("", "### Detail", "", "```yaml", detailYaml, "```");
+    if (item.payload.detail) {
+      const content = extractLastAssistantContent(uwf, item.payload.detail);
+      if (content !== null) {
+        stepLines.push("", "### Content", "", content);
+      }
     }
+    stepLines.push("", "### Output", "", "```yaml", outputYaml, "```");
     parts.push(stepLines.join("\n"));
   }
 
@@ -719,7 +750,6 @@ export async function cmdThreadRead(
   quota: number = THREAD_READ_DEFAULT_QUOTA,
   before: CasRef | null = null,
   showStart: boolean = false,
-  showDetail: boolean = false,
 ): Promise<string> {
   const headHash = await resolveHeadHash(storageRoot, threadId);
   const uwf = await createUwfStore(storageRoot);
@@ -738,7 +768,6 @@ export async function cmdThreadRead(
     quota,
     before,
     showStart,
-    showDetail,
   });
 }
 
@@ -766,6 +795,25 @@ export async function cmdThreadFork(
       step: stepHash,
     },
   };
+}
+
+export async function cmdThreadStepDetails(
+  storageRoot: string,
+  stepHash: CasRef,
+): Promise<unknown> {
+  const uwf = await createUwfStore(storageRoot);
+  const node = uwf.store.get(stepHash);
+  if (node === null) {
+    fail(`CAS node not found: ${stepHash}`);
+  }
+  if (node.type !== uwf.schemas.stepNode) {
+    fail(`node ${stepHash} is not a StepNode`);
+  }
+  const payload = node.payload as StepNodePayload;
+  if (!payload.detail) {
+    fail(`step ${stepHash} has no detail`);
+  }
+  return expandDeep(uwf.store, payload.detail);
 }
 
 export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Promise<KillOutput> {
