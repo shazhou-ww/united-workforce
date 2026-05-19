@@ -390,12 +390,13 @@ function formatThreadReadMarkdown(options: {
   prompt: string;
   ordered: OrderedStepItem[];
   uwf: UwfStore;
+  workflow: WorkflowPayload;
   quota: number;
   before: CasRef | null;
   showStart: boolean;
   showDetail: boolean;
 }): string {
-  const { ordered, uwf, quota, before, showStart, showDetail } = options;
+  const { ordered, uwf, workflow, quota, before, showStart, showDetail } = options;
 
   // Determine which steps to consider
   let candidates = ordered;
@@ -459,11 +460,19 @@ function formatThreadReadMarkdown(options: {
     const stepLines = [
       `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
       `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
+    ];
+    const roleDef = workflow.roles[item.payload.role];
+    if (roleDef) {
+      stepLines.push("", "### Prompt", "", roleDef.systemPrompt);
+    }
+    stepLines.push(
+      "",
+      "### Output",
       "",
       "```yaml",
       outputYaml,
       "```",
-    ];
+    );
     if (showDetail && item.payload.detail) {
       const detailExpanded = expandDeep(uwf.store, item.payload.detail);
       const detailYaml = formatYaml(detailExpanded);
@@ -725,6 +734,7 @@ export async function cmdThreadRead(
     prompt: chain.start.prompt,
     ordered,
     uwf,
+    workflow,
     quota,
     before,
     showStart,
