@@ -135,7 +135,7 @@ function parseKeyValue(
  * - Scalar key: value pairs
  * - Block sequences under a key (items prefixed with `  - `)
  *
- * Returns a plain object.  Throws on structural errors.
+ * Returns a plain object.  Never throws — unparseable lines are silently skipped.
  */
 function parseMinimalYaml(yaml: string): Record<string, YamlValue> {
   const result: Record<string, YamlValue> = {};
