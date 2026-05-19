@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
-import { validate } from "@uncaged/json-cas";
+import { getSchema, validate } from "@uncaged/json-cas";
+import type { JSONSchema, Store as CasStore } from "@uncaged/json-cas";
 import { stringify } from "yaml";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/uwf-agent-kit";
 import { evaluate } from "@uncaged/uwf-moderator";
@@ -274,6 +275,64 @@ function expandOutput(uwf: UwfStore, outputRef: CasRef): unknown {
   return node.payload;
 }
 
+/**
+ * Recursively expand all cas_ref fields in a CAS node's payload,
+ * replacing hash strings with the referenced node's expanded payload.
+ */
+function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unknown {
+  const seen = visited ?? new Set<string>();
+  if (seen.has(hash)) return hash; // cycle guard
+  seen.add(hash);
+
+  const node = store.get(hash);
+  if (node === null) return hash;
+
+  const schema = getSchema(store, node.type);
+  if (schema === null) return node.payload;
+
+  return expandValue(store, schema, node.payload, seen);
+}
+
+function expandValue(store: CasStore, schema: JSONSchema, value: unknown, visited: Set<string>): unknown {
+  // If this field is a cas_ref, expand it
+  if (schema.format === "cas_ref") {
+    if (typeof value === "string") {
+      return expandDeep(store, value as CasRef, visited);
+    }
+    return value;
+  }
+
+  // anyOf (nullable refs)
+  if (Array.isArray(schema.anyOf)) {
+    for (const sub of schema.anyOf as JSONSchema[]) {
+      if (sub.format === "cas_ref" && typeof value === "string") {
+        return expandDeep(store, value as CasRef, visited);
+      }
+    }
+    return value;
+  }
+
+  // Array of cas_ref items
+  if (schema.type === "array" && schema.items && Array.isArray(value)) {
+    const itemSchema = schema.items as JSONSchema;
+    return (value as unknown[]).map((item) => expandValue(store, itemSchema, item, visited));
+  }
+
+  // Object with properties
+  if (value !== null && typeof value === "object" && !Array.isArray(value) && schema.properties) {
+    const props = schema.properties as Record<string, JSONSchema>;
+    const obj = value as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(obj)) {
+      const propSchema = props[key];
+      result[key] = propSchema ? expandValue(store, propSchema, val, visited) : val;
+    }
+    return result;
+  }
+
+  return value;
+}
+
 function collectOrderedSteps(
   uwf: UwfStore,
   headHash: CasRef,
@@ -406,7 +465,8 @@ function formatThreadReadMarkdown(options: {
       "```",
     ];
     if (showDetail && item.payload.detail) {
-      const detailYaml = formatYaml(expandOutput(uwf, item.payload.detail));
+      const detailExpanded = expandDeep(uwf.store, item.payload.detail);
+      const detailYaml = formatYaml(detailExpanded);
       stepLines.push("", "### Detail", "", "```yaml", detailYaml, "```");
     }
     parts.push(stepLines.join("\n"));
