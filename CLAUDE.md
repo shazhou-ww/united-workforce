@@ -2,46 +2,41 @@
 
 ## Project Overview
 
-This monorepo implements a workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file with an XXH64 hash as its version identifier. Shared types live in `@uncaged/workflow-protocol`; bundle authors typically depend on `@uncaged/workflow-runtime`.
+This monorepo implements a stateless workflow engine driven by a single-step CLI (`uwf`). Workflows are **YAML definitions** stored as CAS nodes; threads are immutable chains of CAS-linked step nodes. No daemon — each `uwf thread step` invocation runs one moderator→agent→extract cycle and exits.
 
 ### Key Terms
 
 | Concept | What it is |
 |---------|-----------|
-| **Workflow** | A single-file ESM module that exports `run` (workflow function) and `descriptor` (metadata). Identified by its XXH64 hash (Crockford Base32). |
-| **Bundle** | The physical `.esm.js` file stored in `~/.uncaged/workflow/bundles/`. |
-| **Thread** | A single execution of a workflow, identified by a ULID. State lives in CAS (linked nodes); active threads indexed in `threads.json`; completed rows in `history/*.jsonl`. Debug logs use `.info.jsonl`. |
-| **Role** | A named actor within a workflow. Each role produces output with typed `meta`. |
-| **Registry** | `workflow.yaml` — maps workflow names to current/historical bundle hashes. |
+| **Workflow** | A YAML definition (`WorkflowPayload`) with roles, conditions, and a routing graph. Stored as a CAS node, identified by its XXH64 hash. |
+| **Thread** | A single execution of a workflow, identified by a ULID. State is an immutable CAS chain; active threads indexed in `threads.yaml`; completed threads in `history.jsonl`. |
+| **Role** | A named actor within a workflow. Each role has a system prompt and a JSON Schema `outputSchema`. |
+| **Moderator** | JSONata-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
+| **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
+| **CAS** | Content-Addressed Storage via `@uncaged/json-cas` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
+| **Registry** | `~/.uncaged/workflow/registry.yaml` — maps workflow names to current CAS hashes. |
 
 ### Monorepo Structure
 
 ```
 workflow/
   packages/
-    workflow-protocol/              # @uncaged/workflow-protocol — shared types + Result
-    workflow-runtime/               # @uncaged/workflow-runtime — createWorkflow, type re-exports
-    workflow-util/                  # @uncaged/workflow-util — Base32, ULID, logger, storage paths, refs helpers
-    workflow-reactor/               # @uncaged/workflow-reactor — LLM fn + thread reactor (tool calls)
-    workflow-cas/                   # @uncaged/workflow-cas — CAS store, hash, Merkle
-    workflow-register/              # @uncaged/workflow-register — bundle validation, registry YAML, model resolution
-    workflow-execute/               # @uncaged/workflow-execute — engine, extract, fork, GC, workflowAsAgent
-    cli-workflow/                   # @uncaged/cli-workflow — uncaged-workflow CLI
-    workflow-agent-cursor/          # @uncaged/workflow-agent-cursor
-    workflow-agent-hermes/          # @uncaged/workflow-agent-hermes
-    workflow-agent-llm/             # @uncaged/workflow-agent-llm
-    workflow-agent-react/             # @uncaged/workflow-agent-react
-    workflow-util-agent/            # @uncaged/workflow-util-agent — buildAgentPrompt, spawnCli
-    workflow-template-develop/      # @uncaged/workflow-template-develop
-    workflow-template-solve-issue/  # @uncaged/workflow-template-solve-issue
-    workflow-dashboard/             # @uncaged/workflow-dashboard — React dashboard (private app)
-  docs/             # RFCs, conventions
-  biome.json        # root Biome config
-  tsconfig.json     # root TypeScript config
+    workflow-protocol/    # @uncaged/workflow-protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
+    workflow-util/        # @uncaged/workflow-util — Crockford Base32, ULID, logger, frontmatter parsing/validation
+    workflow-moderator/   # @uncaged/workflow-moderator — JSONata graph evaluator
+    workflow-agent-kit/   # @uncaged/workflow-agent-kit — createAgent factory, context builder, extract pipeline
+    workflow-agent-hermes/ # @uncaged/workflow-agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
+    cli-workflow/         # @uncaged/cli-workflow — uwf CLI binary
+  legacy-packages/       # Archived packages (preserved for reference, not active)
+  examples/              # Workflow YAML examples (solve-issue.yaml)
+  docs/                  # Architecture docs
+  biome.json             # root Biome config
+  tsconfig.json          # root TypeScript config
 ```
 
-- Execution stack layers: `workflow-protocol` → (`workflow-runtime`, `workflow-util`, `workflow-reactor`) → (`workflow-cas`, `workflow-register`) → `workflow-execute` → `cli-workflow`
+- Dependency layers: `workflow-protocol` → (`workflow-util`, `workflow-moderator`) → `workflow-agent-kit` → `workflow-agent-hermes` / `cli-workflow`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
+- External CAS: `@uncaged/json-cas` (store API, hashing, schema validation) + `@uncaged/json-cas-fs` (filesystem backend)
 
 ## Language & Paradigm
 
@@ -109,8 +104,6 @@ type WorkflowEntry = {
 - Always named exports, never default exports
 - One module = one responsibility, filename = purpose
 
-Workflow bundles (`.esm.js`) follow the same rule: export `const run` and `const descriptor`, not `export default`.
-
 ### Folder Module Discipline
 
 Every folder under `src/` is a **module boundary**. Four rules:
@@ -136,10 +129,10 @@ export { createCasStore } from "../cas/cas.js";
 
 // ❌ Bad — types defined in index.ts
 // in cas/index.ts:
-export type CasStore = { ... };  // should be in cas/types.ts
+export type CasStore = { ... }; // should be in cas/types.ts
 ```
 
-**Exception**: The package-level `src/index.ts` is the public API surface and re-exports from folder `index.ts` files. Files that remain at `src/` root (e.g. `types.ts`, `workflow-as-agent.ts`) are not inside a folder module and follow normal rules.
+**Exception**: The package-level `src/index.ts` is the public API surface and re-exports from folder `index.ts` files. Files that remain at `src/` root (e.g. `types.ts`) are not inside a folder module and follow normal rules.
 
 ## Naming
 
@@ -160,7 +153,7 @@ Workflow names use **verb-first** kebab-case:
 ### ID Encoding
 
 All IDs use **Crockford Base32**:
-- Bundle hash: XXH64 → 13-char Crockford Base32
+- CAS hash: XXH64 → 13-char Crockford Base32
 - Thread ID: ULID → 26-char Crockford Base32 (10 timestamp + 16 random)
 
 ## Error Handling
@@ -189,7 +182,7 @@ import { createLogger } from "@uncaged/workflow-util";
 const log = createLogger();
 
 // Each call site has a fixed 8-char Crockford Base32 tag
-log("4KNMR2PX", "Loading workflow bundle...");
+log("4KNMR2PX", "Loading workflow...");
 log("7BQST3VW", `Role ${role} started`);
 ```
 
@@ -204,7 +197,7 @@ log("7BQST3VW", `Role ${role} started`);
 
 ### Why fixed tags?
 
-- `grep "4KNMR2PX"` in `.info.jsonl` → instant code location
+- `grep "4KNMR2PX"` in logs → instant code location
 - No need for file/line info in the log — tag is the locator
 - Survives refactoring (tag stays the same when code moves)
 
@@ -221,34 +214,28 @@ console.log(result);
 
 Do NOT use `await import()` in production code. Always use static top-level `import`.
 
-**Exception**: The bundle loader and `extractBundleExports` dynamically import user workflow files at runtime.
-
-```ts
-// Dynamic import required: user bundle path resolved at runtime
-const mod = await import(bundlePath);
-```
-
 Test files (`__tests__/**`) are exempt.
 
 ## Toolchain
 
 | Tool | Purpose |
 |------|---------|
-| **bun** | Package manager + runtime + test runner |
+| **bun** | Package manager + runtime |
 | **TypeScript** | Type checking (strict mode) |
 | **Biome** | Lint + format (replaces ESLint + Prettier) |
+| **vitest** | Test runner (`cli-workflow` uses vitest; other packages use `bun test`) |
 
 ### Commands
 
 ```bash
-bun run check       # tsc --build + biome check
+bun run check       # tsc --build + biome check + lint-log-tags
 bun run format      # biome format --write
-bun test            # run tests
+bun test            # run tests across all packages
 ```
 
 ### Version Management & Publishing
 
-All public `@uncaged/*` packages are published to **npmjs.org** via `@changesets/cli` with **fixed mode** (all packages share the same version number). `workflow-dashboard` is private and excluded.
+All public `@uncaged/*` packages are published to **npmjs.org** via `@changesets/cli` with **fixed mode** (all packages share the same version number).
 
 ```bash
 # 1. After making changes, add a changeset describing the change
@@ -265,30 +252,25 @@ bun release
 - Changesets config: `.changeset/config.json` (fixed mode, public access)
 - Each package has auto-generated `CHANGELOG.md`
 
-### Consuming @uncaged/* Packages
-
-External workflow repos just `bun install` — packages come from npmjs like any other dependency. No special registry config needed.
-
-### End-to-end: Monorepo → Registry → Workspace → Bundle
+### End-to-end: Author → Register → Run
 
 ```
-workflow/ (monorepo)           — engine, runtime, templates, agents
-  │  bun release               — build + test + changeset publish
+examples/solve-issue.yaml       — write a workflow YAML definition
+  │  uwf workflow put
   ▼
-npmjs.org                      — @uncaged/* scoped packages (public)
-  │  bun install
+~/.uncaged/workflow/cas/        — Workflow stored as CAS node
+~/.uncaged/workflow/registry.yaml — name → hash mapping updated
+  │  uwf thread start <name> -p "..."
   ▼
-my-workflows/ (workspace)     — normal package.json
-  │  bun run build:develop     — bun build → single .esm.js
+~/.uncaged/workflow/threads.yaml — new thread head pointer
+  │  uwf thread step <thread-id>
   ▼
-uncaged-workflow workflow add  — register bundle locally
-uncaged-workflow run           — execute workflow
+moderator → agent → extract      — one step per invocation, repeat until $END
 ```
 
-1. **Monorepo changes** → `bun changeset` (describe change) → `bun version` (bump) → `bun release` (publish)
-2. **Workspace** → `bun install` fetches latest from npmjs
-3. **Build** → produces single-file ESM bundle with `@uncaged/*` as externals
-4. **Register & Run** → `uncaged-workflow workflow add <name> <bundle>` then `uncaged-workflow run <name>`
+1. **Author** — write a workflow YAML file with roles, conditions, and graph
+2. **Register** — `uwf workflow put <file.yaml>` parses YAML, registers output schemas, stores `WorkflowPayload` in CAS
+3. **Run** — `uwf thread start` creates a thread, `uwf thread step` executes one cycle per invocation
 
 ## Commit Convention
 
@@ -296,5 +278,5 @@ uncaged-workflow run           — execute workflow
 <type>(<scope>): <description>
 
 type: feat | fix | refactor | docs | chore | test
-scope: workflow | cli | rfc-001 | ...
+scope: workflow | cli | moderator | agent-kit | hermes | util | protocol | ...
 ```

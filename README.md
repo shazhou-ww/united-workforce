@@ -1,71 +1,93 @@
 # @uncaged/workflow
 
-A workflow engine that executes single-file ESM bundles. Each workflow is a self-contained `.esm.js` file identified by its XXH64 hash (Crockford Base32).
+A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, JSONata routing conditions, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
-## Core Concepts
+## Package Map
 
-| Concept | Description |
-|---------|-------------|
-| **Workflow** | A single-file ESM module exporting `run` (workflow function) and `descriptor` (metadata). Identified by its XXH64 hash. |
-| **Bundle** | The physical `.esm.js` file stored in `~/.uncaged/workflow/bundles/`. |
-| **Thread** | A single execution of a workflow, identified by a ULID. CAS-backed chain plus `threads.json` / `history/*.jsonl`; `.info.jsonl` for debug logs. |
-| **Role** | A named actor within a workflow. Each role produces output with typed `meta`. Roles live inside template packages (`src/roles/`). |
-| **Registry** | `workflow.yaml` — maps workflow names to current/historical bundle hashes. |
-| **CAS** | Content-Addressed Storage — bundles are immutable and addressed by hash. |
+| Package | npm | Role |
+|---------|-----|------|
+| `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI binary — thread lifecycle, workflow registry, CAS inspection, setup |
+| `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `WorkflowConfig`, etc.) |
+| `workflow-moderator` | `@uncaged/workflow-moderator` | JSONata graph evaluator — determines next role or `$END` |
+| `workflow-agent-kit` | `@uncaged/workflow-agent-kit` | `createAgent` factory, context builder, two-layer extract pipeline |
+| `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` agent — spawns Hermes chat, captures session |
+| `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing |
 
-## Monorepo Packages
-
-```
-packages/
-  workflow/                      # @uncaged/workflow — core lib (types, engine, hash, ULID, registry)
-  cli-workflow/                  # @uncaged/cli-workflow — CLI (`uncaged-workflow` command)
-  workflow-template-develop/     # @uncaged/workflow-template-develop — develop workflow template (includes roles)
-  workflow-template-solve-issue/ # @uncaged/workflow-template-solve-issue — solve-issue workflow template (includes roles)
-  workflow-agent-hermes/         # @uncaged/workflow-agent-hermes — Hermes agent adapter
-  workflow-agent-cursor/         # @uncaged/workflow-agent-cursor — Cursor agent adapter
-  workflow-agent-llm/            # @uncaged/workflow-agent-llm — LLM agent adapter
-  workflow-util-agent/           # @uncaged/workflow-util-agent — agent utilities (buildAgentPrompt, spawnCli)
-```
-
-Managed with **bun workspace** using the `workspace:*` protocol.
+External: [`@uncaged/json-cas`](https://www.npmjs.com/package/@uncaged/json-cas) (CAS store + JSON Schema validation) + `@uncaged/json-cas-fs` (filesystem backend).
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-bun install
+# 1. Configure provider and model
+uwf setup
 
-# Build all packages
-bun run build
+# 2. Register a workflow from YAML
+uwf workflow put examples/solve-issue.yaml
 
-# Register a workflow bundle
-uncaged-workflow workflow add solve-issue dist/packages/workflow-template-solve-issue/solve-issue.esm.js
+# 3. Start a thread
+uwf thread start solve-issue -p "Fix the login redirect bug"
 
-# Run a workflow
-uncaged-workflow run solve-issue --prompt "Fix bug #42"
+# 4. Execute steps (one at a time, until done)
+uwf thread step <thread-id>
 ```
 
-## CLI Usage
+## CLI Commands
 
-```bash
-uncaged-workflow                   # Print full command usage (exits with status 1)
-uncaged-workflow workflow list     # List registered workflows
-uncaged-workflow run <name>        # Start a workflow thread
-uncaged-workflow thread list       # List all threads
-uncaged-workflow thread show <id>  # Inspect a thread
-uncaged-workflow skill             # Agent-consumable reference docs
-```
+### Thread
 
-Run `uncaged-workflow` with no arguments to print usage, or `uncaged-workflow skill cli` for the full CLI skill reference.
+| Command | Description |
+|---------|-------------|
+| `uwf thread start <workflow> -p <prompt>` | Create a thread (no execution) |
+| `uwf thread step <thread-id> [--agent <cmd>]` | Execute one moderator→agent→extract cycle |
+| `uwf thread show <thread-id>` | Show head pointer and done status |
+| `uwf thread list [--all]` | List threads (`--all` includes archived) |
+| `uwf thread steps <thread-id>` | List all steps chronologically |
+| `uwf thread read <thread-id> [--quota N]` | Render thread as readable markdown |
+| `uwf thread fork <step-hash>` | Fork from a specific step |
+| `uwf thread step-details <step-hash>` | Dump full detail node |
+| `uwf thread kill <thread-id>` | Terminate and archive |
+
+### Workflow
+
+| Command | Description |
+|---------|-------------|
+| `uwf workflow put <file.yaml>` | Register a workflow from YAML |
+| `uwf workflow show <name-or-hash>` | Show workflow definition |
+| `uwf workflow list` | List registered workflows |
+
+### CAS
+
+| Command | Description |
+|---------|-------------|
+| `uwf cas get <hash>` | Read a CAS node |
+| `uwf cas put <type-hash> <data>` | Store a node |
+| `uwf cas has <hash>` | Check existence |
+| `uwf cas refs <hash>` | List direct references |
+| `uwf cas walk <hash>` | Recursive traversal |
+| `uwf cas reindex` | Rebuild type index |
+| `uwf cas schema list` | List schemas |
+| `uwf cas schema get <hash>` | Show a schema |
+
+### Setup
+
+| Command | Description |
+|---------|-------------|
+| `uwf setup` | Interactive provider/model/agent configuration |
+| `uwf setup --provider ... --base-url ... --api-key ... --model ...` | Non-interactive setup |
+
+Config stored in `~/.uncaged/workflow/config.yaml`. API keys in `~/.uncaged/workflow/.env`.
 
 ## Development
 
 ```bash
-bun run check    # Biome lint + format check
-bun run format   # Auto-format with Biome
-bun test         # Run tests
+bun install --no-cache     # Install dependencies
+bun run check              # tsc + biome + lint-log-tags
+bun run format             # Auto-format with Biome
+bun test                   # Run all tests
 ```
+
+Managed with **bun workspace**. See [CLAUDE.md](CLAUDE.md) for coding conventions.
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for the full design — three-phase engine loop, bundle contract, storage layout, and design decisions.
+See [docs/architecture.md](docs/architecture.md) for the full design — three-phase engine loop, CAS node types, storage layout, agent CLI protocol, and design decisions.
