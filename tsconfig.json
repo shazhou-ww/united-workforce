@@ -19,10 +19,10 @@
   },
   "references": [
     { "path": "packages/workflow-util" },
-    { "path": "packages/uwf-protocol" },
-    { "path": "packages/uwf-moderator" },
-    { "path": "packages/uwf-agent-kit" },
-    { "path": "packages/uwf-agent-hermes" },
-    { "path": "packages/cli-uwf" }
+    { "path": "packages/workflow-protocol" },
+    { "path": "packages/workflow-moderator" },
+    { "path": "packages/workflow-agent-kit" },
+    { "path": "packages/workflow-agent-hermes" },
+    { "path": "packages/cli-workflow" }
   ]
 }

@@ -1,0 +1,27 @@
+{
+  "name": "@uncaged/workflow-protocol",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "^0.3.0",
+    "@uncaged/json-cas-fs": "^0.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

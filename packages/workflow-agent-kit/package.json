@@ -1,0 +1,34 @@
+{
+  "name": "@uncaged/workflow-agent-kit",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "^0.3.0",
+    "@uncaged/json-cas-fs": "^0.3.0",
+    "@uncaged/workflow-protocol": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
+    "dotenv": "^16.6.1",
+    "yaml": "^2.8.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

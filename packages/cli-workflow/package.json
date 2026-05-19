@@ -1,0 +1,33 @@
+{
+  "name": "@uncaged/cli-workflow",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "^0.3.0",
+    "@uncaged/json-cas-fs": "^0.3.0",
+    "@uncaged/workflow-agent-kit": "workspace:^",
+    "@uncaged/workflow-moderator": "workspace:^",
+    "@uncaged/workflow-protocol": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
+    "commander": "^14.0.3",
+    "dotenv": "^16.6.1",
+    "yaml": "^2.8.4"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.6"
+  }
+}

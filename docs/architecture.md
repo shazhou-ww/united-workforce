@@ -1,4 +1,4 @@
-# uwf — Architecture
+# Workflow Engine — Architecture
 
 **Last updated:** 2026-05-19
 
@@ -14,12 +14,12 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 
 | Layer | Package | One-line role |
 |-------|---------|---------------|
-| Contract | `@uncaged/uwf-protocol` → `uwf-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@uncaged/json-cas-fs`. |
+| Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@uncaged/json-cas-fs`. |
 | Shared infra | `@uncaged/workflow-util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
-| Moderator | `@uncaged/uwf-moderator` → `uwf-moderator` | JSONata-based graph evaluator: given a `WorkflowPayload` and `ModeratorContext`, returns the next role or `$END`. |
-| Agent framework | `@uncaged/uwf-agent-kit` → `uwf-agent-kit` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
-| Agent: Hermes | `@uncaged/uwf-agent-hermes` → `uwf-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
-| CLI | `@uncaged/cli-uwf` → `cli-uwf` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. |
+| Moderator | `@uncaged/workflow-moderator` → `workflow-moderator` | JSONata-based graph evaluator: given a `WorkflowPayload` and `ModeratorContext`, returns the next role or `$END`. |
+| Agent framework | `@uncaged/workflow-agent-kit` → `workflow-agent-kit` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
+| Agent: Hermes | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
+| CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. |
 
 ### External dependencies
 
@@ -27,8 +27,8 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 |---------|------|
 | `@uncaged/json-cas` | Content-addressed store API, XXH64 hashing, JSON Schema registration and validation. |
 | `@uncaged/json-cas-fs` | Filesystem backend for `json-cas`. |
-| `jsonata` | JSONata expression evaluator (used by `uwf-moderator`). |
-| `commander` | CLI argument parsing (used by `cli-uwf`). |
+| `jsonata` | JSONata expression evaluator (used by `workflow-moderator`). |
+| `commander` | CLI argument parsing (used by `cli-workflow`). |
 | `dotenv` | Loads `.env` files for API keys. |
 | `yaml` | YAML parse/stringify. |
 
@@ -41,20 +41,20 @@ flowchart BT
     jcasfs["@uncaged/json-cas-fs"]
   end
   subgraph L0["Layer 0 — contract"]
-    protocol["@uncaged/uwf-protocol"]
+    protocol["@uncaged/workflow-protocol"]
   end
   subgraph L1["Layer 1 — shared"]
     util["@uncaged/workflow-util"]
-    moderator["@uncaged/uwf-moderator"]
+    moderator["@uncaged/workflow-moderator"]
   end
   subgraph L2["Layer 2 — agent framework"]
-    kit["@uncaged/uwf-agent-kit"]
+    kit["@uncaged/workflow-agent-kit"]
   end
   subgraph L3["Layer 3 — agent implementations"]
-    hermes["@uncaged/uwf-agent-hermes"]
+    hermes["@uncaged/workflow-agent-hermes"]
   end
   subgraph L4["Layer 4 — CLI"]
-    cli["@uncaged/cli-uwf"]
+    cli["@uncaged/cli-workflow"]
   end
   protocol --> jcasfs
   util --> protocol
@@ -141,7 +141,7 @@ Key properties:
 
 ## Three-phase engine loop
 
-Each `uwf thread step` runs exactly one cycle: moderator → agent → extract. The CLI orchestrates this in `packages/cli-uwf/src/commands/thread.ts` (`cmdThreadStep`).
+Each `uwf thread step` runs exactly one cycle: moderator → agent → extract. The CLI orchestrates this in `packages/cli-workflow/src/commands/thread.ts` (`cmdThreadStep`).
 
 ```
 ┌─→ Phase 1: MODERATOR
@@ -167,7 +167,7 @@ Each `uwf thread step` runs exactly one cycle: moderator → agent → extract. 
 
 ### Context types
 
-Defined in `packages/uwf-protocol/src/types.ts`:
+Defined in `packages/workflow-protocol/src/types.ts`:
 
 ```typescript
 type StepContext = {
@@ -209,7 +209,7 @@ Each agent is an external command invoked by `uwf thread step`:
 Contract:
 1. `uwf thread step` determines the next role via the moderator
 2. Agent CLI is spawned with `(thread-id, role)` as positional args
-3. `uwf-agent-kit` (`createAgent`) handles the boilerplate:
+3. `workflow-agent-kit` (`createAgent`) handles the boilerplate:
    - Parses argv
    - Loads `.env` from storage root
    - Builds `AgentContext` by walking the CAS chain from `threads.yaml` head
@@ -242,11 +242,11 @@ scope: role
 Fixed the login redirect by updating the auth middleware...
 ```
 
-The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `uwf-agent-kit`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's JSON Schema.
+The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `workflow-agent-kit`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's JSON Schema.
 
 ## Two-layer extract
 
-Structured output extraction uses a two-layer strategy (`uwf-agent-kit`):
+Structured output extraction uses a two-layer strategy (`workflow-agent-kit`):
 
 ### Layer 1: frontmatter fast path (`frontmatter.ts`)
 
@@ -270,7 +270,7 @@ If the fast path returns `null` (no frontmatter, invalid, or doesn't satisfy sch
 
 ## Prompt injection
 
-`uwf-agent-kit` prepends two pieces of context to the agent's system prompt:
+`workflow-agent-kit` prepends two pieces of context to the agent's system prompt:
 
 1. **Deliverable format instruction** — generated from the role's `outputSchema`, tells the agent exactly what frontmatter fields to produce and the expected format
 2. **Scope constraint** — "Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope."
