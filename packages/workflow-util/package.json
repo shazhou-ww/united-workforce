@@ -14,9 +14,7 @@
       "import": "./dist/index.js"
     }
   },
-  "dependencies": {
-    "@uncaged/workflow-protocol": "workspace:^"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.8.3"
   },

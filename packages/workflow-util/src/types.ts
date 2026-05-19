@@ -1,4 +1,4 @@
-export type { Result } from "@uncaged/workflow-protocol";
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 export type LoggerSink = { kind: "stderr" } | { kind: "file"; path: string };
 

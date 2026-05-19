@@ -1,4 +1,4 @@
-export { err, ok } from "@uncaged/workflow-protocol";
+export { err, ok } from "./result.js";
 export { encodeUint64AsCrockford } from "./base32.js";
 export { env } from "./env.js";
 export {
