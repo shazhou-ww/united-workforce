@@ -12,6 +12,7 @@ import {
   validateFrontmatter,
 } from "@uncaged/workflow-util";
 import type * as z from "zod/v4";
+import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
@@ -83,8 +84,9 @@ export function createAgentAdapter<Opt>(
   extract: ExtractOptionsFn<Opt>,
 ): AdapterFn {
   return <T>(prompt: string, schema: z.ZodType<T>) => {
+    const augmentedPrompt = `${buildOutputFormatInstruction(schema)}\n\n${prompt}`;
     return async (ctx: ThreadContext, runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
-      const options = await extract(ctx, prompt, runtime);
+      const options = await extract(ctx, augmentedPrompt, runtime);
       const raw = await agent(ctx, options);
 
       const frontmatterResult = tryFrontmatterMeta(raw, schema);
