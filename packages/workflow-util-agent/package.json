@@ -21,6 +21,7 @@
   "dependencies": {
     "@uncaged/workflow-runtime": "workspace:^",
     "@uncaged/workflow-cas": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^",
     "zod": "^4.0.0"
   },
   "publishConfig": {
