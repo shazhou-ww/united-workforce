@@ -22,9 +22,12 @@
     "yaml": "^2.8.4"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "vitest run"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.6"
   }
 }

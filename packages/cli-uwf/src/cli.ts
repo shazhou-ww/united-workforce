@@ -1,33 +1,34 @@
 #!/usr/bin/env bun
 
-import { Command } from "commander";
 import type { ThreadId } from "@uncaged/uwf-protocol";
-
+import { Command } from "commander";
+import { stringify as yamlStringify } from "yaml";
+import {
+  cmdCasGet,
+  cmdCasHas,
+  cmdCasPut,
+  cmdCasRefs,
+  cmdCasReindex,
+  cmdCasSchemaGet,
+  cmdCasSchemaList,
+  cmdCasWalk,
+} from "./commands/cas.js";
+import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
   cmdThreadFork,
   cmdThreadKill,
   cmdThreadList,
   cmdThreadRead,
-  THREAD_READ_DEFAULT_QUOTA,
   cmdThreadShow,
   cmdThreadStart,
   cmdThreadStep,
+  cmdThreadStepDetails,
   cmdThreadSteps,
+  THREAD_READ_DEFAULT_QUOTA,
 } from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
-import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
-import {
-  cmdCasGet,
-  cmdCasHas,
-  cmdCasPut,
-  cmdCasReindex,
-  cmdCasRefs,
-  cmdCasSchemaGet,
-  cmdCasSchemaList,
-  cmdCasWalk,
-} from "./commands/cas.js";
+import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
-import { type OutputFormat, formatOutput } from "./format.js";
 
 function writeOutput(data: unknown): void {
   const fmt = program.opts().format as OutputFormat;
@@ -168,20 +169,27 @@ thread
   .option("--quota <chars>", "Max output characters", String(THREAD_READ_DEFAULT_QUOTA))
   .option("--before <step-hash>", "Load steps before this hash (exclusive)")
   .option("--start", "Include start step in output")
-  .option("--detail", "Expand detail content for each step")
-  .action((threadId: string, opts: { quota: string; before: string | undefined; start: boolean; detail: boolean }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const quota = Number.parseInt(opts.quota, 10);
-      if (!Number.isFinite(quota) || quota < 1) {
-        process.stderr.write("invalid --quota: must be a positive integer\n");
-        process.exit(1);
-      }
-      const before = opts.before ?? null;
-      const markdown = await cmdThreadRead(storageRoot, threadId as ThreadId, quota, before, opts.start ?? false, opts.detail ?? false);
-      process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
-    });
-  });
+  .action(
+    (threadId: string, opts: { quota: string; before: string | undefined; start: boolean }) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        const quota = Number.parseInt(opts.quota, 10);
+        if (!Number.isFinite(quota) || quota < 1) {
+          process.stderr.write("invalid --quota: must be a positive integer\n");
+          process.exit(1);
+        }
+        const before = opts.before ?? null;
+        const markdown = await cmdThreadRead(
+          storageRoot,
+          threadId as ThreadId,
+          quota,
+          before,
+          opts.start ?? false,
+        );
+        process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+      });
+    },
+  );
 
 thread
   .command("fork")
@@ -195,6 +203,18 @@ thread
     });
   });
 
+thread
+  .command("step-details")
+  .description("Dump the full detail node of a step as YAML")
+  .argument("<step-hash>", "CAS hash of the StepNode")
+  .action((stepHash: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const detail = await cmdThreadStepDetails(storageRoot, stepHash);
+      process.stdout.write(yamlStringify(detail));
+    });
+  });
+
 program
   .command("setup")
   .description("Configure provider, model, and agent")
@@ -203,34 +223,36 @@ program
   .option("--api-key <key>", "API key")
   .option("--model <name>", "Default model name")
   .option("--agent <name>", "Default agent alias")
-  .action((opts: {
-    provider?: string;
-    baseUrl?: string;
-    apiKey?: string;
-    model?: string;
-    agent?: string;
-  }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      if (opts.provider && opts.baseUrl && opts.apiKey && opts.model) {
-        const result = await cmdSetup({
-          provider: opts.provider,
-          baseUrl: opts.baseUrl,
-          apiKey: opts.apiKey,
-          model: opts.model,
-          agent: opts.agent ?? undefined,
-          storageRoot,
-        });
-        writeOutput(result);
-      } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
-        await cmdSetupInteractive(storageRoot);
-      } else {
-        throw new Error(
-          "Non-interactive setup requires all of: --provider, --base-url, --api-key, --model",
-        );
-      }
-    });
-  });
+  .action(
+    (opts: {
+      provider?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      model?: string;
+      agent?: string;
+    }) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        if (opts.provider && opts.baseUrl && opts.apiKey && opts.model) {
+          const result = await cmdSetup({
+            provider: opts.provider,
+            baseUrl: opts.baseUrl,
+            apiKey: opts.apiKey,
+            model: opts.model,
+            agent: opts.agent ?? undefined,
+            storageRoot,
+          });
+          writeOutput(result);
+        } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
+          await cmdSetupInteractive(storageRoot);
+        } else {
+          throw new Error(
+            "Non-interactive setup requires all of: --provider, --base-url, --api-key, --model",
+          );
+        }
+      });
+    },
+  );
 
 const cas = program.command("cas").description("Content-addressable storage operations");
 
