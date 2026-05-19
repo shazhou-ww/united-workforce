@@ -10,3 +10,4 @@ xiaoju/
 solve-issue-entry.ts
 packages/workflow-template-develop/develop.esm.js
 .DS_Store
+*.py

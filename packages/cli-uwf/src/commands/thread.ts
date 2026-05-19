@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 import { validate } from "@uncaged/json-cas";
+import { stringify } from "yaml";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/uwf-agent-kit";
 import { evaluate } from "@uncaged/uwf-moderator";
 import type {
@@ -40,12 +41,19 @@ import {
 import { isCasRef } from "../validate.js";
 
 const END_ROLE = "$END";
+export const THREAD_READ_DEFAULT_QUOTA = 4000;
 
 type ChainState = {
   startHash: CasRef;
   start: StartNodePayload;
   stepsNewestFirst: StepNodePayload[];
   headIsStart: boolean;
+};
+
+type OrderedStepItem = {
+  hash: CasRef;
+  payload: StepNodePayload;
+  timestamp: number;
 };
 
 export type KillOutput = {
@@ -266,6 +274,147 @@ function expandOutput(uwf: UwfStore, outputRef: CasRef): unknown {
   return node.payload;
 }
 
+function collectOrderedSteps(
+  uwf: UwfStore,
+  headHash: CasRef,
+  chain: ChainState,
+): OrderedStepItem[] {
+  let hash: CasRef | null = headHash;
+  const hashToNode = new Map<string, { payload: StepNodePayload; timestamp: number }>();
+  while (hash !== null) {
+    const node = uwf.store.get(hash);
+    if (node === null || node.type !== uwf.schemas.stepNode) {
+      break;
+    }
+    const payload = node.payload as StepNodePayload;
+    hashToNode.set(hash, { payload, timestamp: node.timestamp });
+    hash = payload.prev;
+  }
+
+  let cur: CasRef | null = chain.headIsStart ? null : headHash;
+  const ordered: OrderedStepItem[] = [];
+  while (cur !== null) {
+    const entry = hashToNode.get(cur);
+    if (entry === undefined) {
+      break;
+    }
+    ordered.push({ hash: cur, ...entry });
+    cur = entry.payload.prev;
+  }
+  ordered.reverse();
+  return ordered;
+}
+
+function formatYaml(value: unknown): string {
+  return stringify(value).trimEnd();
+}
+
+function formatCompactStep(index: number, item: OrderedStepItem, outputYaml: string): string {
+  return [
+    `## Step ${index}: ${item.payload.role}`,
+    "",
+    `- **Hash:** \`${item.hash}\``,
+    `- **Agent:** ${item.payload.agent}`,
+    "",
+    "### Output",
+    "",
+    "```yaml",
+    outputYaml,
+    "```",
+  ].join("\n");
+}
+
+function formatThreadReadMarkdown(options: {
+  threadId: ThreadId;
+  workflowName: string;
+  workflowHash: CasRef;
+  prompt: string;
+  ordered: OrderedStepItem[];
+  uwf: UwfStore;
+  quota: number;
+  before: CasRef | null;
+  showStart: boolean;
+  showDetail: boolean;
+}): string {
+  const { ordered, uwf, quota, before, showStart, showDetail } = options;
+
+  // Determine which steps to consider
+  let candidates = ordered;
+  if (before !== null) {
+    const idx = candidates.findIndex((s) => s.hash === before);
+    if (idx === -1) {
+      fail(`step ${before} not found in thread ${options.threadId}`);
+    }
+    candidates = candidates.slice(0, idx);
+  }
+
+  // Walk backward from newest, accumulating chars until quota exceeded
+  const selected: OrderedStepItem[] = [];
+  let totalChars = 0;
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const item = candidates[i];
+    if (item === undefined) continue;
+    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
+    const blockLen = formatCompactStep(i + 1, item, outputYaml).length;
+    selected.unshift(item);
+    totalChars += blockLen;
+    if (totalChars > quota) break;
+  }
+
+  const skippedCount = candidates.length - selected.length;
+  const parts: string[] = [];
+
+  // Start section
+  if (before === null || showStart) {
+    parts.push(
+      [
+        `# Thread \`${options.threadId}\``,
+        "",
+        `**Workflow:** ${options.workflowName} (\`${options.workflowHash}\`)`,
+        "",
+        "## Task",
+        "",
+        options.prompt,
+      ].join("\n"),
+    );
+  }
+
+  // Skip hint
+  if (skippedCount > 0 && selected.length > 0) {
+    const firstSelected = selected[0];
+    if (firstSelected !== undefined) {
+      parts.push(
+        `*(${skippedCount} earlier step${skippedCount > 1 ? "s" : ""}, load with \`uwf thread read ${options.threadId} --before ${firstSelected.hash}\`)*`,
+      );
+    }
+  }
+
+  // Step blocks
+  const startIndex = candidates.length - selected.length;
+  for (let i = 0; i < selected.length; i++) {
+    const item = selected[i];
+    if (item === undefined) continue;
+    const stepNum = startIndex + i + 1;
+    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
+    const ts = new Date(item.timestamp).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    const stepLines = [
+      `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
+      `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
+      "",
+      "```yaml",
+      outputYaml,
+      "```",
+    ];
+    if (showDetail && item.payload.detail) {
+      const detailYaml = formatYaml(expandOutput(uwf, item.payload.detail));
+      stepLines.push("", "### Detail", "", "```yaml", detailYaml, "```");
+    }
+    parts.push(stepLines.join("\n"));
+  }
+
+  return parts.join("\n\n---\n\n");
+}
+
 function buildModeratorContext(uwf: UwfStore, chain: ChainState): ModeratorContext {
   const chronological = [...chain.stepsNewestFirst].reverse();
   const steps: StepContext[] = chronological.map((step) => ({
@@ -475,31 +624,7 @@ export async function cmdThreadSteps(
   };
 
   const stepEntries: StepEntry[] = [];
-
-  // Walk again to get hashes for each step
-  let hash: CasRef | null = headHash;
-  const hashToNode = new Map<string, { payload: StepNodePayload; timestamp: number }>();
-  while (hash !== null) {
-    const node = uwf.store.get(hash);
-    if (node === null || node.type !== uwf.schemas.stepNode) {
-      break;
-    }
-    const payload = node.payload as StepNodePayload;
-    hashToNode.set(hash, { payload, timestamp: node.timestamp });
-    hash = payload.prev;
-  }
-
-  // Build chronological list with hashes
-  // Walk from start's next to head
-  let cur: CasRef | null = chain.headIsStart ? null : headHash;
-  const ordered: { hash: CasRef; payload: StepNodePayload; timestamp: number }[] = [];
-  while (cur !== null) {
-    const entry = hashToNode.get(cur);
-    if (entry === undefined) break;
-    ordered.push({ hash: cur, ...entry });
-    cur = entry.payload.prev;
-  }
-  ordered.reverse();
+  const ordered = collectOrderedSteps(uwf, headHash, chain);
 
   for (const item of ordered) {
     stepEntries.push({
@@ -517,6 +642,34 @@ export async function cmdThreadSteps(
     workflow: chain.start.workflow,
     steps: [startEntry, ...stepEntries],
   };
+}
+
+export async function cmdThreadRead(
+  storageRoot: string,
+  threadId: ThreadId,
+  quota: number = THREAD_READ_DEFAULT_QUOTA,
+  before: CasRef | null = null,
+  showStart: boolean = false,
+  showDetail: boolean = false,
+): Promise<string> {
+  const headHash = await resolveHeadHash(storageRoot, threadId);
+  const uwf = await createUwfStore(storageRoot);
+  const chain = walkChain(uwf, headHash);
+  const workflow = loadWorkflowPayload(uwf, chain.start.workflow);
+  const ordered = collectOrderedSteps(uwf, headHash, chain);
+
+  return formatThreadReadMarkdown({
+    threadId,
+    workflowName: workflow.name,
+    workflowHash: chain.start.workflow,
+    prompt: chain.start.prompt,
+    ordered,
+    uwf,
+    quota,
+    before,
+    showStart,
+    showDetail,
+  });
 }
 
 export async function cmdThreadFork(
