@@ -35,7 +35,11 @@ function buildHistorySummary(steps: AgentContext["steps"]): string {
 export function buildHermesPrompt(ctx: AgentContext): string {
   const roleDef = ctx.workflow.roles[ctx.role];
   const systemPrompt = roleDef?.systemPrompt ?? "";
-  const parts: string[] = [systemPrompt, "", "## Task", ctx.start.prompt];
+  const parts: string[] = [];
+  if (ctx.outputFormatInstruction !== undefined && ctx.outputFormatInstruction !== "") {
+    parts.push(ctx.outputFormatInstruction, "");
+  }
+  parts.push(systemPrompt, "", "## Task", ctx.start.prompt);
   const historyBlock = buildHistorySummary(ctx.steps);
   if (historyBlock !== "") {
     parts.push("", historyBlock);
