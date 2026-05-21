@@ -45,7 +45,9 @@ function runAction(action: () => Promise<void>): void {
 
 const program = new Command();
 
-program.name("uwf").description("Stateless workflow CLI");
+// eslint-disable-next-line -- dynamic import for version
+const pkg = await import("../package.json", { with: { type: "json" } });
+program.name("uwf").description("Stateless workflow CLI").version(pkg.default.version, "-V, --version");
 program.option("--format <fmt>", "Output format: json or yaml", "json");
 
 const workflow = program.command("workflow").description("Workflow registry and CAS");

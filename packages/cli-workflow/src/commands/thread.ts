@@ -500,7 +500,8 @@ function formatThreadReadMarkdown(options: {
     ];
     const roleDef = workflow.roles[item.payload.role];
     if (roleDef) {
-      stepLines.push("", "### Prompt", "", roleDef.systemPrompt);
+      const prompt = roleDef.identity ?? roleDef.systemPrompt ?? "";
+      stepLines.push("", "### Prompt", "", prompt);
     }
     if (item.payload.detail) {
       const content = extractLastAssistantContent(uwf, item.payload.detail);
