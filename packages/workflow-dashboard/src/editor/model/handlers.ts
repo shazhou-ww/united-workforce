@@ -1,0 +1,149 @@
+import type { OnNodeDrag, OnConnectEnd, OnBeforeDelete, OnDelete } from '@xyflow/react';
+import { define } from '../context';
+import { addNodeViewModel } from './add-node-view';
+import type { AnyWorkNode } from '../type';
+import { LayoutLR } from '../layout';
+import { nodesModel } from './nodes';
+import { edgesModel } from './edges';
+import { injection } from './inject';
+import { transIn, transOut, validate } from '../trans';
+import type { WorkFlowSteps } from '../trans';
+import { editNodeViewModel } from './edit-node-view';
+
+export const handlers = define.memoize((use, model) => {
+  const onNodeDragStart: OnNodeDrag<AnyWorkNode> = () => {
+    model.startTransaction();
+  };
+  const onNodeDragStop: OnNodeDrag<AnyWorkNode> = () => {
+    model.endTransaction();
+  };
+  const onConnectEnd: OnConnectEnd = (event, state) => {
+    const { isValid, to, fromHandle, fromNode } = state;
+    if (isValid) return;
+    if (!to || !fromHandle || !fromNode) return;
+    const { clientX, clientY } = event as MouseEvent;
+    use(addNodeViewModel)[1].start({
+      fromNode: fromNode as any as AnyWorkNode,
+      fromHandle: fromHandle,
+      position: model.flow.screenToFlowPosition({ x: clientX, y: clientY }),
+    });
+  };
+
+  const onBeforeDelete: OnBeforeDelete<AnyWorkNode> = async ({ nodes, edges }) => {
+    for (const node of nodes) {
+      if (node.type === 'start' || node.type === 'end') {
+        return false;
+      }
+    }
+    if (edges.length > 0) {
+      const allEdges = use(edgesModel)[0];
+      for (const edge of edges) {
+        if (edge.type !== 'conditional') continue;
+        const siblings = allEdges.filter(e => e.source === edge.source && e.type === 'conditional');
+        if (siblings.length >= 2 && siblings[0].id === edge.id) {
+          return false;
+        }
+      }
+    }
+    model.startTransaction();
+    return true;
+  };
+  const onDelete: OnDelete = ({ edges: deletedEdges }) => {
+    if (deletedEdges.length > 0) {
+      const currentEdges = use(edgesModel)[0];
+      const sourcesToCheck = new Set(
+        deletedEdges
+          .filter(e => e.type === 'conditional')
+          .map(e => e.source),
+      );
+
+      if (sourcesToCheck.size > 0) {
+        let needsDowngrade = false;
+        const updatedEdges = currentEdges.map(e => {
+          if (!sourcesToCheck.has(e.source) || e.type !== 'conditional') return e;
+          const siblings = currentEdges.filter(s => s.source === e.source && s.type === 'conditional');
+          if (siblings.length === 1) {
+            needsDowngrade = true;
+            const { data: _, ...rest } = e;
+            return { ...rest, type: 'default' as const };
+          }
+          return e;
+        });
+
+        if (needsDowngrade) {
+          use(edgesModel)[1].set(updatedEdges);
+        }
+      }
+    }
+    model.endTransaction();
+  };
+
+  function autoLayoutLR() {
+    const [nodes, { set }] = use(nodesModel);
+    const edges = use(edgesModel)[0];
+
+    const layoutedNodes = LayoutLR(nodes, edges);
+    model.startTransaction();
+    set(layoutedNodes);
+    model.endTransaction();
+  }
+
+  function resetView() {
+    use(addNodeViewModel)[1].cancel();
+    use(editNodeViewModel)[1].cancel();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.code === 'Escape') {
+      const [addView, addViewActions] = use(addNodeViewModel);
+      const [editView, editViewActions] = use(editNodeViewModel);
+      if (addView) addViewActions.cancel();
+      if (editView) editViewActions.cancel();
+      return;
+    }
+
+    if (event.code === 'KeyZ') {
+      if (event.ctrlKey || event.metaKey) {
+        if (event.shiftKey) model.redo();
+        else model.undo();
+      }
+    } else if (event.code === 'KeyY') {
+      if (event.ctrlKey || event.metaKey) {
+        model.redo();
+      }
+    }
+  }
+
+  function loadSteps(steps: WorkFlowSteps) {
+    resetView();
+    const { nodes, edges } = transIn(steps);
+    use(nodesModel)[1].set(nodes);
+    use(edgesModel)[1].set(edges);
+    autoLayoutLR();
+    model.reset();
+  }
+
+  function saveData() {
+    const nodes = use(nodesModel)[0];
+    const edges = use(edgesModel)[0];
+    const result = validate(nodes, edges);
+    if (result.valid) {
+      const steps = transOut(nodes, edges);
+      const instance = use(injection)[0];
+      instance.emitPublic('save', steps);
+    }
+    return result;
+  }
+
+  return {
+    onNodeDragStart,
+    onNodeDragStop,
+    onConnectEnd,
+    onBeforeDelete,
+    onDelete,
+    autoLayoutLR,
+    handleKeyDown,
+    loadSteps,
+    saveData,
+  };
+});

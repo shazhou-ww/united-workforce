@@ -1,0 +1,90 @@
+import { memo, createElement, useLayoutEffect, useEffect, createContext, useContext } from 'react';
+import { ReactFlow, ReactFlowProvider, Controls, Background, type Edge } from '@xyflow/react';
+// @ts-ignore
+import '@xyflow/react/dist/style.css';
+import { nodesModel, edgesModel, handlers, injection }  from './model';
+import { ModelProvider, RegisterFlowToContext } from './context';
+import { nodeTypes } from './nodes';
+import { edgeTypes } from './edges';
+import { Dialogs, TopCenterPanel } from './panel';
+import type { AnyWorkNode } from './type';
+import { FlowModel, InternalField } from './injection';
+
+export * from './trans/type';
+
+const proOptions = { hideAttribution: true };
+
+const ReadonlyContext = createContext(false);
+export const useReadonly = () => useContext(ReadonlyContext);
+
+function Flow() {
+  const [nodes, { onNodesChange }] = nodesModel.use();
+  const [edges, { onEdgesChange, onConnect }] = edgesModel.use();
+  const { onNodeDragStart, onNodeDragStop, onConnectEnd, onBeforeDelete, onDelete, handleKeyDown } = handlers.use();
+  const readonly = useReadonly();
+
+  return (
+    <div style={{ height: '100%' }} tabIndex={0} onKeyDown={readonly ? undefined : handleKeyDown}>
+      <ReactFlowProvider>
+        <ReactFlow<AnyWorkNode, Edge>
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={readonly ? undefined : onNodesChange}
+          onEdgesChange={readonly ? undefined : onEdgesChange}
+          onConnect={readonly ? undefined : onConnect}
+          fitView
+          proOptions={proOptions}
+          onNodeDragStart={readonly ? undefined : onNodeDragStart}
+          onNodeDragStop={readonly ? undefined : onNodeDragStop}
+          onConnectEnd={readonly ? undefined : onConnectEnd}
+          onBeforeDelete={readonly ? undefined : onBeforeDelete}
+          onDelete={readonly ? undefined : onDelete}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodesDraggable={!readonly}
+          nodesConnectable={!readonly}
+          elementsSelectable={!readonly}
+        >
+          <RegisterFlowToContext />
+          <Background />
+          <Controls />
+          {!readonly && <TopCenterPanel />}
+          {!readonly && <Dialogs />}
+        </ReactFlow>
+      </ReactFlowProvider>
+    </div>
+  );
+}
+
+const MemoFlow = memo(Flow);
+
+interface Props {
+  model: FlowModel;
+  readonly?: boolean;
+}
+
+function Connect({ model }: { model: FlowModel }) {
+  const { loadSteps } = handlers.use();
+  const inject = injection.useCreation();
+  const instance = model[InternalField];
+
+  useLayoutEffect(() => {
+    return inject(instance);
+  }, [instance]);
+
+  useEffect(() => {
+    return instance.on('load', loadSteps);
+  }, [instance]);
+
+  return <MemoFlow />;
+}
+
+export { FlowModel };
+// biome-ignore lint/style/noDefaultExport: FlowEditor is the main public component
+export default ({ model, readonly = false }: Props) => (
+  <ReadonlyContext.Provider value={readonly}>
+    <ModelProvider>
+      {createElement(Connect, { model })}
+    </ModelProvider>
+  </ReadonlyContext.Provider>
+);
