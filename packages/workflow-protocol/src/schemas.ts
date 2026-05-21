@@ -2,10 +2,13 @@ import type { JSONSchema } from "@uncaged/json-cas";
 
 const ROLE_DEFINITION: JSONSchema = {
   type: "object",
-  required: ["description", "systemPrompt", "outputSchema"],
+  required: ["description", "identity", "prepare", "execute", "report", "outputSchema"],
   properties: {
     description: { type: "string" },
-    systemPrompt: { type: "string" },
+    identity: { type: "string" },
+    prepare: { type: "string" },
+    execute: { type: "string" },
+    report: { type: "string" },
     outputSchema: { type: "string", format: "cas_ref" },
   },
   additionalProperties: false,

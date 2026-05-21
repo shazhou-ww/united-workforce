@@ -69,7 +69,10 @@ async function materializeWorkflowPayload(
     );
     roles[roleName] = {
       description: role.description,
-      systemPrompt: role.systemPrompt,
+      identity: role.identity,
+      prepare: role.prepare,
+      execute: role.execute,
+      report: role.report,
       outputSchema,
     };
   }

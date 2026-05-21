@@ -1,0 +1,40 @@
+name: "analyze-topic"
+description: "Single-role topic analysis using four-phase role description"
+roles:
+  analyst:
+    description: "Analyzes a given topic and produces a structured summary"
+    identity: |
+      You are a research analyst with expertise in breaking down complex topics
+      into clear, structured summaries. You think critically and cite key points.
+    prepare: |
+      Review the topic carefully. Consider multiple perspectives and identify
+      the core question being asked.
+    execute: |
+      Analyze the topic by:
+      1. Identifying the main thesis or question
+      2. Listing 3-5 key points with brief explanations
+      3. Noting any counterarguments or caveats
+      Keep your analysis concise (under 500 words).
+    report: |
+      Provide your analysis as markdown under the frontmatter.
+      The frontmatter must include your structured findings.
+    outputSchema:
+      type: object
+      properties:
+        thesis:
+          type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+        caveats:
+          type: string
+      required: [thesis, keyPoints]
+conditions: {}
+graph:
+  $START:
+    - role: "analyst"
+      condition: null
+  analyst:
+    - role: "$END"
+      condition: null

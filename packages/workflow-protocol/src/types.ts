@@ -18,7 +18,10 @@ export type StepRecord = {
 
 export type RoleDefinition = {
   description: string;
-  systemPrompt: string;
+  identity: string;
+  prepare: string;
+  execute: string;
+  report: string;
   outputSchema: CasRef;
 };
 

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import { type AgentContext, type AgentRunResult, createAgent } from "@uncaged/workflow-agent-kit";
+import { type AgentContext, type AgentRunResult, buildRolePrompt, createAgent } from "@uncaged/workflow-agent-kit";
 
 import {
   loadHermesSession,
@@ -34,12 +34,12 @@ function buildHistorySummary(steps: AgentContext["steps"]): string {
 /** Assemble system prompt, task, and prior step outputs for Hermes. */
 export function buildHermesPrompt(ctx: AgentContext): string {
   const roleDef = ctx.workflow.roles[ctx.role];
-  const systemPrompt = roleDef?.systemPrompt ?? "";
+  const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
   const parts: string[] = [];
   if (ctx.outputFormatInstruction !== undefined && ctx.outputFormatInstruction !== "") {
     parts.push(ctx.outputFormatInstruction, "");
   }
-  parts.push(systemPrompt, "", "## Task", ctx.start.prompt);
+  parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
   const historyBlock = buildHistorySummary(ctx.steps);
   if (historyBlock !== "") {
     parts.push("", historyBlock);
