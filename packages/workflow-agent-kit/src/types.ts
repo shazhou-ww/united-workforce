@@ -7,7 +7,7 @@ export type AgentContext = ModeratorContext & {
   store: Store;
   workflow: WorkflowPayload;
   /**
-   * Prepend to the role's systemPrompt when building the agent prompt.
+   * Prepend to the role's prompt when building the agent prompt.
    * Contains the frontmatter deliverable format instruction derived from the
    * role's output schema.  Populated by `createAgent` at run time.
    */

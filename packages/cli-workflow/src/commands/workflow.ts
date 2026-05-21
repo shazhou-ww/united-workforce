@@ -67,22 +67,14 @@ async function materializeWorkflowPayload(
       `${raw.name}.${roleName}`,
       role.outputSchema,
     );
-    const roleDef: RoleDefinition = {
+    roles[roleName] = {
       description: role.description,
-      systemPrompt: role.systemPrompt ?? null,
-      identity: role.identity ?? null,
-      prepare: role.prepare ?? null,
-      execute: role.execute ?? null,
-      report: role.report ?? null,
+      identity: role.identity,
+      prepare: role.prepare,
+      execute: role.execute,
+      report: role.report,
       outputSchema,
     };
-    // Strip null fields so CAS payload stays lean and schema-valid
-    for (const key of ["systemPrompt", "identity", "prepare", "execute", "report"] as const) {
-      if (roleDef[key] === null) {
-        delete (roleDef as Record<string, unknown>)[key];
-      }
-    }
-    roles[roleName] = roleDef;
   }
   return {
     name: raw.name,

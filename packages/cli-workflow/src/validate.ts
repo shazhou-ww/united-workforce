@@ -16,17 +16,14 @@ function isRoleDefinition(value: unknown): boolean {
   }
   const outputSchema = value.outputSchema;
   const schemaOk = isRecord(outputSchema) && typeof outputSchema.type === "string";
-  const hasSystemPrompt =
-    value.systemPrompt === undefined || value.systemPrompt === null || typeof value.systemPrompt === "string";
-  const hasIdentity =
-    value.identity === undefined || value.identity === null || typeof value.identity === "string";
-  const hasPrepare =
-    value.prepare === undefined || value.prepare === null || typeof value.prepare === "string";
-  const hasExecute =
-    value.execute === undefined || value.execute === null || typeof value.execute === "string";
-  const hasReport =
-    value.report === undefined || value.report === null || typeof value.report === "string";
-  return typeof value.description === "string" && hasSystemPrompt && hasIdentity && hasPrepare && hasExecute && hasReport && schemaOk;
+  return (
+    typeof value.description === "string" &&
+    typeof value.identity === "string" &&
+    typeof value.prepare === "string" &&
+    typeof value.execute === "string" &&
+    typeof value.report === "string" &&
+    schemaOk
+  );
 }
 
 function isConditionDefinition(value: unknown): boolean {

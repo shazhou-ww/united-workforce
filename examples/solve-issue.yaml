@@ -3,7 +3,10 @@ description: "End-to-end issue resolution"
 roles:
   planner:
     description: "Creates implementation plan"
-    systemPrompt: "You are a planning agent. Analyze the issue and create a step-by-step plan."
+    identity: "You are a planning agent. You analyze issues and create step-by-step plans."
+    prepare: "Read the issue description and any linked context carefully."
+    execute: "Analyze the issue and create a detailed, actionable implementation plan."
+    report: "Output the plan summary and list of concrete steps."
     outputSchema:
       type: object
       properties:
@@ -16,7 +19,10 @@ roles:
       required: [plan, steps]
   developer:
     description: "Implements code changes"
-    systemPrompt: "You are a developer agent. Implement the plan."
+    identity: "You are a developer agent. You implement code changes according to plans."
+    prepare: "Load coding tools and review the project structure and conventions."
+    execute: "Implement the plan. Write code, tests, and ensure existing tests pass."
+    report: "List all files changed and provide a summary of the implementation."
     outputSchema:
       type: object
       properties:
@@ -29,7 +35,10 @@ roles:
       required: [filesChanged, summary]
   reviewer:
     description: "Reviews code changes"
-    systemPrompt: "You are a code reviewer. Review the implementation."
+    identity: "You are a code reviewer. You review implementations for correctness and quality."
+    prepare: "Review the project's coding standards and conventions."
+    execute: "Review the implementation against the plan. Check for bugs, edge cases, and style."
+    report: "Approve or reject with detailed comments explaining your decision."
     outputSchema:
       type: object
       properties:
