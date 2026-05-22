@@ -21,7 +21,7 @@ roles:
 
       After producing the test spec:
       1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
-      2. Put the hash in meta.plan (required when status=ready)
+      2. Put the hash in frontmatter.plan (required when status=ready)
     output: "Output a brief summary of the test spec. Frontmatter must include: status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
     frontmatter:
       type: object
