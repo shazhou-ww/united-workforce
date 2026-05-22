@@ -2,8 +2,44 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
-
+import type { Result } from "@uncaged/workflow-util";
 import { parse, stringify } from "yaml";
+
+/**
+ * Send a minimal chat completion request to verify the model is reachable.
+ * Returns ok on 2xx, error with reason string otherwise.
+ */
+export async function validateModel(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+): Promise<Result<void, string>> {
+  try {
+    const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 1,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `HTTP ${res.status} ${res.statusText}` };
+    }
+    return { ok: true, value: undefined };
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return { ok: false, error: "Request timed out — model endpoint unreachable" };
+    }
+    return { ok: false, error: `Network error — could not reach endpoint (${String(err)})` };
+  }
+}
 
 /**
  * Preset provider list — embedded to avoid runtime YAML loading dependency.
@@ -163,12 +199,16 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
   envData[envName] = args.apiKey;
   saveEnvFile(envPath, envData);
 
+  // Validate model connectivity
+  const validation = await validateModel(args.baseUrl, args.apiKey, args.model);
+
   return {
     configPath,
     envPath,
     provider: args.provider,
     model: args.model,
     defaultAgent: merged.defaultAgent,
+    validation,
   };
 }
 
@@ -328,13 +368,26 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
 
     console.log(`  → ${providerName}/${model}\n`);
 
-    await cmdSetup({
+    const setupResult = await cmdSetup({
       provider: providerName,
       baseUrl,
       apiKey,
       model,
       storageRoot,
     });
+
+    // Show validation result
+    if (setupResult.validation && typeof setupResult.validation === "object") {
+      const v = setupResult.validation as { ok: boolean; error?: string };
+      if (v.ok) {
+        console.log("✓ Model verified — connection successful.\n");
+      } else {
+        console.log(`\n⚠ Warning: Could not reach model — ${v.error}`);
+        console.log(
+          "  Config saved, but you may want to try a different model or check your API key.\n",
+        );
+      }
+    }
 
     console.log("Setup complete! Get started:\n");
     console.log("  uwf workflow put <workflow.yaml>   Register a workflow");
