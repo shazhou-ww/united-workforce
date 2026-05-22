@@ -42,7 +42,10 @@ function isTransition(value: unknown): boolean {
     return false;
   }
   const condition = value.condition;
-  return typeof value.role === "string" && (condition === null || typeof condition === "string");
+  return (
+    typeof value.role === "string" &&
+    (condition === null || condition === undefined || typeof condition === "string")
+  );
 }
 
 function isStringRecord(value: unknown, itemCheck: (item: unknown) => boolean): boolean {

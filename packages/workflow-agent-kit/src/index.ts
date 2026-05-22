@@ -12,4 +12,10 @@ export type { FrontmatterFastPathResult } from "./frontmatter.js";
 export { tryFrontmatterFastPath } from "./frontmatter.js";
 export { createAgent } from "./run.js";
 export { getConfigPath, getEnvPath, loadWorkflowConfig } from "./storage.js";
-export type { AgentContext, AgentOptions, AgentRunFn, AgentRunResult } from "./types.js";
+export type {
+  AgentContext,
+  AgentContinueFn,
+  AgentOptions,
+  AgentRunFn,
+  AgentRunResult,
+} from "./types.js";

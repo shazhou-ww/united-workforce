@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 
 import type { JSONSchema } from "@uncaged/json-cas";
 import { putSchema, validate } from "@uncaged/json-cas";
-import type { CasRef, RoleDefinition, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type {
+  CasRef,
+  RoleDefinition,
+  Transition,
+  WorkflowPayload,
+} from "@uncaged/workflow-protocol";
 import { parse } from "yaml";
 
 import {
@@ -46,6 +51,18 @@ function isJsonSchema(value: unknown): value is JSONSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Normalize graph transitions: ensure condition is null (not undefined) for fallback entries. */
+function normalizeGraph(graph: Record<string, Transition[]>): Record<string, Transition[]> {
+  const result: Record<string, Transition[]> = {};
+  for (const [node, transitions] of Object.entries(graph)) {
+    result[node] = transitions.map((t) => ({
+      role: t.role,
+      condition: t.condition ?? null,
+    }));
+  }
+  return result;
+}
+
 async function resolveFrontmatterRef(
   uwf: UwfStore,
   roleName: string,
@@ -84,7 +101,7 @@ export async function materializeWorkflowPayload(
     description: raw.description,
     roles,
     conditions: raw.conditions,
-    graph: raw.graph,
+    graph: normalizeGraph(raw.graph),
   };
 }
 

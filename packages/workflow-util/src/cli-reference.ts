@@ -46,6 +46,8 @@ uwf cas get <hash>                # read a CAS node (type + payload)
             [--timestamp]         # include timestamp in output
 uwf cas put <type-hash> <data>    # store a node, print its hash
                                   # <data>: JSON file path or inline JSON string
+uwf cas put-text <text>           # store a plain text string, print its hash
+                                  # shortcut for put with the built-in text schema
 uwf cas has <hash>                # check if a hash exists
 uwf cas refs <hash>               # list direct CAS references from a node
 uwf cas walk <hash>               # recursive traversal from a node

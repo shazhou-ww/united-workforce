@@ -17,11 +17,19 @@ export type AgentContext = ModeratorContext & {
 export type AgentRunResult = {
   output: string;
   detailHash: string;
+  sessionId: string;
 };
+
+export type AgentContinueFn = (
+  sessionId: string,
+  message: string,
+  store: AgentContext["store"],
+) => Promise<AgentRunResult>;
 
 export type AgentRunFn = (ctx: AgentContext) => Promise<AgentRunResult>;
 
 export type AgentOptions = {
   name: string;
   run: AgentRunFn;
+  continue: AgentContinueFn;
 };
