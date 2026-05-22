@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { Hash, JSONSchema, Store } from "@uncaged/json-cas";
+import type { JSONSchema, Store } from "@uncaged/json-cas";
 import { bootstrap, getSchema, refs, walk } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
 
