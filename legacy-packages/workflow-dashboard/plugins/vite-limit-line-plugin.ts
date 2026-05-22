@@ -54,10 +54,14 @@ type CallExpression = {
   arguments: Array<AstExpression>;
 };
 
-type AstExpression = Identifier | MemberExpression | CallExpression | {
-  type: string;
-  [key: string]: unknown;
-};
+type AstExpression =
+  | Identifier
+  | MemberExpression
+  | CallExpression
+  | {
+      type: string;
+      [key: string]: unknown;
+    };
 
 type VariableDeclarator = {
   id: Identifier | null;
@@ -258,15 +262,21 @@ function createLimitResolver(options: LimitLineOptions): (id: string) => Resolve
 }
 
 function shouldProcess(id: string, options: LimitLineOptions): boolean {
-  return options.include.test(id) && !id.includes("node_modules") && (options.exclude === null || !options.exclude.test(id));
+  return (
+    options.include.test(id) &&
+    !id.includes("node_modules") &&
+    (options.exclude === null || !options.exclude.test(id))
+  );
 }
 
 // --- Plugin ---
 
-function viteLimitLinePlugin(
-  userOptions: Partial<LimitLineOptions> = {},
-): Array<Plugin> {
-  const options: LimitLineOptions = { ...DEFAULT_OPTIONS, ...userOptions, overrides: userOptions.overrides ?? [] };
+function viteLimitLinePlugin(userOptions: Partial<LimitLineOptions> = {}): Array<Plugin> {
+  const options: LimitLineOptions = {
+    ...DEFAULT_OPTIONS,
+    ...userOptions,
+    overrides: userOptions.overrides ?? [],
+  };
   const resolve = createLimitResolver(options);
 
   const rawCodeCache = new Map<string, string>();
@@ -358,5 +368,5 @@ function viteLimitLinePlugin(
   ];
 }
 
-export { viteLimitLinePlugin };
 export type { LimitLineOptions, LimitLineOverride };
+export { viteLimitLinePlugin };

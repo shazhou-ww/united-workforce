@@ -1,5 +1,5 @@
-import { validate } from "@uncaged/json-cas";
 import type { Store } from "@uncaged/json-cas";
+import { validate } from "@uncaged/json-cas";
 import type { CasRef } from "@uncaged/workflow-protocol";
 import { parseFrontmatterMarkdown, validateFrontmatter } from "@uncaged/workflow-util";
 

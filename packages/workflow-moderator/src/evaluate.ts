@@ -21,7 +21,10 @@ function isTruthy(value: unknown): boolean {
   return true;
 }
 
-async function evaluateJsonata(expression: string, context: ModeratorContext): Promise<Result<unknown, Error>> {
+async function evaluateJsonata(
+  expression: string,
+  context: ModeratorContext,
+): Promise<Result<unknown, Error>> {
   try {
     const result = await jsonata(expression).evaluate(context);
     return { ok: true, value: result };

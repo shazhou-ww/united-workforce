@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { packageDescriptor } from "../src/package-descriptor.js";
 import { createOfficeAgent } from "../src/agent.js";
+import { packageDescriptor } from "../src/package-descriptor.js";
 
 describe("createOfficeAgent", () => {
   test("returns an AdapterFn (function)", () => {

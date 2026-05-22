@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import type { CasRef, WorkflowPayload } from "@uncaged/workflow-protocol";
 
 const CAS_REF_PATTERN = /^[0-9A-HJKMNP-TV-Z]{13}$/;
@@ -58,6 +59,33 @@ function isGraph(value: unknown): boolean {
   return Object.values(value).every(
     (transitions) => Array.isArray(transitions) && transitions.every((t) => isTransition(t)),
   );
+}
+
+/**
+ * Derive the expected workflow name from a file path (stem without extension).
+ * Returns the stem for `.yaml` / `.yml` files.
+ */
+export function workflowNameFromPath(filePath: string): string {
+  const base = basename(filePath);
+  if (base.endsWith(".yaml")) return base.slice(0, -5);
+  if (base.endsWith(".yml")) return base.slice(0, -4);
+  return base;
+}
+
+/**
+ * Check that the `name` field in a parsed payload matches the expected name
+ * derived from the file path.  Returns an error message string on mismatch,
+ * or null when the names are consistent.
+ */
+export function checkWorkflowFilenameConsistency(
+  filePath: string,
+  payload: WorkflowPayload,
+): string | null {
+  const expected = workflowNameFromPath(filePath);
+  if (payload.name !== expected) {
+    return `workflow name mismatch: file "${basename(filePath)}" implies name "${expected}" but YAML declares name "${payload.name}"`;
+  }
+  return null;
 }
 
 /** Validate YAML-parsed workflow document shape (outputSchema may be inline JSON Schema). */

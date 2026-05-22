@@ -7,17 +7,21 @@ import { parse } from "yaml";
 
 import {
   createUwfStore,
+  discoverProjectWorkflows,
   findRegistryName,
   loadWorkflowRegistry,
   resolveWorkflowHash,
   saveWorkflowRegistry,
   type UwfStore,
 } from "../store.js";
-import { parseWorkflowPayload } from "../validate.js";
+import { checkWorkflowFilenameConsistency, parseWorkflowPayload } from "../validate.js";
+
+export type WorkflowOrigin = "local" | "global";
 
 export type WorkflowListEntry = {
   name: string;
   hash: CasRef;
+  origin: WorkflowOrigin;
 };
 
 export type WorkflowPutOutput = {
@@ -42,31 +46,21 @@ function isJsonSchema(value: unknown): value is JSONSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function resolveMetaRef(
-  uwf: UwfStore,
-  roleName: string,
-  meta: unknown,
-): Promise<CasRef> {
+async function resolveMetaRef(uwf: UwfStore, roleName: string, meta: unknown): Promise<CasRef> {
   if (!isJsonSchema(meta)) {
     fail(`role "${roleName}": meta must be a JSON Schema object`);
   }
-  const schema: JSONSchema = meta.title === undefined
-    ? { ...meta, title: roleName }
-    : meta;
+  const schema: JSONSchema = meta.title === undefined ? { ...meta, title: roleName } : meta;
   return putSchema(uwf.store, schema);
 }
 
-async function materializeWorkflowPayload(
+export async function materializeWorkflowPayload(
   uwf: UwfStore,
   raw: WorkflowPayload,
 ): Promise<WorkflowPayload> {
   const roles: Record<string, RoleDefinition> = {};
   for (const [roleName, role] of Object.entries(raw.roles)) {
-    const meta = await resolveMetaRef(
-      uwf,
-      `${raw.name}.${roleName}`,
-      role.meta,
-    );
+    const meta = await resolveMetaRef(uwf, `${raw.name}.${roleName}`, role.meta);
     roles[roleName] = {
       description: role.description,
       goal: role.goal,
@@ -106,6 +100,11 @@ export async function cmdWorkflowPut(
   const payload = parseWorkflowPayload(raw);
   if (payload === null) {
     fail("invalid workflow YAML: expected WorkflowPayload shape");
+  }
+
+  const filenameError = checkWorkflowFilenameConsistency(filePath, payload);
+  if (filenameError !== null) {
+    fail(filenameError);
   }
 
   const uwf = await createUwfStore(storageRoot);
@@ -150,7 +149,26 @@ export async function cmdWorkflowShow(
   };
 }
 
-export async function cmdWorkflowList(storageRoot: string): Promise<WorkflowListEntry[]> {
+export async function cmdWorkflowList(
+  storageRoot: string,
+  projectRoot: string,
+): Promise<WorkflowListEntry[]> {
+  const localEntries = await discoverProjectWorkflows(projectRoot);
   const registry = await loadWorkflowRegistry(storageRoot);
-  return Object.entries(registry).map(([name, hash]) => ({ name, hash }));
+
+  const result: WorkflowListEntry[] = [];
+  const localNames = new Set<string>();
+
+  for (const entry of localEntries) {
+    localNames.add(entry.name);
+    result.push({ name: entry.name, hash: "(local)", origin: "local" });
+  }
+
+  for (const [name, hash] of Object.entries(registry)) {
+    if (!localNames.has(name)) {
+      result.push({ name, hash, origin: "global" });
+    }
+  }
+
+  return result;
 }

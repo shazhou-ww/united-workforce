@@ -55,10 +55,7 @@ export function ResizablePanel({
   }, []);
 
   return (
-    <div
-      className={cn("relative shrink-0", className)}
-      style={{ ...style, width }}
-    >
+    <div className={cn("relative shrink-0", className)} style={{ ...style, width }}>
       {children}
       <div
         className="absolute top-0 -right-1 w-2 h-full cursor-col-resize z-10 group"

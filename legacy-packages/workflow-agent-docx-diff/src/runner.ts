@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
-import { spawnCli } from "@uncaged/workflow-util-agent";
 import type { SpawnCliError } from "@uncaged/workflow-util-agent";
+import { spawnCli } from "@uncaged/workflow-util-agent";
 import type { DocxDiffAgentConfig } from "./types.js";
 
 type SpawnCliFn = typeof spawnCli;
@@ -8,8 +8,7 @@ type SpawnCliFn = typeof spawnCli;
 function throwSpawnError(e: SpawnCliError): never {
   if (e.kind === "non_zero_exit")
     throw new Error(`docx-diff failed (exit ${e.exitCode}): ${e.stderr}`);
-  if (e.kind === "timeout")
-    throw new Error("docx-diff: timed out");
+  if (e.kind === "timeout") throw new Error("docx-diff: timed out");
   throw new Error(`docx-diff: spawn failed: ${e.message}`);
 }
 

@@ -1,6 +1,11 @@
-import * as z from "zod/v4";
-import type { AdapterFn, RoleResult, ThreadContext, WorkflowRuntime } from "@uncaged/workflow-runtime";
+import type {
+  AdapterFn,
+  RoleResult,
+  ThreadContext,
+  WorkflowRuntime,
+} from "@uncaged/workflow-runtime";
 import { createLogger } from "@uncaged/workflow-util";
+import type * as z from "zod/v4";
 import { editDocument, generateDocument } from "./runner.js";
 import type { OfficeAgentConfig } from "./types.js";
 
@@ -27,7 +32,10 @@ export function createOfficeAgent(config: OfficeAgentConfig): AdapterFn {
   return <T>(_systemPrompt: string, schema: z.ZodType<T>) =>
     async (ctx: ThreadContext, _runtime: WorkflowRuntime): Promise<RoleResult<T>> => {
       const { prompt, inputDocx } = parseStartInput(ctx.start.content);
-      log("8FQKP3NV", `office-agent: mode=${inputDocx === null ? "generate" : "edit"} thread=${ctx.threadId}`);
+      log(
+        "8FQKP3NV",
+        `office-agent: mode=${inputDocx === null ? "generate" : "edit"} thread=${ctx.threadId}`,
+      );
 
       let raw: string;
       if (inputDocx === null) {
@@ -35,7 +43,11 @@ export function createOfficeAgent(config: OfficeAgentConfig): AdapterFn {
         raw = JSON.stringify({ mode: "generate", outputDocx: result.outputDocx, sourceDocx: null });
       } else {
         const result = await editDocument(config, ctx.threadId, prompt, inputDocx);
-        raw = JSON.stringify({ mode: "edit", outputDocx: result.outputDocx, sourceDocx: result.sourceDocx });
+        raw = JSON.stringify({
+          mode: "edit",
+          outputDocx: result.outputDocx,
+          sourceDocx: result.sourceDocx,
+        });
       }
 
       const meta = schema.parse(JSON.parse(raw)) as T;

@@ -1,6 +1,5 @@
-import { describe, expect, test } from "vitest";
-
 import { createMemoryStore, putSchema } from "@uncaged/json-cas";
+import { describe, expect, test } from "vitest";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 
@@ -68,7 +67,8 @@ describe("tryFrontmatterFastPath — happy path", () => {
   test("stored CAS node payload matches frontmatter fields", async () => {
     const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
 
-    const raw = "---\nstatus: done\nnext: null\nconfidence: null\nartifacts: []\nscope: role\n---\n\nBody.";
+    const raw =
+      "---\nstatus: done\nnext: null\nconfidence: null\nartifacts: []\nscope: role\n---\n\nBody.";
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();

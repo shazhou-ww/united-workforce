@@ -6,8 +6,8 @@ import type {
   StepNodePayload,
   ThreadId,
 } from "@uncaged/workflow-protocol";
-import { createAgentStore, loadThreadsIndex, resolveStorageRoot } from "./storage.js";
 import type { AgentStore } from "./storage.js";
+import { createAgentStore, loadThreadsIndex, resolveStorageRoot } from "./storage.js";
 import type { AgentContext } from "./types.js";
 
 type ChainState = {
@@ -21,11 +21,7 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-function walkChain(
-  store: Store,
-  schemas: AgentStore["schemas"],
-  headHash: CasRef,
-): ChainState {
+function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRef): ChainState {
   const headNode = store.get(headHash);
   if (headNode === null) {
     fail(`CAS node not found: ${headHash}`);
@@ -78,10 +74,7 @@ function walkChain(
   };
 }
 
-function expandOutput(
-  store: Store,
-  outputRef: CasRef,
-): unknown {
+function expandOutput(store: Store, outputRef: CasRef): unknown {
   const node = store.get(outputRef);
   if (node === null) {
     return {};
@@ -106,11 +99,7 @@ async function buildHistory(
   return history;
 }
 
-async function loadWorkflow(
-  store: Store,
-  schemas: AgentStore["schemas"],
-  workflowRef: CasRef,
-) {
+async function loadWorkflow(store: Store, schemas: AgentStore["schemas"], workflowRef: CasRef) {
   const node = store.get(workflowRef);
   if (node === null) {
     fail(`workflow CAS node not found: ${workflowRef}`);
