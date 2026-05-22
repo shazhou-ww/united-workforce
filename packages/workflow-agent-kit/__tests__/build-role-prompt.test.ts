@@ -19,7 +19,7 @@ describe("buildRolePrompt", () => {
     expect(result).toContain("- cursor-agent");
     expect(result).toContain("- file-edit");
     expect(result).toContain("## Prepare");
-    expect(result).toContain("uwf skill cli");
+    expect(result).toContain("uwf CLI Reference");
     expect(result).toContain("cursor-agent, file-edit");
     expect(result).toContain("## Procedure");
     expect(result).toContain("Implement the feature.");
@@ -39,7 +39,7 @@ describe("buildRolePrompt", () => {
     const result = buildRolePrompt(role);
     expect(result).toContain("## Goal");
     expect(result).toContain("## Prepare");
-    expect(result).toContain("uwf skill cli");
+    expect(result).toContain("uwf CLI Reference");
     expect(result).toContain("## Procedure");
     expect(result).not.toContain("## Capabilities");
     expect(result).not.toContain("## Output");
@@ -56,7 +56,7 @@ describe("buildRolePrompt", () => {
     };
     const result = buildRolePrompt(role);
     expect(result).toContain("## Prepare");
-    expect(result).toContain("uwf skill cli");
+    expect(result).toContain("uwf CLI Reference");
     expect(result).not.toContain("## Goal");
     expect(result).not.toContain("## Capabilities");
     expect(result).not.toContain("## Procedure");

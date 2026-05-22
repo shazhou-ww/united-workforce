@@ -1,4 +1,5 @@
 import type { RoleDefinition } from "@uncaged/workflow-protocol";
+import { generateCliReference } from "@uncaged/workflow-util";
 
 /**
  * Build the role prompt from a RoleDefinition.
@@ -6,9 +7,9 @@ import type { RoleDefinition } from "@uncaged/workflow-protocol";
  * Assembles structured sections: Goal, Capabilities, Prepare, Procedure, Output.
  * Empty strings and empty arrays are omitted from the output.
  *
- * The Prepare section always instructs the agent to run `uwf skill cli` to load
- * workflow knowledge, plus renders the capabilities array as keyword hints for
- * implicit skill loading.
+ * The Prepare section always inlines the uwf CLI reference so the agent has
+ * workflow knowledge without needing to run an external command. The capabilities
+ * array is rendered as keyword hints for implicit skill loading.
  */
 export function buildRolePrompt(role: RoleDefinition): string {
   const sections: string[] = [];
@@ -22,21 +23,14 @@ export function buildRolePrompt(role: RoleDefinition): string {
     sections.push(`## Capabilities\n\n${list}`);
   }
 
-  const prepareLines: string[] = [
-    "Run the following command to load workflow CLI knowledge before starting work:",
-    "",
-    "```",
-    "uwf skill cli",
-    "```",
-  ];
+  const prepareLines: string[] = [generateCliReference()];
   if (role.capabilities.length > 0) {
     const keywords = role.capabilities.join(", ");
     prepareLines.push(
-      "",
       `You have the following capabilities: ${keywords}. Load relevant skills matching these keywords before starting work.`,
     );
   }
-  sections.push(`## Prepare\n\n${prepareLines.join("\n")}`);
+  sections.push(`## Prepare\n\n${prepareLines.join("\n\n")}`);
 
   if (role.procedure !== "") {
     sections.push(`## Procedure\n\n${role.procedure}`);
