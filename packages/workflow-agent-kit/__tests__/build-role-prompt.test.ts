@@ -18,13 +18,16 @@ describe("buildRolePrompt", () => {
     expect(result).toContain("## Capabilities");
     expect(result).toContain("- cursor-agent");
     expect(result).toContain("- file-edit");
+    expect(result).toContain("## Prepare");
+    expect(result).toContain("uwf skill cli");
+    expect(result).toContain("cursor-agent, file-edit");
     expect(result).toContain("## Procedure");
     expect(result).toContain("Implement the feature.");
     expect(result).toContain("## Output");
     expect(result).toContain("Summarize changes.");
   });
 
-  test("empty fields are omitted", () => {
+  test("empty fields are omitted but Prepare is always present", () => {
     const role: RoleDefinition = {
       description: "A reviewer",
       goal: "You are a code reviewer.",
@@ -35,12 +38,14 @@ describe("buildRolePrompt", () => {
     };
     const result = buildRolePrompt(role);
     expect(result).toContain("## Goal");
+    expect(result).toContain("## Prepare");
+    expect(result).toContain("uwf skill cli");
     expect(result).toContain("## Procedure");
     expect(result).not.toContain("## Capabilities");
     expect(result).not.toContain("## Output");
   });
 
-  test("all empty returns empty string", () => {
+  test("all empty still includes Prepare section", () => {
     const role: RoleDefinition = {
       description: "Minimal",
       goal: "",
@@ -50,7 +55,12 @@ describe("buildRolePrompt", () => {
       meta: "placeholder00000" as string,
     };
     const result = buildRolePrompt(role);
-    expect(result).toBe("");
+    expect(result).toContain("## Prepare");
+    expect(result).toContain("uwf skill cli");
+    expect(result).not.toContain("## Goal");
+    expect(result).not.toContain("## Capabilities");
+    expect(result).not.toContain("## Procedure");
+    expect(result).not.toContain("## Output");
   });
 
   test("capabilities rendered as bullet list", () => {

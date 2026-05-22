@@ -14,6 +14,7 @@ import {
   cmdCasWalk,
 } from "./commands/cas.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
+import { cmdSkillCli } from "./commands/skill.js";
 import {
   cmdThreadFork,
   cmdThreadKill,
@@ -218,6 +219,15 @@ thread
       const detail = await cmdThreadStepDetails(storageRoot, stepHash);
       process.stdout.write(yamlStringify(detail));
     });
+  });
+
+const skill = program.command("skill").description("Built-in skill references for agents");
+
+skill
+  .command("cli")
+  .description("Print a markdown reference of all uwf commands")
+  .action(() => {
+    console.log(cmdSkillCli());
   });
 
 program
