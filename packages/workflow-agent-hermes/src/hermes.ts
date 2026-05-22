@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import type { Store } from "@uncaged/json-cas";
 
 import {
   type AgentContext,
@@ -10,7 +11,6 @@ import {
 import {
   loadHermesSession,
   parseSessionIdFromStdout,
-  storeHermesRawOutput,
   storeHermesSessionDetail,
 } from "./session-detail.js";
 
@@ -52,17 +52,8 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   return parts.join("\n");
 }
 
-function spawnHermesChat(prompt: string): Promise<{ stdout: string; stderr: string }> {
+function spawnHermes(args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const args = [
-      "chat",
-      "-q",
-      prompt,
-      "--yolo",
-      "--max-turns",
-      String(HERMES_MAX_TURNS),
-      "--quiet",
-    ];
     const child = spawn(HERMES_COMMAND, args, {
       env: process.env,
       shell: false,
@@ -94,23 +85,73 @@ function spawnHermesChat(prompt: string): Promise<{ stdout: string; stderr: stri
   });
 }
 
+function spawnHermesChat(prompt: string): Promise<{ stdout: string; stderr: string }> {
+  return spawnHermes([
+    "chat",
+    "-q",
+    prompt,
+    "--yolo",
+    "--max-turns",
+    String(HERMES_MAX_TURNS),
+    "--quiet",
+  ]);
+}
+
+function spawnHermesResume(
+  sessionId: string,
+  message: string,
+): Promise<{ stdout: string; stderr: string }> {
+  return spawnHermes([
+    "chat",
+    "--resume",
+    sessionId,
+    "-q",
+    message,
+    "--yolo",
+    "--max-turns",
+    String(HERMES_MAX_TURNS),
+    "--quiet",
+  ]);
+}
+
+function parseSessionId(stdout: string, stderr: string): string {
+  const sessionId = parseSessionIdFromStdout(stderr) ?? parseSessionIdFromStdout(stdout);
+  if (sessionId === null) {
+    throw new Error(
+      "Failed to parse session_id from hermes output.\n" +
+        `stderr (first 200 chars): ${stderr.slice(0, 200)}\n` +
+        `stdout (first 200 chars): ${stdout.slice(0, 200)}`,
+    );
+  }
+  return sessionId;
+}
+
+async function buildResultFromSession(sessionId: string, store: Store): Promise<AgentRunResult> {
+  const session = await loadHermesSession(sessionId);
+  if (session === null) {
+    throw new Error(`Failed to load hermes session file for session_id: ${sessionId}`);
+  }
+  const { detailHash, output } = await storeHermesSessionDetail(store, session);
+  return { output, detailHash, sessionId };
+}
+
 async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildHermesPrompt(ctx);
   const { stdout, stderr } = await spawnHermesChat(fullPrompt);
-  const { store } = ctx;
+  const sessionId = parseSessionId(stdout, stderr);
+  return buildResultFromSession(sessionId, ctx.store);
+}
 
-  // --quiet mode: session_id may be on stdout or stderr
-  const sessionId = parseSessionIdFromStdout(stderr) ?? parseSessionIdFromStdout(stdout);
-  if (sessionId !== null) {
-    const session = await loadHermesSession(sessionId);
-    if (session !== null) {
-      const { detailHash, output } = await storeHermesSessionDetail(store, session);
-      return { output, detailHash };
-    }
-  }
-
-  const detailHash = await storeHermesRawOutput(store, stdout);
-  return { output: stdout, detailHash };
+async function continueHermes(
+  sessionId: string,
+  message: string,
+  store: Store,
+): Promise<AgentRunResult> {
+  const { stdout, stderr } = await spawnHermesResume(sessionId, message);
+  // Resume may return a new session_id
+  const newSessionId = parseSessionIdFromStdout(stderr) ?? parseSessionIdFromStdout(stdout);
+  const resolvedId = newSessionId ?? sessionId;
+  return buildResultFromSession(resolvedId, store);
 }
 
 /** Agent CLI factory: parses argv, runs Hermes, extracts output, writes StepNode. */
@@ -118,5 +159,6 @@ export function createHermesAgent(): () => Promise<void> {
   return createAgent({
     name: "hermes",
     run: runHermes,
+    continue: continueHermes,
   });
 }
