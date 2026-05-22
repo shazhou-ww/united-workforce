@@ -200,7 +200,6 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: activeHead,
       done: false,
-      sessionId: null,
     };
   }
 
@@ -211,7 +210,6 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: hist.head,
       done: true,
-      sessionId: null,
     };
   }
 
@@ -626,12 +624,7 @@ function resolveAgentConfig(
   return agentConfig;
 }
 
-type SpawnAgentResult = {
-  stepHash: CasRef;
-  sessionId: string | null;
-};
-
-function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): SpawnAgentResult {
+function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): CasRef {
   const argv = [...agent.args, threadId, role];
   let stdout: string;
   try {
@@ -653,24 +646,10 @@ function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): Spawn
   }
 
   const line = stdout.trim().split("\n").pop()?.trim() ?? "";
-
-  // Try JSON output first (new protocol)
-  try {
-    const parsed = JSON.parse(line) as Record<string, unknown>;
-    const stepHash = parsed.stepHash;
-    const sessionId = parsed.sessionId;
-    if (typeof stepHash === "string" && isCasRef(stepHash) && typeof sessionId === "string") {
-      return { stepHash, sessionId };
-    }
-  } catch {
-    // Not JSON — fall through to legacy CAS hash parsing
-  }
-
-  // Legacy: plain CAS hash on stdout
   if (!isCasRef(line)) {
-    fail(`agent stdout is not a valid CAS hash or JSON: ${line || "(empty)"}`);
+    fail(`agent stdout is not a valid CAS hash: ${line || "(empty)"}`);
   }
-  return { stepHash: line, sessionId: null };
+  return line;
 }
 
 async function archiveThread(
@@ -719,7 +698,6 @@ export async function cmdThreadStep(
       thread: threadId,
       head: headHash,
       done: true,
-      sessionId: null,
     };
   }
 
@@ -728,7 +706,7 @@ export async function cmdThreadStep(
   const agent = resolveAgentConfig(config, workflow, role, agentOverride);
 
   loadDotenv({ path: getEnvPath(storageRoot) });
-  const { stepHash: newHead, sessionId } = spawnAgent(agent, threadId, role);
+  const newHead = spawnAgent(agent, threadId, role);
 
   // Re-create store to pick up nodes written by the agent subprocess
   const uwfAfter = await createUwfStore(storageRoot);
@@ -759,7 +737,6 @@ export async function cmdThreadStep(
     thread: threadId,
     head: newHead,
     done,
-    sessionId,
   };
 }
 
