@@ -57,7 +57,7 @@ roles:
 conditions:
   notApproved:
     description: "Reviewer rejected the implementation"
-    expression: "steps[-1].output.approved = false"
+    expression: "$last('reviewer').approved = false"
 graph:
   $START:
     - role: "planner"
