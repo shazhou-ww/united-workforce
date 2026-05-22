@@ -15,8 +15,8 @@ function isRoleDefinition(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  const meta = value.meta;
-  const metaOk = isRecord(meta) && typeof meta.type === "string";
+  const frontmatter = value.frontmatter;
+  const frontmatterOk = isRecord(frontmatter) && typeof frontmatter.type === "string";
   const capabilities = value.capabilities;
   const capabilitiesOk =
     Array.isArray(capabilities) && capabilities.every((c) => typeof c === "string");
@@ -26,7 +26,7 @@ function isRoleDefinition(value: unknown): boolean {
     capabilitiesOk &&
     typeof value.procedure === "string" &&
     typeof value.output === "string" &&
-    metaOk
+    frontmatterOk
   );
 }
 

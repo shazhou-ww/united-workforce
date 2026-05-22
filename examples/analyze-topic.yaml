@@ -19,7 +19,7 @@ roles:
     output: |
       Provide your analysis as markdown under the frontmatter.
       The frontmatter must include your structured findings.
-    meta:
+    frontmatter:
       type: object
       properties:
         thesis:

@@ -46,11 +46,16 @@ function isJsonSchema(value: unknown): value is JSONSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function resolveMetaRef(uwf: UwfStore, roleName: string, meta: unknown): Promise<CasRef> {
-  if (!isJsonSchema(meta)) {
-    fail(`role "${roleName}": meta must be a JSON Schema object`);
+async function resolveFrontmatterRef(
+  uwf: UwfStore,
+  roleName: string,
+  frontmatter: unknown,
+): Promise<CasRef> {
+  if (!isJsonSchema(frontmatter)) {
+    fail(`role "${roleName}": frontmatter must be a JSON Schema object`);
   }
-  const schema: JSONSchema = meta.title === undefined ? { ...meta, title: roleName } : meta;
+  const schema: JSONSchema =
+    frontmatter.title === undefined ? { ...frontmatter, title: roleName } : frontmatter;
   return putSchema(uwf.store, schema);
 }
 
@@ -60,14 +65,18 @@ export async function materializeWorkflowPayload(
 ): Promise<WorkflowPayload> {
   const roles: Record<string, RoleDefinition> = {};
   for (const [roleName, role] of Object.entries(raw.roles)) {
-    const meta = await resolveMetaRef(uwf, `${raw.name}.${roleName}`, role.meta);
+    const frontmatter = await resolveFrontmatterRef(
+      uwf,
+      `${raw.name}.${roleName}`,
+      role.frontmatter,
+    );
     roles[roleName] = {
       description: role.description,
       goal: role.goal,
       capabilities: role.capabilities,
       procedure: role.procedure,
       output: role.output,
-      meta,
+      frontmatter,
     };
   }
   return {

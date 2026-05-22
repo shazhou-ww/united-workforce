@@ -9,7 +9,7 @@ roles:
       - planning
     procedure: "Analyze the issue and create a detailed, actionable implementation plan."
     output: "Output the plan summary and list of concrete steps."
-    meta:
+    frontmatter:
       type: object
       properties:
         plan:
@@ -28,7 +28,7 @@ roles:
       - testing
     procedure: "Implement the plan. Write code, tests, and ensure existing tests pass."
     output: "List all files changed and provide a summary of the implementation."
-    meta:
+    frontmatter:
       type: object
       properties:
         filesChanged:
@@ -46,7 +46,7 @@ roles:
       - static-analysis
     procedure: "Review the implementation against the plan. Check for bugs, edge cases, and style."
     output: "Approve or reject with detailed comments explaining your decision."
-    meta:
+    frontmatter:
       type: object
       properties:
         approved:
