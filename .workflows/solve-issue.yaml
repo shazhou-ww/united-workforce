@@ -38,12 +38,18 @@ roles:
     capabilities:
       - coding
     procedure: |
-      1. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
-      2. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
-      3. Write tests first based on the spec
-      4. Implement the code to make tests pass
-      5. Ensure `bun run build` passes with no errors
-      6. Run `bun test` to verify all tests pass
+      Before starting any work, ensure a clean worktree:
+      1. `git checkout main && git pull` to get the latest code
+      2. `git checkout -b fix/<issue-number>-<short-description>` to create a fresh branch
+         - If bounced back from reviewer or tester, reuse the existing branch instead
+
+      Then implement TDD:
+      3. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
+      4. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
+      5. Write tests first based on the spec
+      6. Implement the code to make tests pass
+      7. Ensure `bun run build` passes with no errors
+      8. Run `bun test` to verify all tests pass
     output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
     frontmatter:
       type: object
@@ -59,10 +65,15 @@ roles:
       - code-review
       - static-analysis
     procedure: |
+      Before reviewing, verify the git branch:
+      1. Run `git branch --show-current` — confirm the branch name references the issue number being worked on
+      2. If the branch doesn't correspond to the issue, flag it in your output and reject
+
+      Then perform code review:
       Hard checks (must all pass):
-      1. `bun run build` — no build errors
-      2. `bunx biome check` — no lint violations
-      3. TypeScript strict mode — no type errors
+      3. `bun run build` — no build errors
+      4. `bunx biome check` — no lint violations
+      5. TypeScript strict mode — no type errors
 
       Soft checks (review against CLAUDE.md conventions):
       - Functional-first: `function` + `type`, not `class` + `interface`
