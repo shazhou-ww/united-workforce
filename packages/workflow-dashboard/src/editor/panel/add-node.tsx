@@ -1,0 +1,146 @@
+import { useState, useEffect, type ReactNode } from "react";
+import { addNodeViewModel, type AddNodeState } from "../model/index.ts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../components/ui/dialog.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Textarea } from "../../components/ui/textarea.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import { Label } from "../../components/ui/label.tsx";
+import type { RoleNodeData } from "../type.ts";
+
+type FormProps = {
+  state: AddNodeState;
+  onSubmit: (params: { data: RoleNodeData }) => void;
+  onCancel: () => void;
+};
+
+function Form({ state, onSubmit, onCancel }: FormProps): ReactNode {
+  const [name, setName] = useState("新角色");
+  const [description, setDescription] = useState("");
+  const [identity, setIdentity] = useState("");
+  const [prepare, setPrepare] = useState("");
+  const [execute, setExecute] = useState("");
+  const [report, setReport] = useState("");
+
+  useEffect(() => {
+    setName("新角色");
+    setDescription("");
+    setIdentity("");
+    setPrepare("");
+    setExecute("");
+    setReport("");
+  }, [state]);
+
+  function handleConfirm() {
+    if (!name.trim()) return;
+    onSubmit({
+      data: {
+        name: name.trim(),
+        description,
+        identity,
+        prepare,
+        execute,
+        report,
+      },
+    });
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>添加角色节点</DialogTitle>
+      </DialogHeader>
+
+      <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto p-1">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">名称 *</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="角色名称"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">描述</Label>
+          <Textarea
+            rows={2}
+            className="resize-none"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="角色描述"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">身份 (Identity)</Label>
+          <Textarea
+            rows={2}
+            className="resize-none"
+            value={identity}
+            onChange={(e) => setIdentity(e.target.value)}
+            placeholder="角色身份定义"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">准备 (Prepare)</Label>
+          <Textarea
+            rows={2}
+            className="resize-none"
+            value={prepare}
+            onChange={(e) => setPrepare(e.target.value)}
+            placeholder="执行前准备指令"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">执行 (Execute)</Label>
+          <Textarea
+            rows={2}
+            className="resize-none"
+            value={execute}
+            onChange={(e) => setExecute(e.target.value)}
+            placeholder="核心执行指令"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-muted-foreground">报告 (Report)</Label>
+          <Textarea
+            rows={2}
+            className="resize-none"
+            value={report}
+            onChange={(e) => setReport(e.target.value)}
+            placeholder="输出格式指令"
+          />
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" size="sm" onClick={onCancel}>
+          取消
+        </Button>
+        <Button size="sm" onClick={handleConfirm}>
+          确定
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+export function AddNodeDialog(): ReactNode {
+  const state = addNodeViewModel.useData();
+  const { commit, cancel } = addNodeViewModel.useCreation();
+
+  return (
+    <Dialog
+      open={state !== null}
+      onOpenChange={(open) => { if (!open) cancel(); }}
+    >
+      <DialogContent showCloseButton={false} className="sm:max-w-md">
+        {state && <Form state={state} onSubmit={commit} onCancel={cancel} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
