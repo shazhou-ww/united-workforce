@@ -22,7 +22,7 @@ export type RoleDefinition = {
   capabilities: string[];
   procedure: string;
   output: string;
-  meta: CasRef;
+  frontmatter: CasRef;
 };
 
 export type Transition = {

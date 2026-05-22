@@ -23,7 +23,7 @@ roles:
       1. Store it via `uwf cas put "<markdown content>"` and capture the returned hash
       2. Put the hash in meta.plan (required when status=ready)
     output: "Output a brief summary of the test spec. Frontmatter must include: status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
-    meta:
+    frontmatter:
       type: object
       properties:
         status:
@@ -45,7 +45,7 @@ roles:
       5. Ensure `bun run build` passes with no errors
       6. Run `bun test` to verify all tests pass
     output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
-    meta:
+    frontmatter:
       type: object
       properties:
         status:
@@ -75,7 +75,7 @@ roles:
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
     output: "Explain your decision with specific file/line references. Frontmatter must include: approved (true or false)."
-    meta:
+    frontmatter:
       type: object
       properties:
         approved:
@@ -95,7 +95,7 @@ roles:
          - fix_code: tests fail or implementation doesn't match spec → send back to developer
          - fix_spec: the spec itself is wrong or incomplete → send back to planner
     output: "Report test results per scenario. Frontmatter must include: status (passed, fix_code, or fix_spec)."
-    meta:
+    frontmatter:
       type: object
       properties:
         status:
@@ -115,7 +115,7 @@ roles:
       4. On push success: create a PR via `tea pr create --title "..." --description "..."`
          - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
     output: "Include PR URL on success or error log on failure. Frontmatter must include: success (true or false)."
-    meta:
+    frontmatter:
       type: object
       properties:
         success:
