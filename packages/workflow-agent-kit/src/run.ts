@@ -1,9 +1,8 @@
 import { getSchema, validate } from "@uncaged/json-cas";
 import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protocol";
 import { config as loadDotenv } from "dotenv";
-
-import { buildContextWithMeta } from "./context.js";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
+import { buildContextWithMeta } from "./context.js";
 import { extract } from "./extract.js";
 import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";

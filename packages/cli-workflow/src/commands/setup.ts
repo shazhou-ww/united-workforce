@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { createInterface } from "node:readline/promises";
 
-import { stringify, parse } from "yaml";
+import { parse, stringify } from "yaml";
 
 /**
  * Preset provider list — embedded to avoid runtime YAML loading dependency.
@@ -17,10 +17,18 @@ const PRESET_PROVIDERS = [
   { name: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
   { name: "venice", label: "Venice", baseUrl: "https://api.venice.ai/api/v1" },
   // China
-  { name: "dashscope", label: "DashScope (Alibaba)", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  {
+    name: "dashscope",
+    label: "DashScope (Alibaba)",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  },
   { name: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1" },
   { name: "siliconflow", label: "SiliconFlow", baseUrl: "https://api.siliconflow.cn/v1" },
-  { name: "volcengine", label: "Volcengine (ByteDance)", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
+  {
+    name: "volcengine",
+    label: "Volcengine (ByteDance)",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+  },
   { name: "kimi", label: "Kimi (Moonshot)", baseUrl: "https://api.moonshot.cn/v1" },
   { name: "glm", label: "GLM (Zhipu AI)", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
   { name: "stepfun", label: "StepFun", baseUrl: "https://api.stepfun.com/v1" },
@@ -98,21 +106,27 @@ function apiKeyEnvName(providerName: string): string {
  * Merge setup args into config.yaml structure. Non-destructive — preserves existing entries.
  */
 function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record<string, unknown> {
-  const providers = (typeof existing.providers === "object" && existing.providers !== null
-    ? { ...(existing.providers as Record<string, unknown>) }
-    : {}) as Record<string, unknown>;
+  const providers = (
+    typeof existing.providers === "object" && existing.providers !== null
+      ? { ...(existing.providers as Record<string, unknown>) }
+      : {}
+  ) as Record<string, unknown>;
 
   const envName = apiKeyEnvName(args.provider);
   providers[args.provider] = { baseUrl: args.baseUrl, apiKeyEnv: envName };
 
-  const models = (typeof existing.models === "object" && existing.models !== null
-    ? { ...(existing.models as Record<string, unknown>) }
-    : {}) as Record<string, unknown>;
+  const models = (
+    typeof existing.models === "object" && existing.models !== null
+      ? { ...(existing.models as Record<string, unknown>) }
+      : {}
+  ) as Record<string, unknown>;
   models.default = { provider: args.provider, name: args.model };
 
-  const agents = (typeof existing.agents === "object" && existing.agents !== null
-    ? { ...(existing.agents as Record<string, unknown>) }
-    : {}) as Record<string, unknown>;
+  const agents = (
+    typeof existing.agents === "object" && existing.agents !== null
+      ? { ...(existing.agents as Record<string, unknown>) }
+      : {}
+  ) as Record<string, unknown>;
 
   const agentName = args.agent ?? "hermes";
   if (Object.keys(agents).length === 0) {
@@ -211,8 +225,12 @@ async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
     if (!res.ok) return [];
     const body = (await res.json()) as { data?: { id: string }[] };
     if (!Array.isArray(body.data)) return [];
-    const NON_CHAT = /speech|embed|image|video|audio|ocr|rerank|tts|asr|paraformer|sambert|cosyvoice|wordart|wanx|wan2|flux|stable-diffusion|gui-/i;
-    return body.data.map((m) => m.id).filter((id) => !NON_CHAT.test(id)).sort();
+    const NON_CHAT =
+      /speech|embed|image|video|audio|ocr|rerank|tts|asr|paraformer|sambert|cosyvoice|wordart|wanx|wan2|flux|stable-diffusion|gui-/i;
+    return body.data
+      .map((m) => m.id)
+      .filter((id) => !NON_CHAT.test(id))
+      .sort();
   } catch {
     return [];
   }

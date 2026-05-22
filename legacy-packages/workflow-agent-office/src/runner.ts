@@ -1,7 +1,7 @@
 import { copyFile, mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { spawnCli } from "@uncaged/workflow-util-agent";
 import type { SpawnCliError } from "@uncaged/workflow-util-agent";
+import { spawnCli } from "@uncaged/workflow-util-agent";
 import type { OfficeAgentConfig } from "./types.js";
 
 type SpawnCliFn = typeof spawnCli;
@@ -9,8 +9,7 @@ type SpawnCliFn = typeof spawnCli;
 function throwSpawnError(e: SpawnCliError): never {
   if (e.kind === "non_zero_exit")
     throw new Error(`office-agent failed (exit ${e.exitCode}): ${e.stderr}`);
-  if (e.kind === "timeout")
-    throw new Error("office-agent: timed out");
+  if (e.kind === "timeout") throw new Error("office-agent: timed out");
   throw new Error(`office-agent: spawn failed: ${e.message}`);
 }
 

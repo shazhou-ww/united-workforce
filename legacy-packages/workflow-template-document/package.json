@@ -1,7 +1,11 @@
 {
   "name": "@uncaged/workflow-template-document",
   "version": "0.1.0",
-  "files": ["src", "dist", "package.json"],
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
   "type": "module",
   "types": "src/index.ts",
   "exports": {

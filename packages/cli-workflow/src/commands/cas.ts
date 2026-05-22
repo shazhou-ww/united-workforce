@@ -53,18 +53,12 @@ export async function cmdCasPut(
   return { hash };
 }
 
-export async function cmdCasHas(
-  storageRoot: string,
-  hash: string,
-): Promise<{ exists: boolean }> {
+export async function cmdCasHas(storageRoot: string, hash: string): Promise<{ exists: boolean }> {
   const store = openStore(storageRoot);
   return { exists: store.has(hash) };
 }
 
-export async function cmdCasRefs(
-  storageRoot: string,
-  hash: string,
-): Promise<{ refs: string[] }> {
+export async function cmdCasRefs(storageRoot: string, hash: string): Promise<{ refs: string[] }> {
   const store = openStore(storageRoot);
   const node = store.get(hash);
   if (node === null) {
@@ -73,10 +67,7 @@ export async function cmdCasRefs(
   return { refs: refs(store, node) };
 }
 
-export async function cmdCasWalk(
-  storageRoot: string,
-  hash: string,
-): Promise<{ hashes: string[] }> {
+export async function cmdCasWalk(storageRoot: string, hash: string): Promise<{ hashes: string[] }> {
   const store = openStore(storageRoot);
   const result: string[] = [];
   walk(store, hash, (h) => {
@@ -90,9 +81,7 @@ export type SchemaListEntry = {
   title: string;
 };
 
-export async function cmdCasSchemaList(
-  storageRoot: string,
-): Promise<SchemaListEntry[]> {
+export async function cmdCasSchemaList(storageRoot: string): Promise<SchemaListEntry[]> {
   const store = openStore(storageRoot);
   const metaHash = await bootstrap(store);
   const entries: SchemaListEntry[] = [];
@@ -115,9 +104,7 @@ export async function cmdCasSchemaList(
   return entries;
 }
 
-export async function cmdCasReindex(
-  storageRoot: string,
-): Promise<{ status: string }> {
+export async function cmdCasReindex(storageRoot: string): Promise<{ status: string }> {
   const indexDir = join(storageRoot, "cas", "_index");
   const { rmSync } = await import("node:fs");
   rmSync(indexDir, { recursive: true, force: true });
@@ -126,10 +113,7 @@ export async function cmdCasReindex(
   return { status: "reindexed" };
 }
 
-export async function cmdCasSchemaGet(
-  storageRoot: string,
-  hash: string,
-): Promise<unknown> {
+export async function cmdCasSchemaGet(storageRoot: string, hash: string): Promise<unknown> {
   const store = openStore(storageRoot);
   const schema = getSchema(store, hash);
   if (schema === null) {

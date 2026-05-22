@@ -1,8 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { describe, expect, mock, test } from "bun:test";
-import { ok, err } from "@uncaged/workflow-util";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { err, ok } from "@uncaged/workflow-util";
 import type { SpawnCliConfig } from "@uncaged/workflow-util-agent";
 import { editDocument, generateDocument } from "../src/runner.js";
 
@@ -123,7 +123,13 @@ describe("editDocument", () => {
     );
 
     await expect(
-      editDocument({ outputDir: base, command: null, timeout: null }, "te2", "edit", inputFile, spawnFn),
+      editDocument(
+        { outputDir: base, command: null, timeout: null },
+        "te2",
+        "edit",
+        inputFile,
+        spawnFn,
+      ),
     ).rejects.toThrow("spawn failed");
   });
 });

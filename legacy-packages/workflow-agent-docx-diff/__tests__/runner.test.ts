@@ -1,8 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { describe, expect, mock, test } from "bun:test";
-import { ok, err } from "@uncaged/workflow-util";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { err, ok } from "@uncaged/workflow-util";
 import type { SpawnCliConfig } from "@uncaged/workflow-util-agent";
 import { runDocxDiff } from "../src/runner.js";
 
@@ -74,7 +74,12 @@ describe("runDocxDiff", () => {
   test("exit 2: throws error", async () => {
     const dir = tempDir();
     const spawnFn = makeSpawn(
-      err({ kind: "non_zero_exit", exitCode: 2, stdout: "", stderr: "fatal error" }) as MockSpawnResult,
+      err({
+        kind: "non_zero_exit",
+        exitCode: 2,
+        stdout: "",
+        stderr: "fatal error",
+      }) as MockSpawnResult,
     );
 
     await expect(

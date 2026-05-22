@@ -9,9 +9,7 @@ import type { DocumentMeta } from "../src/roles.js";
 
 const documentModerator = tableToModerator(documentTable);
 
-function makeCtx(
-  steps: ModeratorContext<DocumentMeta>["steps"],
-): ModeratorContext<DocumentMeta> {
+function makeCtx(steps: ModeratorContext<DocumentMeta>["steps"]): ModeratorContext<DocumentMeta> {
   return {
     threadId: "01TEST000000000000000000TR",
     depth: 0,
@@ -25,7 +23,11 @@ function writerGenerateStep(): RoleStep<DocumentMeta> {
   return {
     role: "writer",
     contentHash: "STUBHASHWRITER001",
-    meta: { mode: "generate", outputDocx: "/out/output.docx", sourceDocx: null } satisfies WriterMeta,
+    meta: {
+      mode: "generate",
+      outputDocx: "/out/output.docx",
+      sourceDocx: null,
+    } satisfies WriterMeta,
     refs: [],
     timestamp: 1,
   };
@@ -35,7 +37,11 @@ function writerEditStep(): RoleStep<DocumentMeta> {
   return {
     role: "writer",
     contentHash: "STUBHASHWRITER002",
-    meta: { mode: "edit", outputDocx: "/out/modified.docx", sourceDocx: "/out/original.docx" } satisfies WriterMeta,
+    meta: {
+      mode: "edit",
+      outputDocx: "/out/modified.docx",
+      sourceDocx: "/out/original.docx",
+    } satisfies WriterMeta,
     refs: [],
     timestamp: 1,
   };

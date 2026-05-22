@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { packageDescriptor } from "../src/package-descriptor.js";
 import { createDocxDiffAgent } from "../src/agent.js";
+import { packageDescriptor } from "../src/package-descriptor.js";
 
 describe("createDocxDiffAgent", () => {
   test("returns an AdapterFn (function)", () => {

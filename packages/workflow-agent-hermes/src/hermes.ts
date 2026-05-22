@@ -1,6 +1,11 @@
 import { spawn } from "node:child_process";
 
-import { type AgentContext, type AgentRunResult, buildRolePrompt, createAgent } from "@uncaged/workflow-agent-kit";
+import {
+  type AgentContext,
+  type AgentRunResult,
+  buildRolePrompt,
+  createAgent,
+} from "@uncaged/workflow-agent-kit";
 
 import {
   loadHermesSession,
