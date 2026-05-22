@@ -45,38 +45,41 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   return parts.join("\n");
 }
 
-async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
-  const fullPrompt = buildHermesPrompt(ctx);
+/**
+ * Agent CLI factory: parses argv, runs Hermes, extracts output, writes StepNode.
+ *
+ * A single ACP client is shared across run() and continue() calls so that
+ * frontmatter retry loops keep the same Hermes session context.  The client
+ * is closed once the agent process exits (via process.on("exit")).
+ */
+export function createHermesAgent(): () => Promise<void> {
   const client = new HermesAcpClient();
-  try {
+
+  // Ensure cleanup regardless of how the process exits.
+  process.on("exit", () => {
+    void client.close();
+  });
+
+  async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
+    const fullPrompt = buildHermesPrompt(ctx);
     await client.connect(process.cwd());
     const { text, sessionId } = await client.prompt(fullPrompt);
     const detailHash = await storeHermesRawOutput(ctx.store, text);
     return { output: text, detailHash, sessionId };
-  } finally {
-    await client.close();
   }
-}
 
-async function continueHermes(
-  _sessionId: string,
-  message: string,
-  store: Store,
-): Promise<AgentRunResult> {
-  // ACP does not support resuming an external session; start a new session with the message as prompt
-  const client = new HermesAcpClient();
-  try {
-    await client.connect(process.cwd());
+  async function continueHermes(
+    _sessionId: string,
+    message: string,
+    store: Store,
+  ): Promise<AgentRunResult> {
+    // Client is already connected from runHermes — same ACP session,
+    // so the agent sees the full conversation history (crucial for retries).
     const { text, sessionId } = await client.prompt(message);
     const detailHash = await storeHermesRawOutput(store, text);
     return { output: text, detailHash, sessionId };
-  } finally {
-    await client.close();
   }
-}
 
-/** Agent CLI factory: parses argv, runs Hermes, extracts output, writes StepNode. */
-export function createHermesAgent(): () => Promise<void> {
   return createAgent({
     name: "hermes",
     run: runHermes,
