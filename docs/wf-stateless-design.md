@@ -112,8 +112,8 @@ uwf-hermes <thread-id> <role>
 
 **约定：**
 - `uwf step` 负责 moderator 决策，将 role 传给 agent CLI
-- agent-kit 根据 thread + role 从 CAS 读 systemPrompt / outputSchema
-- agent-kit 组装完整 prompt（role systemPrompt + thread context + user prompt from StartNode）
+- agent-kit 根据 thread + role 从 CAS 读 goal / capabilities / procedure / output / meta
+- agent-kit 组装完整 prompt（role goal/capabilities/procedure/output + thread context + user prompt from StartNode）
 - agent 执行实际逻辑，agent-kit 负责 extract
 - agent 将 StepNode 写入 CAS（含 output、detail、agent、prev），但**不挪链头指针**
 - stdout 输出新 StepNode 的 CAS hash（纯文本，一行）
@@ -143,7 +143,7 @@ uwf-hermes <thread-id> <role>
 
 #### `Workflow`
 
-Roles 和 moderator 内联在 Workflow 中，只有 outputSchema 独立为 CAS 节点（方便 json-cas 校验）。
+Roles 和 moderator 内联在 Workflow 中，只有 meta 独立为 CAS 节点（方便 json-cas 校验）。
 
 ```yaml
 type: <workflow-schema-hash>
@@ -153,16 +153,25 @@ payload:
   roles:
     planner:
       description: "Creates implementation plan"
-      systemPrompt: "You are a planning agent..."
-      outputSchema: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema 节点（json-cas 内置）
+      goal: "You are a planning agent..."
+      capabilities: [planning, issue-analysis]
+      procedure: "Analyze the issue and create a plan."
+      output: "Output the plan summary."
+      meta: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema 节点（json-cas 内置）
     developer:
       description: "Implements code changes"
-      systemPrompt: "You are a developer agent..."
-      outputSchema: "8CNWT4KR6D1HV"    # cas_ref → JSON Schema 节点
+      goal: "You are a developer agent..."
+      capabilities: [file-edit, shell]
+      procedure: "Implement the plan."
+      output: "List all files changed."
+      meta: "8CNWT4KR6D1HV"    # cas_ref → JSON Schema 节点
     reviewer:
       description: "Reviews code changes"
-      systemPrompt: "You are a code reviewer..."
-      outputSchema: "1VPBG9SM5E7WK"    # cas_ref → JSON Schema 节点
+      goal: "You are a code reviewer..."
+      capabilities: [code-review]
+      procedure: "Review the implementation."
+      output: "Approve or reject with comments."
+      meta: "1VPBG9SM5E7WK"    # cas_ref → JSON Schema 节点
   conditions:
     needsClarification:
       description: "Planner requests clarification from user"
@@ -189,7 +198,7 @@ payload:
         condition: null
 ```
 
-- `roles` — 内联定义，每个 role 的 `outputSchema` 是独立的 cas_ref（指向 json-cas 内置 JSON Schema 节点）
+- `roles` — 内联定义，每个 role 的 `meta` 是独立的 cas_ref（指向 json-cas 内置 JSON Schema 节点）
 - `conditions` — `Record<Name, JSONata>`，命名条件，方便画图描述
 - `graph` — `Record<Role | "$START", Transition[]>`，每个 Transition = `{ role, condition }`
 - `condition` 引用 conditions 中的 key，`null` = fallback
@@ -234,14 +243,14 @@ payload:
   start: "4TNVW8KR2B3MA"          # cas_ref → StartNode（每个 step 都引用）
   prev: "2MXBG6PN4A8JR"           # cas_ref → 前一个 StepNode，第一步为 null
   role: "developer"
-  output: "9KRVW3TN5F1QA"         # cas_ref → 结构化输出节点（符合 role 的 outputSchema）
+  output: "9KRVW3TN5F1QA"         # cas_ref → 结构化输出节点（符合 role 的 meta schema）
   detail: "7BQST3VW9F2MA"         # cas_ref → 执行详情（content node / 子 workflow terminal StepNode / ...）
   agent: "uwf-cursor"              # 实际使用的 agent 命令（纯字符串）
 ```
 
 - `start` — 每个 StepNode 都直接引用 StartNode，方便随机访问
 - `prev` — 前一个 StepNode 的 cas_ref，第一步为 `null`（不指向 StartNode）
-- `output` — cas_ref，指向符合 role outputSchema 的 CAS 节点，可用 json-cas 校验
+- `output` — cas_ref，指向符合 role meta schema 的 CAS 节点，可用 json-cas 校验
 - `detail` — cas_ref，指向执行详情。可以是原始 agent 输出（content node），也可以是子 workflow thread 的 terminal StepNode（workflowAsAgent 场景）
 - `agent` — 纯字符串，不是 CAS 节点
 
@@ -372,7 +381,7 @@ type ThreadId = string;
 /** 一个 step 的核心数据，被 StepNode payload 和 JSONata 上下文共享 */
 type StepRecord = {
   role: string;
-  output: CasRef;                    // cas_ref → 结构化输出节点（符合 role outputSchema）
+  output: CasRef;                    // cas_ref → 结构化输出节点（符合 role meta schema）
   detail: CasRef;                    // cas_ref → 执行详情（content node / 子 workflow terminal StepNode）
   agent: string;                     // 实际使用的 agent 命令（纯字符串）
 };
@@ -383,8 +392,11 @@ type StepRecord = {
 ```typescript
 type RoleDefinition = {
   description: string;
-  systemPrompt: string;
-  outputSchema: CasRef;              // cas_ref → json-cas 内置 JSON Schema 节点
+  goal: string;
+  capabilities: string[];
+  procedure: string;
+  output: string;
+  meta: CasRef;                      // cas_ref → json-cas 内置 JSON Schema 节点
 };
 
 type Transition = {

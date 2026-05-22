@@ -3,11 +3,13 @@ description: "End-to-end issue resolution"
 roles:
   planner:
     description: "Creates implementation plan"
-    identity: "You are a planning agent. You analyze issues and create step-by-step plans."
-    prepare: "Read the issue description and any linked context carefully."
-    execute: "Analyze the issue and create a detailed, actionable implementation plan."
-    report: "Output the plan summary and list of concrete steps."
-    outputSchema:
+    goal: "You are a planning agent. You analyze issues and create step-by-step plans."
+    capabilities:
+      - issue-analysis
+      - planning
+    procedure: "Analyze the issue and create a detailed, actionable implementation plan."
+    output: "Output the plan summary and list of concrete steps."
+    meta:
       type: object
       properties:
         plan:
@@ -19,11 +21,14 @@ roles:
       required: [plan, steps]
   developer:
     description: "Implements code changes"
-    identity: "You are a developer agent. You implement code changes according to plans."
-    prepare: "Load coding tools and review the project structure and conventions."
-    execute: "Implement the plan. Write code, tests, and ensure existing tests pass."
-    report: "List all files changed and provide a summary of the implementation."
-    outputSchema:
+    goal: "You are a developer agent. You implement code changes according to plans."
+    capabilities:
+      - file-edit
+      - shell
+      - testing
+    procedure: "Implement the plan. Write code, tests, and ensure existing tests pass."
+    output: "List all files changed and provide a summary of the implementation."
+    meta:
       type: object
       properties:
         filesChanged:
@@ -35,11 +40,13 @@ roles:
       required: [filesChanged, summary]
   reviewer:
     description: "Reviews code changes"
-    identity: "You are a code reviewer. You review implementations for correctness and quality."
-    prepare: "Review the project's coding standards and conventions."
-    execute: "Review the implementation against the plan. Check for bugs, edge cases, and style."
-    report: "Approve or reject with detailed comments explaining your decision."
-    outputSchema:
+    goal: "You are a code reviewer. You review implementations for correctness and quality."
+    capabilities:
+      - code-review
+      - static-analysis
+    procedure: "Review the implementation against the plan. Check for bugs, edge cases, and style."
+    output: "Approve or reject with detailed comments explaining your decision."
+    meta:
       type: object
       properties:
         approved:

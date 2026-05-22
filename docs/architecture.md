@@ -85,8 +85,13 @@ description: "End-to-end issue resolution"
 roles:
   planner:
     description: "Creates implementation plan"
-    systemPrompt: "You are a planning agent. Analyze the issue and create a step-by-step plan."
-    outputSchema:
+    goal: "You are a planning agent. Analyze the issue and create a step-by-step plan."
+    capabilities:
+      - issue-analysis
+      - planning
+    procedure: "Analyze the issue and create a detailed, actionable implementation plan."
+    output: "Output the plan summary and list of concrete steps."
+    meta:
       type: object
       properties:
         plan: { type: string }
@@ -94,8 +99,13 @@ roles:
       required: [plan, steps]
   developer:
     description: "Implements code changes"
-    systemPrompt: "You are a developer agent. Implement the plan."
-    outputSchema:
+    goal: "You are a developer agent. Implement the plan."
+    capabilities:
+      - file-edit
+      - shell
+    procedure: "Implement the plan. Write code, tests, and ensure existing tests pass."
+    output: "List all files changed and provide a summary of the implementation."
+    meta:
       type: object
       properties:
         filesChanged: { type: array, items: { type: string } }
@@ -103,8 +113,12 @@ roles:
       required: [filesChanged, summary]
   reviewer:
     description: "Reviews code changes"
-    systemPrompt: "You are a code reviewer. Review the implementation."
-    outputSchema:
+    goal: "You are a code reviewer. Review the implementation."
+    capabilities:
+      - code-review
+    procedure: "Review the implementation against the plan."
+    output: "Approve or reject with detailed comments."
+    meta:
       type: object
       properties:
         approved: { type: boolean }
@@ -133,7 +147,7 @@ graph:
 
 Key properties:
 
-- **`roles`** — inline role definitions; each `outputSchema` is a JSON Schema (stored as its own CAS node on registration)
+- **`roles`** — inline role definitions; each `meta` is a JSON Schema (stored as its own CAS node on registration)
 - **`conditions`** — named JSONata expressions evaluated against the `ModeratorContext`
 - **`graph`** — `Record<Role | "$START", Transition[]>` — first matching transition wins; `condition: null` = fallback
 - **No agent binding** — agent selection is a deployment concern, configured in `config.yaml`
@@ -156,7 +170,7 @@ Each `uwf thread step` runs exactly one cycle: moderator → agent → extract. 
 │   Output: raw string (frontmatter markdown)
 │
 │   Phase 3: EXTRACT
-│   Input:  raw agent output + role's outputSchema
+│   Input:  raw agent output + role's meta schema
 │   Engine: two-layer extract (frontmatter fast path → LLM fallback)
 │   Output: CasRef to structured output node
 │
@@ -213,7 +227,7 @@ Contract:
    - Parses argv
    - Loads `.env` from storage root
    - Builds `AgentContext` by walking the CAS chain from `threads.yaml` head
-   - Resolves the role's `outputSchema` and builds `outputFormatInstruction`
+   - Resolves the role's `meta` schema and builds `outputFormatInstruction`
    - Calls the agent's `run` function
    - Runs two-layer extract on the raw output
    - Writes `StepNode` to CAS (output + detail + prev link)
@@ -242,7 +256,7 @@ scope: role
 Fixed the login redirect by updating the auth middleware...
 ```
 
-The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `workflow-agent-kit`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's JSON Schema.
+The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `workflow-agent-kit`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's `meta` JSON Schema.
 
 ## Two-layer extract
 
@@ -253,7 +267,7 @@ Structured output extraction uses a two-layer strategy (`workflow-agent-kit`):
 1. Parse YAML frontmatter from raw agent output (`parseFrontmatterMarkdown`)
 2. Validate required fields (`validateFrontmatter`)
 3. Build a candidate object from frontmatter fields (`status`, `next`, `confidence`, `artifacts`, `scope`)
-4. `store.put()` the candidate against the role's `outputSchema`
+4. `store.put()` the candidate against the role's `meta` schema
 5. Validate with `json-cas` schema validation
 6. If valid → return `outputHash` (zero LLM cost)
 
@@ -272,7 +286,7 @@ If the fast path returns `null` (no frontmatter, invalid, or doesn't satisfy sch
 
 `workflow-agent-kit` prepends two pieces of context to the agent's system prompt:
 
-1. **Deliverable format instruction** — generated from the role's `outputSchema`, tells the agent exactly what frontmatter fields to produce and the expected format
+1. **Deliverable format instruction** — generated from the role's `meta` schema, tells the agent exactly what frontmatter fields to produce and the expected format
 2. **Scope constraint** — "Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope."
 
 This ensures agents produce parseable frontmatter output without requiring per-agent format knowledge.
@@ -289,8 +303,11 @@ payload:
   roles:
     planner:
       description: "Creates implementation plan"
-      systemPrompt: "You are a planning agent..."
-      outputSchema: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema node
+      goal: "You are a planning agent..."
+      capabilities: [planning, issue-analysis]
+      procedure: "Analyze the issue and create a plan."
+      output: "Output the plan summary."
+      meta: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema node
   conditions:
     notApproved:
       description: "Reviewer rejected"
@@ -318,7 +335,7 @@ payload:
   start: "4TNVW8KR2B3MA"      # cas_ref → StartNode
   prev: "2MXBG6PN4A8JR"       # cas_ref → previous StepNode (null for first step)
   role: "developer"
-  output: "9KRVW3TN5F1QA"     # cas_ref → structured output (validated against outputSchema)
+  output: "9KRVW3TN5F1QA"     # cas_ref → structured output (validated against meta schema)
   detail: "7BQST3VW9F2MA"     # cas_ref → execution detail (raw turns, session data)
   agent: "uwf-hermes"         # agent command used (plain string)
 ```

@@ -211,11 +211,11 @@ describe("cmdThreadRead ### Content section", () => {
       roles: {
         writer: {
           description: "Write",
-          identity: "You are a writer.",
-          prepare: "",
-          execute: "Write content as requested.",
-          report: "Summarize what was written.",
-          outputSchema: "placeholder00" as CasRef,
+          goal: "You are a writer.",
+          capabilities: [],
+          procedure: "Write content as requested.",
+          output: "Summarize what was written.",
+          meta: "placeholder00" as CasRef,
         },
       },
       conditions: {},
