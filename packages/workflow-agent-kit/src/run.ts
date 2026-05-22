@@ -98,19 +98,6 @@ async function persistStep(options: {
   });
 }
 
-export type AgentCliOutput = {
-  stepHash: CasRef;
-  sessionId: string;
-};
-
-/**
- * Create an agent CLI entrypoint.
- * Parses argv (`<thread-id> <role>`), runs the agent, extracts structured output,
- * writes StepNode to CAS, and prints JSON result to stdout.
- *
- * If frontmatter extraction fails, retries up to MAX_FRONTMATTER_RETRIES times
- * by calling agent.continue() with a correction message.
- */
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
     const { threadId, role } = parseArgv(process.argv);
@@ -161,7 +148,6 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       agentName: agentLabel(options.name),
     });
 
-    const result: AgentCliOutput = { stepHash, sessionId: agentResult.sessionId };
-    process.stdout.write(`${JSON.stringify(result)}\n`);
+    process.stdout.write(`${stepHash}\n`);
   };
 }
