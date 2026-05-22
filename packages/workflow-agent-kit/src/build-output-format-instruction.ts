@@ -9,7 +9,7 @@ import type { JSONSchema } from "@uncaged/json-cas";
  *
  * Returns an empty array for schemas with no inspectable property definitions.
  */
-function extractSchemaFields(schema: JSONSchema): string[] {
+export function extractSchemaFields(schema: JSONSchema): string[] {
   if (typeof schema.properties === "object" && schema.properties !== null) {
     return Object.keys(schema.properties as Record<string, unknown>);
   }
