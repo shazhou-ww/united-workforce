@@ -8,11 +8,7 @@ import {
   createAgent,
 } from "@uncaged/workflow-agent-kit";
 
-import {
-  parseClaudeCodeJsonOutput,
-  storeClaudeCodeDetail,
-  storeClaudeCodeRawOutput,
-} from "./session-detail.js";
+import { parseClaudeCodeJsonOutput, storeClaudeCodeDetail } from "./session-detail.js";
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
@@ -122,9 +118,9 @@ async function processClaudeOutput(stdout: string, store: Store): Promise<AgentR
     return { output, detailHash, sessionId };
   }
 
-  // Non-JSON fallback
-  const detailHash = await storeClaudeCodeRawOutput(store, stdout);
-  return { output: stdout, detailHash, sessionId: undefined };
+  throw new Error(
+    `Claude Code returned non-JSON output (first 200 chars): ${stdout.slice(0, 200)}`,
+  );
 }
 
 async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
