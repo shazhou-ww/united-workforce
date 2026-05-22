@@ -44,7 +44,7 @@ roles:
          - If bounced back from reviewer or tester, reuse the existing branch instead
 
       Then implement TDD:
-      3. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
+      3. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
       4. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
       5. Write tests first based on the spec
       6. Implement the code to make tests pass
@@ -99,7 +99,7 @@ roles:
       - testing
     procedure: |
       1. Run `bun test` for automated test verification
-      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
+      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
       3. Verify each scenario in the spec is covered and passing
       4. Determine outcome:
          - passed: all scenarios verified, tests pass
