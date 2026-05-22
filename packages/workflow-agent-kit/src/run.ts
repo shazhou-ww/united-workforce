@@ -3,11 +3,12 @@ import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protoc
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";
-import { extract } from "./extract.js";
 import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
-import { getEnvPath, loadWorkflowConfig, resolveStorageRoot } from "./storage.js";
-import type { AgentContext, AgentOptions, AgentRunResult } from "./types.js";
+import { getEnvPath, resolveStorageRoot } from "./storage.js";
+import type { AgentOptions } from "./types.js";
+
+const MAX_FRONTMATTER_RETRIES = 2;
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
@@ -66,31 +67,16 @@ async function writeStepNode(options: {
   return hash;
 }
 
-async function runAgent(options: AgentOptions, ctx: AgentContext): Promise<AgentRunResult> {
-  return runWithMessage("agent run failed", () => options.run(ctx));
-}
-
-async function extractOutput(
+async function tryExtractOutput(
   rawOutput: string,
   outputSchema: CasRef,
-  storageRoot: string,
   ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
-): Promise<CasRef> {
-  const fastPath = await runWithMessage("frontmatter fast path", () =>
-    tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store),
-  ).catch(() => null);
-
+): Promise<CasRef | null> {
+  const fastPath = await tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store);
   if (fastPath !== null) {
     return fastPath.outputHash;
   }
-
-  const config = await runWithMessage("failed to load config", () =>
-    loadWorkflowConfig(storageRoot),
-  );
-  const extracted = await runWithMessage("extract failed", () =>
-    extract(rawOutput, outputSchema, config),
-  );
-  return extracted.hash;
+  return null;
 }
 
 async function persistStep(options: {
@@ -112,10 +98,18 @@ async function persistStep(options: {
   });
 }
 
+export type AgentCliOutput = {
+  stepHash: CasRef;
+  sessionId: string;
+};
+
 /**
  * Create an agent CLI entrypoint.
  * Parses argv (`<thread-id> <role>`), runs the agent, extracts structured output,
- * writes StepNode to CAS, and prints the new node hash to stdout.
+ * writes StepNode to CAS, and prints JSON result to stdout.
+ *
+ * If frontmatter extraction fails, retries up to MAX_FRONTMATTER_RETRIES times
+ * by calling agent.continue() with a correction message.
  */
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
@@ -135,13 +129,31 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       ctx.outputFormatInstruction = buildOutputFormatInstruction(frontmatterSchema);
     }
 
-    const agentResult = await runAgent(options, ctx);
-    const outputHash = await extractOutput(
-      agentResult.output,
-      roleDef.frontmatter,
-      storageRoot,
-      ctx,
-    );
+    let agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
+
+    // Try to extract frontmatter; retry via continue if it fails
+    let outputHash = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
+
+    for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && outputHash === null; retry++) {
+      const correctionMessage =
+        "Your previous response did not contain valid YAML frontmatter matching the role schema.\n" +
+        "You MUST begin your response with a YAML frontmatter block (--- delimited).\n" +
+        "Please output ONLY the corrected frontmatter block followed by your work.";
+
+      agentResult = await runWithMessage("agent continue failed", () =>
+        options.continue(agentResult.sessionId, correctionMessage, ctx.meta.store),
+      );
+      outputHash = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
+    }
+
+    if (outputHash === null) {
+      fail(
+        "Agent output does not contain valid YAML frontmatter matching the role schema " +
+          `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
+          `Raw output (first 500 chars): ${agentResult.output.slice(0, 500)}`,
+      );
+    }
+
     const stepHash = await persistStep({
       ctx,
       outputHash,
@@ -149,6 +161,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       agentName: agentLabel(options.name),
     });
 
-    process.stdout.write(`${stepHash}\n`);
+    const result: AgentCliOutput = { stepHash, sessionId: agentResult.sessionId };
+    process.stdout.write(`${JSON.stringify(result)}\n`);
   };
 }

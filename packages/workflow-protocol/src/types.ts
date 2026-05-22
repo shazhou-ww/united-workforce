@@ -81,6 +81,7 @@ export type StepOutput = {
   thread: ThreadId;
   head: CasRef;
   done: boolean;
+  sessionId: string | null;
 };
 
 /** uwf thread steps — single step entry */
