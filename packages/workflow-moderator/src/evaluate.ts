@@ -21,12 +21,44 @@ function isTruthy(value: unknown): boolean {
   return true;
 }
 
+function findByRole(
+  steps: ModeratorContext["steps"],
+  role: string,
+  direction: "first" | "last",
+): unknown {
+  if (direction === "last") {
+    for (let i = steps.length - 1; i >= 0; i--) {
+      if (steps[i].role === role) {
+        return steps[i].output;
+      }
+    }
+  } else {
+    for (const step of steps) {
+      if (step.role === role) {
+        return step.output;
+      }
+    }
+  }
+  return undefined;
+}
+
 async function evaluateJsonata(
   expression: string,
   context: ModeratorContext,
 ): Promise<Result<unknown, Error>> {
   try {
-    const result = await jsonata(expression).evaluate(context);
+    const expr = jsonata(expression);
+    expr.registerFunction(
+      "first",
+      (role: string) => findByRole(context.steps, role, "first"),
+      "<s:x>",
+    );
+    expr.registerFunction(
+      "last",
+      (role: string) => findByRole(context.steps, role, "last"),
+      "<s:x>",
+    );
+    const result = await expr.evaluate(context);
     return { ok: true, value: result };
   } catch (error) {
     return {
