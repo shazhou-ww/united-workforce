@@ -200,6 +200,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: activeHead,
       done: false,
+      sessionId: null,
     };
   }
 
@@ -210,6 +211,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: hist.head,
       done: true,
+      sessionId: null,
     };
   }
 
@@ -626,7 +628,7 @@ function resolveAgentConfig(
 
 type SpawnAgentResult = {
   stepHash: CasRef;
-  sessionId: string;
+  sessionId: string | null;
 };
 
 function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): SpawnAgentResult {
@@ -668,7 +670,7 @@ function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): Spawn
   if (!isCasRef(line)) {
     fail(`agent stdout is not a valid CAS hash or JSON: ${line || "(empty)"}`);
   }
-  return { stepHash: line, sessionId: "" };
+  return { stepHash: line, sessionId: null };
 }
 
 async function archiveThread(
@@ -717,6 +719,7 @@ export async function cmdThreadStep(
       thread: threadId,
       head: headHash,
       done: true,
+      sessionId: null,
     };
   }
 
