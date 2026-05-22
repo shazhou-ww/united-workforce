@@ -3,10 +3,9 @@ import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protoc
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";
-import { extract } from "./extract.js";
 import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
-import { getEnvPath, loadWorkflowConfig, resolveStorageRoot } from "./storage.js";
+import { getEnvPath, resolveStorageRoot } from "./storage.js";
 import type { AgentContext, AgentOptions, AgentRunResult } from "./types.js";
 
 function fail(message: string): never {
@@ -73,24 +72,19 @@ async function runAgent(options: AgentOptions, ctx: AgentContext): Promise<Agent
 async function extractOutput(
   rawOutput: string,
   outputSchema: CasRef,
-  storageRoot: string,
   ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
 ): Promise<CasRef> {
-  const fastPath = await runWithMessage("frontmatter fast path", () =>
-    tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store),
-  ).catch(() => null);
+  const fastPath = await tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store);
 
   if (fastPath !== null) {
     return fastPath.outputHash;
   }
 
-  const config = await runWithMessage("failed to load config", () =>
-    loadWorkflowConfig(storageRoot),
+  fail(
+    "Agent output does not contain valid YAML frontmatter matching the role schema.\n" +
+      "The agent must output a YAML frontmatter block (--- delimited) as the first thing in its response.\n" +
+      `Raw output (first 500 chars): ${rawOutput.slice(0, 500)}`,
   );
-  const extracted = await runWithMessage("extract failed", () =>
-    extract(rawOutput, outputSchema, config),
-  );
-  return extracted.hash;
 }
 
 async function persistStep(options: {
@@ -136,12 +130,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     }
 
     const agentResult = await runAgent(options, ctx);
-    const outputHash = await extractOutput(
-      agentResult.output,
-      roleDef.frontmatter,
-      storageRoot,
-      ctx,
-    );
+    const outputHash = await extractOutput(agentResult.output, roleDef.frontmatter, ctx);
     const stepHash = await persistStep({
       ctx,
       outputHash,
