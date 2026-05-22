@@ -21,7 +21,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.22.1",
     "@uncaged/json-cas": "^0.4.0",
     "@uncaged/workflow-agent-kit": "workspace:^"
   },
