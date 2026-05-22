@@ -673,6 +673,27 @@ export async function cmdThreadStep(
   storageRoot: string,
   threadId: ThreadId,
   agentOverride: string | null,
+  count: number,
+): Promise<StepOutput[]> {
+  if (count < 1 || !Number.isInteger(count)) {
+    fail(`--count must be a positive integer, got: ${count}`);
+  }
+
+  const results: StepOutput[] = [];
+  for (let i = 0; i < count; i++) {
+    const result = await cmdThreadStepOnce(storageRoot, threadId, agentOverride);
+    results.push(result);
+    if (result.done) {
+      break;
+    }
+  }
+  return results;
+}
+
+async function cmdThreadStepOnce(
+  storageRoot: string,
+  threadId: ThreadId,
+  agentOverride: string | null,
 ): Promise<StepOutput> {
   const index = await loadThreadsIndex(storageRoot);
   const headHash = index[threadId];

@@ -108,15 +108,21 @@ thread
 
 thread
   .command("step")
-  .description("Execute one step")
+  .description("Execute one or more steps")
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
-  .action((threadId: string, opts: { agent: string | undefined }) => {
+  .option("-c, --count <number>", "Number of steps to run (default: 1)")
+  .action((threadId: string, opts: { agent: string | undefined; count: string | undefined }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const agentOverride = opts.agent ?? null;
-      const result = await cmdThreadStep(storageRoot, threadId, agentOverride);
-      writeOutput(result);
+      const count = opts.count !== undefined ? Number(opts.count) : 1;
+      const results = await cmdThreadStep(storageRoot, threadId, agentOverride, count);
+      if (results.length === 1) {
+        writeOutput(results[0]);
+      } else {
+        writeOutput(results);
+      }
     });
   });
 
