@@ -143,7 +143,6 @@ conditions:
 graph:
   $START:
     - role: "planner"
-      condition: null
   planner:
     - role: "$END"
       condition: "insufficientInfo"
