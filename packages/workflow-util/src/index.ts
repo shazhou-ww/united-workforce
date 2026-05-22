@@ -1,4 +1,5 @@
 export { encodeUint64AsCrockford } from "./base32.js";
+export { generateCliReference } from "./cli-reference.js";
 export { env } from "./env.js";
 export type {
   AgentFrontmatter,
