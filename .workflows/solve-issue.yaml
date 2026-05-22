@@ -1,0 +1,167 @@
+name: "solve-issue"
+description: "TDD-driven issue resolution for small, focused changes. Loop protection relies on engine maxRounds."
+roles:
+  planner:
+    description: "Analyzes issue and outputs a TDD test spec"
+    goal: "You are a planning agent. You analyze Gitea issues and produce a TDD test specification that downstream roles will implement and verify."
+    capabilities:
+      - issue-analysis
+      - planning
+    procedure: |
+      On first run (no previous steps):
+      1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
+      2. Read CLAUDE.md (or equivalent project conventions file) to understand coding standards
+      3. Assess whether the issue has enough information to produce a test spec
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output status=insufficient_info and terminate
+      5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
+
+      On subsequent runs (bounced back by tester with fix_spec):
+      1. Read the tester's output from the previous step to understand what's wrong with the spec
+      2. Revise the test spec accordingly
+
+      After producing the test spec:
+      1. Store it via `uwf cas put "<markdown content>"` and capture the returned hash
+      2. Put the hash in meta.plan (required when status=ready)
+    output: "Output a brief summary of the test spec. Frontmatter must include: status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
+    meta:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, insufficient_info]
+        plan:
+          type: string
+      required: [status]
+  developer:
+    description: "TDD implementation per test spec"
+    goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
+    capabilities:
+      - coding
+    procedure: |
+      1. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
+      2. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
+      3. Write tests first based on the spec
+      4. Implement the code to make tests pass
+      5. Ensure `bun run build` passes with no errors
+      6. Run `bun test` to verify all tests pass
+    output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
+    meta:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [done, failed]
+      required: [status]
+  reviewer:
+    description: "Code standards compliance check"
+    goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
+    capabilities:
+      - code-review
+      - static-analysis
+    procedure: |
+      Hard checks (must all pass):
+      1. `bun run build` — no build errors
+      2. `bunx biome check` — no lint violations
+      3. TypeScript strict mode — no type errors
+
+      Soft checks (review against CLAUDE.md conventions):
+      - Functional-first: `function` + `type`, not `class` + `interface`
+      - No optional properties (`?:`) — use `T | null`
+      - Naming conventions (kebab-case files, PascalCase types, camelCase functions)
+      - Module boundary discipline (folder exports via index.ts)
+      - No `console.log` (use structured logger)
+      - No dynamic imports in production code
+
+      Only review standards compliance. Do NOT test functionality.
+      If rejecting, you MUST explain the specific reason in your output.
+    output: "Explain your decision with specific file/line references. Frontmatter must include: approved (true or false)."
+    meta:
+      type: object
+      properties:
+        approved:
+          type: boolean
+      required: [approved]
+  tester:
+    description: "Functional correctness verification"
+    goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
+    capabilities:
+      - testing
+    procedure: |
+      1. Run `bun test` for automated test verification
+      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's meta.plan)
+      3. Verify each scenario in the spec is covered and passing
+      4. Determine outcome:
+         - passed: all scenarios verified, tests pass
+         - fix_code: tests fail or implementation doesn't match spec → send back to developer
+         - fix_spec: the spec itself is wrong or incomplete → send back to planner
+    output: "Report test results per scenario. Frontmatter must include: status (passed, fix_code, or fix_spec)."
+    meta:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [passed, fix_code, fix_spec]
+      required: [status]
+  committer:
+    description: "Commits and creates PR"
+    goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
+    capabilities: []
+    procedure: |
+      Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
+      1. Stage all changes: `git add -A`
+      2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
+      3. Push the branch: `git push -u origin <branch-name>`
+         - If push hook fails: capture the error log in your output, mark hook_failed
+      4. On push success: create a PR via `tea pr create --title "..." --description "..."`
+         - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+    output: "Include PR URL on success or error log on failure. Frontmatter must include: success (true or false)."
+    meta:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+conditions:
+  insufficientInfo:
+    description: "Planner determined there's not enough info to proceed"
+    expression: "steps[-1].output.status = 'insufficient_info'"
+  devFailed:
+    description: "Developer failed to implement"
+    expression: "steps[-1].output.status = 'failed'"
+  rejected:
+    description: "Reviewer rejected the implementation"
+    expression: "steps[-1].output.approved = false"
+  fixCode:
+    description: "Tester found code issues"
+    expression: "steps[-1].output.status = 'fix_code'"
+  fixSpec:
+    description: "Tester found spec issues"
+    expression: "steps[-1].output.status = 'fix_spec'"
+  hookFailed:
+    description: "Push hook failed"
+    expression: "steps[-1].output.success = false"
+graph:
+  $START:
+    - role: "planner"
+  planner:
+    - role: "$END"
+      condition: "insufficientInfo"
+    - role: "developer"
+  developer:
+    - role: "$END"
+      condition: "devFailed"
+    - role: "reviewer"
+  reviewer:
+    - role: "developer"
+      condition: "rejected"
+    - role: "tester"
+  tester:
+    - role: "developer"
+      condition: "fixCode"
+    - role: "planner"
+      condition: "fixSpec"
+    - role: "committer"
+  committer:
+    - role: "developer"
+      condition: "hookFailed"
+    - role: "$END"
