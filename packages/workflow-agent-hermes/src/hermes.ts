@@ -8,7 +8,7 @@ import {
 } from "@uncaged/workflow-agent-kit";
 
 import { HermesAcpClient } from "./acp-client.js";
-import { storeHermesRawOutput } from "./session-detail.js";
+import { storeHermesSessionDetail } from "./session-detail.js";
 
 function buildHistorySummary(steps: AgentContext["steps"]): string {
   if (steps.length === 0) {
@@ -63,8 +63,9 @@ export function createHermesAgent(): () => Promise<void> {
   async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
     const fullPrompt = buildHermesPrompt(ctx);
     await client.connect(process.cwd());
-    const { text, sessionId } = await client.prompt(fullPrompt);
-    const detailHash = await storeHermesRawOutput(ctx.store, text);
+    const { text, sessionId, messages } = await client.prompt(fullPrompt);
+    const session = { session_id: sessionId, model: "", session_start: new Date().toISOString(), messages };
+    const { detailHash } = await storeHermesSessionDetail(ctx.store, session);
     return { output: text, detailHash, sessionId };
   }
 
@@ -75,8 +76,9 @@ export function createHermesAgent(): () => Promise<void> {
   ): Promise<AgentRunResult> {
     // Client is already connected from runHermes — same ACP session,
     // so the agent sees the full conversation history (crucial for retries).
-    const { text, sessionId } = await client.prompt(message);
-    const detailHash = await storeHermesRawOutput(store, text);
+    const { text, sessionId, messages } = await client.prompt(message);
+    const session = { session_id: sessionId, model: "", session_start: new Date().toISOString(), messages };
+    const { detailHash } = await storeHermesSessionDetail(store, session);
     return { output: text, detailHash, sessionId };
   }
 
