@@ -2,14 +2,14 @@ import type { JSONSchema } from "@uncaged/json-cas";
 
 const ROLE_DEFINITION: JSONSchema = {
   type: "object",
-  required: ["description", "identity", "prepare", "execute", "report", "outputSchema"],
+  required: ["description", "goal", "capabilities", "procedure", "output", "meta"],
   properties: {
     description: { type: "string" },
-    identity: { type: "string" },
-    prepare: { type: "string" },
-    execute: { type: "string" },
-    report: { type: "string" },
-    outputSchema: { type: "string", format: "cas_ref" },
+    goal: { type: "string" },
+    capabilities: { type: "array", items: { type: "string" } },
+    procedure: { type: "string" },
+    output: { type: "string" },
+    meta: { type: "string", format: "cas_ref" },
   },
   additionalProperties: false,
 };

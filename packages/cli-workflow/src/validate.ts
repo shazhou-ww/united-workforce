@@ -14,15 +14,18 @@ function isRoleDefinition(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  const outputSchema = value.outputSchema;
-  const schemaOk = isRecord(outputSchema) && typeof outputSchema.type === "string";
+  const meta = value.meta;
+  const metaOk = isRecord(meta) && typeof meta.type === "string";
+  const capabilities = value.capabilities;
+  const capabilitiesOk =
+    Array.isArray(capabilities) && capabilities.every((c) => typeof c === "string");
   return (
     typeof value.description === "string" &&
-    typeof value.identity === "string" &&
-    typeof value.prepare === "string" &&
-    typeof value.execute === "string" &&
-    typeof value.report === "string" &&
-    schemaOk
+    typeof value.goal === "string" &&
+    capabilitiesOk &&
+    typeof value.procedure === "string" &&
+    typeof value.output === "string" &&
+    metaOk
   );
 }
 

@@ -18,11 +18,11 @@ export type StepRecord = {
 
 export type RoleDefinition = {
   description: string;
-  identity: string;
-  prepare: string;
-  execute: string;
-  report: string;
-  outputSchema: CasRef;
+  goal: string;
+  capabilities: string[];
+  procedure: string;
+  output: string;
+  meta: CasRef;
 };
 
 export type Transition = {

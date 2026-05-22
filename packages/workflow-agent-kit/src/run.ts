@@ -131,13 +131,13 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       fail(`unknown role: ${role}`);
     }
 
-    const outputSchema = getSchema(ctx.meta.store, roleDef.outputSchema);
-    if (outputSchema !== null) {
-      ctx.outputFormatInstruction = buildOutputFormatInstruction(outputSchema);
+    const metaSchema = getSchema(ctx.meta.store, roleDef.meta);
+    if (metaSchema !== null) {
+      ctx.outputFormatInstruction = buildOutputFormatInstruction(metaSchema);
     }
 
     const agentResult = await runAgent(options, ctx);
-    const outputHash = await extractOutput(agentResult.output, roleDef.outputSchema, storageRoot, ctx);
+    const outputHash = await extractOutput(agentResult.output, roleDef.meta, storageRoot, ctx);
     const stepHash = await persistStep({
       ctx,
       outputHash,
