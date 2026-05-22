@@ -125,36 +125,21 @@ conditions:
   insufficientInfo:
     description: "Planner determined there's not enough info to proceed"
     expression: "steps[-1].output.status = 'insufficient_info'"
-  ready:
-    description: "Planner produced a test spec"
-    expression: "steps[-1].output.status = 'ready'"
-  devDone:
-    description: "Developer finished implementation"
-    expression: "steps[-1].output.status = 'done'"
   devFailed:
     description: "Developer failed to implement"
     expression: "steps[-1].output.status = 'failed'"
-  notApproved:
+  rejected:
     description: "Reviewer rejected the implementation"
     expression: "steps[-1].output.approved = false"
-  approved:
-    description: "Reviewer approved the implementation"
-    expression: "steps[-1].output.approved = true"
   fixCode:
     description: "Tester found code issues"
     expression: "steps[-1].output.status = 'fix_code'"
   fixSpec:
     description: "Tester found spec issues"
     expression: "steps[-1].output.status = 'fix_spec'"
-  passed:
-    description: "Tester verified all scenarios pass"
-    expression: "steps[-1].output.status = 'passed'"
   hookFailed:
     description: "Push hook failed"
     expression: "steps[-1].output.success = false"
-  pushSuccess:
-    description: "Commit and PR created successfully"
-    expression: "steps[-1].output.success = true"
 graph:
   $START:
     - role: "planner"
@@ -163,26 +148,21 @@ graph:
     - role: "$END"
       condition: "insufficientInfo"
     - role: "developer"
-      condition: "ready"
   developer:
     - role: "$END"
       condition: "devFailed"
     - role: "reviewer"
-      condition: "devDone"
   reviewer:
     - role: "developer"
-      condition: "notApproved"
+      condition: "rejected"
     - role: "tester"
-      condition: "approved"
   tester:
     - role: "developer"
       condition: "fixCode"
     - role: "planner"
       condition: "fixSpec"
     - role: "committer"
-      condition: "passed"
   committer:
     - role: "developer"
       condition: "hookFailed"
     - role: "$END"
-      condition: "pushSuccess"
