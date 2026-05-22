@@ -22,7 +22,7 @@ roles:
       After producing the test spec:
       1. Store it via `uwf cas put "<markdown content>"` and capture the returned hash
       2. Put the hash in meta.plan (required when status=ready)
-    output: "Output a brief summary of the test spec. The full spec is stored in CAS — put its hash in meta.plan."
+    output: "Output a brief summary of the test spec. Frontmatter must include: status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
     meta:
       type: object
       properties:
@@ -44,7 +44,7 @@ roles:
       4. Implement the code to make tests pass
       5. Ensure `bun run build` passes with no errors
       6. Run `bun test` to verify all tests pass
-    output: "List all files changed and provide a summary of the implementation."
+    output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
     meta:
       type: object
       properties:
@@ -74,7 +74,7 @@ roles:
 
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
-    output: "Approve or reject with detailed comments explaining your decision."
+    output: "Explain your decision with specific file/line references. Frontmatter must include: approved (true or false)."
     meta:
       type: object
       properties:
@@ -94,7 +94,7 @@ roles:
          - passed: all scenarios verified, tests pass
          - fix_code: tests fail or implementation doesn't match spec → send back to developer
          - fix_spec: the spec itself is wrong or incomplete → send back to planner
-    output: "Report test results and verification status for each scenario in the spec."
+    output: "Report test results per scenario. Frontmatter must include: status (passed, fix_code, or fix_spec)."
     meta:
       type: object
       properties:
@@ -114,7 +114,7 @@ roles:
          - If push hook fails: capture the error log in your output, mark hook_failed
       4. On push success: create a PR via `tea pr create --title "..." --description "..."`
          - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
-    output: "Report whether commit and PR creation succeeded. Include the PR URL on success or error log on failure."
+    output: "Include PR URL on success or error log on failure. Frontmatter must include: success (true or false)."
     meta:
       type: object
       properties:
