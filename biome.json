@@ -5,6 +5,8 @@
       "**",
       "!**/dist",
       "!**/node_modules",
+      "!**/legacy-packages",
+      "!scripts",
       "!packages/workflow/workflow",
       "!xiaoju/scripts/bundle.ts"
     ]
@@ -36,11 +38,21 @@
       }
     },
     {
-      "includes": ["**/*.d.ts"],
+      "includes": ["**/*.d.ts", "**/vitest.config.*"],
       "linter": {
         "rules": {
           "style": {
             "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/cli.ts", "**/setup.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }
