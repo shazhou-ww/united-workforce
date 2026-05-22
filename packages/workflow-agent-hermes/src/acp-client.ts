@@ -226,8 +226,11 @@ export class HermesAcpClient {
 
     const msg = parsed as Record<string, unknown>;
 
-    // JSON-RPC response (has "id")
-    if ("id" in msg && msg.id !== undefined && msg.id !== null) {
+    const hasId = "id" in msg && msg.id !== undefined && msg.id !== null;
+    const hasMethod = typeof msg.method === "string";
+
+    // JSON-RPC response to one of our requests (has "id" but no "method")
+    if (hasId && !hasMethod) {
       const response = msg as unknown as JsonRpcResponse;
       const handler = this.pending.get(response.id);
       if (handler !== undefined) {
@@ -237,7 +240,22 @@ export class HermesAcpClient {
       return;
     }
 
-    // JSON-RPC notification — session/update
+    // Server-initiated JSON-RPC request: session/request_permission (has "id" + "method")
+    if (msg.method === "session/request_permission" && hasId) {
+      const params = msg.params as Record<string, unknown> | undefined;
+      const options = (params?.options ?? []) as Array<{ optionId?: string }>;
+      const firstOptionId = options[0]?.optionId ?? "";
+      this.writeLine(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: msg.id,
+          result: { outcome: { outcome: "selected", optionId: firstOptionId } },
+        }),
+      );
+      return;
+    }
+
+    // JSON-RPC notification — session/update (no "id")
     if (msg.method === "session/update") {
       const params = msg.params as Record<string, unknown> | undefined;
       const update = params?.update as Record<string, unknown> | undefined;
@@ -245,20 +263,6 @@ export class HermesAcpClient {
         this.handleSessionUpdate(update);
       }
       return;
-    }
-
-    // session/request_permission — auto-approve (yolo mode)
-    if (msg.method === "session/request_permission") {
-      const params = msg.params as Record<string, unknown> | undefined;
-      const options = (params?.options ?? []) as Array<{ optionId?: string }>;
-      const firstOptionId = options[0]?.optionId ?? "";
-      // Respond with the selected option
-      const responseMsg = {
-        jsonrpc: "2.0",
-        id: (msg as Record<string, unknown>).id,
-        result: { outcome: { outcome: "selected", optionId: firstOptionId } },
-      };
-      this.writeLine(JSON.stringify(responseMsg));
     }
   }
 

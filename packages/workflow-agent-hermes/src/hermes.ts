@@ -82,9 +82,19 @@ export function createHermesAgent(): () => Promise<void> {
     return { output: text, detailHash, sessionId };
   }
 
-  return createAgent({
+  const agentMain = createAgent({
     name: "hermes",
     run: runHermes,
     continue: continueHermes,
   });
+
+  // Wrap to ensure ACP client is closed after agent completes,
+  // so the hermes subprocess exits and bun can terminate.
+  return async () => {
+    try {
+      await agentMain();
+    } finally {
+      await client.close();
+    }
+  };
 }
