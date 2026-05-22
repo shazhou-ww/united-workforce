@@ -141,6 +141,28 @@ describe("buildOutputFormatInstruction", () => {
     expect(result).toContain("shared: <string>  # required");
   });
 
+  test("explicitly forbids extra frontmatter fields", () => {
+    const result = buildOutputFormatInstruction(PLANNER_SCHEMA);
+    expect(result).toMatch(/\b(only|exclusively)\b.*fields/i);
+    expect(result).toMatch(/do not add (extra|additional|other) fields/i);
+  });
+
+  test("forbids extra fields even for empty schema", () => {
+    const result = buildOutputFormatInstruction({});
+    expect(result).toMatch(/do not add (extra|additional|other) fields/i);
+  });
+
+  test("forbids extra fields for anyOf/oneOf schemas", () => {
+    const schema = {
+      anyOf: [
+        { type: "object", properties: { alpha: { type: "string" } } },
+        { type: "object", properties: { beta: { type: "number" } } },
+      ],
+    };
+    const result = buildOutputFormatInstruction(schema);
+    expect(result).toMatch(/do not add (extra|additional|other) fields/i);
+  });
+
   test("includes focus reminder about role scope", () => {
     const result = buildOutputFormatInstruction({});
     expect(result).toContain("Focus exclusively on YOUR role");

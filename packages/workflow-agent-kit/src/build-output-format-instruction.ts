@@ -191,5 +191,7 @@ Your meta output must satisfy these fields:
 
 ${fieldList}
 
+Output ONLY the fields listed above. Do not add extra fields that are not specified in the schema.
+
 Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
 }
