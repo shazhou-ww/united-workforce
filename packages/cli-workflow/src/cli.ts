@@ -47,7 +47,10 @@ const program = new Command();
 
 // eslint-disable-next-line -- dynamic import for version
 const pkg = await import("../package.json", { with: { type: "json" } });
-program.name("uwf").description("Stateless workflow CLI").version(pkg.default.version, "-V, --version");
+program
+  .name("uwf")
+  .description("Stateless workflow CLI")
+  .version(pkg.default.version, "-V, --version");
 program.option("--format <fmt>", "Output format: json or yaml", "json");
 
 const workflow = program.command("workflow").description("Workflow registry and CAS");
@@ -82,7 +85,7 @@ workflow
   .action(() => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdWorkflowList(storageRoot);
+      const result = await cmdWorkflowList(storageRoot, process.cwd());
       writeOutput(result);
     });
   });
@@ -97,7 +100,7 @@ thread
   .action((workflow: string, opts: { prompt: string }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadStart(storageRoot, workflow, opts.prompt);
+      const result = await cmdThreadStart(storageRoot, workflow, opts.prompt, process.cwd());
       writeOutput(result);
     });
   });

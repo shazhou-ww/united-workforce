@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
 import { getSchema, validate } from "@uncaged/json-cas";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-agent-kit";
@@ -24,21 +25,24 @@ import type {
 } from "@uncaged/workflow-protocol";
 import { generateUlid } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 
 import {
   appendThreadHistory,
   createUwfStore,
+  discoverProjectWorkflows,
   findThreadInHistory,
   loadThreadHistory,
   loadThreadsIndex,
   loadWorkflowRegistry,
+  resolveProjectWorkflowFile,
   resolveWorkflowHash,
   saveThreadsIndex,
   type ThreadHistoryLine,
   type UwfStore,
 } from "../store.js";
-import { isCasRef } from "../validate.js";
+import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
+import { materializeWorkflowPayload } from "./workflow.js";
 
 const END_ROLE = "$END";
 export const THREAD_READ_DEFAULT_QUOTA = 4000;
@@ -66,11 +70,55 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promise<CasRef> {
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch {
+    fail(`project workflow file not found: ${filePath}`);
+  }
+
+  let raw: unknown;
+  try {
+    raw = parse(text) as unknown;
+  } catch (e) {
+    fail(`invalid YAML in ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  const payload = parseWorkflowPayload(raw);
+  if (payload === null) {
+    fail(`invalid workflow YAML in ${filePath}: expected WorkflowPayload shape`);
+  }
+
+  const filenameError = checkWorkflowFilenameConsistency(filePath, payload);
+  if (filenameError !== null) {
+    fail(filenameError);
+  }
+
+  const materialized = await materializeWorkflowPayload(uwf, payload);
+  const hash = await uwf.store.put(uwf.schemas.workflow, materialized);
+  const stored = uwf.store.get(hash);
+  if (stored === null || !validate(uwf.store, stored)) {
+    fail("stored local workflow failed schema validation");
+  }
+
+  return hash;
+}
+
 async function resolveWorkflowCasRef(
   uwf: UwfStore,
   storageRoot: string,
   workflowId: string,
+  projectRoot: string,
 ): Promise<CasRef> {
+  // Project-local resolution: check .workflows/<workflowId>.yaml first
+  const localEntries = await discoverProjectWorkflows(projectRoot);
+  const localFile = resolveProjectWorkflowFile(localEntries, workflowId);
+  if (localFile !== null) {
+    return materializeLocalWorkflow(uwf, localFile);
+  }
+
+  // Global registry fallback
   const registry = await loadWorkflowRegistry(storageRoot);
   const hash = resolveWorkflowHash(registry, workflowId);
   if (!isCasRef(hash)) {
@@ -114,9 +162,10 @@ export async function cmdThreadStart(
   storageRoot: string,
   workflowId: string,
   prompt: string,
+  projectRoot: string,
 ): Promise<StartOutput> {
   const uwf = await createUwfStore(storageRoot);
-  const workflowHash = await resolveWorkflowCasRef(uwf, storageRoot, workflowId);
+  const workflowHash = await resolveWorkflowCasRef(uwf, storageRoot, workflowId, projectRoot);
 
   const threadId = generateUlid(Date.now()) as ThreadId;
   const startPayload: StartNodePayload = {

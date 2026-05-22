@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,44 @@ import { parse, stringify } from "yaml";
 import { registerUwfSchemas, type UwfSchemaHashes } from "./schemas.js";
 
 export type WorkflowRegistry = Record<string, CasRef>;
+
+/** A workflow entry discovered from the project-local .workflows/ directory. */
+export type ProjectWorkflowEntry = {
+  /** Workflow name (from YAML `name` field, equals filename stem). */
+  name: string;
+  /** Absolute path to the YAML file. */
+  filePath: string;
+};
+
+/**
+ * Scan `<projectRoot>/.workflows/*.yaml` (non-recursive) and return discovered entries.
+ * Returns an empty array if the directory does not exist.
+ */
+export async function discoverProjectWorkflows(
+  projectRoot: string,
+): Promise<ProjectWorkflowEntry[]> {
+  const dir = join(projectRoot, ".workflows");
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+      return [];
+    }
+    throw e;
+  }
+
+  const result: ProjectWorkflowEntry[] = [];
+  for (const entry of entries) {
+    if (!entry.endsWith(".yaml") && !entry.endsWith(".yml")) {
+      continue;
+    }
+    const stem = entry.endsWith(".yaml") ? entry.slice(0, -5) : entry.slice(0, -4);
+    result.push({ name: stem, filePath: join(dir, entry) });
+  }
+  return result;
+}
 
 /** Default filesystem root for uwf data (`~/.uncaged/workflow`). */
 export function getDefaultStorageRoot(): string {
@@ -102,6 +140,22 @@ export async function saveWorkflowRegistry(
 
 export function resolveWorkflowHash(registry: WorkflowRegistry, id: string): CasRef {
   return registry[id] !== undefined ? registry[id] : id;
+}
+
+/**
+ * Resolve a workflow name to a project-local YAML file path.
+ * Returns null if the name is not found in the local entries.
+ */
+export function resolveProjectWorkflowFile(
+  localEntries: ProjectWorkflowEntry[],
+  name: string,
+): string | null {
+  for (const entry of localEntries) {
+    if (entry.name === name) {
+      return entry.filePath;
+    }
+  }
+  return null;
 }
 
 export function findRegistryName(registry: WorkflowRegistry, hash: Hash): string | null {
