@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { JSONSchema, Store } from "@uncaged/json-cas";
-import { bootstrap, getSchema, refs, walk } from "@uncaged/json-cas";
+import { bootstrap, getSchema, putSchema, refs, walk } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
+
+import { TEXT_SCHEMA } from "../schemas.js";
 
 // ---- Helpers ----
 
@@ -120,4 +122,11 @@ export async function cmdCasSchemaGet(storageRoot: string, hash: string): Promis
     throw new Error(`Schema not found: ${hash}`);
   }
   return schema;
+}
+
+export async function cmdCasPutText(storageRoot: string, text: string): Promise<{ hash: string }> {
+  const store = openStore(storageRoot);
+  const typeHash = await putSchema(store, TEXT_SCHEMA);
+  const hash = await store.put(typeHash, text);
+  return { hash };
 }
