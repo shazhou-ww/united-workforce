@@ -7,6 +7,7 @@ import {
   cmdCasGet,
   cmdCasHas,
   cmdCasPut,
+  cmdCasPutText,
   cmdCasRefs,
   cmdCasReindex,
   cmdCasSchemaGet,
@@ -292,6 +293,17 @@ cas
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       writeOutput(await cmdCasPut(storageRoot, typeHash, data));
+    });
+  });
+
+cas
+  .command("put-text")
+  .description("Store a plain text string, print its hash")
+  .argument("<text>", "Text content to store")
+  .action((text: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      writeOutput(await cmdCasPutText(storageRoot, text));
     });
   });
 
