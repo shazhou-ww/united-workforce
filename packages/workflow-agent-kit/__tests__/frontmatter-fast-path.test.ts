@@ -29,6 +29,27 @@ const STRICT_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Role-specific schema (reviewer) — only approved, no standard agent fields. */
+const REVIEWER_SCHEMA = {
+  type: "object",
+  properties: {
+    approved: { type: "boolean" },
+  },
+  required: ["approved"],
+  additionalProperties: false,
+};
+
+/** Role-specific schema (planner) — custom status enum + plan hash. */
+const PLANNER_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["ready", "insufficient_info"] },
+    plan: { type: "string" },
+  },
+  required: ["status"],
+  additionalProperties: false,
+};
+
 async function makeStoreWithSchema(schema: Record<string, unknown>) {
   const store = createMemoryStore();
   const schemaHash = await putSchema(store, schema);
@@ -127,6 +148,51 @@ describe("tryFrontmatterFastPath — fallback: invalid frontmatter", () => {
 describe("tryFrontmatterFastPath — fallback: schema mismatch", () => {
   test("returns null when outputSchema requires fields not in frontmatter", async () => {
     const { store, schemaHash } = await makeStoreWithSchema(STRICT_SCHEMA);
+
+    const raw = "---\nstatus: done\nscope: role\n---\n\nBody.";
+
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).toBeNull();
+  });
+});
+
+// ── Role-specific schema fields ───────────────────────────────────────────────
+
+describe("tryFrontmatterFastPath — role-specific fields", () => {
+  test("extracts approved only for reviewer schema (no extra standard fields)", async () => {
+    const { store, schemaHash } = await makeStoreWithSchema(REVIEWER_SCHEMA);
+
+    const raw = "---\napproved: true\n---\n\nReview passed.";
+
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).not.toBeNull();
+
+    const node = store.get(result!.outputHash);
+    expect(node).not.toBeNull();
+    const payload = node!.payload as Record<string, unknown>;
+    expect(payload).toEqual({ approved: true });
+    expect(payload.status).toBeUndefined();
+    expect(payload.scope).toBeUndefined();
+  });
+
+  test("extracts plan and role-specific status for planner schema", async () => {
+    const { store, schemaHash } = await makeStoreWithSchema(PLANNER_SCHEMA);
+
+    const raw = "---\nstatus: ready\nplan: 01HASHPLANNER0001\n---\n\nSpec summary.";
+
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).not.toBeNull();
+
+    const node = store.get(result!.outputHash);
+    expect(node).not.toBeNull();
+    const payload = node!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("ready");
+    expect(payload.plan).toBe("01HASHPLANNER0001");
+    expect(payload.scope).toBeUndefined();
+  });
+
+  test("returns null when required role-specific field is missing", async () => {
+    const { store, schemaHash } = await makeStoreWithSchema(REVIEWER_SCHEMA);
 
     const raw = "---\nstatus: done\nscope: role\n---\n\nBody.";
 
