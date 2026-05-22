@@ -7,11 +7,12 @@ function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {
     workflow: {
       roles: {
         developer: {
+          description: "TDD implementation per test spec",
           goal: "Write code",
           capabilities: ["coding"],
           procedure: "1. Read spec\n2. Write code",
           output: "List files changed",
-          meta: null,
+          frontmatter: "",
         },
       },
       conditions: {},

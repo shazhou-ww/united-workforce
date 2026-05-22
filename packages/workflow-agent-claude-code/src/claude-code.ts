@@ -124,7 +124,7 @@ async function processClaudeOutput(stdout: string, store: Store): Promise<AgentR
 
   // Non-JSON fallback
   const detailHash = await storeClaudeCodeRawOutput(store, stdout);
-  return { output: stdout, detailHash };
+  return { output: stdout, detailHash, sessionId: undefined };
 }
 
 async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
