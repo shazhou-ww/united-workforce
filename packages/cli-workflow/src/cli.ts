@@ -29,6 +29,7 @@ import {
   THREAD_READ_DEFAULT_QUOTA,
 } from "./commands/thread.js";
 import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
+import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
 
@@ -376,6 +377,49 @@ casSchema
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       writeOutput(await cmdCasSchemaGet(storageRoot, hash));
+    });
+  });
+
+const log = program.command("log").description("Process-level debug logs");
+
+log
+  .command("list")
+  .description("List log files with sizes")
+  .action(() => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdLogList(storageRoot);
+      writeOutput(result);
+    });
+  });
+
+log
+  .command("show")
+  .description("Show and filter log entries")
+  .option("--thread <thread-id>", "Filter by thread ID")
+  .option("--process <pid>", "Filter by process ID")
+  .option("--date <date>", "Filter by date (YYYY-MM-DD)")
+  .action((opts: { thread: string | undefined; process: string | undefined; date: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdLogShow(storageRoot, {
+        thread: opts.thread ?? null,
+        process: opts.process ?? null,
+        date: opts.date ?? null,
+      });
+      writeOutput(result);
+    });
+  });
+
+log
+  .command("clean")
+  .description("Delete log files older than given date")
+  .requiredOption("--before <date>", "Delete files before this date (YYYY-MM-DD)")
+  .action((opts: { before: string }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdLogClean(storageRoot, opts.before);
+      writeOutput(result);
     });
   });
 
