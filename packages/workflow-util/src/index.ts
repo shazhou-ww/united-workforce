@@ -13,6 +13,13 @@ export {
   validateFrontmatter,
 } from "./frontmatter-markdown/index.js";
 export { createLogger } from "./logger.js";
+export { createProcessLogger } from "./process-logger/index.js";
+export type {
+  CreateProcessLoggerOptions,
+  ProcessLogFn,
+  ProcessLogger,
+  ProcessLoggerContext,
+} from "./process-logger/index.js";
 export { normalizeRefsField } from "./refs-field.js";
 export { err, ok } from "./result.js";
 export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
