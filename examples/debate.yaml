@@ -1,0 +1,83 @@
+name: "debate"
+description: "Structured debate between two sides. Tests cross-process session resume."
+roles:
+  against:
+    description: "Argues against the proposition"
+    goal: |
+      You are a skilled debater arguing AGAINST the proposition.
+      Be logical, cite evidence, and directly address your opponent's points.
+      Keep each argument concise (under 200 words).
+    capabilities:
+      - argumentation
+      - critical-thinking
+    procedure: |
+      1. If this is the opening, present your strongest argument against the proposition.
+      2. If responding to the other side, directly counter their points with evidence and logic.
+      3. If you find yourself genuinely convinced by the other side, you may concede.
+    output: |
+      Provide your argument in the frontmatter.
+      Set conceded to true ONLY if you are genuinely convinced and wish to stop debating.
+    frontmatter:
+      type: object
+      properties:
+        argument:
+          type: string
+        conceded:
+          type: boolean
+      required: [argument, conceded]
+  for:
+    description: "Argues for the proposition"
+    goal: |
+      You are a skilled debater arguing FOR the proposition.
+      Be logical, cite evidence, and directly address your opponent's points.
+      Keep each argument concise (under 200 words).
+    capabilities:
+      - argumentation
+      - critical-thinking
+    procedure: |
+      1. Read the opposing side's latest argument carefully.
+      2. Counter their points with evidence and logic.
+      3. If you find yourself genuinely convinced by the other side, you may concede.
+    output: |
+      Provide your argument in the frontmatter.
+      Set conceded to true ONLY if you are genuinely convinced and wish to stop debating.
+    frontmatter:
+      type: object
+      properties:
+        argument:
+          type: string
+        conceded:
+          type: boolean
+      required: [argument, conceded]
+conditions:
+  againstConceded:
+    description: "The against side conceded"
+    expression: "$last('against').conceded = true"
+  forConceded:
+    description: "The for side conceded"
+    expression: "$last('for').conceded = true"
+  moreRounds:
+    description: "Fewer than 3 rounds completed per side"
+    expression: "$count(steps[role = 'against']) < 3"
+graph:
+  $START:
+    - role: "against"
+      condition: null
+      prompt: "Present your opening argument against the proposition."
+  against:
+    - role: "$END"
+      condition: "againstConceded"
+      prompt: "The against side conceded. Debate over."
+    - role: "for"
+      condition: null
+      prompt: "Counter the opposing argument. Address their points directly."
+  for:
+    - role: "$END"
+      condition: "forConceded"
+      prompt: "The for side conceded. Debate over."
+    - role: "against"
+      condition: "moreRounds"
+      prompt: "Counter the opposing argument. Address their points directly."
+    - role: "$END"
+      condition: null
+      prompt: "Maximum rounds reached. Debate over."

@@ -13,6 +13,7 @@ export type { FrontmatterFastPathResult } from "./frontmatter.js";
 export { tryFrontmatterFastPath } from "./frontmatter.js";
 export { createAgent } from "./run.js";
 export { getConfigPath, getEnvPath, loadWorkflowConfig, resolveStorageRoot } from "./storage.js";
+export { getCachedSessionId, setCachedSessionId } from "./session-cache.js";
 export type {
   AgentContext,
   AgentContinueFn,
