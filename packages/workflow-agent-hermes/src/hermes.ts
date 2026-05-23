@@ -45,12 +45,13 @@ function buildInitialPrompt(ctx: AgentContext): string {
   if (historyBlock !== "") {
     parts.push("", historyBlock);
   }
+  parts.push("", "## Moderator Instruction", "", ctx.edgePrompt);
   return parts.join("\n");
 }
 
 /** Assemble system prompt, task, and prior step outputs for Hermes. */
 export function buildHermesPrompt(ctx: AgentContext): string {
-  if (ctx.edgePrompt !== "") {
+  if (!ctx.isFirstVisit) {
     const parts: string[] = [];
     if (ctx.outputFormatInstruction !== "") {
       parts.push(ctx.outputFormatInstruction, "");
@@ -86,7 +87,7 @@ async function prepareSession(
   ctx: AgentContext,
   cwd: string,
 ): Promise<PromptAttempt> {
-  if (ctx.edgePrompt === "" || isResumeDisabled()) {
+  if (ctx.isFirstVisit || isResumeDisabled()) {
     await client.connect(cwd);
     return { useContinuation: false, resumed: false };
   }
@@ -127,7 +128,7 @@ export function createHermesAgent(): () => Promise<void> {
   });
 
   async function runPrompt(ctx: AgentContext, useContinuation: boolean): Promise<AgentRunResult> {
-    const effectiveCtx = useContinuation ? ctx : { ...ctx, edgePrompt: "" };
+    const effectiveCtx = useContinuation ? ctx : { ...ctx, isFirstVisit: true };
     const fullPrompt = buildHermesPrompt(effectiveCtx);
     const { text, sessionId, messages } = await client.prompt(fullPrompt);
     const { detailHash } = await storePromptResult(ctx.store, sessionId, messages);

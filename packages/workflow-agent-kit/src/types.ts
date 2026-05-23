@@ -14,9 +14,13 @@ export type AgentContext = ModeratorContext & {
   outputFormatInstruction: string;
   /**
    * Edge prompt from the graph transition that led to this role (UWF_EDGE_PROMPT).
-   * Phase 2 will use visit history to choose full role definition vs continuation.
+   * Always the real moderator instruction for this step.
    */
   edgePrompt: string;
+  /**
+   * True when the current role has not appeared in steps history before this invocation.
+   */
+  isFirstVisit: boolean;
 };
 
 export type AgentRunResult = {

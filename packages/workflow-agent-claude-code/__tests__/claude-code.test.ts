@@ -7,6 +7,7 @@ function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {
   return {
     threadId: "01JTEST0000000000000000000" as ThreadId,
     edgePrompt: "Proceed with the assigned role.",
+    isFirstVisit: true,
     workflow: {
       roles: {
         developer: {
