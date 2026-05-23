@@ -87,14 +87,18 @@ export async function runBuiltinLoop(
       openAiTools.length > 0 ? openAiTools : null,
     );
 
+    // When noTools is set, ignore any tool_calls the LLM might still return
+    // (some providers infer tools from message history even when tools field is omitted)
+    const effectiveToolCalls = options.noTools ? null : (response.toolCalls ?? null);
+
     const assistantMessage: ChatMessage = {
       role: "assistant",
       content: response.content,
-      tool_calls: response.toolCalls,
+      tool_calls: effectiveToolCalls,
     };
     messages.push(assistantMessage);
 
-    if (response.toolCalls === null || response.toolCalls.length === 0) {
+    if (effectiveToolCalls === null || effectiveToolCalls.length === 0) {
       const text = response.content ?? "";
       await appendTurn(options.storageRoot, options.sessionId, {
         role: "assistant",
@@ -123,14 +127,14 @@ export async function runBuiltinLoop(
     await appendTurn(options.storageRoot, options.sessionId, {
       role: "assistant",
       content: response.content ?? "",
-      toolCalls: mapToolCallsForPayload(response.toolCalls),
+      toolCalls: mapToolCallsForPayload(effectiveToolCalls),
       reasoning: null,
     });
     turnCount += 1;
 
     // Execute tools
     turnCount += await executeTurnTools(
-      response.toolCalls,
+      effectiveToolCalls,
       options.toolCtx,
       messages,
       options.storageRoot,
