@@ -66,7 +66,9 @@ export function buildBuiltinMessages(ctx: AgentContext): ChatMessage[] {
     "You have tools available (read_file, write_file, run_command). " +
       "Use them to complete your task — read files, run commands, make changes as needed. " +
       "When you are done, output your final response with the YAML frontmatter block as specified above. " +
-      "Do NOT output the frontmatter until you have completed all necessary work.",
+      "Do NOT output the frontmatter until you have completed all necessary work. " +
+      "CRITICAL: Your final output MUST start with the `---` fence on the very first line — " +
+      "no preamble text, no explanation before it. The parser requires `---` at position 0.",
   );
 
   const messages: ChatMessage[] = [{ role: "system", content: systemParts.join("\n") }];

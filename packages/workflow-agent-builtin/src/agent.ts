@@ -17,6 +17,24 @@ import { initSessionDir } from "./session.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
+const FRONTMATTER_FENCE = "---";
+
+/**
+ * Strip any text before the first `---` fence.
+ * LLMs sometimes emit preamble text before the frontmatter block.
+ */
+function stripPreamble(text: string): string {
+  if (text.startsWith(FRONTMATTER_FENCE)) {
+    return text;
+  }
+  const idx = text.indexOf(`\n${FRONTMATTER_FENCE}\n`);
+  if (idx !== -1) {
+    log("6GWRP3QX", `stripped ${idx + 1} chars of preamble before frontmatter`);
+    return text.slice(idx + 1);
+  }
+  return text;
+}
+
 type SessionRecord = {
   sessionId: string;
   model: string;
@@ -74,7 +92,7 @@ async function runBuiltinWithMessages(
     session.startedAtMs,
   );
 
-  return { output: loopResult.finalText, detailHash, sessionId: session.sessionId };
+  return { output: stripPreamble(loopResult.finalText), detailHash, sessionId: session.sessionId };
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
