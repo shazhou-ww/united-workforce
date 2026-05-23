@@ -6,6 +6,8 @@ import {
   type AgentRunResult,
   buildRolePrompt,
   createAgent,
+  getCachedSessionId,
+  setCachedSessionId,
 } from "@uncaged/workflow-agent-kit";
 
 import { parseClaudeCodeJsonOutput, storeClaudeCodeDetail } from "./session-detail.js";
@@ -125,8 +127,26 @@ async function processClaudeOutput(stdout: string, store: Store): Promise<AgentR
 
 async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildClaudeCodePrompt(ctx);
+
+  // Try resuming a cached session for re-entry scenarios (e.g. reviewer reject → developer re-entry).
+  if (!ctx.isFirstVisit) {
+    const cachedSessionId = await getCachedSessionId(ctx.threadId, ctx.role);
+    if (cachedSessionId !== null) {
+      try {
+        const { stdout } = await spawnClaudeResume(cachedSessionId, fullPrompt);
+        const result = await processClaudeOutput(stdout, ctx.store);
+        await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+        return result;
+      } catch {
+        // Resume failed — fall through to fresh run.
+      }
+    }
+  }
+
   const { stdout } = await spawnClaudeRun(fullPrompt);
-  return processClaudeOutput(stdout, ctx.store);
+  const result = await processClaudeOutput(stdout, ctx.store);
+  await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+  return result;
 }
 
 async function continueClaudeCode(
