@@ -266,12 +266,7 @@ describe("cmdThreadRead ### Content section", () => {
 
     expect(markdown).toContain("### Content");
     expect(markdown).toContain("The assistant response text");
-
-    const contentIdx = markdown.indexOf("### Content");
-    const outputIdx = markdown.indexOf("### Output");
-    expect(contentIdx).toBeGreaterThanOrEqual(0);
-    expect(outputIdx).toBeGreaterThanOrEqual(0);
-    expect(contentIdx).toBeLessThan(outputIdx);
+    expect(markdown).not.toContain("### Output");
   });
 
   test("omits ### Content when detail has no matching assistant turns", async () => {
@@ -314,7 +309,7 @@ describe("cmdThreadRead ### Content section", () => {
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
     expect(markdown).not.toContain("### Content");
-    expect(markdown).toContain("### Output");
+    expect(markdown).not.toContain("### Output");
   });
 });
 
@@ -390,5 +385,89 @@ describe("cmdThreadStepDetails", () => {
 
   test("throws when step hash does not exist", async () => {
     await expect(cmdThreadStepDetails(tmpDir, "nonexistenth0" as CasRef)).rejects.toThrow();
+  });
+});
+
+// ── cmdThreadRead: ### Prompt deduplication ───────────────────────────────────
+
+describe("cmdThreadRead ### Prompt deduplication", () => {
+  async function makeThreadWithRoles(uwf: UwfStore, roles: string[]): Promise<string> {
+    const roleMap: Record<string, unknown> = {};
+    for (const r of [...new Set(roles)]) {
+      roleMap[r] = {
+        description: r,
+        goal: `Goal for ${r}`,
+        capabilities: [],
+        procedure: "Do stuff.",
+        output: "Output.",
+        meta: "placeholder00" as CasRef,
+      };
+    }
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "dedup-wf",
+      description: "desc",
+      roles: roleMap,
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Start",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    let prev: string | null = null;
+    let stepHash = "";
+    for (const role of roles) {
+      stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+        start: startHash,
+        prev: prev as CasRef | null,
+        role,
+        output: outputHash,
+        detail: null,
+        agent: "uwf-test",
+      });
+      prev = stepHash;
+    }
+    return stepHash;
+  }
+
+  test("same consecutive role shows ### Prompt once", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const headHash = await makeThreadWithRoles(uwf, ["writer", "writer"]);
+    const threadId = "01JTEST0000000000000003" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    expect(count).toBe(1);
+  });
+
+  test("different consecutive roles each show ### Prompt", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const headHash = await makeThreadWithRoles(uwf, ["planner", "coder"]);
+    const threadId = "01JTEST0000000000000004" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    expect(count).toBe(2);
+  });
+
+  test("non-consecutive same role shows ### Prompt twice", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const headHash = await makeThreadWithRoles(uwf, ["roleA", "roleB", "roleA"]);
+    const threadId = "01JTEST0000000000000005" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    expect(count).toBe(2);
   });
 });
