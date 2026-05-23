@@ -382,10 +382,6 @@ describe("cmdThreadStepDetails", () => {
       content: "done",
     });
   });
-
-  test("throws when step hash does not exist", async () => {
-    await expect(cmdThreadStepDetails(tmpDir, "nonexistenth0" as CasRef)).rejects.toThrow();
-  });
 });
 
 // ── cmdThreadRead: ### Prompt deduplication ───────────────────────────────────
@@ -469,5 +465,183 @@ describe("cmdThreadRead ### Prompt deduplication", () => {
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
     const count = (markdown.match(/### Prompt/g) ?? []).length;
     expect(count).toBe(2);
+  });
+});
+
+// ── cmdThreadRead: showStart / before / quota ─────────────────────────────────
+
+describe("cmdThreadRead start section / before / quota", () => {
+  async function makeSimpleThread(
+    uwf: UwfStore,
+    roles: string[],
+  ): Promise<{ startHash: CasRef; stepHashes: CasRef[] }> {
+    const uniqueRoles = [...new Set(roles)];
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "simple-wf",
+      description: "desc",
+      roles: Object.fromEntries(
+        uniqueRoles.map((r) => [
+          r,
+          {
+            description: r,
+            goal: `Goal for ${r}`,
+            capabilities: [],
+            procedure: "Do stuff.",
+            output: "Output.",
+            meta: "placeholder00" as CasRef,
+          },
+        ]),
+      ),
+      conditions: {},
+      graph: {},
+    });
+    const startHash = (await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Initial prompt",
+    })) as CasRef;
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const stepHashes: CasRef[] = [];
+    let prev: CasRef | null = null;
+    for (const role of roles) {
+      const stepHash = (await uwf.store.put(uwf.schemas.stepNode, {
+        start: startHash,
+        prev,
+        role,
+        output: outputHash,
+        detail: null,
+        agent: "uwf-test",
+      })) as CasRef;
+      stepHashes.push(stepHash);
+      prev = stepHash;
+    }
+    return { startHash, stepHashes };
+  }
+
+  test("showStart=true includes # Thread header and ## Task section", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
+    const threadId = "01JTEST0000000000000006" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, true);
+    expect(markdown).toContain("# Thread");
+    expect(markdown).toContain("## Task");
+    expect(markdown).toContain("Initial prompt");
+  });
+
+  test("showStart=false with before=null still shows # Thread header (default behavior)", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
+    const threadId = "01JTEST0000000000000007" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+
+    // When before=null, the start section is always shown regardless of showStart
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+    expect(markdown).toContain("# Thread");
+    expect(markdown).toContain("## Task");
+  });
+
+  test("before filter: only steps before the given hash appear", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const { stepHashes } = await makeSimpleThread(uwf, ["roleA", "roleB", "roleC"]);
+    const [_hashA, hashB, hashC] = stepHashes as [CasRef, CasRef, CasRef];
+    const threadId = "01JTEST0000000000000008" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: hashC });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, hashB, false);
+    expect(markdown).toContain("roleA");
+    expect(markdown).not.toContain("roleB");
+    expect(markdown).not.toContain("roleC");
+  });
+
+  test("quota=1 limits output and includes skip hint", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const { stepHashes } = await makeSimpleThread(uwf, ["roleA", "roleB", "roleC"]);
+    const threadId = "01JTEST000000000000000A" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, 1, null, false);
+    expect(markdown).toContain("earlier step");
+  });
+
+  test("all steps fit in quota: no skip hint", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
+    const threadId = "01JTEST000000000000000B" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[0]! });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+    expect(markdown).not.toContain("earlier step");
+  });
+});
+
+// ── Tests that call process.exit must be last ─────────────────────────────────
+
+describe("cmdThreadStepDetails (process.exit tests - must be last)", () => {
+  test("throws when step hash does not exist", async () => {
+    await expect(cmdThreadStepDetails(tmpDir, "nonexistenth0" as CasRef)).rejects.toThrow();
+  });
+
+  test("before with unknown hash rejects", async () => {
+    const _uwf = await makeUwfStore(tmpDir);
+    const casDir = join(tmpDir, "cas");
+    await mkdir(casDir, { recursive: true });
+    const store = createFsStore(casDir);
+    const schemas = await registerUwfSchemas(store);
+    const uwfStore: UwfStore = { storageRoot: tmpDir, store, schemas };
+
+    const workflowHash = await uwfStore.store.put(uwfStore.schemas.workflow, {
+      name: "wf2",
+      description: "",
+      roles: {
+        roleA: {
+          description: "r",
+          goal: "g",
+          capabilities: [],
+          procedure: "p",
+          output: "o",
+          meta: "placeholder00" as CasRef,
+        },
+      },
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwfStore.store.put(uwfStore.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "p",
+    });
+    const outputHash = await uwfStore.store.put(uwfStore.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const stepHash = await uwfStore.store.put(uwfStore.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "roleA",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    await saveThreadsIndex(tmpDir, { ["01JTEST000000000000000C" as ThreadId]: stepHash as CasRef });
+
+    await expect(
+      cmdThreadRead(
+        tmpDir,
+        "01JTEST000000000000000C" as ThreadId,
+        THREAD_READ_DEFAULT_QUOTA,
+        "unknownhash0" as CasRef,
+        false,
+      ),
+    ).rejects.toThrow();
   });
 });

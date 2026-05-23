@@ -462,49 +462,68 @@ function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unkno
   return expandValue(store, schema, node.payload, seen);
 }
 
+function expandCasRefField(store: CasStore, value: unknown, visited: Set<string>): unknown {
+  if (typeof value === "string") {
+    return expandDeep(store, value as CasRef, visited);
+  }
+  return value;
+}
+
+function expandAnyOfField(
+  store: CasStore,
+  schema: JSONSchema,
+  value: unknown,
+  visited: Set<string>,
+): unknown {
+  if (!Array.isArray(schema.anyOf)) return value;
+  for (const sub of schema.anyOf as JSONSchema[]) {
+    if (sub.format === "cas_ref" && typeof value === "string") {
+      return expandDeep(store, value as CasRef, visited);
+    }
+  }
+  return value;
+}
+
+function expandArrayField(
+  store: CasStore,
+  schema: JSONSchema,
+  value: unknown,
+  visited: Set<string>,
+): unknown {
+  if (!schema.items || !Array.isArray(value)) return value;
+  const itemSchema = schema.items as JSONSchema;
+  return (value as unknown[]).map((item) => expandValue(store, itemSchema, item, visited));
+}
+
+function expandObjectField(
+  store: CasStore,
+  schema: JSONSchema,
+  value: unknown,
+  visited: Set<string>,
+): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value) || !schema.properties) {
+    return value;
+  }
+  const props = schema.properties as Record<string, JSONSchema>;
+  const obj = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    const propSchema = props[key];
+    result[key] = propSchema ? expandValue(store, propSchema, val, visited) : val;
+  }
+  return result;
+}
+
 function expandValue(
   store: CasStore,
   schema: JSONSchema,
   value: unknown,
   visited: Set<string>,
 ): unknown {
-  // If this field is a cas_ref, expand it
-  if (schema.format === "cas_ref") {
-    if (typeof value === "string") {
-      return expandDeep(store, value as CasRef, visited);
-    }
-    return value;
-  }
-
-  // anyOf (nullable refs)
-  if (Array.isArray(schema.anyOf)) {
-    for (const sub of schema.anyOf as JSONSchema[]) {
-      if (sub.format === "cas_ref" && typeof value === "string") {
-        return expandDeep(store, value as CasRef, visited);
-      }
-    }
-    return value;
-  }
-
-  // Array of cas_ref items
-  if (schema.type === "array" && schema.items && Array.isArray(value)) {
-    const itemSchema = schema.items as JSONSchema;
-    return (value as unknown[]).map((item) => expandValue(store, itemSchema, item, visited));
-  }
-
-  // Object with properties
-  if (value !== null && typeof value === "object" && !Array.isArray(value) && schema.properties) {
-    const props = schema.properties as Record<string, JSONSchema>;
-    const obj = value as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(obj)) {
-      const propSchema = props[key];
-      result[key] = propSchema ? expandValue(store, propSchema, val, visited) : val;
-    }
-    return result;
-  }
-
-  return value;
+  if (schema.format === "cas_ref") return expandCasRefField(store, value, visited);
+  if (Array.isArray(schema.anyOf)) return expandAnyOfField(store, schema, value, visited);
+  if (schema.type === "array") return expandArrayField(store, schema, value, visited);
+  return expandObjectField(store, schema, value, visited);
 }
 
 function collectOrderedSteps(
@@ -588,6 +607,85 @@ export function extractLastAssistantContent(uwf: UwfStore, detailRef: CasRef): s
   return null;
 }
 
+function sliceBeforeHash(
+  candidates: OrderedStepItem[],
+  before: CasRef,
+  threadId: ThreadId,
+): OrderedStepItem[] {
+  const idx = candidates.findIndex((s) => s.hash === before);
+  if (idx === -1) {
+    fail(`step ${before} not found in thread ${threadId}`);
+  }
+  return candidates.slice(0, idx);
+}
+
+function selectByQuota(
+  candidates: OrderedStepItem[],
+  uwf: UwfStore,
+  quota: number,
+): { selected: OrderedStepItem[]; skippedCount: number } {
+  const selected: OrderedStepItem[] = [];
+  let totalChars = 0;
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const item = candidates[i];
+    if (item === undefined) continue;
+    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
+    const blockLen = formatCompactStep(i + 1, item, outputYaml).length;
+    selected.unshift(item);
+    totalChars += blockLen;
+    if (totalChars > quota) break;
+  }
+  return { selected, skippedCount: candidates.length - selected.length };
+}
+
+function formatStepHeader(stepNum: number, item: OrderedStepItem): string {
+  const ts = new Date(item.timestamp)
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
+  return [
+    `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
+    `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
+  ].join("\n");
+}
+
+function formatStepPrompt(
+  roleDef: WorkflowPayload["roles"][string] | undefined,
+  role: string,
+  shownPromptRoles: Set<string>,
+): string {
+  if (!roleDef || shownPromptRoles.has(role)) return "";
+  shownPromptRoles.add(role);
+  return ["", "", "### Prompt", "", roleDef.goal].join("\n");
+}
+
+function formatStepContent(uwf: UwfStore, item: OrderedStepItem): string {
+  if (!item.payload.detail) return "";
+  const content = extractLastAssistantContent(uwf, item.payload.detail);
+  if (content === null) return "";
+  return ["", "", "### Content", "", content].join("\n");
+}
+
+function formatStartSection(options: {
+  threadId: ThreadId;
+  workflowName: string;
+  workflowHash: CasRef;
+  prompt: string;
+  before: CasRef | null;
+  showStart: boolean;
+}): string {
+  if (options.before !== null && !options.showStart) return "";
+  return [
+    `# Thread \`${options.threadId}\``,
+    "",
+    `**Workflow:** ${options.workflowName} (\`${options.workflowHash}\`)`,
+    "",
+    "## Task",
+    "",
+    options.prompt,
+  ].join("\n");
+}
+
 function formatThreadReadMarkdown(options: {
   threadId: ThreadId;
   workflowName: string;
@@ -600,50 +698,16 @@ function formatThreadReadMarkdown(options: {
   before: CasRef | null;
   showStart: boolean;
 }): string {
-  const { ordered, uwf, workflow, quota, before, showStart } = options;
+  const { ordered, uwf, workflow, quota, before } = options;
 
-  // Determine which steps to consider
-  let candidates = ordered;
-  if (before !== null) {
-    const idx = candidates.findIndex((s) => s.hash === before);
-    if (idx === -1) {
-      fail(`step ${before} not found in thread ${options.threadId}`);
-    }
-    candidates = candidates.slice(0, idx);
-  }
+  const candidates = before !== null ? sliceBeforeHash(ordered, before, options.threadId) : ordered;
+  const { selected, skippedCount } = selectByQuota(candidates, uwf, quota);
 
-  // Walk backward from newest, accumulating chars until quota exceeded
-  const selected: OrderedStepItem[] = [];
-  let totalChars = 0;
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const item = candidates[i];
-    if (item === undefined) continue;
-    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
-    const blockLen = formatCompactStep(i + 1, item, outputYaml).length;
-    selected.unshift(item);
-    totalChars += blockLen;
-    if (totalChars > quota) break;
-  }
-
-  const skippedCount = candidates.length - selected.length;
   const parts: string[] = [];
 
-  // Start section
-  if (before === null || showStart) {
-    parts.push(
-      [
-        `# Thread \`${options.threadId}\``,
-        "",
-        `**Workflow:** ${options.workflowName} (\`${options.workflowHash}\`)`,
-        "",
-        "## Task",
-        "",
-        options.prompt,
-      ].join("\n"),
-    );
-  }
+  const startSection = formatStartSection(options);
+  if (startSection !== "") parts.push(startSection);
 
-  // Skip hint
   if (skippedCount > 0 && selected.length > 0) {
     const firstSelected = selected[0];
     if (firstSelected !== undefined) {
@@ -653,34 +717,21 @@ function formatThreadReadMarkdown(options: {
     }
   }
 
-  // Step blocks
   const startIndex = candidates.length - selected.length;
   const shownPromptRoles = new Set<string>();
   for (let i = 0; i < selected.length; i++) {
     const item = selected[i];
     if (item === undefined) continue;
     const stepNum = startIndex + i + 1;
-    const ts = new Date(item.timestamp)
-      .toISOString()
-      .replace("T", " ")
-      .replace(/\.\d+Z$/, "");
-    const stepLines = [
-      `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
-      `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
-    ];
     const roleDef = workflow.roles[item.payload.role];
-    if (roleDef && !shownPromptRoles.has(item.payload.role)) {
-      const prompt = roleDef.goal;
-      stepLines.push("", "### Prompt", "", prompt);
-      shownPromptRoles.add(item.payload.role);
-    }
-    if (item.payload.detail) {
-      const content = extractLastAssistantContent(uwf, item.payload.detail);
-      if (content !== null) {
-        stepLines.push("", "### Content", "", content);
-      }
-    }
-    parts.push(stepLines.join("\n"));
+    const stepBlock = [
+      formatStepHeader(stepNum, item),
+      formatStepPrompt(roleDef, item.payload.role, shownPromptRoles),
+      formatStepContent(uwf, item),
+    ]
+      .filter((s) => s !== "")
+      .join("");
+    parts.push(stepBlock);
   }
 
   return parts.join("\n\n---\n\n");

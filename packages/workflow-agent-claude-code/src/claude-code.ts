@@ -16,6 +16,7 @@ const log = createLogger({ sink: { kind: "stderr" } });
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
+const CLAUDE_MODEL = process.env["CLAUDE_MODEL"] ?? null;
 
 function buildHistorySummary(steps: AgentContext["steps"]): string {
   if (steps.length === 0) {
@@ -87,7 +88,7 @@ function spawnClaude(args: string[]): Promise<{ stdout: string; stderr: string }
 }
 
 function spawnClaudeRun(prompt: string): Promise<{ stdout: string; stderr: string }> {
-  return spawnClaude([
+  const args = [
     "-p",
     prompt,
     "--output-format",
@@ -96,14 +97,18 @@ function spawnClaudeRun(prompt: string): Promise<{ stdout: string; stderr: strin
     "--dangerously-skip-permissions",
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
-  ]);
+  ];
+  if (CLAUDE_MODEL !== null) {
+    args.push("--model", CLAUDE_MODEL);
+  }
+  return spawnClaude(args);
 }
 
 function spawnClaudeResume(
   sessionId: string,
   message: string,
 ): Promise<{ stdout: string; stderr: string }> {
-  return spawnClaude([
+  const args = [
     "-p",
     message,
     "--resume",
@@ -114,7 +119,11 @@ function spawnClaudeResume(
     "--dangerously-skip-permissions",
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
-  ]);
+  ];
+  if (CLAUDE_MODEL !== null) {
+    args.push("--model", CLAUDE_MODEL);
+  }
+  return spawnClaude(args);
 }
 
 async function processClaudeOutput(stdout: string, store: Store): Promise<AgentRunResult> {
