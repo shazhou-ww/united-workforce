@@ -2,13 +2,14 @@ import type { ResolvedLlmProvider } from "@uncaged/workflow-agent-kit";
 import { createLogger } from "@uncaged/workflow-util";
 
 import { type ChatMessage, chatCompletionWithTools, type LlmToolCall } from "./llm/index.js";
+import { appendSessionTurn } from "./session.js";
 import {
   builtinToolsToOpenAi,
   executeBuiltinTool,
   getBuiltinTools,
   type ToolContext,
 } from "./tools/index.js";
-import type { BuiltinLoopTurn, BuiltinToolCallRecord, BuiltinToolResultRecord } from "./types.js";
+import type { BuiltinToolCall, BuiltinTurnPayload } from "./types.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
@@ -20,21 +21,51 @@ export type RunBuiltinLoopOptions = {
   messages: ChatMessage[];
   toolCtx: ToolContext;
   maxTurns: number;
-  existingTurns: BuiltinLoopTurn[];
+  storageRoot: string;
+  sessionId: string;
 };
 
 export type RunBuiltinLoopResult = {
   finalText: string;
   messages: ChatMessage[];
-  turns: BuiltinLoopTurn[];
+  turnCount: number;
 };
 
-function mapToolCalls(calls: LlmToolCall[]): BuiltinToolCallRecord[] {
+function mapToolCallsForPayload(calls: LlmToolCall[]): BuiltinToolCall[] {
   return calls.map((call) => ({
-    id: call.id,
     name: call.name,
     args: call.arguments,
   }));
+}
+
+async function appendTurn(
+  storageRoot: string,
+  sessionId: string,
+  payload: BuiltinTurnPayload,
+): Promise<void> {
+  await appendSessionTurn(storageRoot, sessionId, payload);
+}
+
+async function executeTurnTools(
+  calls: Array<{ id: string; name: string; arguments: string }>,
+  toolCtx: ToolContext,
+  messages: ChatMessage[],
+  storageRoot: string,
+  sessionId: string,
+): Promise<number> {
+  let turnCount = 0;
+  for (const call of calls) {
+    const result = await executeBuiltinTool(call.name, call.arguments, toolCtx);
+    messages.push({ role: "tool", tool_call_id: call.id, content: result });
+    await appendTurn(storageRoot, sessionId, {
+      role: "tool",
+      content: result,
+      toolCalls: null,
+      reasoning: null,
+    });
+    turnCount += 1;
+  }
+  return turnCount;
 }
 
 /** Agent run loop: LLM ↔ tools until no tool_calls or maxTurns. */
@@ -42,9 +73,9 @@ export async function runBuiltinLoop(
   options: RunBuiltinLoopOptions,
 ): Promise<RunBuiltinLoopResult> {
   const messages = [...options.messages];
-  const turns = [...options.existingTurns];
   const openAiTools = builtinToolsToOpenAi(getBuiltinTools());
   let finalText = "";
+  let turnCount = 0;
 
   for (let turn = 0; turn < options.maxTurns; turn++) {
     log("8K2M4N7P", `builtin loop turn ${turn + 1}/${options.maxTurns}`);
@@ -59,36 +90,33 @@ export async function runBuiltinLoop(
 
     if (response.toolCalls === null || response.toolCalls.length === 0) {
       finalText = response.content ?? "";
-      turns.push({
-        assistantContent: response.content,
+      await appendTurn(options.storageRoot, options.sessionId, {
+        role: "assistant",
+        content: response.content ?? "",
         toolCalls: null,
-        toolResults: null,
+        reasoning: null,
       });
+      turnCount += 1;
       break;
     }
 
-    const toolCallRecords = mapToolCalls(response.toolCalls);
-    const toolResults: BuiltinToolResultRecord[] = [];
-
-    for (const call of response.toolCalls) {
-      const result = await executeBuiltinTool(call.name, call.arguments, options.toolCtx);
-      toolResults.push({
-        toolCallId: call.id,
-        name: call.name,
-        content: result,
-      });
-      messages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: result,
-      });
-    }
-
-    turns.push({
-      assistantContent: response.content,
-      toolCalls: toolCallRecords,
-      toolResults,
+    // Assistant turn with tool calls
+    await appendTurn(options.storageRoot, options.sessionId, {
+      role: "assistant",
+      content: response.content ?? "",
+      toolCalls: mapToolCallsForPayload(response.toolCalls),
+      reasoning: null,
     });
+    turnCount += 1;
+
+    // Execute tools
+    turnCount += await executeTurnTools(
+      response.toolCalls,
+      options.toolCtx,
+      messages,
+      options.storageRoot,
+      options.sessionId,
+    );
   }
 
   if (finalText === "" && messages.length > 0) {
@@ -106,5 +134,5 @@ export async function runBuiltinLoop(
     }
   }
 
-  return { finalText, messages, turns };
+  return { finalText, messages, turnCount };
 }

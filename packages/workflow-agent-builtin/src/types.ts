@@ -34,7 +34,6 @@ export type BuiltinToolCall = {
 };
 
 export type BuiltinTurnPayload = {
-  index: number;
   role: BuiltinTurnRole;
   content: string;
   toolCalls: BuiltinToolCall[] | null;

@@ -13,9 +13,8 @@ const BUILTIN_TOOL_CALL_SCHEMA: JSONSchema = {
 export const BUILTIN_TURN_SCHEMA: JSONSchema = {
   title: "builtin-turn",
   type: "object",
-  required: ["index", "role", "content"],
+  required: ["role", "content"],
   properties: {
-    index: { type: "integer" },
     role: { type: "string", enum: ["assistant", "tool"] },
     content: { type: "string" },
     toolCalls: {

@@ -7,17 +7,26 @@ import {
   resolveModel,
   resolveStorageRoot,
 } from "@uncaged/workflow-agent-kit";
-import { generateUlid } from "@uncaged/workflow-util";
+import { createLogger, generateUlid } from "@uncaged/workflow-util";
 
 import { storeBuiltinDetail } from "./detail.js";
 import type { ChatMessage } from "./llm/index.js";
 import { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
 import { buildBuiltinMessages } from "./prompt.js";
-import type { BuiltinSessionState } from "./types.js";
+import { initSessionDir, removeSession } from "./session.js";
 
-const sessions = new Map<string, BuiltinSessionState>();
+const log = createLogger({ sink: { kind: "stderr" } });
 
-function getSession(sessionId: string): BuiltinSessionState {
+type SessionRecord = {
+  sessionId: string;
+  model: string;
+  startedAtMs: number;
+  messages: ChatMessage[];
+};
+
+const sessions = new Map<string, SessionRecord>();
+
+function getSession(sessionId: string): SessionRecord {
   const session = sessions.get(sessionId);
   if (session === undefined) {
     throw new Error(`builtin session not found: ${sessionId}`);
@@ -36,7 +45,7 @@ async function runBuiltinWithMessages(
   storageRoot: string,
   provider: ReturnType<typeof resolveModel>,
   messages: ChatMessage[],
-  session: BuiltinSessionState,
+  session: SessionRecord,
   store: Store,
   maxTurns: number,
 ): Promise<AgentRunResult> {
@@ -45,22 +54,31 @@ async function runBuiltinWithMessages(
     messages,
     toolCtx: buildToolContext(storageRoot),
     maxTurns,
-    existingTurns: session.turns,
+    storageRoot,
+    sessionId: session.sessionId,
   });
 
   session.messages = loopResult.messages;
-  session.turns = loopResult.turns;
 
-  const { detailHash, output } = await storeBuiltinDetail(
+  if (loopResult.turnCount === 0) {
+    log("5RWTK9NB", "no turns produced, returning empty output");
+    await removeSession(storageRoot, session.sessionId);
+    return { output: "", detailHash: "", sessionId: session.sessionId };
+  }
+
+  // Read jsonl → persist turns to CAS → store detail
+  const { detailHash } = await storeBuiltinDetail(
     store,
+    storageRoot,
     session.sessionId,
     session.model,
     session.startedAtMs,
-    session.turns,
   );
 
-  const finalOutput = output !== "" ? output : loopResult.finalText;
-  return { output: finalOutput, detailHash, sessionId: session.sessionId };
+  // Clean up session jsonl
+  await removeSession(storageRoot, session.sessionId);
+
+  return { output: loopResult.finalText, detailHash, sessionId: session.sessionId };
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
@@ -69,14 +87,14 @@ async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
   const provider = resolveModel(config, config.defaultModel);
 
   const sessionId = generateUlid(Date.now());
+  await initSessionDir(storageRoot);
   const messages = buildBuiltinMessages(ctx);
 
-  const session: BuiltinSessionState = {
+  const session: SessionRecord = {
     sessionId,
     model: provider.model,
     startedAtMs: Date.now(),
     messages,
-    turns: [],
   };
   sessions.set(sessionId, session);
 
