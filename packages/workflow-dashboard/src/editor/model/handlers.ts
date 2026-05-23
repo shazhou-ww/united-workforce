@@ -35,8 +35,8 @@ export const handlers = define.memoize((use, model) => {
   }
 
   function isFirstConditionalSibling(
-    edge: { id: string; source: string; type?: string },
-    allEdges: { id: string; source: string; type?: string }[],
+    edge: { id: string; source: string; type: string | null },
+    allEdges: { id: string; source: string; type: string | null }[],
   ): boolean {
     if (edge.type !== "conditional") return false;
     const siblings = allEdges.filter((e) => e.source === edge.source && e.type === "conditional");
