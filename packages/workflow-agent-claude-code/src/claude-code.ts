@@ -51,6 +51,7 @@ export function buildClaudeCodePrompt(ctx: AgentContext): string {
   if (historyBlock !== "") {
     parts.push("", historyBlock);
   }
+  parts.push("", "## Current Instruction", "", ctx.edgePrompt);
   return parts.join("\n");
 }
 
@@ -133,6 +134,8 @@ async function processClaudeOutput(stdout: string, store: Store): Promise<AgentR
 
 async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
   const fullPrompt = buildClaudeCodePrompt(ctx);
+
+  log("K7R2M4N8", `prompt for role=${ctx.role} (length=${fullPrompt.length}):\n${fullPrompt}`);
 
   // Try resuming a cached session for re-entry scenarios (e.g. reviewer reject → developer re-entry).
   if (!ctx.isFirstVisit) {

@@ -138,6 +138,72 @@ function apiKeyEnvName(providerName: string): string {
 }
 
 /**
+ * Discover uwf-* agent binaries in PATH.
+ * Returns sorted list of binary names (e.g., ["uwf-hermes", "uwf-claude-code"]).
+ */
+async function discoverAgents(): Promise<string[]> {
+  try {
+    // Use which -a to find all uwf-* binaries in PATH
+    const proc = Bun.spawn(["which", "-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const text = await new Response(proc.stdout).text();
+    await proc.exited;
+
+    if (proc.exitCode !== 0) {
+      // Try alternative approach: search PATH directories manually
+      const pathEnv = process.env.PATH || "";
+      const pathDirs = pathEnv.split(":").filter((d) => d.length > 0);
+      const agents = new Set<string>();
+
+      for (const dir of pathDirs) {
+        try {
+          if (!existsSync(dir)) continue;
+          const { readdirSync, statSync } = await import("node:fs");
+          const entries = readdirSync(dir);
+
+          for (const entry of entries) {
+            if (!entry.startsWith("uwf-") || entry === "uwf") continue;
+            const fullPath = join(dir, entry);
+            try {
+              const stat = statSync(fullPath);
+              // Check if executable (owner, group, or other has execute bit)
+              if (stat.isFile() && (stat.mode & 0o111) !== 0) {
+                agents.add(entry);
+              }
+            } catch {
+              // Skip if can't stat
+            }
+          }
+        } catch {
+          // Skip inaccessible directories
+        }
+      }
+
+      return Array.from(agents).sort();
+    }
+
+    // Parse which output - each line is a path to a binary
+    const paths = text.trim().split("\n").filter((line) => line.length > 0);
+    const agents = new Set<string>();
+
+    for (const path of paths) {
+      const basename = path.split("/").pop();
+      if (basename && basename.startsWith("uwf-") && basename !== "uwf") {
+        agents.add(basename);
+      }
+    }
+
+    return Array.from(agents).sort();
+  } catch {
+    // If all fails, return empty array
+    return [];
+  }
+}
+
+/**
  * Merge setup args into config.yaml structure. Non-destructive — preserves existing entries.
  */
 function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record<string, unknown> {
