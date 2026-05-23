@@ -2,92 +2,102 @@
 
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, JSONata routing conditions, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
-## Package Map
+## Overview
 
-| Package | npm | Role |
-|---------|-----|------|
-| `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI binary — thread lifecycle, workflow registry, CAS inspection, setup |
-| `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `WorkflowConfig`, etc.) |
-| `workflow-moderator` | `@uncaged/workflow-moderator` | JSONata graph evaluator — determines next role or `$END` |
-| `workflow-agent-kit` | `@uncaged/workflow-agent-kit` | `createAgent` factory, context builder, two-layer extract pipeline |
-| `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` agent — spawns Hermes chat, captures session |
-| `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing |
+This monorepo implements **uwf**, a workflow engine with no long-running daemon. You register YAML workflow definitions in a content-addressed store (CAS), start a thread with an initial prompt, then invoke `uwf thread step` repeatedly until the moderator routes to `$END`. Each step is a complete process: the moderator evaluates JSONata conditions to pick the next role, an external agent CLI produces frontmatter markdown output, and an extract pipeline validates or structures that output against the role's JSON Schema.
 
-External: [`@uncaged/json-cas`](https://www.npmjs.com/package/@uncaged/json-cas) (CAS store + JSON Schema validation) + `@uncaged/json-cas-fs` (filesystem backend).
+Workflow state lives entirely on disk under `~/.uncaged/workflow/`: CAS nodes for definitions and step payloads, `registry.yaml` for workflow name→hash mappings, and `threads.yaml` for active thread head pointers. Completed threads are archived to `history.jsonl`. Because there is no server process, workflows are easy to debug, fork, and inspect with ordinary CLI tools.
+
+Agents are pluggable CLI binaries (`uwf-hermes`, `uwf-builtin`, `uwf-claude-code`, or custom commands). The engine spawns the configured agent with `<thread-id>` and `<role>`, sets `UWF_EDGE_PROMPT` from the graph transition, and captures both the agent's markdown output and a detail CAS node for session replay.
+
+## Architecture
+
+Dependency layers (lower layers have no dependency on higher layers):
+
+```
+Layer 0 — Contract
+  workflow-protocol          Shared types and JSON Schema definitions
+
+Layer 1 — Shared infra
+  workflow-util              Encoding, IDs, logging, frontmatter, paths
+  workflow-moderator         JSONata graph evaluator
+
+Layer 2 — Agent framework
+  workflow-agent-kit         createAgent factory, context builder, extract pipeline
+
+Layer 3 — Agent implementations
+  workflow-agent-hermes      Hermes ACP agent (uwf-hermes)
+  workflow-agent-builtin     Built-in LLM + tools agent (uwf-builtin)
+  workflow-agent-claude-code Claude Code agent (uwf-claude-code)
+
+Layer 4 — CLI
+  cli-workflow               uwf binary — thread lifecycle, registry, CAS, setup
+
+App (uses protocol; not in the runtime engine stack)
+  workflow-dashboard         Web UI for visual workflow editing
+```
+
+External CAS: [`@uncaged/json-cas`](https://www.npmjs.com/package/@uncaged/json-cas) (store API, hashing, schema validation) + `@uncaged/json-cas-fs` (filesystem backend).
+
+See [docs/architecture.md](docs/architecture.md) for the full design — three-phase engine loop, CAS node types, storage layout, agent CLI protocol, and design decisions.
+
+## Packages
+
+| Package | npm | Description | Type | README |
+|---------|-----|-------------|------|--------|
+| `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
+| `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
+| `workflow-moderator` | `@uncaged/workflow-moderator` | JSONata graph evaluator — next role or `$END` | lib | [README](packages/workflow-moderator/README.md) |
+| `workflow-agent-kit` | `@uncaged/workflow-agent-kit` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-agent-kit/README.md) |
+| `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
+| `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |
+| `workflow-agent-builtin` | `@uncaged/workflow-agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |
+| `workflow-agent-claude-code` | `@uncaged/workflow-agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/workflow-agent-claude-code/README.md) |
+| `workflow-dashboard` | `@uncaged/workflow-dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/workflow-dashboard/README.md) |
 
 ## Quick Start
 
 ```bash
-# 1. Configure provider and model
+# 1. Configure provider, model, and default agent
 uwf setup
 
 # 2. Register a workflow from YAML
 uwf workflow put examples/solve-issue.yaml
 
-# 3. Start a thread
+# 3. Start a thread (creates head pointer; does not execute)
 uwf thread start solve-issue -p "Fix the login redirect bug"
 
 # 4. Execute steps (one at a time, until done)
 uwf thread step <thread-id>
 ```
 
-## CLI Commands
+Use `-c, --count <number>` on `thread step` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
 
-### Thread
+## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `uwf thread start <workflow> -p <prompt>` | Create a thread (no execution) |
-| `uwf thread step <thread-id> [--agent <cmd>]` | Execute one moderator→agent→extract cycle |
-| `uwf thread show <thread-id>` | Show head pointer and done status |
-| `uwf thread list [--all]` | List threads (`--all` includes archived) |
-| `uwf thread steps <thread-id>` | List all steps chronologically |
-| `uwf thread read <thread-id> [--quota N]` | Render thread as readable markdown |
-| `uwf thread fork <step-hash>` | Fork from a specific step |
-| `uwf thread step-details <step-hash>` | Dump full detail node |
-| `uwf thread kill <thread-id>` | Terminate and archive |
+Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 
-### Workflow
+| Group | Commands |
+|-------|----------|
+| **thread** | `start`, `step`, `show`, `list`, `kill`, `steps`, `read`, `fork`, `step-details` |
+| **workflow** | `put`, `show`, `list` |
+| **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
+| **setup** | Interactive or `--provider`, `--base-url`, `--api-key`, `--model`, `--agent` |
+| **skill** | `cli` — print markdown reference of all uwf commands |
+| **log** | `list`, `show`, `clean` — process-level debug logs |
 
-| Command | Description |
-|---------|-------------|
-| `uwf workflow put <file.yaml>` | Register a workflow from YAML |
-| `uwf workflow show <name-or-hash>` | Show workflow definition |
-| `uwf workflow list` | List registered workflows |
+Config is stored in `~/.uncaged/workflow/config.yaml`. API keys go in `~/.uncaged/workflow/.env`.
 
-### CAS
-
-| Command | Description |
-|---------|-------------|
-| `uwf cas get <hash>` | Read a CAS node |
-| `uwf cas put <type-hash> <data>` | Store a node |
-| `uwf cas has <hash>` | Check existence |
-| `uwf cas refs <hash>` | List direct references |
-| `uwf cas walk <hash>` | Recursive traversal |
-| `uwf cas reindex` | Rebuild type index |
-| `uwf cas schema list` | List schemas |
-| `uwf cas schema get <hash>` | Show a schema |
-
-### Setup
-
-| Command | Description |
-|---------|-------------|
-| `uwf setup` | Interactive provider/model/agent configuration |
-| `uwf setup --provider ... --base-url ... --api-key ... --model ...` | Non-interactive setup |
-
-Config stored in `~/.uncaged/workflow/config.yaml`. API keys in `~/.uncaged/workflow/.env`.
+Detailed command usage, options, and examples: [packages/cli-workflow/README.md](packages/cli-workflow/README.md).
 
 ## Development
 
 ```bash
 bun install --no-cache     # Install dependencies
+bun run build              # tsc --build (all packages)
 bun run check              # tsc + biome + lint-log-tags
 bun run format             # Auto-format with Biome
 bun test                   # Run all tests
 ```
 
 Managed with **bun workspace**. See [CLAUDE.md](CLAUDE.md) for coding conventions.
-
-## Architecture
-
-See [docs/architecture.md](docs/architecture.md) for the full design — three-phase engine loop, CAS node types, storage layout, agent CLI protocol, and design decisions.
