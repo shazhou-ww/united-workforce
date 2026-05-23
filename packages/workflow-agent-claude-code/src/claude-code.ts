@@ -16,7 +16,7 @@ const log = createLogger({ sink: { kind: "stderr" } });
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
-const CLAUDE_MODEL = process.env["CLAUDE_MODEL"] ?? null;
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? null;
 
 function buildHistorySummary(steps: AgentContext["steps"]): string {
   if (steps.length === 0) {
