@@ -26,6 +26,7 @@ uwf workflow list                 # list all registered workflows
 uwf thread start <workflow> -p <prompt>           # create a thread (no execution)
 uwf thread step <thread-id>                       # execute one moderator→agent→extract cycle
                [--agent <cmd>]                    # override agent command
+               [-c, --count <number>]             # run multiple steps (default: 1)
 uwf thread show <thread-id>                       # show thread head pointer
 uwf thread list                                   # list active threads
                [--all]                            # include archived threads
@@ -56,6 +57,17 @@ uwf cas schema list               # list all registered schemas
 uwf cas schema get <hash>         # show a schema by its type hash
 \`\`\`
 
+## Log Commands
+
+\`\`\`
+uwf log list                      # list log files with sizes
+uwf log show                      # show all log entries
+           [--thread <thread-id>] # filter by thread ID
+           [--process <pid>]      # filter by process ID
+           [--date <YYYY-MM-DD>]  # filter by date
+uwf log clean --before <date>     # delete log files before given date
+\`\`\`
+
 ## Global Options
 
 \`\`\`
@@ -69,6 +81,7 @@ uwf -V, --version                 # print version
 - **Thread**: A single workflow execution (ULID). State is an immutable CAS chain; active threads are indexed in \`threads.yaml\`.
 - **Step**: One moderator→agent→extract cycle. Run \`uwf thread step\` repeatedly until \`$END\`.
 - **CAS**: Content-Addressed Storage — all nodes are immutable and identified by hash.
-- **Role**: Named actor with goal, capabilities, procedure, output, and meta; the moderator routes between roles.
+- **Role**: Named actor with goal, capabilities, procedure, output, and frontmatter schema; the moderator routes between roles.
+- **Edge Prompt**: Required instruction on each graph edge — the moderator's dispatch message to the agent.
 `;
 }
