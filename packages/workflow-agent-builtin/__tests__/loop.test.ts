@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 const mockChatCompletionWithTools = mock(async () => ({
   content: "---\nstatus: done\n---",
@@ -19,7 +19,7 @@ mock.module("../src/tools/index.js", () => ({
   getBuiltinTools: () => [],
 }));
 
-import { shouldNudge, executeTurnTools, runBuiltinLoop } from "../src/loop.js";
+import { executeTurnTools, runBuiltinLoop, shouldNudge } from "../src/loop.js";
 
 const fakeProvider = {} as any;
 const fakeToolCtx = {} as any;
@@ -51,7 +51,9 @@ describe("shouldNudge", () => {
     expect(shouldNudge({ noTools: true, text: "some text", turn: 0, maxTurns: 5 })).toBe(false);
   });
   test("2.3 returns false when text starts with ---", () => {
-    expect(shouldNudge({ noTools: false, text: "---\nstatus: done", turn: 0, maxTurns: 5 })).toBe(false);
+    expect(shouldNudge({ noTools: false, text: "---\nstatus: done", turn: 0, maxTurns: 5 })).toBe(
+      false,
+    );
   });
   test("2.4 returns false on last turn", () => {
     expect(shouldNudge({ noTools: false, text: "some text", turn: 4, maxTurns: 5 })).toBe(false);
@@ -60,7 +62,9 @@ describe("shouldNudge", () => {
     expect(shouldNudge({ noTools: false, text: "some text", turn: 3, maxTurns: 5 })).toBe(true);
   });
   test("2.6 leading whitespace before --- suppresses nudge", () => {
-    expect(shouldNudge({ noTools: false, text: "  ---\nstatus: done", turn: 0, maxTurns: 5 })).toBe(false);
+    expect(shouldNudge({ noTools: false, text: "  ---\nstatus: done", turn: 0, maxTurns: 5 })).toBe(
+      false,
+    );
   });
 });
 
@@ -81,27 +85,42 @@ describe("executeTurnTools", () => {
   test("4.2 tool result content matches executeBuiltinTool return value", async () => {
     mockExecuteBuiltinTool.mockResolvedValue("result-A");
     const messages: any[] = [];
-    await executeTurnTools([{ id: "c1", name: "read_file", arguments: "{}" }], fakeToolCtx, messages, "/tmp", "sess");
+    await executeTurnTools(
+      [{ id: "c1", name: "read_file", arguments: "{}" }],
+      fakeToolCtx,
+      messages,
+      "/tmp",
+      "sess",
+    );
     expect(messages[0].content).toBe("result-A");
   });
 });
 
 describe("runBuiltinLoop integration", () => {
   test("3.1 single text-only response returns finalText immediately", async () => {
-    mockChatCompletionWithTools.mockResolvedValue({ content: "---\nstatus: done\n---", toolCalls: [] });
+    mockChatCompletionWithTools.mockResolvedValue({
+      content: "---\nstatus: done\n---",
+      toolCalls: [],
+    });
     const result = await runBuiltinLoop(makeOptions());
     expect(result.finalText).toBe("---\nstatus: done\n---");
     expect(result.turnCount).toBe(1);
   });
   test("3.2 noTools=true suppresses tool calls", async () => {
-    mockChatCompletionWithTools.mockResolvedValue({ content: "ok", toolCalls: [{ id: "c1", name: "read_file", arguments: "{}" }] });
+    mockChatCompletionWithTools.mockResolvedValue({
+      content: "ok",
+      toolCalls: [{ id: "c1", name: "read_file", arguments: "{}" }],
+    });
     const result = await runBuiltinLoop(makeOptions({ noTools: true }));
     expect(result.finalText).toBe("ok");
     expect(result.turnCount).toBe(1);
   });
   test("3.3 tool call followed by text response", async () => {
     mockChatCompletionWithTools
-      .mockResolvedValueOnce({ content: null, toolCalls: [{ id: "c1", name: "read_file", arguments: "{}" }] })
+      .mockResolvedValueOnce({
+        content: null,
+        toolCalls: [{ id: "c1", name: "read_file", arguments: "{}" }],
+      })
       .mockResolvedValueOnce({ content: "---\nstatus: done\n---", toolCalls: [] });
     mockExecuteBuiltinTool.mockResolvedValue("file contents");
     const result = await runBuiltinLoop(makeOptions());
@@ -115,7 +134,8 @@ describe("runBuiltinLoop integration", () => {
     const result = await runBuiltinLoop(makeOptions());
     expect(result.finalText).toBe("---\nstatus: done\n---");
     const nudgeMsg = result.messages.find(
-      (m) => m.role === "user" && typeof m.content === "string" && m.content.includes("frontmatter"),
+      (m) =>
+        m.role === "user" && typeof m.content === "string" && m.content.includes("frontmatter"),
     );
     expect(nudgeMsg).toBeDefined();
   });
@@ -125,7 +145,10 @@ describe("runBuiltinLoop integration", () => {
     expect(result.finalText).toBe("still thinking");
   });
   test("3.6 original messages array is not mutated", async () => {
-    mockChatCompletionWithTools.mockResolvedValue({ content: "---\nstatus: done\n---", toolCalls: [] });
+    mockChatCompletionWithTools.mockResolvedValue({
+      content: "---\nstatus: done\n---",
+      toolCalls: [],
+    });
     const original = [{ role: "system" as const, content: "sys" }];
     await runBuiltinLoop(makeOptions({ messages: original }));
     expect(original.length).toBe(1);
