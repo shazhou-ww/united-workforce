@@ -48,7 +48,7 @@ async function appendTurn(
   await appendSessionTurn(storageRoot, sessionId, payload);
 }
 
-async function executeTurnTools(
+export async function executeTurnTools(
   calls: Array<{ id: string; name: string; arguments: string }>,
   toolCtx: ToolContext,
   messages: ChatMessage[],
@@ -70,6 +70,17 @@ async function executeTurnTools(
   return turnCount;
 }
 
+export type ShouldNudgeOptions = {
+  noTools: boolean;
+  text: string;
+  turn: number;
+  maxTurns: number;
+};
+
+export function shouldNudge({ noTools, text, turn, maxTurns }: ShouldNudgeOptions): boolean {
+  return !noTools && !text.trimStart().startsWith("---") && turn < maxTurns - 1;
+}
+
 /** Agent run loop: LLM ↔ tools until no tool_calls or maxTurns. */
 export async function runBuiltinLoop(
   options: RunBuiltinLoopOptions,
@@ -88,7 +99,6 @@ export async function runBuiltinLoop(
     );
 
     // When noTools is set, ignore any tool_calls the LLM might still return
-    // (some providers infer tools from message history even when tools field is omitted)
     const effectiveToolCalls = options.noTools ? null : (response.toolCalls ?? null);
 
     const assistantMessage: ChatMessage = {
@@ -108,9 +118,7 @@ export async function runBuiltinLoop(
       });
       turnCount += 1;
 
-      // If tools are available but LLM stopped calling them without producing
-      // frontmatter, nudge it to continue working or output frontmatter.
-      if (!options.noTools && !text.trimStart().startsWith("---") && turn < options.maxTurns - 1) {
+      if (shouldNudge({ noTools: options.noTools, text, turn, maxTurns: options.maxTurns })) {
         log("7FXQM2KN", "text-only turn without frontmatter, nudging LLM to continue");
         const nudge =
           "You stopped calling tools but your response does not start with the required `---` YAML frontmatter. " +
