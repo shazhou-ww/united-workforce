@@ -27,7 +27,7 @@ describe("createProcessLogger", () => {
 
     expect(plog.pid).toMatch(/^\d+-\d+$/);
 
-    plog.log("7NQW4HBT", "moderator selected role=planner");
+    plog.log("7NQW4HBT", "moderator selected role=planner", null);
 
     const logPath = join(tmpDir, "logs", `${logDateKey(new Date())}.jsonl`);
     const lines = readFileSync(logPath, "utf8")
