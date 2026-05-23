@@ -1,32 +1,145 @@
 # @uncaged/workflow-util
 
-Shared utilities: encoding, IDs, logging, storage paths, and ref-field normalization.
+Shared utilities: encoding, IDs, logging, frontmatter parsing, storage paths, and CLI reference generation.
 
-## What This Package Does
+## Overview
 
-It provides filesystem-safe Base32 and ULID generation, the structured logger used across packages, helpers for the default workflow data directory and global CAS path, and utilities to merge/normalize `refs` on steps. It re-exports `ok`/`err` from protocol for convenience.
+Layer 1 shared infrastructure used across CLI, agent-kit, and agent packages. Provides Crockford Base32 encoding, ULID generation, structured logging with fixed 8-char tags, frontmatter markdown parsing/validation, process-level debug logging, and helpers for the default workflow data directory.
 
-## Key Exports
+**Dependencies:** none (standalone)
 
-From `src/index.ts`:
+## Installation
 
-- **Base32:** `CROCKFORD_BASE32_ALPHABET`, `decodeCrockfordBase32Bits`, `decodeCrockfordToUint64`, `encodeCrockfordBase32Bits`, `encodeUint64AsCrockford`
-- **Logger:** `createLogger`
-- **Refs:** `mergeRefsWithContentHash`, `normalizeRefsField`
-- **Result:** `ok`, `err` (from `@uncaged/workflow-protocol`)
-- **Paths:** `getDefaultWorkflowStorageRoot`, `getGlobalCasDir`
-- **ULID:** `generateUlid`
-- **Types:** `CreateLoggerOptions`, `LogFn`, `LoggerSink`, `Result`
+```bash
+bun add @uncaged/workflow-util
+```
 
-## Dependencies
+## API
 
-- **Workspace:** `@uncaged/workflow-protocol` — `Result` and shared types used by helpers
+All exports come from `src/index.ts`.
+
+### Encoding and IDs
+
+```typescript
+function encodeUint64AsCrockford(value: bigint): string
+function generateUlid(nowMs: number): string
+```
+
+### Logging
+
+```typescript
+function createLogger(options?: { sink: { kind: "stderr" } }): LogFn
+
+type LogFn = (tag: string, message: string) => void
+// CreateLoggerOptions and LoggerSink are internal types
+```
+
+### Process logger
+
+```typescript
+function createProcessLogger(options: CreateProcessLoggerOptions): ProcessLogger
+
+type ProcessLogger = {
+  pid: string;
+  log: ProcessLogFn;
+};
+
+type ProcessLoggerContext = {
+  thread: string | null;
+  workflow: string | null;
+};
+
+type CreateProcessLoggerOptions = {
+  storageRoot: string | null;
+  context: ProcessLoggerContext;
+};
+
+type ProcessLogFn = (
+  tag: string,
+  msg: string,
+  context: Record<string, string> | null,
+) => void;
+```
+
+### Frontmatter markdown
+
+```typescript
+function parseFrontmatterMarkdown(raw: string): ParsedFrontmatterMarkdown
+function validateFrontmatter(
+  parsed: ParsedFrontmatterMarkdown,
+  schema: Record<string, unknown>,
+): FrontmatterValidationError[]
+
+type ParsedFrontmatterMarkdown = {
+  frontmatter: Record<string, unknown>;
+  body: string;
+};
+
+type AgentFrontmatter = { /* standard agent frontmatter fields */ };
+type FrontmatterScope = string;
+type FrontmatterStatus = string;
+type FrontmatterValidationError = { path: string; message: string };
+```
+
+### Result helpers
+
+```typescript
+function ok<T>(value: T): Result<T, never>
+function err<E>(error: E): Result<never, E>
+
+type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }
+```
+
+### Storage paths
+
+```typescript
+function getDefaultWorkflowStorageRoot(): string
+function getGlobalCasDir(storageRoot: string | undefined): string
+```
+
+### Refs and misc
+
+```typescript
+function normalizeRefsField(value: unknown): string[]
+function generateCliReference(): string
+function env(name: string, fallback: string): string
+```
 
 ## Usage
 
 ```typescript
-import { createLogger, getDefaultWorkflowStorageRoot, generateUlid } from "@uncaged/workflow-util";
+import {
+  createLogger,
+  generateUlid,
+  getDefaultWorkflowStorageRoot,
+  parseFrontmatterMarkdown,
+} from "@uncaged/workflow-util";
 
 const log = createLogger();
-log("4KNMR2PX", "example");
+log("4KNMR2PX", "Loading workflow...");
+
+const root = getDefaultWorkflowStorageRoot();
+const threadId = generateUlid(Date.now());
 ```
+
+## Internal Structure
+
+```
+src/
+├── index.ts
+├── base32.ts              Crockford Base32 encode/decode
+├── ulid.ts                  ULID generation
+├── logger.ts                Structured logger
+├── process-logger/          Process-level debug log files
+├── frontmatter-markdown/    Parse and validate agent frontmatter
+├── refs-field.ts            Normalize refs arrays on CAS nodes
+├── result.ts                ok / err helpers
+├── storage-root.ts          Default ~/.uncaged/workflow paths
+├── env.ts                   Environment variable helper
+├── cli-reference.ts         Markdown CLI reference generator
+└── types.ts                 LogFn, Result, logger options
+```
+
+## Configuration
+
+`getDefaultWorkflowStorageRoot()` resolves to `~/.uncaged/workflow` unless overridden by environment (see `storage-root.ts`).
