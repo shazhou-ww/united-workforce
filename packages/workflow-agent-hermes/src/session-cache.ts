@@ -49,8 +49,18 @@ async function writeCache(cache: HermesSessionCache): Promise<void> {
 }
 
 export function isResumeDisabled(): boolean {
-  const flag = process.env.UWF_NO_RESUME;
-  return flag !== undefined && flag !== "";
+  // Hermes ACP session/resume is broken: _restore fails for custom providers
+  // because resolve_runtime_provider("custom") throws and base_url/api_mode
+  // are lost in the fallback path.  Resume silently creates a new session
+  // (different sessionId, no history), causing empty-text responses.
+  // See: https://github.com/NousResearch/hermes-agent/issues/13489
+  // Disable by default until upstream fixes the bug.  Set UWF_HERMES_RESUME=1
+  // to opt back in.
+  const enableFlag = process.env.UWF_HERMES_RESUME;
+  if (enableFlag === "1" || enableFlag === "true") {
+    return false;
+  }
+  return true;
 }
 
 export async function getCachedSessionId(threadId: ThreadId, role: string): Promise<string | null> {
