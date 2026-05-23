@@ -23,7 +23,7 @@ import type {
   WorkflowConfig,
   WorkflowPayload,
 } from "@uncaged/workflow-protocol";
-import { generateUlid } from "@uncaged/workflow-util";
+import { createProcessLogger, generateUlid, type ProcessLogger } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
 import { parse, stringify } from "yaml";
 
@@ -46,6 +46,18 @@ import { materializeWorkflowPayload } from "./workflow.js";
 
 const END_ROLE = "$END";
 export const THREAD_READ_DEFAULT_QUOTA = 4000;
+
+const PL_THREAD_START = "7HNQ4B2X";
+const PL_MODERATOR = "M3K8V9T1";
+const PL_AGENT_SPAWN = "R5J2W8N4";
+const PL_AGENT_DONE = "C6P9L3H7";
+const PL_THREAD_ARCHIVED = "F4D8Q2K5";
+const PL_STEP_ERROR = "B8T5N1V6";
+
+function failStep(plog: ProcessLogger, message: string): never {
+  plog.log(PL_STEP_ERROR, message, null);
+  fail(message);
+}
 
 type ChainState = {
   startHash: CasRef;
@@ -168,6 +180,10 @@ export async function cmdThreadStart(
   const workflowHash = await resolveWorkflowCasRef(uwf, storageRoot, workflowId, projectRoot);
 
   const threadId = generateUlid(Date.now()) as ThreadId;
+  const plog = createProcessLogger({
+    storageRoot,
+    context: { thread: threadId, workflow: workflowHash },
+  });
   const startPayload: StartNodePayload = {
     workflow: workflowHash,
     prompt,
@@ -182,6 +198,12 @@ export async function cmdThreadStart(
   const index = await loadThreadsIndex(storageRoot);
   index[threadId] = headHash;
   await saveThreadsIndex(storageRoot, index);
+
+  plog.log(
+    PL_THREAD_START,
+    `thread created workflow=${workflowHash} thread=${threadId} head=${headHash}`,
+    null,
+  );
 
   return { workflow: workflowHash, thread: threadId };
 }
@@ -625,6 +647,7 @@ function resolveAgentConfig(
 }
 
 function spawnAgent(
+  plog: ProcessLogger,
   agent: AgentConfig,
   threadId: ThreadId,
   role: string,
@@ -648,12 +671,12 @@ function spawnAgent(
           ? err.stderr
           : err.stderr.toString("utf8");
     const detail = stderr.trim() !== "" ? `: ${stderr.trim()}` : "";
-    fail(`agent command failed (${agent.command})${detail}`);
+    failStep(plog, `agent command failed (${agent.command})${detail}`);
   }
 
   const line = stdout.trim().split("\n").pop()?.trim() ?? "";
   if (!isCasRef(line)) {
-    fail(`agent stdout is not a valid CAS hash: ${line || "(empty)"}`);
+    failStep(plog, `agent stdout is not a valid CAS hash: ${line || "(empty)"}`);
   }
   return line;
 }
@@ -685,9 +708,15 @@ export async function cmdThreadStep(
     fail(`--count must be a positive integer, got: ${count}`);
   }
 
+  const workflowHash = await resolveActiveThreadWorkflowHash(storageRoot, threadId);
+  const plog = createProcessLogger({
+    storageRoot,
+    context: { thread: threadId, workflow: workflowHash },
+  });
+
   const results: StepOutput[] = [];
   for (let i = 0; i < count; i++) {
-    const result = await cmdThreadStepOnce(storageRoot, threadId, agentOverride);
+    const result = await cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog);
     results.push(result);
     if (result.done) {
       break;
@@ -696,15 +725,30 @@ export async function cmdThreadStep(
   return results;
 }
 
-async function cmdThreadStepOnce(
+async function resolveActiveThreadWorkflowHash(
   storageRoot: string,
   threadId: ThreadId,
-  agentOverride: string | null,
-): Promise<StepOutput> {
+): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
   const headHash = index[threadId];
   if (headHash === undefined) {
     fail(`thread not active: ${threadId}`);
+  }
+  const uwf = await createUwfStore(storageRoot);
+  const chain = walkChain(uwf, headHash);
+  return chain.start.workflow;
+}
+
+async function cmdThreadStepOnce(
+  storageRoot: string,
+  threadId: ThreadId,
+  agentOverride: string | null,
+  plog: ProcessLogger,
+): Promise<StepOutput> {
+  const index = await loadThreadsIndex(storageRoot);
+  const headHash = index[threadId];
+  if (headHash === undefined) {
+    failStep(plog, `thread not active: ${threadId}`);
   }
 
   const uwf = await createUwfStore(storageRoot);
@@ -715,10 +759,17 @@ async function cmdThreadStepOnce(
 
   const nextResult = await evaluate(workflow, context);
   if (!nextResult.ok) {
-    fail(nextResult.error.message);
+    failStep(plog, `moderator evaluate failed: ${nextResult.error.message}`);
   }
 
+  plog.log(
+    PL_MODERATOR,
+    `moderator role=${nextResult.value.role} prompt=${nextResult.value.prompt}`,
+    null,
+  );
+
   if (nextResult.value.role === END_ROLE) {
+    plog.log(PL_THREAD_ARCHIVED, `thread archived head=${headHash}`, null);
     await archiveThread(storageRoot, threadId, workflowHash, headHash);
     return {
       workflow: workflowHash,
@@ -733,14 +784,20 @@ async function cmdThreadStepOnce(
   const config = await loadWorkflowConfig(storageRoot);
   const agent = resolveAgentConfig(config, workflow, role, agentOverride);
 
+  plog.log(PL_AGENT_SPAWN, `spawning agent command=${agent.command}`, {
+    args: [...agent.args, threadId, role].join(" "),
+  });
+
   loadDotenv({ path: getEnvPath(storageRoot) });
-  const newHead = spawnAgent(agent, threadId, role, edgePrompt);
+  const newHead = spawnAgent(plog, agent, threadId, role, edgePrompt);
+
+  plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
 
   // Re-create store to pick up nodes written by the agent subprocess
   const uwfAfter = await createUwfStore(storageRoot);
   const newNode = uwfAfter.store.get(newHead);
   if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
-    fail(`agent returned hash that is not a StepNode: ${newHead}`);
+    failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
   }
 
   // Reload threads index to avoid overwriting changes made by the agent subprocess
@@ -752,11 +809,12 @@ async function cmdThreadStepOnce(
   const contextAfter = buildModeratorContext(uwfAfter, chainAfter);
   const afterResult = await evaluate(workflow, contextAfter);
   if (!afterResult.ok) {
-    fail(afterResult.error.message);
+    failStep(plog, `post-step moderator evaluate failed: ${afterResult.error.message}`);
   }
 
   const done = afterResult.value.role === END_ROLE;
   if (done) {
+    plog.log(PL_THREAD_ARCHIVED, `thread archived head=${newHead}`, null);
     await archiveThread(storageRoot, threadId, workflowHash, newHead);
   }
 
