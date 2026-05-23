@@ -5,7 +5,7 @@ import { runCommandTool } from "./run-command.js";
 import type { BuiltinTool, ToolContext } from "./types.js";
 import { writeFileTool } from "./write-file.js";
 
-export { resolvePathInWorkspace } from "./path.js";
+export { resolvePath } from "./path.js";
 export type { BuiltinTool, ToolContext } from "./types.js";
 
 const BUILTIN_TOOLS: BuiltinTool[] = [readFileTool, writeFileTool, runCommandTool];

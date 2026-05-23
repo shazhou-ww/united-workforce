@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { resolvePathInWorkspace } from "./path.js";
+import { resolvePath } from "./path.js";
 import type { BuiltinTool } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -23,10 +23,7 @@ export const writeFileTool: BuiltinTool = {
     if (!isRecord(args) || typeof args.path !== "string" || typeof args.content !== "string") {
       return "Error: path and content must be strings";
     }
-    const resolved = resolvePathInWorkspace(ctx.cwd, args.path);
-    if (resolved === null) {
-      return "Error: path escapes workspace root";
-    }
+    const resolved = resolvePath(ctx.cwd, args.path);
     try {
       await mkdir(dirname(resolved), { recursive: true });
       await writeFile(resolved, args.content, "utf8");

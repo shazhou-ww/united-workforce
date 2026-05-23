@@ -1,17 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { resolvePath } from "../src/tools/path.js";
+import { resolve } from "node:path";
 
-import { resolvePathInWorkspace } from "../src/tools/path.js";
-
-describe("resolvePathInWorkspace", () => {
-  const root = join("/tmp", "uwf-workspace");
-
-  test("resolves relative paths inside root", () => {
-    const resolved = resolvePathInWorkspace(root, "src/foo.ts");
-    expect(resolved).toBe(join(root, "src/foo.ts"));
+describe("resolvePath", () => {
+  test("resolves relative paths against cwd", () => {
+    const root = "/workspace/project";
+    const resolved = resolvePath(root, "src/foo.ts");
+    expect(resolved).toBe(resolve(root, "src/foo.ts"));
   });
 
-  test("rejects parent traversal", () => {
-    expect(resolvePathInWorkspace(root, "../etc/passwd")).toBeNull();
+  test("resolves absolute paths as-is", () => {
+    const resolved = resolvePath("/workspace", "/etc/hosts");
+    expect(resolved).toBe("/etc/hosts");
+  });
+
+  test("resolves parent traversal normally", () => {
+    const resolved = resolvePath("/workspace/project", "../other/file.ts");
+    expect(resolved).toBe(resolve("/workspace/project", "../other/file.ts"));
   });
 });

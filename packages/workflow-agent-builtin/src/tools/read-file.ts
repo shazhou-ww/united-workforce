@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
-import { resolvePathInWorkspace } from "./path.js";
+import { resolvePath } from "./path.js";
 import type { BuiltinTool } from "./types.js";
 
 const MAX_READ_BYTES = 512 * 1024;
@@ -23,10 +23,7 @@ export const readFileTool: BuiltinTool = {
     if (!isRecord(args) || typeof args.path !== "string") {
       return "Error: path must be a string";
     }
-    const resolved = resolvePathInWorkspace(ctx.cwd, args.path);
-    if (resolved === null) {
-      return "Error: path escapes workspace root";
-    }
+    const resolved = resolvePath(ctx.cwd, args.path);
     try {
       const info = await stat(resolved);
       if (!info.isFile()) {

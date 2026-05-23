@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { resolvePathInWorkspace } from "./path.js";
+import { resolvePath } from "./path.js";
 import type { BuiltinTool } from "./types.js";
 
 const COMMAND_TIMEOUT_MS = 60_000;
@@ -57,7 +57,7 @@ function runShell(
 export const runCommandTool: BuiltinTool = {
   name: "run_command",
   description:
-    "Run a shell command in the workspace. Requires UWF_BUILTIN_ALLOW_SHELL=1. Output is truncated.",
+    "Run a shell command. Output is truncated to 32KB.",
   parameters: {
     type: "object",
     required: ["command"],
@@ -71,9 +71,6 @@ export const runCommandTool: BuiltinTool = {
     additionalProperties: false,
   },
   execute: async (args, ctx) => {
-    if (process.env.UWF_BUILTIN_ALLOW_SHELL !== "1") {
-      return "Error: run_command disabled. Set UWF_BUILTIN_ALLOW_SHELL=1 to enable.";
-    }
     if (!isRecord(args) || typeof args.command !== "string") {
       return "Error: command must be a string";
     }
@@ -82,11 +79,7 @@ export const runCommandTool: BuiltinTool = {
       if (typeof args.cwd !== "string") {
         return "Error: cwd must be a string";
       }
-      const resolved = resolvePathInWorkspace(ctx.cwd, args.cwd);
-      if (resolved === null) {
-        return "Error: cwd escapes workspace root";
-      }
-      workDir = resolved;
+      workDir = resolvePath(ctx.cwd, args.cwd);
     }
     try {
       const { stdout, stderr, code } = await runShell(args.command, workDir);
