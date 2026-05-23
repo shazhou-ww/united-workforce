@@ -121,6 +121,11 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
 
     let agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
 
+    // Preserve the primary detail from the first run — it contains the full
+    // tool-call turn history.  Continuation retries only fix frontmatter
+    // formatting and their 1-turn detail is not meaningful.
+    const primaryDetailHash = agentResult.detailHash;
+
     // Try to extract frontmatter; retry via continue if it fails
     let outputHash = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
 
@@ -147,7 +152,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     const stepHash = await persistStep({
       ctx,
       outputHash,
-      detailHash: agentResult.detailHash,
+      detailHash: primaryDetailHash,
       agentName: agentLabel(options.name),
     });
 
