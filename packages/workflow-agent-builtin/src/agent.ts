@@ -13,9 +13,27 @@ import { storeBuiltinDetail } from "./detail.js";
 import type { ChatMessage } from "./llm/index.js";
 import { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
 import { buildBuiltinMessages } from "./prompt.js";
-import { initSessionDir, removeSession } from "./session.js";
+import { initSessionDir } from "./session.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
+
+const FRONTMATTER_FENCE = "---";
+
+/**
+ * Strip any text before the first `---` fence.
+ * LLMs sometimes emit preamble text before the frontmatter block.
+ */
+function stripPreamble(text: string): string {
+  if (text.startsWith(FRONTMATTER_FENCE)) {
+    return text;
+  }
+  const idx = text.indexOf(`\n${FRONTMATTER_FENCE}\n`);
+  if (idx !== -1) {
+    log("6GWRP3QX", `stripped ${idx + 1} chars of preamble before frontmatter`);
+    return text.slice(idx + 1);
+  }
+  return text;
+}
 
 type SessionRecord = {
   sessionId: string;
@@ -62,7 +80,6 @@ async function runBuiltinWithMessages(
 
   if (loopResult.turnCount === 0) {
     log("5RWTK9NB", "no turns produced, returning empty output");
-    await removeSession(storageRoot, session.sessionId);
     return { output: "", detailHash: "", sessionId: session.sessionId };
   }
 
@@ -75,10 +92,7 @@ async function runBuiltinWithMessages(
     session.startedAtMs,
   );
 
-  // Clean up session jsonl
-  await removeSession(storageRoot, session.sessionId);
-
-  return { output: loopResult.finalText, detailHash, sessionId: session.sessionId };
+  return { output: stripPreamble(loopResult.finalText), detailHash, sessionId: session.sessionId };
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
