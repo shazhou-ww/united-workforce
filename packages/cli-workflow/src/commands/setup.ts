@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
@@ -137,74 +137,181 @@ function apiKeyEnvName(providerName: string): string {
   return `${providerName.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`;
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Extracted helpers — _discoverAgents
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Scans directories from a PATH string for uwf-* executables.
+ */
+export async function _searchPathDirs(pathEnv: string): Promise<string[]> {
+  if (!pathEnv) return [];
+  const dirs = pathEnv.split(":").filter((d) => d.length > 0);
+  const agents = new Set<string>();
+  for (const dir of dirs) {
+    _scanDirForAgents(dir, agents);
+  }
+  return Array.from(agents).sort();
+}
+
+function _scanDirForAgents(dir: string, agents: Set<string>): void {
+  try {
+    if (!existsSync(dir)) return;
+    const entries = readdirSync(dir);
+    for (const entry of entries) {
+      if (!entry.startsWith("uwf-") || entry === "uwf") continue;
+      if (_isExecutableFile(join(dir, entry))) {
+        agents.add(entry);
+      }
+    }
+  } catch {
+    // Skip inaccessible directories
+  }
+}
+
+function _isExecutableFile(fullPath: string): boolean {
+  try {
+    const s = statSync(fullPath);
+    return s.isFile() && (s.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parses the stdout of `which -a` into sorted unique basenames.
+ */
+export function _parseWhichOutput(text: string): string[] {
+  if (!text) return [];
+  const agents = new Set<string>();
+  for (const line of text.trim().split("\n")) {
+    if (!line) continue;
+    const basename = line.split("/").pop() ?? "";
+    if (basename.startsWith("uwf-") && basename !== "uwf") {
+      agents.add(basename);
+    }
+  }
+  return Array.from(agents).sort();
+}
+
 /**
  * Discover uwf-* agent binaries in PATH.
  * Returns sorted list of binary names (e.g., ["uwf-hermes", "uwf-claude-code"]).
  */
-async function _discoverAgents(): Promise<string[]> {
+export async function _discoverAgents(): Promise<string[]> {
   try {
-    // Use which -a to find all uwf-* binaries in PATH
+    const agents = await _tryWhichDiscovery();
+    if (agents !== null) return agents;
+    return await _searchPathDirs(process.env.PATH ?? "");
+  } catch {
+    return [];
+  }
+}
+
+async function _tryWhichDiscovery(): Promise<string[] | null> {
+  try {
     const proc = Bun.spawn(["which", "-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
       stdout: "pipe",
       stderr: "pipe",
     });
-
     const text = await new Response(proc.stdout).text();
     await proc.exited;
-
-    if (proc.exitCode !== 0) {
-      // Try alternative approach: search PATH directories manually
-      const pathEnv = process.env.PATH || "";
-      const pathDirs = pathEnv.split(":").filter((d) => d.length > 0);
-      const agents = new Set<string>();
-
-      for (const dir of pathDirs) {
-        try {
-          if (!existsSync(dir)) continue;
-          const { readdirSync, statSync } = await import("node:fs");
-          const entries = readdirSync(dir);
-
-          for (const entry of entries) {
-            if (!entry.startsWith("uwf-") || entry === "uwf") continue;
-            const fullPath = join(dir, entry);
-            try {
-              const stat = statSync(fullPath);
-              // Check if executable (owner, group, or other has execute bit)
-              if (stat.isFile() && (stat.mode & 0o111) !== 0) {
-                agents.add(entry);
-              }
-            } catch {
-              // Skip if can't stat
-            }
-          }
-        } catch {
-          // Skip inaccessible directories
-        }
-      }
-
-      return Array.from(agents).sort();
-    }
-
-    // Parse which output - each line is a path to a binary
-    const paths = text
-      .trim()
-      .split("\n")
-      .filter((line) => line.length > 0);
-    const agents = new Set<string>();
-
-    for (const path of paths) {
-      const basename = path.split("/").pop();
-      if (basename?.startsWith("uwf-") && basename !== "uwf") {
-        agents.add(basename);
-      }
-    }
-
-    return Array.from(agents).sort();
+    if (proc.exitCode !== 0) return null;
+    return _parseWhichOutput(text);
   } catch {
-    // If all fails, return empty array
-    return [];
+    return null;
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Extracted helpers — onData closure (promptSecret)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Returns true for newline, carriage return, or EOF (EOT). */
+export function _isTerminator(c: string): boolean {
+  return c === "\n" || c === "\r" || c === "";
+}
+
+/** Returns true for DEL or backspace. */
+export function _isBackspace(c: string): boolean {
+  return c === "" || c === "\b";
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Extracted helpers — cmdSetupInteractive
+// ──────────────────────────────────────────────────────────────────────────────
+
+type ProviderEntry = { name: string; label: string; baseUrl: string };
+
+/** Prints the numbered provider list and custom option to stdout. */
+export function _printProviderMenu(providers: readonly ProviderEntry[]): void {
+  const numWidth = String(providers.length + 1).length;
+  for (let i = 0; i < providers.length; i++) {
+    const p = providers[i];
+    if (!p) continue;
+    const num = String(i + 1).padStart(numWidth);
+    console.log(`  ${num}) ${p.label.padEnd(28)} ${p.baseUrl}`);
+  }
+  const customNum = String(providers.length + 1).padStart(numWidth);
+  console.log(`  ${customNum}) Custom (enter name and URL manually)\n`);
+}
+
+/** Resolves a numeric choice string to a preset provider, or null for custom/invalid. */
+export function _resolveProviderChoice(
+  choice: string,
+  providers: readonly ProviderEntry[],
+): { providerName: string; baseUrl: string } | null {
+  const n = Number.parseInt(choice, 10);
+  if (Number.isNaN(n) || n < 1 || n > providers.length) return null;
+  const p = providers[n - 1];
+  if (!p) return null;
+  return { providerName: p.name, baseUrl: p.baseUrl };
+}
+
+/** Resolves numeric index or literal model name to a model string. */
+export function _resolveModelChoice(input: string, models: string[]): string {
+  const n = Number.parseInt(input, 10);
+  if (!Number.isNaN(n) && n >= 1 && n <= models.length) {
+    return models[n - 1] ?? input;
+  }
+  return input;
+}
+
+/** Prints the multi-column model list to stdout. */
+export function _printModelMenu(models: string[], termCols: number): void {
+  const nw = String(models.length).length;
+  const maxLen = models.reduce((m, s) => Math.max(m, s.length), 0);
+  const colWidth = nw + 2 + maxLen + 4;
+  const cols = Math.max(1, Math.floor(termCols / colWidth));
+  const rows = Math.ceil(models.length / cols);
+  for (let r = 0; r < rows; r++) {
+    let line = "";
+    for (let c = 0; c < cols; c++) {
+      const idx = c * rows + r;
+      if (idx >= models.length) break;
+      const num = String(idx + 1).padStart(nw);
+      const name = (models[idx] ?? "").padEnd(maxLen);
+      line += `  ${num}) ${name}  `;
+    }
+    console.log(line.trimEnd());
+  }
+}
+
+type ValidationResult = { ok: boolean; error: string | null };
+
+/** Prints the model validation result to stdout. */
+export function _printValidationResult(validation: ValidationResult): void {
+  if (validation.ok) {
+    console.log("✓ Model verified — connection successful.\n");
+  } else {
+    console.log(`\n⚠ Warning: Could not reach model — ${validation.error}`);
+    console.log(
+      "  Config saved, but you may want to try a different model or check your API key.\n",
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Merge setup args into config.yaml structure. Non-destructive — preserves existing entries.
@@ -281,6 +388,46 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
   };
 }
 
+type SecretState = {
+  buf: string;
+  rawWasSet: boolean;
+  resolve: (value: string) => void;
+  onData: (chunk: string) => void;
+};
+
+function _handleSecretTerminator(state: SecretState): void {
+  if (process.stdin.isTTY) process.stdin.setRawMode(state.rawWasSet);
+  process.stdin.pause();
+  process.stdin.removeListener("data", state.onData);
+  process.stdout.write("\n");
+  state.resolve(state.buf.trim());
+}
+
+function _handleSecretBackspace(state: SecretState): void {
+  if (state.buf.length > 0) {
+    state.buf = state.buf.slice(0, -1);
+    process.stdout.write("\b \b");
+  }
+}
+
+function _handleSecretChar(c: string, state: SecretState): boolean {
+  if (_isTerminator(c)) {
+    _handleSecretTerminator(state);
+    return true;
+  }
+  if (_isBackspace(c)) {
+    _handleSecretBackspace(state);
+    return false;
+  }
+  if (c === "") {
+    if (process.stdin.isTTY) process.stdin.setRawMode(state.rawWasSet);
+    process.exit(130);
+  }
+  state.buf += c;
+  process.stdout.write("*");
+  return false;
+}
+
 /** Read a line with terminal echo disabled (for secrets). */
 async function promptSecret(label: string): Promise<string> {
   process.stdout.write(label);
@@ -292,33 +439,13 @@ async function promptSecret(label: string): Promise<string> {
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
 
-    let buf = "";
-    const onData = (chunk: string) => {
+    const state: SecretState = { buf: "", rawWasSet, resolve, onData: () => {} };
+    state.onData = (chunk: string) => {
       for (const c of chunk.toString()) {
-        if (c === "\n" || c === "\r" || c === "\u0004") {
-          if (process.stdin.isTTY) process.stdin.setRawMode(rawWasSet);
-          process.stdin.pause();
-          process.stdin.removeListener("data", onData);
-          process.stdout.write("\n");
-          resolve(buf.trim());
-          return;
-        }
-        if (c === "\u007F" || c === "\b") {
-          if (buf.length > 0) {
-            buf = buf.slice(0, -1);
-            process.stdout.write("\b \b");
-          }
-          continue;
-        }
-        if (c === "\u0003") {
-          if (process.stdin.isTTY) process.stdin.setRawMode(rawWasSet);
-          process.exit(130);
-        }
-        buf += c;
-        process.stdout.write("*");
+        if (_handleSecretChar(c, state)) return;
       }
     };
-    process.stdin.on("data", onData);
+    process.stdin.on("data", state.onData);
   });
 }
 
@@ -344,6 +471,56 @@ async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
   }
 }
 
+async function _promptProviderSelection(
+  rl: ReturnType<typeof createInterface>,
+): Promise<{ providerName: string; baseUrl: string }> {
+  console.log("Select a provider:\n");
+  _printProviderMenu(PRESET_PROVIDERS);
+
+  const choice = (await rl.question(`Choose [1-${PRESET_PROVIDERS.length + 1}]: `)).trim();
+  const choiceNum = Number.parseInt(choice, 10);
+  if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > PRESET_PROVIDERS.length + 1) {
+    throw new Error(`Invalid choice: ${choice}`);
+  }
+
+  const preset = _resolveProviderChoice(choice, PRESET_PROVIDERS);
+  if (preset) {
+    const selected = PRESET_PROVIDERS[choiceNum - 1];
+    if (selected) {
+      console.log(`\n  → ${selected.label} (${selected.baseUrl})\n`);
+    }
+    return preset;
+  }
+
+  const providerName = (await rl.question("Provider name (e.g. my-proxy): ")).trim();
+  if (!providerName) throw new Error("Provider name required");
+  const baseUrl = (await rl.question("OpenAI-compatible API base URL: ")).trim();
+  if (!baseUrl) throw new Error("Base URL required");
+  return { providerName, baseUrl };
+}
+
+async function _promptModelSelection(
+  rl: ReturnType<typeof createInterface>,
+  baseUrl: string,
+  apiKey: string,
+): Promise<string> {
+  console.log("\nFetching available models...");
+  const models = await fetchModels(baseUrl, apiKey);
+
+  if (models.length === 0) {
+    console.log("Could not fetch models. Enter model name manually.");
+    const model = (await rl.question("Default model (e.g. qwen-plus, gpt-4o): ")).trim();
+    if (!model) throw new Error("Model required");
+    return model;
+  }
+  console.log(`\nAvailable models (${models.length}):\n`);
+  _printModelMenu(models, process.stdout.columns || 100);
+  console.log(`\nChoose a number, or type a model name directly.`);
+  const modelInput = (await rl.question(`Default model [1-${models.length}]: `)).trim();
+  if (!modelInput) throw new Error("Model required");
+  return _resolveModelChoice(modelInput, models);
+}
+
 /**
  * Interactive setup — prompts user for provider, API key, model.
  */
@@ -353,39 +530,7 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
   try {
     console.log("Configure LLM provider for uwf workflow agents.\n");
 
-    // 1. Provider selection
-    const numWidth = String(PRESET_PROVIDERS.length + 1).length;
-    console.log("Select a provider:\n");
-    for (let i = 0; i < PRESET_PROVIDERS.length; i++) {
-      const p = PRESET_PROVIDERS[i];
-      if (!p) continue;
-      const num = String(i + 1).padStart(numWidth);
-      console.log(`  ${num}) ${p.label.padEnd(28)} ${p.baseUrl}`);
-    }
-    const customNum = String(PRESET_PROVIDERS.length + 1).padStart(numWidth);
-    console.log(`  ${customNum}) Custom (enter name and URL manually)\n`);
-
-    const choice = (await rl.question(`Choose [1-${PRESET_PROVIDERS.length + 1}]: `)).trim();
-    const choiceNum = Number.parseInt(choice, 10);
-    if (Number.isNaN(choiceNum) || choiceNum < 1 || choiceNum > PRESET_PROVIDERS.length + 1) {
-      throw new Error(`Invalid choice: ${choice}`);
-    }
-
-    let providerName: string;
-    let baseUrl: string;
-
-    if (choiceNum <= PRESET_PROVIDERS.length) {
-      const selected = PRESET_PROVIDERS[choiceNum - 1];
-      if (!selected) throw new Error("Invalid selection");
-      providerName = selected.name;
-      baseUrl = selected.baseUrl;
-      console.log(`\n  → ${selected.label} (${selected.baseUrl})\n`);
-    } else {
-      providerName = (await rl.question("Provider name (e.g. my-proxy): ")).trim();
-      if (!providerName) throw new Error("Provider name required");
-      baseUrl = (await rl.question("OpenAI-compatible API base URL: ")).trim();
-      if (!baseUrl) throw new Error("Base URL required");
-    }
+    const { providerName, baseUrl } = await _promptProviderSelection(rl);
 
     // 2. API key
     rl.close();
@@ -394,47 +539,8 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
 
     // 3. Model selection
     const rl2 = createInterface({ input, output });
-    console.log("\nFetching available models...");
-    const models = await fetchModels(baseUrl, apiKey);
-
-    let model: string;
-    if (models.length > 0) {
-      console.log(`\nAvailable models (${models.length}):\n`);
-      const nw = String(models.length).length;
-      // Multi-column layout
-      const maxLen = models.reduce((m, s) => Math.max(m, s.length), 0);
-      const colWidth = nw + 2 + maxLen + 4; // "  N) name    "
-      const termCols = process.stdout.columns || 100;
-      const cols = Math.max(1, Math.floor(termCols / colWidth));
-      const rows = Math.ceil(models.length / cols);
-      for (let r = 0; r < rows; r++) {
-        let line = "";
-        for (let c = 0; c < cols; c++) {
-          const idx = c * rows + r;
-          if (idx >= models.length) break;
-          const num = String(idx + 1).padStart(nw);
-          const name = (models[idx] ?? "").padEnd(maxLen);
-          line += `  ${num}) ${name}  `;
-        }
-        console.log(line.trimEnd());
-      }
-      console.log(`\nChoose a number, or type a model name directly.`);
-      const modelInput = (await rl2.question(`Default model [1-${models.length}]: `)).trim();
-      if (!modelInput) throw new Error("Model required");
-      const modelNum = Number.parseInt(modelInput, 10);
-      if (!Number.isNaN(modelNum) && modelNum >= 1 && modelNum <= models.length) {
-        model = models[modelNum - 1] ?? modelInput;
-      } else {
-        model = modelInput;
-      }
-    } else {
-      console.log("Could not fetch models. Enter model name manually.");
-      model = (await rl2.question("Default model (e.g. qwen-plus, gpt-4o): ")).trim();
-      if (!model) throw new Error("Model required");
-    }
-
+    const model = await _promptModelSelection(rl2, baseUrl, apiKey);
     rl2.close();
-
     console.log(`  → ${providerName}/${model}\n`);
 
     const setupResult = await cmdSetup({
@@ -447,17 +553,8 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
 
     // Show validation result
     if (setupResult.validation && typeof setupResult.validation === "object") {
-      const v = setupResult.validation as { ok: boolean; error?: string };
-      if (v.ok) {
-        console.log("✓ Model verified — connection successful.\n");
-      } else {
-        console.log(`\n⚠ Warning: Could not reach model — ${v.error}`);
-        console.log(
-          "  Config saved, but you may want to try a different model or check your API key.\n",
-        );
-      }
+      _printValidationResult(setupResult.validation as ValidationResult);
     }
-
     console.log("Setup complete! Get started:\n");
     console.log("  uwf workflow put <workflow.yaml>   Register a workflow");
     console.log('  uwf thread start <name> -p "..."   Start a thread');
