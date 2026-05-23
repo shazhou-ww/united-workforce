@@ -7,6 +7,6 @@ export function formatOutput(data: unknown, format: OutputFormat): string {
     case "json":
       return JSON.stringify(data);
     case "yaml":
-      return stringify(data).trimEnd();
+      return stringify(data, { aliasDuplicateObjects: false }).trimEnd();
   }
 }

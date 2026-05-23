@@ -141,7 +141,7 @@ function apiKeyEnvName(providerName: string): string {
  * Discover uwf-* agent binaries in PATH.
  * Returns sorted list of binary names (e.g., ["uwf-hermes", "uwf-claude-code"]).
  */
-async function discoverAgents(): Promise<string[]> {
+async function _discoverAgents(): Promise<string[]> {
   try {
     // Use which -a to find all uwf-* binaries in PATH
     const proc = Bun.spawn(["which", "-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
@@ -186,12 +186,15 @@ async function discoverAgents(): Promise<string[]> {
     }
 
     // Parse which output - each line is a path to a binary
-    const paths = text.trim().split("\n").filter((line) => line.length > 0);
+    const paths = text
+      .trim()
+      .split("\n")
+      .filter((line) => line.length > 0);
     const agents = new Set<string>();
 
     for (const path of paths) {
       const basename = path.split("/").pop();
-      if (basename && basename.startsWith("uwf-") && basename !== "uwf") {
+      if (basename?.startsWith("uwf-") && basename !== "uwf") {
         agents.add(basename);
       }
     }

@@ -440,7 +440,7 @@ function collectOrderedSteps(
 }
 
 function formatYaml(value: unknown): string {
-  return stringify(value).trimEnd();
+  return stringify(value, { aliasDuplicateObjects: false }).trimEnd();
 }
 
 function formatCompactStep(index: number, item: OrderedStepItem, outputYaml: string): string {
