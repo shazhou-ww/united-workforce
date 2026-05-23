@@ -655,11 +655,11 @@ function formatThreadReadMarkdown(options: {
 
   // Step blocks
   const startIndex = candidates.length - selected.length;
+  const shownPromptRoles = new Set<string>();
   for (let i = 0; i < selected.length; i++) {
     const item = selected[i];
     if (item === undefined) continue;
     const stepNum = startIndex + i + 1;
-    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
     const ts = new Date(item.timestamp)
       .toISOString()
       .replace("T", " ")
@@ -669,9 +669,10 @@ function formatThreadReadMarkdown(options: {
       `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
     ];
     const roleDef = workflow.roles[item.payload.role];
-    if (roleDef) {
+    if (roleDef && !shownPromptRoles.has(item.payload.role)) {
       const prompt = roleDef.goal;
       stepLines.push("", "### Prompt", "", prompt);
+      shownPromptRoles.add(item.payload.role);
     }
     if (item.payload.detail) {
       const content = extractLastAssistantContent(uwf, item.payload.detail);
@@ -679,7 +680,6 @@ function formatThreadReadMarkdown(options: {
         stepLines.push("", "### Content", "", content);
       }
     }
-    stepLines.push("", "### Output", "", "```yaml", outputYaml, "```");
     parts.push(stepLines.join("\n"));
   }
 
