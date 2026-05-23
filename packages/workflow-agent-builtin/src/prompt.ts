@@ -59,6 +59,16 @@ export function buildBuiltinMessages(ctx: AgentContext): ChatMessage[] {
   }
   systemParts.push(rolePrompt);
 
+  systemParts.push(
+    "",
+    "## Workflow",
+    "",
+    "You have tools available (read_file, write_file, run_command). " +
+      "Use them to complete your task — read files, run commands, make changes as needed. " +
+      "When you are done, output your final response with the YAML frontmatter block as specified above. " +
+      "Do NOT output the frontmatter until you have completed all necessary work.",
+  );
+
   const messages: ChatMessage[] = [{ role: "system", content: systemParts.join("\n") }];
 
   const roleVisitIndices: number[] = [];

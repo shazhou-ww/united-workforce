@@ -13,7 +13,7 @@ import { storeBuiltinDetail } from "./detail.js";
 import type { ChatMessage } from "./llm/index.js";
 import { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
 import { buildBuiltinMessages } from "./prompt.js";
-import { initSessionDir, removeSession } from "./session.js";
+import { initSessionDir } from "./session.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
@@ -62,7 +62,6 @@ async function runBuiltinWithMessages(
 
   if (loopResult.turnCount === 0) {
     log("5RWTK9NB", "no turns produced, returning empty output");
-    await removeSession(storageRoot, session.sessionId);
     return { output: "", detailHash: "", sessionId: session.sessionId };
   }
 
@@ -74,9 +73,6 @@ async function runBuiltinWithMessages(
     session.model,
     session.startedAtMs,
   );
-
-  // Clean up session jsonl
-  await removeSession(storageRoot, session.sessionId);
 
   return { output: loopResult.finalText, detailHash, sessionId: session.sessionId };
 }
