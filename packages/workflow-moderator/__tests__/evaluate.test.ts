@@ -69,7 +69,7 @@ function makeContext(steps: ModeratorContext["steps"]): ModeratorContext {
 describe("evaluate", () => {
   test("$START → first role (fallback)", async () => {
     const result = await evaluate(solveIssueWorkflow, makeContext([]));
-    expect(result).toEqual({ ok: true, value: "planner" });
+    expect(result).toEqual({ ok: true, value: { role: "planner", prompt: null } });
   });
 
   test("condition match (rejected → developer)", async () => {
@@ -82,7 +82,7 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: "developer" });
+    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
   });
 
   test("fallback when condition does not match → $END", async () => {
@@ -95,7 +95,7 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: "$END" });
+    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
   });
 
   test("missing role in graph → error", async () => {
@@ -124,7 +124,7 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: "developer" });
+    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
   });
 
   test("$last returns most recent matching role's frontmatter", async () => {
@@ -165,7 +165,7 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(workflow, context);
-    expect(result).toEqual({ ok: true, value: "$END" });
+    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
   });
 
   test("$first returns earliest matching role's frontmatter", async () => {
@@ -206,7 +206,7 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(workflow, context);
-    expect(result).toEqual({ ok: true, value: "$END" });
+    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
   });
 
   test("$last returns undefined for unmatched role", async () => {
@@ -236,6 +236,6 @@ describe("evaluate", () => {
     ]);
     const result = await evaluate(workflow, context);
     // no reviewer step → $exists returns false → fallback to developer
-    expect(result).toEqual({ ok: true, value: "developer" });
+    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
   });
 });

@@ -12,6 +12,12 @@ export type AgentContext = ModeratorContext & {
    * role's output schema.  Populated by `createAgent` at run time.
    */
   outputFormatInstruction: string;
+  /**
+   * Edge prompt from the graph transition that led to this role.
+   * null on first entry (use full role definition), non-null on re-entry
+   * (use as continuation instruction from moderator).
+   */
+  edgePrompt: string | null;
 };
 
 export type AgentRunResult = {

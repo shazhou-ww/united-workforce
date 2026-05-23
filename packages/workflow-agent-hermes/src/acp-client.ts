@@ -46,53 +46,8 @@ export class HermesAcpClient {
 
   /** Spawn hermes acp, initialize, create session */
   async connect(cwd: string): Promise<string> {
-    const child = spawn(HERMES_COMMAND, ["acp"], {
-      env: process.env,
-      shell: false,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    this.process = child;
-
-    child.stderr?.on("data", (chunk: Buffer) => {
-      this.stderrBuffer += chunk.toString();
-    });
-
-    child.on("error", (cause) => {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      this.rejectAll(new Error(`hermes acp spawn failed: ${message}`));
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0 && this.pending.size > 0) {
-        const detail = this.stderrBuffer.trim() !== "" ? ` stderr=${this.stderrBuffer.trim()}` : "";
-        this.rejectAll(
-          new Error(`hermes acp exited unexpectedly with code ${code ?? "null"}${detail}`),
-        );
-      }
-    });
-
-    if (child.stdout === null) {
-      throw new Error("hermes acp process stdout is not available");
-    }
-    const rl = createInterface({ input: child.stdout });
-    rl.on("line", (line) => {
-      this.handleLine(line.trim());
-    });
-
-    const initResponse = await this.sendRequest("initialize", {
-      protocolVersion: PROTOCOL_VERSION,
-      clientInfo: { name: "uwf", version: "0.1.0" },
-      capabilities: {},
-    });
-
-    if ((initResponse as { error?: unknown }).error !== undefined) {
-      throw new Error(
-        `initialize failed: ${JSON.stringify((initResponse as { error: unknown }).error)}`,
-      );
-    }
-
-    this.sendNotification("initialized");
+    await this.ensureProcess();
+    await this.initialize();
 
     const sessionResponse = (await this.sendRequest("session/new", {
       cwd,
@@ -102,6 +57,27 @@ export class HermesAcpClient {
     const sessionId = sessionResponse.result?.sessionId;
     if (typeof sessionId !== "string" || sessionId === "") {
       throw new Error(`session/new did not return a sessionId: ${JSON.stringify(sessionResponse)}`);
+    }
+
+    this.sessionId = sessionId;
+    return sessionId;
+  }
+
+  /** Spawn hermes acp, initialize, resume an existing session */
+  async resume(sessionId: string, cwd: string): Promise<string> {
+    await this.ensureProcess();
+    await this.initialize();
+
+    const response = await this.sendRequest("session/resume", {
+      cwd,
+      sessionId,
+      mcpServers: [],
+    });
+
+    if ((response as { error?: unknown }).error !== undefined) {
+      throw new Error(
+        `session/resume failed: ${JSON.stringify((response as { error: unknown }).error)}`,
+      );
     }
 
     this.sessionId = sessionId;
@@ -357,5 +333,61 @@ export class HermesAcpClient {
       handler.reject(err);
     }
     this.pending.clear();
+  }
+
+  private async ensureProcess(): Promise<void> {
+    if (this.process !== null) {
+      return;
+    }
+
+    const child = spawn(HERMES_COMMAND, ["acp"], {
+      env: process.env,
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    this.process = child;
+
+    child.stderr?.on("data", (chunk: Buffer) => {
+      this.stderrBuffer += chunk.toString();
+    });
+
+    child.on("error", (cause) => {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      this.rejectAll(new Error(`hermes acp spawn failed: ${message}`));
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0 && this.pending.size > 0) {
+        const detail = this.stderrBuffer.trim() !== "" ? ` stderr=${this.stderrBuffer.trim()}` : "";
+        this.rejectAll(
+          new Error(`hermes acp exited unexpectedly with code ${code ?? "null"}${detail}`),
+        );
+      }
+    });
+
+    if (child.stdout === null) {
+      throw new Error("hermes acp process stdout is not available");
+    }
+    const rl = createInterface({ input: child.stdout });
+    rl.on("line", (line) => {
+      this.handleLine(line.trim());
+    });
+  }
+
+  private async initialize(): Promise<void> {
+    const initResponse = await this.sendRequest("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      clientInfo: { name: "uwf", version: "0.1.0" },
+      capabilities: {},
+    });
+
+    if ((initResponse as { error?: unknown }).error !== undefined) {
+      throw new Error(
+        `initialize failed: ${JSON.stringify((initResponse as { error: unknown }).error)}`,
+      );
+    }
+
+    this.sendNotification("initialized");
   }
 }

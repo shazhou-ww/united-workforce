@@ -62,14 +62,19 @@ graph:
   $START:
     - role: "planner"
       condition: null
+      prompt: null
   planner:
     - role: "developer"
       condition: null
+      prompt: null
   developer:
     - role: "reviewer"
       condition: null
+      prompt: null
   reviewer:
     - role: "developer"
       condition: "notApproved"
+      prompt: "The reviewer rejected your implementation. Read their feedback and fix the issues."
     - role: "$END"
       condition: null
+      prompt: null

@@ -624,13 +624,17 @@ function resolveAgentConfig(
   return agentConfig;
 }
 
-function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): CasRef {
+function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string, edgePrompt: string | null): CasRef {
   const argv = [...agent.args, threadId, role];
+  const env = { ...process.env };
+  if (edgePrompt !== null) {
+    env.UWF_EDGE_PROMPT = edgePrompt;
+  }
   let stdout: string;
   try {
     stdout = execFileSync(agent.command, argv, {
       encoding: "utf8",
-      env: process.env,
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (e) {
@@ -712,7 +716,7 @@ async function cmdThreadStepOnce(
     fail(nextResult.error.message);
   }
 
-  if (nextResult.value === END_ROLE) {
+  if (nextResult.value.role === END_ROLE) {
     await archiveThread(storageRoot, threadId, workflowHash, headHash);
     return {
       workflow: workflowHash,
@@ -722,12 +726,13 @@ async function cmdThreadStepOnce(
     };
   }
 
-  const role = nextResult.value;
+  const role = nextResult.value.role;
+  const edgePrompt = nextResult.value.prompt;
   const config = await loadWorkflowConfig(storageRoot);
   const agent = resolveAgentConfig(config, workflow, role, agentOverride);
 
   loadDotenv({ path: getEnvPath(storageRoot) });
-  const newHead = spawnAgent(agent, threadId, role);
+  const newHead = spawnAgent(agent, threadId, role, edgePrompt);
 
   // Re-create store to pick up nodes written by the agent subprocess
   const uwfAfter = await createUwfStore(storageRoot);
@@ -748,7 +753,7 @@ async function cmdThreadStepOnce(
     fail(afterResult.error.message);
   }
 
-  const done = afterResult.value === END_ROLE;
+  const done = afterResult.value.role === END_ROLE;
   if (done) {
     await archiveThread(storageRoot, threadId, workflowHash, newHead);
   }

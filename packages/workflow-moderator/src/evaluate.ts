@@ -1,7 +1,7 @@
 import type { ModeratorContext, WorkflowPayload } from "@uncaged/workflow-protocol";
 import jsonata from "jsonata";
 
-import type { Result } from "./types.js";
+import type { EvaluateResult, Result } from "./types.js";
 
 const START_ROLE = "$START";
 
@@ -78,7 +78,7 @@ function currentRole(context: ModeratorContext): string {
 export async function evaluate(
   workflow: WorkflowPayload,
   context: ModeratorContext,
-): Promise<Result<string, Error>> {
+): Promise<Result<EvaluateResult, Error>> {
   const role = currentRole(context);
   const transitions = workflow.graph[role];
   if (transitions === undefined) {
@@ -90,7 +90,7 @@ export async function evaluate(
 
   for (const transition of transitions) {
     if (transition.condition === null) {
-      return { ok: true, value: transition.role };
+      return { ok: true, value: { role: transition.role, prompt: transition.prompt ?? null } };
     }
 
     const conditionDef = workflow.conditions[transition.condition];
@@ -106,7 +106,7 @@ export async function evaluate(
       return evalResult;
     }
     if (isTruthy(evalResult.value)) {
-      return { ok: true, value: transition.role };
+      return { ok: true, value: { role: transition.role, prompt: transition.prompt ?? null } };
     }
   }
 

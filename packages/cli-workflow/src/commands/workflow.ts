@@ -58,6 +58,7 @@ function normalizeGraph(graph: Record<string, Transition[]>): Record<string, Tra
     result[node] = transitions.map((t) => ({
       role: t.role,
       condition: t.condition ?? null,
+      prompt: t.prompt ?? null,
     }));
   }
   return result;
