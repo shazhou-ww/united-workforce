@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import type { Store } from "@uncaged/json-cas";
 
+import { createLogger } from "@uncaged/workflow-util";
+
 import {
   type AgentContext,
   type AgentRunResult,
@@ -10,7 +12,9 @@ import {
   setCachedSessionId,
 } from "@uncaged/workflow-agent-kit";
 
-import { parseClaudeCodeJsonOutput, storeClaudeCodeDetail } from "./session-detail.js";
+import { parseClaudeCodeStreamOutput, storeClaudeCodeDetail } from "./session-detail.js";
+
+const log = createLogger({ sink: { kind: "stderr" } });
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
@@ -88,7 +92,8 @@ function spawnClaudeRun(prompt: string): Promise<{ stdout: string; stderr: strin
     "-p",
     prompt,
     "--output-format",
-    "json",
+    "stream-json",
+    "--verbose",
     "--dangerously-skip-permissions",
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
@@ -105,7 +110,8 @@ function spawnClaudeResume(
     "--resume",
     sessionId,
     "--output-format",
-    "json",
+    "stream-json",
+    "--verbose",
     "--dangerously-skip-permissions",
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
@@ -113,7 +119,7 @@ function spawnClaudeResume(
 }
 
 async function processClaudeOutput(stdout: string, store: Store): Promise<AgentRunResult> {
-  const parsed = parseClaudeCodeJsonOutput(stdout);
+  const parsed = parseClaudeCodeStreamOutput(stdout);
 
   if (parsed !== null) {
     const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, parsed);
@@ -121,7 +127,7 @@ async function processClaudeOutput(stdout: string, store: Store): Promise<AgentR
   }
 
   throw new Error(
-    `Claude Code returned non-JSON output (first 200 chars): ${stdout.slice(0, 200)}`,
+    `Claude Code returned unparseable output (first 200 chars): ${stdout.slice(0, 200)}`,
   );
 }
 
@@ -135,17 +141,21 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
       try {
         const { stdout } = await spawnClaudeResume(cachedSessionId, fullPrompt);
         const result = await processClaudeOutput(stdout, ctx.store);
-        await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+        if (result.sessionId !== undefined && result.sessionId !== "") {
+          await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+        }
         return result;
-      } catch {
-        // Resume failed — fall through to fresh run.
+      } catch (err) {
+        log("5VKR8N3Q", "resume failed for session %s, falling back to fresh run: %s", cachedSessionId, err);
       }
     }
   }
 
   const { stdout } = await spawnClaudeRun(fullPrompt);
   const result = await processClaudeOutput(stdout, ctx.store);
-  await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+  if (result.sessionId !== undefined && result.sessionId !== "") {
+    await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+  }
   return result;
 }
 

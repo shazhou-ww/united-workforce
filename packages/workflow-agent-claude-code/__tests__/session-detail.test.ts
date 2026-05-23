@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createMemoryStore, walk } from "@uncaged/json-cas";
 import {
   parseClaudeCodeJsonOutput,
+  parseClaudeCodeStreamOutput,
   storeClaudeCodeDetail,
   storeClaudeCodeRawOutput,
 } from "../src/session-detail.js";
@@ -17,6 +18,8 @@ describe("parseClaudeCodeJsonOutput", () => {
       num_turns: 3,
       total_cost_usd: 0.08,
       duration_ms: 10276,
+      stop_reason: "end_turn",
+      usage: { input_tokens: 100, output_tokens: 50 },
     });
     const parsed = parseClaudeCodeJsonOutput(stdout);
     expect(parsed).not.toBeNull();
@@ -27,22 +30,10 @@ describe("parseClaudeCodeJsonOutput", () => {
     expect(parsed!.numTurns).toBe(3);
     expect(parsed!.totalCostUsd).toBe(0.08);
     expect(parsed!.durationMs).toBe(10276);
-  });
-
-  test("parses error_max_turns result", () => {
-    const stdout = JSON.stringify({
-      type: "result",
-      subtype: "error_max_turns",
-      result: "Ran out of turns",
-      session_id: "abc-def",
-      num_turns: 90,
-      total_cost_usd: 1.5,
-      duration_ms: 50000,
-    });
-    const parsed = parseClaudeCodeJsonOutput(stdout);
-    expect(parsed).not.toBeNull();
-    expect(parsed!.subtype).toBe("error_max_turns");
-    expect(parsed!.result).toBe("Ran out of turns");
+    expect(parsed!.stopReason).toBe("end_turn");
+    expect(parsed!.usage.inputTokens).toBe(100);
+    expect(parsed!.usage.outputTokens).toBe(50);
+    expect(parsed!.turns).toEqual([]);
   });
 
   test("returns null for non-JSON output", () => {
@@ -57,45 +48,157 @@ describe("parseClaudeCodeJsonOutput", () => {
   });
 });
 
-describe("storeClaudeCodeDetail", () => {
-  test("stores claude-code-detail CAS node and returns output + detailHash", async () => {
-    const store = createMemoryStore();
-    const parsed: ClaudeCodeParsedResult = {
-      type: "result",
-      subtype: "success",
-      result: "The answer",
-      sessionId: "abc-123",
-      numTurns: 5,
-      totalCostUsd: 0.12,
-      durationMs: 15000,
-    };
+describe("parseClaudeCodeStreamOutput", () => {
+  test("parses stream-json output with turns", () => {
+    const lines = [
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: "sess-123",
+        model: "claude-sonnet-4.5",
+        tools: ["Bash", "Read"],
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I'll list the files." },
+            { type: "tool_use", id: "tool_1", name: "Bash", input: { command: "ls" } },
+          ],
+        },
+        session_id: "sess-123",
+      }),
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "tool_result", tool_use_id: "tool_1", content: "file1.ts\nfile2.ts" },
+          ],
+        },
+        session_id: "sess-123",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "There are 2 files." }],
+        },
+        session_id: "sess-123",
+      }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "There are 2 files.",
+        session_id: "sess-123",
+        num_turns: 2,
+        total_cost_usd: 0.05,
+        duration_ms: 5000,
+        stop_reason: "end_turn",
+        usage: {
+          input_tokens: 200,
+          output_tokens: 30,
+          cache_read_input_tokens: 100,
+          cache_creation_input_tokens: 0,
+        },
+      }),
+    ];
+    const stdout = lines.join("\n");
+    const parsed = parseClaudeCodeStreamOutput(stdout);
 
-    const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, parsed);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.model).toBe("claude-sonnet-4.5");
+    expect(parsed!.sessionId).toBe("sess-123");
+    expect(parsed!.result).toBe("There are 2 files.");
+    expect(parsed!.stopReason).toBe("end_turn");
+    expect(parsed!.usage.inputTokens).toBe(200);
+    expect(parsed!.usage.outputTokens).toBe(30);
+    expect(parsed!.usage.cacheReadInputTokens).toBe(100);
+
+    // Turns: assistant(text+tool), tool_result, assistant(text)
+    expect(parsed!.turns).toHaveLength(3);
+    expect(parsed!.turns[0]!.role).toBe("assistant");
+    expect(parsed!.turns[0]!.content).toBe("I'll list the files.");
+    expect(parsed!.turns[0]!.toolCalls).toHaveLength(1);
+    expect(parsed!.turns[0]!.toolCalls![0]!.name).toBe("Bash");
+    expect(parsed!.turns[1]!.role).toBe("tool_result");
+    expect(parsed!.turns[1]!.content).toBe("file1.ts\nfile2.ts");
+    expect(parsed!.turns[2]!.role).toBe("assistant");
+    expect(parsed!.turns[2]!.content).toBe("There are 2 files.");
+    expect(parsed!.turns[2]!.toolCalls).toBeNull();
+  });
+
+  test("returns null when no result line", () => {
+    const stdout = JSON.stringify({ type: "system", model: "test" });
+    expect(parseClaudeCodeStreamOutput(stdout)).toBeNull();
+  });
+
+  test("skips invalid JSON lines gracefully", () => {
+    const lines = [
+      "not json",
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "ok",
+        session_id: "s1",
+        num_turns: 1,
+        total_cost_usd: 0.01,
+        duration_ms: 1000,
+        stop_reason: "end_turn",
+        usage: {},
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.result).toBe("ok");
+    expect(parsed!.turns).toHaveLength(0);
+  });
+});
+
+describe("storeClaudeCodeDetail", () => {
+  const baseParsed: ClaudeCodeParsedResult = {
+    type: "result",
+    subtype: "success",
+    result: "The answer",
+    sessionId: "abc-123",
+    numTurns: 5,
+    totalCostUsd: 0.12,
+    durationMs: 15000,
+    model: "claude-sonnet-4.5",
+    stopReason: "end_turn",
+    usage: { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+    turns: [
+      { index: 0, role: "assistant", content: "hello", toolCalls: null },
+      { index: 1, role: "tool_result", content: "world", toolCalls: null },
+    ],
+  };
+
+  test("stores detail with per-turn CAS nodes", async () => {
+    const store = createMemoryStore();
+    const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, baseParsed);
+
     expect(detailHash).toHaveLength(13);
     expect(output).toBe("The answer");
     expect(sessionId).toBe("abc-123");
 
     const node = await store.get(detailHash);
     expect(node).not.toBeNull();
-    expect(node!.payload.sessionId).toBe("abc-123");
-    expect(node!.payload.numTurns).toBe(5);
-    expect(node!.payload.totalCostUsd).toBe(0.12);
-    expect(node!.payload.durationMs).toBe(15000);
+    expect(node!.payload.model).toBe("claude-sonnet-4.5");
+    expect(node!.payload.stopReason).toBe("end_turn");
+    expect(node!.payload.usage.inputTokens).toBe(100);
+    expect(node!.payload.turns).toHaveLength(2);
+
+    // Verify turn CAS nodes
+    const turn0 = await store.get(node!.payload.turns[0]);
+    expect(turn0).not.toBeNull();
+    expect(turn0!.payload.role).toBe("assistant");
+    expect(turn0!.payload.content).toBe("hello");
   });
 
   test("detail node is walkable from root", async () => {
     const store = createMemoryStore();
-    const parsed: ClaudeCodeParsedResult = {
-      type: "result",
-      subtype: "success",
-      result: "walkable test",
-      sessionId: "walk-123",
-      numTurns: 1,
-      totalCostUsd: 0.01,
-      durationMs: 1000,
-    };
-
-    const { detailHash } = await storeClaudeCodeDetail(store, parsed);
+    const { detailHash } = await storeClaudeCodeDetail(store, baseParsed);
     const visited: string[] = [];
     walk(store, detailHash, (hash) => visited.push(hash));
     expect(visited.length).toBeGreaterThan(0);

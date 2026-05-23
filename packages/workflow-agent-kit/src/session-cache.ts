@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
 import type { ThreadId } from "@uncaged/workflow-protocol";
@@ -45,8 +46,14 @@ async function readCache(): Promise<SessionCache> {
 
 async function writeCache(cache: SessionCache): Promise<void> {
   const path = getCachePath();
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+  const dir = dirname(path);
+  await mkdir(dir, { recursive: true });
+  // Atomic write: write to temp file then rename to avoid partial reads on concurrent access.
+  // NOTE: Current workflow execution is serial (execFileSync), so true concurrency doesn't occur.
+  // This is a safety net for future parallel execution.
+  const tmpPath = join(dir, `.agent-sessions.${randomBytes(4).toString("hex")}.tmp`);
+  await writeFile(tmpPath, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+  await rename(tmpPath, path);
 }
 
 /** Read the cached session ID for a thread+role pair. */
