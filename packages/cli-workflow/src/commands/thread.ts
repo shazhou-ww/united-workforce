@@ -661,11 +661,12 @@ function spawnAgent(
       encoding: "utf8",
       env,
       stdio: ["ignore", "pipe", "pipe"],
+      maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
     });
   } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string };
+    const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string | null };
     const stderr =
-      err.stderr === undefined
+      err.stderr == null
         ? ""
         : typeof err.stderr === "string"
           ? err.stderr
