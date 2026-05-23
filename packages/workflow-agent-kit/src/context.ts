@@ -21,6 +21,14 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+function readEdgePrompt(): string {
+  const value = process.env.UWF_EDGE_PROMPT;
+  if (value === undefined || value === "") {
+    fail("UWF_EDGE_PROMPT environment variable is required");
+  }
+  return value;
+}
+
 function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRef): ChainState {
   const headNode = store.get(headHash);
   if (headNode === null) {
@@ -133,7 +141,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
-  const edgePrompt = process.env.UWF_EDGE_PROMPT ?? null;
+  const edgePrompt = readEdgePrompt();
 
   return {
     threadId,
@@ -180,7 +188,7 @@ export async function buildContextWithMeta(
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
-  const edgePrompt = process.env.UWF_EDGE_PROMPT ?? null;
+  const edgePrompt = readEdgePrompt();
 
   return {
     threadId,

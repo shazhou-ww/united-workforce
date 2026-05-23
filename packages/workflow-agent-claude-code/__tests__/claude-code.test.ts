@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentContext } from "@uncaged/workflow-agent-kit";
+import type { ThreadId } from "@uncaged/workflow-protocol";
 import { buildClaudeCodePrompt } from "../src/claude-code.js";
 
 function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {
   return {
+    threadId: "01JTEST0000000000000000000" as ThreadId,
+    edgePrompt: "Proceed with the assigned role.",
     workflow: {
       roles: {
         developer: {

@@ -26,10 +26,11 @@ const CONDITION_DEFINITION: JSONSchema = {
 
 const TRANSITION: JSONSchema = {
   type: "object",
-  required: ["role", "condition"],
+  required: ["role", "condition", "prompt"],
   properties: {
     role: { type: "string" },
     condition: { anyOf: [{ type: "string" }, { type: "null" }] },
+    prompt: { type: "string" },
   },
   additionalProperties: false,
 };

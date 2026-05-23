@@ -55,11 +55,16 @@ function isJsonSchema(value: unknown): value is JSONSchema {
 function normalizeGraph(graph: Record<string, Transition[]>): Record<string, Transition[]> {
   const result: Record<string, Transition[]> = {};
   for (const [node, transitions] of Object.entries(graph)) {
-    result[node] = transitions.map((t) => ({
-      role: t.role,
-      condition: t.condition ?? null,
-      prompt: t.prompt ?? null,
-    }));
+    result[node] = transitions.map((t) => {
+      if (typeof t.prompt !== "string" || t.prompt.trim() === "") {
+        fail(`graph[${node}] transition to "${t.role}": prompt is required (non-empty string)`);
+      }
+      return {
+        role: t.role,
+        condition: t.condition ?? null,
+        prompt: t.prompt,
+      };
+    });
   }
   return result;
 }

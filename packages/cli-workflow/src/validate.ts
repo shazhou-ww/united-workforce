@@ -44,6 +44,8 @@ function isTransition(value: unknown): boolean {
   const condition = value.condition;
   return (
     typeof value.role === "string" &&
+    typeof value.prompt === "string" &&
+    value.prompt.trim() !== "" &&
     (condition === null || condition === undefined || typeof condition === "string")
   );
 }

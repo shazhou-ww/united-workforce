@@ -28,7 +28,7 @@ export type RoleDefinition = {
 export type Transition = {
   role: string;
   condition: string | null;
-  prompt: string | null;
+  prompt: string;
 };
 
 export type ConditionDefinition = {

@@ -624,12 +624,14 @@ function resolveAgentConfig(
   return agentConfig;
 }
 
-function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string, edgePrompt: string | null): CasRef {
+function spawnAgent(
+  agent: AgentConfig,
+  threadId: ThreadId,
+  role: string,
+  edgePrompt: string,
+): CasRef {
   const argv = [...agent.args, threadId, role];
-  const env = { ...process.env };
-  if (edgePrompt !== null) {
-    env.UWF_EDGE_PROMPT = edgePrompt;
-  }
+  const env = { ...process.env, UWF_EDGE_PROMPT: edgePrompt };
   let stdout: string;
   try {
     stdout = execFileSync(agent.command, argv, {

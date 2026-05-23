@@ -36,6 +36,8 @@ graph:
   $START:
     - role: "analyst"
       condition: null
+      prompt: "Analyze the topic in the task and produce a structured summary with key points."
   analyst:
     - role: "$END"
       condition: null
+      prompt: "Analysis complete. Finish the workflow."
