@@ -77,6 +77,9 @@ export type ShouldNudgeOptions = {
   maxTurns: number;
 };
 
+const MAX_NUDGES = 3;
+const DEADLINE_WARNING_TURNS = 3;
+
 export function shouldNudge({ noTools, text, turn, maxTurns }: ShouldNudgeOptions): boolean {
   return !noTools && !text.trimStart().startsWith("---") && turn < maxTurns - 1;
 }
@@ -89,9 +92,26 @@ export async function runBuiltinLoop(
   const openAiTools = options.noTools ? [] : builtinToolsToOpenAi(getBuiltinTools());
   let finalText = "";
   let turnCount = 0;
+  let nudgeCount = 0;
+  let deadlineWarned = false;
 
   for (let turn = 0; turn < options.maxTurns; turn++) {
     log("8K2M4N7P", `builtin loop turn ${turn + 1}/${options.maxTurns}`);
+
+    // Warn agent when approaching turn limit
+    const turnsRemaining = options.maxTurns - turn;
+    if (!options.noTools && !deadlineWarned && turnsRemaining <= DEADLINE_WARNING_TURNS) {
+      deadlineWarned = true;
+      log("4NRXW6KT", `${turnsRemaining} turns remaining, injecting deadline warning`);
+      messages.push({
+        role: "user",
+        content:
+          `⚠️ You have ${turnsRemaining} turns remaining. ` +
+          "Wrap up your work and output the YAML frontmatter starting with `---`. " +
+          "If you cannot finish in time, output frontmatter with `status: failed` and describe what remains.",
+      });
+    }
+
     const response = await chatCompletionWithTools(
       options.provider,
       messages,
@@ -119,11 +139,16 @@ export async function runBuiltinLoop(
       turnCount += 1;
 
       if (shouldNudge({ noTools: options.noTools, text, turn, maxTurns: options.maxTurns })) {
-        log("7FXQM2KN", "text-only turn without frontmatter, nudging LLM to continue");
+        nudgeCount += 1;
+        log("7FXQM2KN", `text-only turn without frontmatter, nudge ${nudgeCount}/${MAX_NUDGES}`);
         const nudge =
           "You stopped calling tools but your response does not start with the required `---` YAML frontmatter. " +
           "Either continue using tools to complete your work, or output your final response starting with `---`.";
         messages.push({ role: "user", content: nudge });
+        // Nudge doesn't consume turn budget (up to MAX_NUDGES)
+        if (nudgeCount <= MAX_NUDGES) {
+          turn -= 1;
+        }
         continue;
       }
 
