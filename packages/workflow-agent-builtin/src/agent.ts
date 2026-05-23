@@ -69,8 +69,11 @@ async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
   const provider = resolveModel(config, config.defaultModel);
 
   const sessionId = generateUlid(Date.now());
-  const systemPrompt = buildBuiltinPrompt(ctx);
-  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
+  const promptParts = buildBuiltinPrompt(ctx);
+  const messages: ChatMessage[] = [
+    { role: "system", content: promptParts.system },
+    { role: "user", content: promptParts.user },
+  ];
 
   const session: BuiltinSessionState = {
     sessionId,

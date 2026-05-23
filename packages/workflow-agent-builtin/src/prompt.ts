@@ -19,18 +19,32 @@ function buildHistorySummary(steps: AgentContext["steps"]): string {
   return lines.join("\n");
 }
 
-/** Assemble output format, role prompt, task, and history (aligned with buildHermesPrompt). */
-export function buildBuiltinPrompt(ctx: AgentContext): string {
+export type BuiltinPromptParts = {
+  system: string;
+  user: string;
+};
+
+/** Assemble system prompt (role + format) and user prompt (task + edge + history). */
+export function buildBuiltinPrompt(ctx: AgentContext): BuiltinPromptParts {
   const roleDef = ctx.workflow.roles[ctx.role];
   const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
-  const parts: string[] = [];
+  const systemParts: string[] = [];
   if (ctx.outputFormatInstruction !== "") {
-    parts.push(ctx.outputFormatInstruction, "");
+    systemParts.push(ctx.outputFormatInstruction, "");
   }
-  parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
+  systemParts.push(rolePrompt);
+
+  const userParts: string[] = ["## Task", ctx.start.prompt];
+  if (ctx.edgePrompt !== "") {
+    userParts.push("", "## Current Step Instruction", ctx.edgePrompt);
+  }
   const historyBlock = buildHistorySummary(ctx.steps);
   if (historyBlock !== "") {
-    parts.push("", historyBlock);
+    userParts.push("", historyBlock);
   }
-  return parts.join("\n");
+
+  return {
+    system: systemParts.join("\n"),
+    user: userParts.join("\n"),
+  };
 }
