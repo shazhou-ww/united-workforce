@@ -49,8 +49,20 @@ describe("buildHermesPrompt", () => {
       isFirstVisit: false,
       edgePrompt: "The reviewer rejected your work. Fix the issues.",
       steps: [
-        { role: "developer", output: { summary: "Initial fix" }, agent: "uwf-hermes" },
-        { role: "reviewer", output: { approved: false }, agent: "uwf-hermes" },
+        {
+          role: "developer",
+          output: { summary: "Initial fix" },
+          agent: "uwf-hermes",
+          detail: "detail-1",
+          edgePrompt: "Implement the fix.",
+        },
+        {
+          role: "reviewer",
+          output: { approved: false },
+          agent: "uwf-hermes",
+          detail: "detail-2",
+          edgePrompt: "Review the code.",
+        },
       ],
     });
 
@@ -66,7 +78,15 @@ describe("buildHermesPrompt", () => {
     const result = buildHermesPrompt(
       makeCtx({
         isFirstVisit: true,
-        steps: [{ role: "developer", output: { done: true }, agent: "uwf-hermes" }],
+        steps: [
+          {
+            role: "developer",
+            output: { done: true },
+            agent: "uwf-hermes",
+            detail: "detail-1",
+            edgePrompt: "First attempt.",
+          },
+        ],
         edgePrompt: "Retry with a fresh approach.",
       }),
     );

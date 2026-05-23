@@ -85,6 +85,7 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     output: { type: "string", format: "cas_ref" },
     detail: { type: "string", format: "cas_ref" },
     agent: { type: "string" },
+    edgePrompt: { type: "string" },
   },
   additionalProperties: false,
 };

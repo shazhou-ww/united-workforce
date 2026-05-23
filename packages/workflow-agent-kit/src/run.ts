@@ -50,6 +50,7 @@ async function writeStepNode(options: {
   outputHash: CasRef;
   detailHash: CasRef;
   agentName: string;
+  edgePrompt: string;
 }): Promise<CasRef> {
   const payload: StepNodePayload = {
     start: options.startHash,
@@ -58,6 +59,7 @@ async function writeStepNode(options: {
     output: options.outputHash,
     detail: options.detailHash,
     agent: options.agentName,
+    edgePrompt: options.edgePrompt,
   };
   const hash = await options.store.put(options.schemas.stepNode, payload);
   const node = options.store.get(hash);
@@ -95,6 +97,7 @@ async function persistStep(options: {
     outputHash: options.outputHash,
     detailHash: options.detailHash,
     agentName: options.agentName,
+    edgePrompt: options.ctx.edgePrompt,
   });
 }
 

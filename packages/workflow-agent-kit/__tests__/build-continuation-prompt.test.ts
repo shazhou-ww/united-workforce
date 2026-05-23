@@ -7,6 +7,7 @@ const reviewerStep: StepContext = {
   output: { approved: false, comments: "Missing tests" },
   detail: "2MXBG6PN4A8JR",
   agent: "uwf-hermes",
+  edgePrompt: "Review the developer's work.",
 };
 
 const developerStep: StepContext = {
@@ -14,6 +15,7 @@ const developerStep: StepContext = {
   output: { filesChanged: ["src/app.ts"], summary: "Initial fix" },
   detail: "1VPBG9SM5E7WK",
   agent: "uwf-hermes",
+  edgePrompt: "Implement the fix.",
 };
 
 describe("buildContinuationPrompt", () => {
@@ -26,6 +28,7 @@ describe("buildContinuationPrompt", () => {
         output: { plan: "revise approach" },
         detail: "7BQST3VW9F2MA",
         agent: "uwf-hermes",
+        edgePrompt: "Revise the plan.",
       },
     ];
 
