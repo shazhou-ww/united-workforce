@@ -142,6 +142,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
   const edgePrompt = readEdgePrompt();
+  const isFirstVisit = !steps.some((s) => s.role === role);
 
   return {
     threadId,
@@ -152,6 +153,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
     store,
     outputFormatInstruction: "",
     edgePrompt,
+    isFirstVisit,
   };
 }
 
@@ -189,6 +191,7 @@ export async function buildContextWithMeta(
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
   const edgePrompt = readEdgePrompt();
+  const isFirstVisit = !steps.some((s) => s.role === role);
 
   return {
     threadId,
@@ -199,6 +202,7 @@ export async function buildContextWithMeta(
     store,
     outputFormatInstruction: "",
     edgePrompt,
+    isFirstVisit,
     meta: { storageRoot, store, schemas, headHash, chain },
   };
 }
