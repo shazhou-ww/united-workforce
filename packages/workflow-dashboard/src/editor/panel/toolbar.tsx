@@ -1,28 +1,21 @@
-import { type ReactNode } from "react";
-import {
-  Undo2,
-  Redo2,
-  Users,
-  LayoutList,
-  Save,
-} from "lucide-react";
 import { useReactFlow, useStoreApi } from "@xyflow/react";
+import { LayoutList, Redo2, Save, Undo2, Users } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
+import { Separator } from "../../components/ui/separator.tsx";
+import { cn } from "../../lib/utils.ts";
 import { useModel } from "../context.tsx";
 import { handlers, nodesModel } from "../model/index.ts";
-import { Separator } from "../../components/ui/separator.tsx";
-import { Button } from "../../components/ui/button.tsx";
 import type { RoleNodeData, WorkNode } from "../type.ts";
 import { uuid } from "../utils/index.ts";
-import { useState } from "react";
-import { cn } from "../../lib/utils.ts";
 
 const DEFAULT_ROLE_DATA: RoleNodeData = {
-  name: '新角色',
-  description: '',
-  identity: '',
-  prepare: '',
-  execute: '',
-  report: '',
+  name: "新角色",
+  description: "",
+  identity: "",
+  prepare: "",
+  execute: "",
+  report: "",
 };
 
 export function Toolbar(): ReactNode {
@@ -48,9 +41,9 @@ export function Toolbar(): ReactNode {
     const centerY = (height / 2 - y) / zoom;
 
     const id = `n${uuid()}`;
-    const node: WorkNode<'role'> = {
+    const node: WorkNode<"role"> = {
       id,
-      type: 'role',
+      type: "role",
       position: { x: centerX - 80, y: centerY - 40 },
       data: { ...DEFAULT_ROLE_DATA },
     };
@@ -63,10 +56,22 @@ export function Toolbar(): ReactNode {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-[10px] shadow-md">
       <div className="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon-sm" title="撤销 (Undo)" onClick={handleUndo} disabled={!canUndo}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="撤销 (Undo)"
+          onClick={handleUndo}
+          disabled={!canUndo}
+        >
           <Undo2 />
         </Button>
-        <Button variant="ghost" size="icon-sm" title="重做 (Redo)" onClick={handleRedo} disabled={!canRedo}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="重做 (Redo)"
+          onClick={handleRedo}
+          disabled={!canRedo}
+        >
           <Redo2 />
         </Button>
       </div>
@@ -101,14 +106,12 @@ function SaveButton(): ReactNode {
     if (valid) {
       setToast({ open: true, severity: "success", message: "流程保存成功" });
     } else {
-      const errorMessages = errors.map(
-        ({ message, nodeId }) => (
-          <div key={nodeId ?? message}>
-            {nodeId ? `节点 ${nodeId}：` : ""}
-            {message}
-          </div>
-        ),
-      );
+      const errorMessages = errors.map(({ message, nodeId }) => (
+        <div key={nodeId ?? message}>
+          {nodeId ? `节点 ${nodeId}：` : ""}
+          {message}
+        </div>
+      ));
       setToast({
         open: true,
         severity: "error",

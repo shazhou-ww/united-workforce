@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
-import { useParams, useNavigate, useLocation } from "react-router";
-import FlowEditor, { FlowModel, type WorkFlowSteps } from "../editor/flow.tsx";
+import { ArrowLeft, Eye, Pencil } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pencil, Eye } from "lucide-react";
+import FlowEditor, { FlowModel, type WorkFlowSteps } from "../editor/flow.tsx";
 
 export function DetailPage(): ReactNode {
   const { name } = useParams<{ name: string }>();
@@ -44,18 +44,18 @@ export function DetailPage(): ReactNode {
         if (!cancelled) navigate("/");
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [name, navigate]);
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        加载中...
-      </div>
+      <div className="flex h-full items-center justify-center text-muted-foreground">加载中...</div>
     );
   }
 
-  const basePath = `/workflow/${encodeURIComponent(name!)}`;
+  const basePath = `/workflow/${encodeURIComponent(name ?? "")}`;
 
   return (
     <div className="flex h-full flex-col">
@@ -66,29 +66,19 @@ export function DetailPage(): ReactNode {
         <h1 className="text-base font-medium">{name}</h1>
         <div className="flex-1" />
         {editing ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(basePath)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(basePath)}>
             <Eye className="size-3.5" data-icon="inline-start" />
             预览
           </Button>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`${basePath}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`${basePath}/edit`)}>
             <Pencil className="size-3.5" data-icon="inline-start" />
             编辑
           </Button>
         )}
         {saving && <span className="text-xs text-muted-foreground">保存中...</span>}
       </div>
-      <div className="flex-1">
-        {model && <FlowEditor model={model} readonly={!editing} />}
-      </div>
+      <div className="flex-1">{model && <FlowEditor model={model} readonly={!editing} />}</div>
     </div>
   );
 }

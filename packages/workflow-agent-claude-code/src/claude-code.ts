@@ -1,8 +1,5 @@
 import { spawn } from "node:child_process";
 import type { Store } from "@uncaged/json-cas";
-
-import { createLogger } from "@uncaged/workflow-util";
-
 import {
   type AgentContext,
   type AgentRunResult,
@@ -11,6 +8,7 @@ import {
   getCachedSessionId,
   setCachedSessionId,
 } from "@uncaged/workflow-agent-kit";
+import { createLogger } from "@uncaged/workflow-util";
 
 import { parseClaudeCodeStreamOutput, storeClaudeCodeDetail } from "./session-detail.js";
 
@@ -149,7 +147,12 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
         }
         return result;
       } catch (err) {
-        log("5VKR8N3Q", "resume failed for session %s, falling back to fresh run: %s", cachedSessionId, err);
+        log(
+          "5VKR8N3Q",
+          "resume failed for session %s, falling back to fresh run: %s",
+          cachedSessionId,
+          err,
+        );
       }
     }
   }

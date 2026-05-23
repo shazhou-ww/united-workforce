@@ -1,5 +1,5 @@
-import type { AnyWorkNode, AnyWorkEdge, WorkNode, ConditionalEdge } from '../type';
-import type { WorkFlowStep, WorkFlowTransition } from './type';
+import type { AnyWorkEdge, AnyWorkNode, ConditionalEdge, WorkNode } from "../type";
+import type { WorkFlowStep, WorkFlowTransition } from "./type";
 
 export function transOut(nodes: AnyWorkNode[], edges: AnyWorkEdge[]): WorkFlowStep[] {
   const nodeMap = new Map<string, AnyWorkNode>();
@@ -12,10 +12,10 @@ export function transOut(nodes: AnyWorkNode[], edges: AnyWorkEdge[]): WorkFlowSt
     if (!outgoingEdges.has(edge.source)) {
       outgoingEdges.set(edge.source, []);
     }
-    outgoingEdges.get(edge.source)!.push(edge);
+    outgoingEdges.get(edge.source)?.push(edge);
   }
 
-  const startOutEdges = outgoingEdges.get('start') ?? [];
+  const startOutEdges = outgoingEdges.get("start") ?? [];
   if (startOutEdges.length === 0) return [];
 
   const firstNodeId = startOutEdges[0].target;
@@ -34,23 +34,26 @@ function traverse(
   visited: Set<string>,
   steps: WorkFlowStep[],
 ): void {
-  if (visited.has(nodeId) || nodeId === 'start' || nodeId === 'end') return;
+  if (visited.has(nodeId) || nodeId === "start" || nodeId === "end") return;
   visited.add(nodeId);
 
   const node = nodeMap.get(nodeId);
-  if (!node || node.type !== 'role') return;
+  if (!node || node.type !== "role") return;
 
-  const roleNode = node as WorkNode<'role'>;
+  const roleNode = node as WorkNode<"role">;
   const outEdges = outgoingEdges.get(nodeId) ?? [];
 
   const transitions: WorkFlowTransition[] = outEdges.map((edge, index) => {
     const targetNode = nodeMap.get(edge.target);
-    const target = edge.target === 'end'
-      ? 'END'
-      : (targetNode?.type === 'role' ? (targetNode as WorkNode<'role'>).data.name : edge.target);
+    const target =
+      edge.target === "end"
+        ? "END"
+        : targetNode?.type === "role"
+          ? (targetNode as WorkNode<"role">).data.name
+          : edge.target;
 
     let condition: string | null = null;
-    if (edge.type === 'conditional') {
+    if (edge.type === "conditional") {
       const isElse = outEdges.length >= 2 && index === 0;
       condition = isElse ? null : ((edge as ConditionalEdge).data?.condition ?? null);
     }

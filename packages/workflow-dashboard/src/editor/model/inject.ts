@@ -3,8 +3,7 @@
  */
 
 import { define } from "../context.tsx";
-import { Injection } from '../injection.ts';
-
+import { Injection } from "../injection.ts";
 
 const NOOP = () => {};
 const placeholder = new Injection(NOOP);
@@ -13,7 +12,7 @@ function make(): Injection {
   return placeholder;
 }
 
-export const injection = define.view('injection', make, (set) => {
+export const injection = define.view("injection", make, (set) => {
   function reset() {
     set(make());
   }

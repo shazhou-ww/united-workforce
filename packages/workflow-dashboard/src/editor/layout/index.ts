@@ -1,4 +1,4 @@
-import { Node, Edge } from '@xyflow/react';
+import type { Edge, Node } from "@xyflow/react";
 
 const DEFAULT_NODE_WIDTH = 120;
 const DEFAULT_NODE_HEIGHT = 50;
@@ -34,8 +34,8 @@ function buildGraph(nodes: Node[], edges: Edge[]) {
   // 构建图
   for (const edge of edges) {
     if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
-      outgoing.get(edge.source)!.push(edge.target);
-      incoming.get(edge.target)!.push(edge.source);
+      outgoing.get(edge.source)?.push(edge.target);
+      incoming.get(edge.target)?.push(edge.source);
       inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
     }
   }
@@ -55,17 +55,17 @@ function assignLayers(nodes: Node[], edges: Edge[]): Map<string, number> {
   const queue: string[] = [];
 
   // 1. start 节点固定在第 0 层
-  layers.set('start', 0);
-  queue.push('start');
+  layers.set("start", 0);
+  queue.push("start");
 
   // 2. BFS 分层（排除 end 节点，稍后单独处理）
   while (queue.length > 0) {
-    const current = queue.shift()!;
-    const currentLayer = layers.get(current)!;
+    const current = queue.shift() ?? "";
+    const currentLayer = layers.get(current) ?? 0;
 
     for (const target of outgoing.get(current) ?? []) {
       // 跳过 end 节点，稍后处理
-      if (target === 'end') continue;
+      if (target === "end") continue;
 
       const newLayer = currentLayer + 1;
       const existingLayer = layers.get(target);
@@ -93,7 +93,7 @@ function assignLayers(nodes: Node[], edges: Edge[]): Map<string, number> {
   // 把它们放在中间层
   const middleLayer = Math.max(1, Math.floor((maxLayer + 1) / 2));
   for (const node of nodes) {
-    if (node.id !== 'start' && node.id !== 'end' && !layers.has(node.id)) {
+    if (node.id !== "start" && node.id !== "end" && !layers.has(node.id)) {
       layers.set(node.id, middleLayer);
     }
   }
@@ -101,13 +101,13 @@ function assignLayers(nodes: Node[], edges: Edge[]): Map<string, number> {
   // 5. 重新计算最大层级（可能因为孤立节点而变化）
   maxLayer = 0;
   for (const [id, layer] of layers) {
-    if (id !== 'end') {
+    if (id !== "end") {
       maxLayer = Math.max(maxLayer, layer);
     }
   }
 
   // 6. end 节点固定在最后一层
-  layers.set('end', maxLayer + 1);
+  layers.set("end", maxLayer + 1);
 
   return layers;
 }
@@ -123,7 +123,7 @@ function groupByLayer<N extends Node>(nodes: N[], layers: Map<string, number>): 
     if (!groups.has(layer)) {
       groups.set(layer, []);
     }
-    groups.get(layer)!.push(node);
+    groups.get(layer)?.push(node);
   }
 
   return groups;
@@ -152,7 +152,7 @@ function calculateLayerWidths(layerGroups: Map<number, Node[]>): Map<number, num
  */
 function calculateLayerXPositions(
   layerWidths: Map<number, number>,
-  maxLayer: number
+  maxLayer: number,
 ): Map<number, number> {
   const xPositions = new Map<number, number>();
   let currentX = 0;

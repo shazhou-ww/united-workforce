@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-
+import { useEffect, useRef } from "react";
 
 function judge(container: HTMLElement, target: HTMLElement): boolean {
   if (container === target) {
@@ -8,14 +7,11 @@ function judge(container: HTMLElement, target: HTMLElement): boolean {
   if (target === document.body) {
     return false;
   }
-  let parent = target.parentElement;
+  const parent = target.parentElement;
   return parent ? judge(container, parent) : false;
 }
 
-export function useClickOutRef<T extends HTMLElement>(
-  callback: () => void,
-  delay = 0,
-) {
+export function useClickOutRef<T extends HTMLElement>(callback: () => void, delay = 0) {
   const ref = useRef<T>(null);
   const flag = useRef<boolean>(delay === 0);
 
@@ -37,8 +33,8 @@ export function useClickOutRef<T extends HTMLElement>(
         callback();
       }
     }
-    document.addEventListener('click', handle);
-    return () => document.removeEventListener('click', handle);
+    document.addEventListener("click", handle);
+    return () => document.removeEventListener("click", handle);
   }, [callback]);
 
   return ref;

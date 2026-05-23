@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test } from "bun:test";
 
 import { createProcessLogger } from "../src/process-logger/index.js";
 

@@ -45,12 +45,7 @@ export function NodeContent({ children }: { children: ReactNode }): ReactNode {
 
 export function NodeIcon({ className, children }: Props): ReactNode {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
-        className,
-      )}
-    >
+    <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", className)}>
       {children}
     </div>
   );
@@ -62,23 +57,14 @@ export function NodeBody({ children }: { children: ReactNode }): ReactNode {
 
 export function NodeKindLabel({ className, children }: Props): ReactNode {
   return (
-    <div
-      className={cn(
-        "text-[10px] font-semibold uppercase tracking-wide mb-1",
-        className,
-      )}
-    >
+    <div className={cn("text-[10px] font-semibold uppercase tracking-wide mb-1", className)}>
       {children}
     </div>
   );
 }
 
 export function NodeHint({ children }: { children: ReactNode }): ReactNode {
-  return (
-    <div className="text-[13px] text-gray-800 leading-snug break-words">
-      {children}
-    </div>
-  );
+  return <div className="text-[13px] text-gray-800 leading-snug break-words">{children}</div>;
 }
 
 export function NodeSubHint({ children }: { children: ReactNode }): ReactNode {
@@ -93,8 +79,6 @@ export function RoleIcon({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
-export function RoleKindLabel({
-  children,
-}: { children: ReactNode }): ReactNode {
+export function RoleKindLabel({ children }: { children: ReactNode }): ReactNode {
   return <NodeKindLabel className="text-teal-700">{children}</NodeKindLabel>;
 }

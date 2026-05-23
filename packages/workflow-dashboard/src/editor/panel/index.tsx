@@ -1,8 +1,7 @@
-import { Panel } from '@xyflow/react';
-import { AddNodeDialog } from './add-node';
-import { EditNodeDialog } from './edit-node';
-import { Toolbar } from './toolbar';
-
+import { Panel } from "@xyflow/react";
+import { AddNodeDialog } from "./add-node";
+import { EditNodeDialog } from "./edit-node";
+import { Toolbar } from "./toolbar";
 
 export function Dialogs() {
   return (
@@ -12,7 +11,6 @@ export function Dialogs() {
     </>
   );
 }
-
 
 export function TopCenterPanel() {
   return (

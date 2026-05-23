@@ -1,14 +1,14 @@
-import type { OnNodeDrag, OnConnectEnd, OnBeforeDelete, OnDelete } from '@xyflow/react';
-import { define } from '../context';
-import { addNodeViewModel } from './add-node-view';
-import type { AnyWorkNode } from '../type';
-import { LayoutLR } from '../layout';
-import { nodesModel } from './nodes';
-import { edgesModel } from './edges';
-import { injection } from './inject';
-import { transIn, transOut, validate } from '../trans';
-import type { WorkFlowSteps } from '../trans';
-import { editNodeViewModel } from './edit-node-view';
+import type { OnBeforeDelete, OnConnectEnd, OnDelete, OnNodeDrag } from "@xyflow/react";
+import { define } from "../context";
+import { LayoutLR } from "../layout";
+import type { WorkFlowSteps } from "../trans";
+import { transIn, transOut, validate } from "../trans";
+import type { AnyWorkNode } from "../type";
+import { addNodeViewModel } from "./add-node-view";
+import { edgesModel } from "./edges";
+import { editNodeViewModel } from "./edit-node-view";
+import { injection } from "./inject";
+import { nodesModel } from "./nodes";
 
 export const handlers = define.memoize((use, model) => {
   const onNodeDragStart: OnNodeDrag<AnyWorkNode> = () => {
@@ -23,6 +23,7 @@ export const handlers = define.memoize((use, model) => {
     if (!to || !fromHandle || !fromNode) return;
     const { clientX, clientY } = event as MouseEvent;
     use(addNodeViewModel)[1].start({
+      // biome-ignore lint/suspicious/noExplicitAny: ReactFlow node type mismatch
       fromNode: fromNode as any as AnyWorkNode,
       fromHandle: fromHandle,
       position: model.flow.screenToFlowPosition({ x: clientX, y: clientY }),
@@ -31,15 +32,17 @@ export const handlers = define.memoize((use, model) => {
 
   const onBeforeDelete: OnBeforeDelete<AnyWorkNode> = async ({ nodes, edges }) => {
     for (const node of nodes) {
-      if (node.type === 'start' || node.type === 'end') {
+      if (node.type === "start" || node.type === "end") {
         return false;
       }
     }
     if (edges.length > 0) {
       const allEdges = use(edgesModel)[0];
       for (const edge of edges) {
-        if (edge.type !== 'conditional') continue;
-        const siblings = allEdges.filter(e => e.source === edge.source && e.type === 'conditional');
+        if (edge.type !== "conditional") continue;
+        const siblings = allEdges.filter(
+          (e) => e.source === edge.source && e.type === "conditional",
+        );
         if (siblings.length >= 2 && siblings[0].id === edge.id) {
           return false;
         }
@@ -52,20 +55,20 @@ export const handlers = define.memoize((use, model) => {
     if (deletedEdges.length > 0) {
       const currentEdges = use(edgesModel)[0];
       const sourcesToCheck = new Set(
-        deletedEdges
-          .filter(e => e.type === 'conditional')
-          .map(e => e.source),
+        deletedEdges.filter((e) => e.type === "conditional").map((e) => e.source),
       );
 
       if (sourcesToCheck.size > 0) {
         let needsDowngrade = false;
-        const updatedEdges = currentEdges.map(e => {
-          if (!sourcesToCheck.has(e.source) || e.type !== 'conditional') return e;
-          const siblings = currentEdges.filter(s => s.source === e.source && s.type === 'conditional');
+        const updatedEdges = currentEdges.map((e) => {
+          if (!sourcesToCheck.has(e.source) || e.type !== "conditional") return e;
+          const siblings = currentEdges.filter(
+            (s) => s.source === e.source && s.type === "conditional",
+          );
           if (siblings.length === 1) {
             needsDowngrade = true;
             const { data: _, ...rest } = e;
-            return { ...rest, type: 'default' as const };
+            return { ...rest, type: "default" as const };
           }
           return e;
         });
@@ -94,7 +97,7 @@ export const handlers = define.memoize((use, model) => {
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.code === 'Escape') {
+    if (event.code === "Escape") {
       const [addView, addViewActions] = use(addNodeViewModel);
       const [editView, editViewActions] = use(editNodeViewModel);
       if (addView) addViewActions.cancel();
@@ -102,12 +105,12 @@ export const handlers = define.memoize((use, model) => {
       return;
     }
 
-    if (event.code === 'KeyZ') {
+    if (event.code === "KeyZ") {
       if (event.ctrlKey || event.metaKey) {
         if (event.shiftKey) model.redo();
         else model.undo();
       }
-    } else if (event.code === 'KeyY') {
+    } else if (event.code === "KeyY") {
       if (event.ctrlKey || event.metaKey) {
         model.redo();
       }
@@ -130,7 +133,7 @@ export const handlers = define.memoize((use, model) => {
     if (result.valid) {
       const steps = transOut(nodes, edges);
       const instance = use(injection)[0];
-      instance.emitPublic('save', steps);
+      instance.emitPublic("save", steps);
     }
     return result;
   }

@@ -1,20 +1,20 @@
-import type { AnyWorkNode, AnyWorkEdge, ConditionalEdge } from '../type';
-import type { WorkFlowStep } from './type';
-import { uuid } from '../utils';
+import type { AnyWorkEdge, AnyWorkNode, ConditionalEdge } from "../type";
+import { uuid } from "../utils";
+import type { WorkFlowStep } from "./type";
 
 type Result = {
   nodes: AnyWorkNode[];
   edges: AnyWorkEdge[];
 };
 
-const OUT_HANDLES = ['output-top', 'output', 'output-bottom'] as const;
-const IN_HANDLES = ['input-top', 'input', 'input-bottom'] as const;
+const _OUT_HANDLES = ["output-top", "output", "output-bottom"] as const;
+const IN_HANDLES = ["input-top", "input", "input-bottom"] as const;
 
 function assignHandles(
   indices: number[],
   edges: AnyWorkEdge[],
   handles: readonly string[],
-  key: 'sourceHandle' | 'targetHandle',
+  key: "sourceHandle" | "targetHandle",
 ): void {
   if (indices.length === 1) {
     edges[indices[0]] = { ...edges[indices[0]], [key]: handles[1] };
@@ -29,8 +29,18 @@ function assignHandles(
 }
 
 export function transIn(steps: WorkFlowStep[]): Result {
-  const startNode: AnyWorkNode = { id: 'start', type: 'start', data: { label: 'Start' }, position: { x: 0, y: 0 } };
-  const endNode: AnyWorkNode = { id: 'end', type: 'end', data: { label: 'End' }, position: { x: 250, y: 0 } };
+  const startNode: AnyWorkNode = {
+    id: "start",
+    type: "start",
+    data: { label: "Start" },
+    position: { x: 0, y: 0 },
+  };
+  const endNode: AnyWorkNode = {
+    id: "end",
+    type: "end",
+    data: { label: "End" },
+    position: { x: 250, y: 0 },
+  };
 
   if (steps.length === 0) {
     return { nodes: [startNode, endNode], edges: [] };
@@ -40,9 +50,9 @@ export function transIn(steps: WorkFlowStep[]): Result {
   const edges: AnyWorkEdge[] = [];
   const nameToId = new Map<string, string>();
   const idToOrder = new Map<string, number>();
-  nameToId.set('END', 'end');
-  idToOrder.set('start', -1);
-  idToOrder.set('end', steps.length);
+  nameToId.set("END", "end");
+  idToOrder.set("start", -1);
+  idToOrder.set("end", steps.length);
 
   for (let si = 0; si < steps.length; si++) {
     const step = steps[si];
@@ -51,25 +61,25 @@ export function transIn(steps: WorkFlowStep[]): Result {
     idToOrder.set(nodeId, si);
     nodes.push({
       id: nodeId,
-      type: 'role',
+      type: "role",
       data: { ...step.role },
       position: { x: 0, y: 0 },
     });
   }
 
-  const firstStepId = nameToId.get(steps[0].role.name)!;
+  const firstStepId = nameToId.get(steps[0].role.name) ?? "";
   edges.push({
     id: `e-start-${firstStepId}`,
-    source: 'start',
-    sourceHandle: 'output',
+    source: "start",
+    sourceHandle: "output",
     target: firstStepId,
-    targetHandle: 'input',
+    targetHandle: "input",
     animated: true,
   });
 
   for (const step of steps) {
-    const sourceId = nameToId.get(step.role.name)!;
-    const sourceOrder = idToOrder.get(sourceId)!;
+    const sourceId = nameToId.get(step.role.name) ?? "";
+    const _sourceOrder = idToOrder.get(sourceId) ?? 0;
     const hasMultipleTransitions = step.transitions.length > 1;
 
     const sorted = hasMultipleTransitions
@@ -95,10 +105,10 @@ export function transIn(steps: WorkFlowStep[]): Result {
           id: edgeId,
           source: sourceId,
           target: targetId,
-          sourceHandle: 'output',
-          targetHandle: 'input',
-          type: 'conditional',
-          data: { condition: t.condition ?? '' },
+          sourceHandle: "output",
+          targetHandle: "input",
+          type: "conditional",
+          data: { condition: t.condition ?? "" },
           animated: true,
         };
         if (hasMultipleTransitions && i === 0) {
@@ -111,8 +121,8 @@ export function transIn(steps: WorkFlowStep[]): Result {
           id: edgeId,
           source: sourceId,
           target: targetId,
-          sourceHandle: 'output',
-          targetHandle: 'input',
+          sourceHandle: "output",
+          targetHandle: "input",
           animated: true,
         });
       }
@@ -120,7 +130,7 @@ export function transIn(steps: WorkFlowStep[]): Result {
 
     // out: else → output (right); if → sort by target order desc (rightmost first), then top/bottom
     for (const e of elseEdges) {
-      edges.push({ ...e, sourceHandle: 'output' });
+      edges.push({ ...e, sourceHandle: "output" });
     }
     if (ifEdges.length > 0) {
       const sortedIf = [...ifEdges].sort((a, b) => {
@@ -128,7 +138,7 @@ export function transIn(steps: WorkFlowStep[]): Result {
         const ob = idToOrder.get(b.target) ?? 0;
         return ob - oa;
       });
-      const ifHandles = ['output-top', 'output-bottom'] as const;
+      const ifHandles = ["output-top", "output-bottom"] as const;
       for (let i = 0; i < sortedIf.length; i++) {
         edges.push({ ...sortedIf[i], sourceHandle: ifHandles[i % ifHandles.length] });
       }
@@ -140,7 +150,7 @@ export function transIn(steps: WorkFlowStep[]): Result {
   for (let i = 0; i < edges.length; i++) {
     const target = edges[i].target;
     if (!incomingByTarget.has(target)) incomingByTarget.set(target, []);
-    incomingByTarget.get(target)!.push(i);
+    incomingByTarget.get(target)?.push(i);
   }
 
   for (const indices of incomingByTarget.values()) {
@@ -149,7 +159,7 @@ export function transIn(steps: WorkFlowStep[]): Result {
       const ob = idToOrder.get(edges[b].source) ?? 0;
       return oa - ob;
     });
-    assignHandles(indices, edges, IN_HANDLES, 'targetHandle');
+    assignHandles(indices, edges, IN_HANDLES, "targetHandle");
   }
 
   return { nodes, edges };

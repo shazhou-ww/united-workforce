@@ -1,21 +1,16 @@
-import {
-  applyEdgeChanges,
-  type Edge,
-  type EdgeChange,
-  type Connection,
-} from '@xyflow/react';
-import { define } from '../context';
+import { applyEdgeChanges, type Connection, type Edge, type EdgeChange } from "@xyflow/react";
+import { define } from "../context";
 
 function makeEdges(): Edge[] {
   return [];
 }
 
 function isInputHandle(handle: string | null | undefined): boolean {
-  return handle === 'input' || handle === 'input-top' || handle === 'input-bottom';
+  return handle === "input" || handle === "input-top" || handle === "input-bottom";
 }
 
 function isOutputHandle(handle: string | null | undefined): boolean {
-  return handle === 'output' || handle === 'output-top' || handle === 'output-bottom';
+  return handle === "output" || handle === "output-top" || handle === "output-bottom";
 }
 
 function normalizeConnection(params: Edge | Connection): Edge | Connection {
@@ -33,10 +28,10 @@ function normalizeConnection(params: Edge | Connection): Edge | Connection {
 
 let edgeCounter = 0;
 
-export const edgesModel = define.model('edges', makeEdges, (set, get, model) => {
+export const edgesModel = define.model("edges", makeEdges, (set, get, model) => {
   function onEdgesChange(changes: EdgeChange[]) {
-    const whites = new Set(['add', 'replace']);
-    if (changes.some(c => whites.has(c.type))) {
+    const whites = new Set(["add", "replace"]);
+    if (changes.some((c) => whites.has(c.type))) {
       model.startTransaction();
       set((eds) => applyEdgeChanges(changes, eds));
       requestAnimationFrame(model.endTransaction);
@@ -54,7 +49,7 @@ export const edgesModel = define.model('edges', makeEdges, (set, get, model) => 
 
     const currentEdges = get();
     const duplicate = currentEdges.some(
-      e => e.source === normalized.source && e.target === normalized.target,
+      (e) => e.source === normalized.source && e.target === normalized.target,
     );
     if (duplicate) return;
 
@@ -67,15 +62,15 @@ export const edgesModel = define.model('edges', makeEdges, (set, get, model) => 
       animated: true,
     } as Edge;
 
-    const existingFromSource = currentEdges.filter(e => e.source === normalized.source);
+    const existingFromSource = currentEdges.filter((e) => e.source === normalized.source);
 
     if (existingFromSource.length > 0) {
-      edge.type = 'conditional';
-      edge.data = { condition: '' };
+      edge.type = "conditional";
+      edge.data = { condition: "" };
 
-      const promoted = currentEdges.map(e => {
-        if (e.source === normalized.source && e.type !== 'conditional') {
-          return { ...e, type: 'conditional' as const, data: { condition: '' } };
+      const promoted = currentEdges.map((e) => {
+        if (e.source === normalized.source && e.type !== "conditional") {
+          return { ...e, type: "conditional" as const, data: { condition: "" } };
         }
         return e;
       });

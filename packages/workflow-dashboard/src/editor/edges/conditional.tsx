@@ -1,15 +1,15 @@
 import {
-  getSmoothStepPath,
-  EdgeLabelRenderer,
-  useReactFlow,
-  type EdgeProps,
   type Edge,
+  EdgeLabelRenderer,
+  type EdgeProps,
+  getSmoothStepPath,
+  useReactFlow,
 } from "@xyflow/react";
-import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { Check } from "lucide-react";
-import type { ConditionalEdge as ConditionalEdgeType } from "../type.ts";
-import { useModel } from "../context.tsx";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/utils.ts";
+import { useModel } from "../context.tsx";
+import type { ConditionalEdge as ConditionalEdgeType } from "../type.ts";
 
 const SOURCE_COLOR = "#10b981";
 const TARGET_COLOR = "#3b82f6";
@@ -38,7 +38,7 @@ function GradientPath({
   const gradientId = `gradient-${id}`;
   const showLack = hasCondition === false;
   const strokeStyle = selected
-    ? { stroke: '#f59e0b', strokeWidth: 2 }
+    ? { stroke: "#f59e0b", strokeWidth: 2 }
     : { stroke: `url(#${gradientId})`, strokeWidth: 1.5 };
 
   return (
@@ -63,13 +63,7 @@ function GradientPath({
         strokeWidth={20}
         className="react-flow__edge-interaction"
       />
-      <path
-        id={id}
-        d={path}
-        fill="none"
-        className="react-flow__edge-path"
-        style={strokeStyle}
-      />
+      <path id={id} d={path} fill="none" className="react-flow__edge-path" style={strokeStyle} />
     </>
   );
 }
@@ -143,13 +137,12 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: click handler on badge label */}
       <div onClick={handleBadgeClick} onKeyDown={undefined} className="cursor-pointer">
         <span
           className={cn(
             "inline-block px-1 bg-white rounded text-[10px]",
-            condition
-              ? "border border-gray-300 text-black"
-              : "border border-dashed text-red-500",
+            condition ? "border border-gray-300 text-black" : "border border-dashed text-red-500",
           )}
           style={condition ? undefined : { borderColor: LACK_COLOR }}
         >
@@ -166,7 +159,6 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              autoFocus
             />
             <button
               type="button"
@@ -183,7 +175,7 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
 }
 
 export function isElseEdge(edgeId: string, source: string, allEdges: Edge[]): boolean {
-  const siblings = allEdges.filter(e => e.source === source && e.type === 'conditional');
+  const siblings = allEdges.filter((e) => e.source === source && e.type === "conditional");
   return siblings.length >= 2 && siblings[0].id === edgeId;
 }
 
@@ -200,7 +192,13 @@ export function ConditionalEdge({
   data,
 }: EdgeProps<ConditionalEdgeType>): ReactNode {
   const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: RADIUS,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    borderRadius: RADIUS,
   });
   const flow = useReactFlow();
   const model = useModel();
@@ -224,14 +222,20 @@ export function ConditionalEdge({
         sourceY={sourceY}
         targetX={targetX}
         targetY={targetY}
-        hasCondition={isElse ? null : (condition ? true : false)}
+        hasCondition={isElse ? null : !!condition}
         selected={!!selected}
       />
       <EdgeLabelRenderer>
-        {isElse
-          ? <ElseBadge labelX={labelX} labelY={labelY} />
-          : <ConditionLabel condition={condition} labelX={labelX} labelY={labelY} onSave={handleSave} />
-        }
+        {isElse ? (
+          <ElseBadge labelX={labelX} labelY={labelY} />
+        ) : (
+          <ConditionLabel
+            condition={condition}
+            labelX={labelX}
+            labelY={labelY}
+            onSave={handleSave}
+          />
+        )}
       </EdgeLabelRenderer>
     </>
   );
@@ -248,7 +252,13 @@ export function GradientEdge({
   selected,
 }: EdgeProps<Edge>): ReactNode {
   const [edgePath] = getSmoothStepPath({
-    sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: RADIUS,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    borderRadius: RADIUS,
   });
 
   return (

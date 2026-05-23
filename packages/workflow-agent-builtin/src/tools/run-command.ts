@@ -56,8 +56,7 @@ function runShell(
 
 export const runCommandTool: BuiltinTool = {
   name: "run_command",
-  description:
-    "Run a shell command. Output is truncated to 32KB.",
+  description: "Run a shell command. Output is truncated to 32KB.",
   parameters: {
     type: "object",
     required: ["command"],
