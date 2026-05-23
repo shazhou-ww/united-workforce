@@ -23,6 +23,7 @@
     { "path": "packages/workflow-moderator" },
     { "path": "packages/workflow-agent-kit" },
     { "path": "packages/workflow-agent-hermes" },
+    { "path": "packages/workflow-agent-builtin" },
     { "path": "packages/cli-workflow" }
   ]
 }

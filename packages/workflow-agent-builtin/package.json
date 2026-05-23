@@ -1,0 +1,34 @@
+{
+  "name": "@uncaged/workflow-agent-builtin",
+  "version": "0.5.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf-builtin": "./src/cli.ts"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@uncaged/json-cas": "^0.4.0",
+    "@uncaged/workflow-agent-kit": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

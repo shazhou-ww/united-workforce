@@ -21,6 +21,7 @@ const publishOrder = [
   "workflow-moderator",
   "workflow-agent-kit",
   "workflow-agent-hermes",
+  "workflow-agent-builtin",
   "cli-workflow",
 ];
 
