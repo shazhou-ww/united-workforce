@@ -31,11 +31,7 @@ roles:
           type: string
         plan:
           type: string
-        steps:
-          type: array
-          items:
-            type: string
-      required: [repoPath, plan, steps]
+      required: [repoPath, plan]
   developer:
     description: "Implements code changes"
     goal: "You are a developer agent. You implement code changes according to plans."
