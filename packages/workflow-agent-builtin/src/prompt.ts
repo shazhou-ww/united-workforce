@@ -63,6 +63,8 @@ export function buildBuiltinMessages(ctx: AgentContext): ChatMessage[] {
     "",
     "## Workflow",
     "",
+    `Your working directory is: ${process.cwd()}`,
+    "",
     "You have tools available (read_file, write_file, run_command). " +
       "Use them to complete your task — read files, run commands, make changes as needed. " +
       "When you are done, output your final response with the YAML frontmatter block as specified above. " +
