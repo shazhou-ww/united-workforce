@@ -1,6 +1,6 @@
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "../commands/log.js";
 
@@ -95,21 +95,33 @@ describe("cmdLogList", () => {
 describe("cmdLogShow", () => {
   test("filters by thread ID", async () => {
     await writeLogFiles();
-    const result = await cmdLogShow(storageRoot, { thread: "01J1234ABCDEF", process: null, date: null });
+    const result = await cmdLogShow(storageRoot, {
+      thread: "01J1234ABCDEF",
+      process: null,
+      date: null,
+    });
     expect(result).toHaveLength(2);
     expect(result.every((e) => e.thread === "01J1234ABCDEF")).toBe(true);
   });
 
   test("filters by process ID", async () => {
     await writeLogFiles();
-    const result = await cmdLogShow(storageRoot, { thread: null, process: "1716200000000-1234", date: null });
+    const result = await cmdLogShow(storageRoot, {
+      thread: null,
+      process: "1716200000000-1234",
+      date: null,
+    });
     expect(result).toHaveLength(2);
     expect(result.every((e) => e.pid === "1716200000000-1234")).toBe(true);
   });
 
   test("filters by date", async () => {
     await writeLogFiles();
-    const result = await cmdLogShow(storageRoot, { thread: null, process: null, date: "2026-05-19" });
+    const result = await cmdLogShow(storageRoot, {
+      thread: null,
+      process: null,
+      date: "2026-05-19",
+    });
     expect(result).toHaveLength(1);
     expect(result[0].msg).toBe("old entry");
   });
@@ -125,13 +137,21 @@ describe("cmdLogShow", () => {
 
   test("returns empty when no matches", async () => {
     await writeLogFiles();
-    const result = await cmdLogShow(storageRoot, { thread: "NONEXISTENT", process: null, date: null });
+    const result = await cmdLogShow(storageRoot, {
+      thread: "NONEXISTENT",
+      process: null,
+      date: null,
+    });
     expect(result).toEqual([]);
   });
 
   test("combined thread + date filter", async () => {
     await writeLogFiles();
-    const result = await cmdLogShow(storageRoot, { thread: "01J1234ABCDEF", process: null, date: "2026-05-20" });
+    const result = await cmdLogShow(storageRoot, {
+      thread: "01J1234ABCDEF",
+      process: null,
+      date: "2026-05-20",
+    });
     expect(result).toHaveLength(2);
     expect(result.every((e) => e.thread === "01J1234ABCDEF")).toBe(true);
   });

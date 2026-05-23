@@ -1,4 +1,4 @@
-import { readFile, readdir, stat, unlink } from "node:fs/promises";
+import { readdir, readFile, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 type LogListItem = {
@@ -45,7 +45,10 @@ function dateFromFilename(name: string): string {
 
 async function parseJsonlFile(path: string): Promise<Array<LogEntry>> {
   const content = await readFile(path, "utf-8");
-  const lines = content.trim().split("\n").filter((l) => l.length > 0);
+  const lines = content
+    .trim()
+    .split("\n")
+    .filter((l) => l.length > 0);
   return lines.map((line) => JSON.parse(line) as LogEntry);
 }
 
@@ -96,10 +99,7 @@ export async function cmdLogShow(
   return entries;
 }
 
-export async function cmdLogClean(
-  storageRoot: string,
-  before: string,
-): Promise<LogCleanResult> {
+export async function cmdLogClean(storageRoot: string, before: string): Promise<LogCleanResult> {
   const dir = logsDir(storageRoot);
   const files = await listLogFiles(dir);
   let deleted = 0;
