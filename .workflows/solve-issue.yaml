@@ -41,7 +41,8 @@ roles:
       Before starting any work, ensure a clean worktree:
       1. `git checkout main && git pull` to get the latest code
       2. `git checkout -b fix/<issue-number>-<short-description>` to create a fresh branch
-         - If bounced back from reviewer or tester, reuse the existing branch instead
+         - If bounced back from reviewer or tester, reuse the existing branch and rebase onto latest main:
+           `git checkout main && git pull && git checkout <branch> && git rebase main`
 
       Then implement TDD:
       3. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
