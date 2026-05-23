@@ -54,7 +54,8 @@ describe("HermesAcpClient", () => {
     { timeout: 2 * 60 * 1000 },
   );
 
-  it(
+  // TODO(#435): flaky — depends on live LLM; mock or move to integration suite
+  it.skip(
     "prompt() collects structured messages including tool calls",
     async () => {
       await client.connect(process.cwd());

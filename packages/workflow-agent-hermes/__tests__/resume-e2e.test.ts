@@ -21,7 +21,8 @@ describe("HermesAcpClient cross-process resume", () => {
     clients.length = 0;
   });
 
-  it(
+  // TODO(#435): flaky — depends on live LLM; mock or move to integration suite
+  it.skip(
     "resume() after close — second prompt returns non-empty text",
     async () => {
       // --- Client A: first run ---
