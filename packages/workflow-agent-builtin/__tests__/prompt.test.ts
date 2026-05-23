@@ -26,22 +26,30 @@ function minimalContext(overrides: Partial<AgentContext> = {}): AgentContext {
     start: { workflow: "wf-hash", prompt: "Fix the bug" },
     steps: [],
     outputFormatInstruction: "---\nstatus: done\n---",
+    edgePrompt: "Implement the fix described in the plan.",
+    isFirstVisit: true,
     ...overrides,
   };
 }
 
 describe("buildBuiltinPrompt", () => {
-  test("includes output format, task, and role goal", () => {
-    const prompt = buildBuiltinPrompt(minimalContext());
-    expect(prompt).toContain("status: done");
-    expect(prompt).toContain("## Goal");
-    expect(prompt).toContain("Ship the fix");
-    expect(prompt).toContain("## Task");
-    expect(prompt).toContain("Fix the bug");
+  test("system includes output format and role goal", () => {
+    const { system } = buildBuiltinPrompt(minimalContext());
+    expect(system).toContain("status: done");
+    expect(system).toContain("## Goal");
+    expect(system).toContain("Ship the fix");
   });
 
-  test("includes history when steps exist", () => {
-    const prompt = buildBuiltinPrompt(
+  test("user includes task and edge prompt", () => {
+    const { user } = buildBuiltinPrompt(minimalContext());
+    expect(user).toContain("## Task");
+    expect(user).toContain("Fix the bug");
+    expect(user).toContain("## Current Step Instruction");
+    expect(user).toContain("Implement the fix");
+  });
+
+  test("user includes history when steps exist", () => {
+    const { user } = buildBuiltinPrompt(
       minimalContext({
         steps: [
           {
@@ -53,7 +61,7 @@ describe("buildBuiltinPrompt", () => {
         ],
       }),
     );
-    expect(prompt).toContain("## Previous Steps");
-    expect(prompt).toContain("planner");
+    expect(user).toContain("## Previous Steps");
+    expect(user).toContain("planner");
   });
 });
