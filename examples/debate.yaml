@@ -56,9 +56,6 @@ conditions:
   forConceded:
     description: "The for side conceded"
     expression: "$last('for').conceded = true"
-  moreRounds:
-    description: "Fewer than 3 rounds completed per side"
-    expression: "$count(steps[role = 'against']) < 3"
 graph:
   $START:
     - role: "against"
@@ -76,8 +73,5 @@ graph:
       condition: "forConceded"
       prompt: "The for side conceded. Debate over."
     - role: "against"
-      condition: "moreRounds"
-      prompt: "Counter the opposing argument. Address their points directly."
-    - role: "$END"
       condition: null
-      prompt: "Maximum rounds reached. Debate over."
+      prompt: "Counter the opposing argument. Address their points directly."
