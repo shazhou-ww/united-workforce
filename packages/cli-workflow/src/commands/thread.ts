@@ -594,6 +594,7 @@ function buildModeratorContext(uwf: UwfStore, chain: ChainState): ModeratorConte
     output: expandOutput(uwf, step.output),
     detail: step.detail,
     agent: step.agent,
+    edgePrompt: step.edgePrompt ?? "",
   }));
   return { start: chain.start, steps };
 }

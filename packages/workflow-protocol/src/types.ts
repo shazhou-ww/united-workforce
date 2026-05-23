@@ -12,6 +12,8 @@ export type StepRecord = {
   output: CasRef;
   detail: CasRef;
   agent: string;
+  /** Moderator edge prompt that led to this step. Missing in legacy nodes → "". */
+  edgePrompt: string;
 };
 
 // ── 4.2 Workflow 定义 ───────────────────────────────────────────────

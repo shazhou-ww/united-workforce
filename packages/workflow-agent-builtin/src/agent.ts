@@ -12,7 +12,7 @@ import { generateUlid } from "@uncaged/workflow-util";
 import { storeBuiltinDetail } from "./detail.js";
 import type { ChatMessage } from "./llm/index.js";
 import { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
-import { buildBuiltinPrompt } from "./prompt.js";
+import { buildBuiltinMessages } from "./prompt.js";
 import type { BuiltinSessionState } from "./types.js";
 
 const sessions = new Map<string, BuiltinSessionState>();
@@ -69,11 +69,7 @@ async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
   const provider = resolveModel(config, config.defaultModel);
 
   const sessionId = generateUlid(Date.now());
-  const promptParts = buildBuiltinPrompt(ctx);
-  const messages: ChatMessage[] = [
-    { role: "system", content: promptParts.system },
-    { role: "user", content: promptParts.user },
-  ];
+  const messages = buildBuiltinMessages(ctx);
 
   const session: BuiltinSessionState = {
     sessionId,

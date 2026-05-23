@@ -1,31 +1,56 @@
 import { type AgentContext, buildRolePrompt } from "@uncaged/workflow-agent-kit";
 
-function buildHistorySummary(steps: AgentContext["steps"]): string {
-  if (steps.length === 0) {
+import type { ChatMessage } from "./llm/index.js";
+
+type StepContext = AgentContext["steps"][number];
+
+function formatStep(step: StepContext, stepNumber: number): string {
+  return [
+    `### Step ${stepNumber}: ${step.role}`,
+    `Output: ${JSON.stringify(step.output)}`,
+    `Agent: ${step.agent}`,
+  ].join("\n");
+}
+
+function buildStepsSummary(steps: StepContext[], fromIndex: number, toIndex: number): string {
+  if (fromIndex >= toIndex) {
     return "";
   }
 
-  const lines: string[] = ["## Previous Steps"];
-  for (let i = 0; i < steps.length; i++) {
+  const lines: string[] = ["## What Happened Since Your Last Turn"];
+  for (let i = fromIndex; i < toIndex; i++) {
     const step = steps[i];
     if (step === undefined) {
       continue;
     }
     lines.push("");
-    lines.push(`### Step ${i + 1}: ${step.role}`);
-    lines.push(`Output: ${JSON.stringify(step.output)}`);
-    lines.push(`Agent: ${step.agent}`);
+    lines.push(formatStep(step, i + 1));
   }
   return lines.join("\n");
 }
 
-export type BuiltinPromptParts = {
-  system: string;
-  user: string;
-};
+function buildUserTurnContent(edgePrompt: string, summary: string): string {
+  const parts: string[] = [];
+  if (edgePrompt !== "") {
+    parts.push(edgePrompt);
+  }
+  if (summary !== "") {
+    if (parts.length > 0) {
+      parts.push("");
+    }
+    parts.push(summary);
+  }
+  return parts.join("\n");
+}
 
-/** Assemble system prompt (role + format) and user prompt (task + edge + history). */
-export function buildBuiltinPrompt(ctx: AgentContext): BuiltinPromptParts {
+/**
+ * Reconstruct multi-turn chat messages from thread history for cache-friendly session resume.
+ *
+ * - system: role prompt + output format (stable prefix)
+ * - For each prior visit of this role: user (edgePrompt + inter-step summary) + assistant (output JSON)
+ * - Final user: current edgePrompt + summary since last visit of this role
+ */
+export function buildBuiltinMessages(ctx: AgentContext): ChatMessage[] {
   const roleDef = ctx.workflow.roles[ctx.role];
   const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
   const systemParts: string[] = [];
@@ -34,17 +59,41 @@ export function buildBuiltinPrompt(ctx: AgentContext): BuiltinPromptParts {
   }
   systemParts.push(rolePrompt);
 
-  const userParts: string[] = ["## Task", ctx.start.prompt];
-  if (ctx.edgePrompt !== "") {
-    userParts.push("", "## Current Step Instruction", ctx.edgePrompt);
-  }
-  const historyBlock = buildHistorySummary(ctx.steps);
-  if (historyBlock !== "") {
-    userParts.push("", historyBlock);
+  const messages: ChatMessage[] = [{ role: "system", content: systemParts.join("\n") }];
+
+  const roleVisitIndices: number[] = [];
+  for (let i = 0; i < ctx.steps.length; i++) {
+    const step = ctx.steps[i];
+    if (step !== undefined && step.role === ctx.role) {
+      roleVisitIndices.push(i);
+    }
   }
 
-  return {
-    system: systemParts.join("\n"),
-    user: userParts.join("\n"),
-  };
+  let prevVisitIndex = -1;
+  for (const visitIndex of roleVisitIndices) {
+    const visitStep = ctx.steps[visitIndex];
+    if (visitStep === undefined) {
+      continue;
+    }
+
+    const summary = buildStepsSummary(ctx.steps, prevVisitIndex + 1, visitIndex);
+    messages.push({
+      role: "user",
+      content: buildUserTurnContent(visitStep.edgePrompt, summary),
+    });
+    messages.push({
+      role: "assistant",
+      content: JSON.stringify(visitStep.output),
+      tool_calls: null,
+    });
+    prevVisitIndex = visitIndex;
+  }
+
+  const finalSummary = buildStepsSummary(ctx.steps, prevVisitIndex + 1, ctx.steps.length);
+  messages.push({
+    role: "user",
+    content: buildUserTurnContent(ctx.edgePrompt, finalSummary),
+  });
+
+  return messages;
 }

@@ -102,6 +102,7 @@ async function buildHistory(
       output: expandOutput(store, step.output),
       detail: step.detail,
       agent: step.agent,
+      edgePrompt: step.edgePrompt ?? "",
     });
   }
   return history;

@@ -41,7 +41,15 @@ describe("buildClaudeCodePrompt", () => {
 
   test("includes previous steps as history summary", () => {
     const ctx = makeCtx({
-      steps: [{ role: "planner", output: '{"plan":"do X"}', agent: "hermes" }],
+      steps: [
+        {
+          role: "planner",
+          output: '{"plan":"do X"}',
+          agent: "hermes",
+          detail: "detail-1",
+          edgePrompt: "Create a plan.",
+        },
+      ],
     });
     const result = buildClaudeCodePrompt(ctx);
     expect(result).toContain("## Previous Steps");
