@@ -133,6 +133,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
+  const edgePrompt = process.env.UWF_EDGE_PROMPT ?? null;
 
   return {
     threadId,
@@ -142,6 +143,7 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
     workflow,
     store,
     outputFormatInstruction: "",
+    edgePrompt,
   };
 }
 
@@ -178,6 +180,7 @@ export async function buildContextWithMeta(
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
+  const edgePrompt = process.env.UWF_EDGE_PROMPT ?? null;
 
   return {
     threadId,
@@ -187,6 +190,7 @@ export async function buildContextWithMeta(
     workflow,
     store,
     outputFormatInstruction: "",
+    edgePrompt,
     meta: { storageRoot, store, schemas, headHash, chain },
   };
 }
