@@ -67,99 +67,103 @@ function extractToolResultContent(content: unknown[]): string {
   return results.join("\n");
 }
 
-/**
- * Parse Claude Code stream-json (NDJSON) output.
- * Each line is a JSON object with type: "system" | "assistant" | "user" | "result".
- */
-export function parseClaudeCodeStreamOutput(stdout: string): ClaudeCodeParsedResult | null {
-  const lines = stdout.trim().split("\n");
-  const turns: ClaudeCodeTurnPayload[] = [];
-  let resultLine: Record<string, unknown> | null = null;
-  let model = "";
-  let turnIndex = 0;
+type ParseState = {
+  turns: ClaudeCodeTurnPayload[];
+  resultLine: Record<string, unknown> | null;
+  model: string;
+  turnIndex: number;
+};
 
-  for (const line of lines) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (!isRecord(parsed)) continue;
-
-    const type = parsed.type;
-
-    if (type === "system" && typeof parsed.model === "string") {
-      model = parsed.model;
-    }
-
-    if (type === "assistant" && isRecord(parsed.message)) {
-      const msg = parsed.message;
-      const content = Array.isArray(msg.content) ? msg.content : [];
-      const textContent = extractTextContent(content as unknown[]);
-      const toolCalls = extractToolCalls(content as unknown[]);
-
-      // Only record turns that have actual content
-      if (textContent !== "" || toolCalls.length > 0) {
-        turns.push({
-          index: turnIndex++,
-          role: "assistant",
-          content: textContent,
-          toolCalls: toolCalls.length > 0 ? toolCalls : null,
-        });
-      }
-    }
-
-    if (type === "user" && isRecord(parsed.message)) {
-      const msg = parsed.message;
-      const content = Array.isArray(msg.content) ? msg.content : [];
-      const resultContent = extractToolResultContent(content as unknown[]);
-
-      if (resultContent !== "") {
-        turns.push({
-          index: turnIndex++,
-          role: "tool_result",
-          content: resultContent,
-          toolCalls: null,
-        });
-      }
-    }
-
-    if (type === "result") {
-      resultLine = parsed;
-    }
+function processSystemLine(parsed: Record<string, unknown>, state: ParseState): void {
+  if (typeof parsed.model === "string") {
+    state.model = parsed.model;
   }
+}
 
-  if (resultLine === null) return null;
+function processAssistantLine(parsed: Record<string, unknown>, state: ParseState): void {
+  if (!isRecord(parsed.message)) return;
+  const content = Array.isArray(parsed.message.content) ? parsed.message.content : [];
+  const textContent = extractTextContent(content as unknown[]);
+  const toolCalls = extractToolCalls(content as unknown[]);
+  if (textContent !== "" || toolCalls.length > 0) {
+    state.turns.push({
+      index: state.turnIndex++,
+      role: "assistant",
+      content: textContent,
+      toolCalls: toolCalls.length > 0 ? toolCalls : null,
+    });
+  }
+}
 
-  const sessionId = resultLine.session_id;
-  const result = resultLine.result;
-  const subtype = resultLine.subtype;
+function processUserLine(parsed: Record<string, unknown>, state: ParseState): void {
+  if (!isRecord(parsed.message)) return;
+  const content = Array.isArray(parsed.message.content) ? parsed.message.content : [];
+  const resultContent = extractToolResultContent(content as unknown[]);
+  if (resultContent !== "") {
+    state.turns.push({
+      index: state.turnIndex++,
+      role: "tool_result",
+      content: resultContent,
+      toolCalls: null,
+    });
+  }
+}
 
+function processLine(line: string, state: ParseState): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return;
+  }
+  if (!isRecord(parsed)) return;
+  const type = parsed.type;
+  if (type === "system") processSystemLine(parsed, state);
+  else if (type === "assistant") processAssistantLine(parsed, state);
+  else if (type === "user") processUserLine(parsed, state);
+  else if (type === "result") state.resultLine = parsed;
+}
+
+function assembleResult(state: ParseState): ClaudeCodeParsedResult | null {
+  if (state.resultLine === null) return null;
+  const sessionId = state.resultLine.session_id;
+  const result = state.resultLine.result;
+  const subtype = state.resultLine.subtype;
   if (typeof sessionId !== "string" || typeof result !== "string" || typeof subtype !== "string") {
     return null;
   }
-
-  const usage = isRecord(resultLine.usage) ? resultLine.usage : {};
-
+  const usage = isRecord(state.resultLine.usage) ? state.resultLine.usage : {};
   return {
-    type: safeString(resultLine.type, "result"),
+    type: safeString(state.resultLine.type, "result"),
     subtype: subtype as ClaudeCodeParsedResult["subtype"],
     result,
     sessionId,
-    numTurns: safeNumber(resultLine.num_turns),
-    totalCostUsd: safeNumber(resultLine.total_cost_usd),
-    durationMs: safeNumber(resultLine.duration_ms),
-    model,
-    stopReason: safeString(resultLine.stop_reason),
+    numTurns: safeNumber(state.resultLine.num_turns),
+    totalCostUsd: safeNumber(state.resultLine.total_cost_usd),
+    durationMs: safeNumber(state.resultLine.duration_ms),
+    model: state.model,
+    stopReason: safeString(state.resultLine.stop_reason),
     usage: {
       inputTokens: safeNumber(usage.input_tokens),
       outputTokens: safeNumber(usage.output_tokens),
       cacheReadInputTokens: safeNumber(usage.cache_read_input_tokens),
       cacheCreationInputTokens: safeNumber(usage.cache_creation_input_tokens),
     },
-    turns,
+    turns: state.turns,
   };
+}
+
+/**
+ * Parse Claude Code stream-json (NDJSON) output.
+ * Each line is a JSON object with type: "system" | "assistant" | "user" | "result".
+ */
+export function parseClaudeCodeStreamOutput(stdout: string): ClaudeCodeParsedResult | null {
+  const lines = stdout.trim().split("\n");
+  const state: ParseState = { turns: [], resultLine: null, model: "", turnIndex: 0 };
+  for (const line of lines) {
+    processLine(line, state);
+  }
+  return assembleResult(state);
 }
 
 /**
