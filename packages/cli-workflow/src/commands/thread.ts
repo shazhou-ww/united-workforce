@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
 import { getSchema, validate } from "@uncaged/json-cas";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-agent-kit";
@@ -30,12 +31,10 @@ import { parse, stringify } from "yaml";
 import {
   appendThreadHistory,
   createUwfStore,
-  discoverProjectWorkflows,
   findThreadInHistory,
   loadThreadHistory,
   loadThreadsIndex,
   loadWorkflowRegistry,
-  resolveProjectWorkflowFile,
   resolveWorkflowHash,
   saveThreadsIndex,
   type ThreadHistoryLine,
@@ -82,6 +81,83 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * Check if a string looks like a file path (contains path separators or has .yaml/.yml extension).
+ */
+function isFilePath(input: string): boolean {
+  return (
+    input.includes("/") || input.includes("\\") || input.endsWith(".yaml") || input.endsWith(".yml")
+  );
+}
+
+/**
+ * Check if a workflow file exists at the given path.
+ */
+async function workflowFileExists(dir: string, name: string, ext: string): Promise<string | null> {
+  const candidate = resolvePath(dir, `${name}${ext}`);
+  try {
+    await access(candidate);
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Search for a workflow file in a given directory (checks both .workflow/ and .workflows/).
+ */
+async function findWorkflowInDir(dir: string, name: string): Promise<string | null> {
+  // Check .workflow/ directory first (preferred)
+  for (const ext of [".yaml", ".yml"]) {
+    const result = await workflowFileExists(resolvePath(dir, ".workflow"), name, ext);
+    if (result !== null) {
+      return result;
+    }
+  }
+
+  // Check .workflows/ directory as fallback (legacy)
+  for (const ext of [".yaml", ".yml"]) {
+    const result = await workflowFileExists(resolvePath(dir, ".workflows"), name, ext);
+    if (result !== null) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Traverse parent directories looking for `.workflow/<name>.yaml` or `.workflow/<name>.yml`.
+ * Returns the absolute path if found, otherwise null.
+ * Stops at filesystem root or .git directory.
+ */
+async function findWorkflowInParents(startDir: string, name: string): Promise<string | null> {
+  let currentDir = resolvePath(startDir);
+  const root = resolvePath("/");
+
+  while (true) {
+    const found = await findWorkflowInDir(currentDir, name);
+    if (found !== null) {
+      return found;
+    }
+
+    // Stop at filesystem root
+    if (currentDir === root) {
+      break;
+    }
+
+    // Move to parent directory
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) {
+      // Reached filesystem root
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  return null;
+}
+
 async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promise<CasRef> {
   let text: string;
   try {
@@ -123,18 +199,41 @@ async function resolveWorkflowCasRef(
   workflowId: string,
   projectRoot: string,
 ): Promise<CasRef> {
-  // Project-local resolution: check .workflows/<workflowId>.yaml first
-  const localEntries = await discoverProjectWorkflows(projectRoot);
-  const localFile = resolveProjectWorkflowFile(localEntries, workflowId);
-  if (localFile !== null) {
-    return materializeLocalWorkflow(uwf, localFile);
+  // Validate input
+  const trimmed = workflowId.trim();
+  if (trimmed === "") {
+    fail("workflow ID cannot be empty");
   }
 
-  // Global registry fallback
+  // Strategy 1: Direct CAS hash
+  if (isCasRef(trimmed)) {
+    const node = uwf.store.get(trimmed);
+    if (node === null) {
+      fail(`CAS node not found: ${trimmed}`);
+    }
+    if (node.type !== uwf.schemas.workflow) {
+      fail(`node ${trimmed} is not a Workflow (type ${node.type})`);
+    }
+    return trimmed;
+  }
+
+  // Strategy 2: Explicit file path (relative or absolute)
+  if (isFilePath(trimmed)) {
+    const absolutePath = isAbsolute(trimmed) ? trimmed : resolvePath(projectRoot, trimmed);
+    return materializeLocalWorkflow(uwf, absolutePath);
+  }
+
+  // Strategy 3: Local discovery (parent directory traversal)
+  const localPath = await findWorkflowInParents(projectRoot, trimmed);
+  if (localPath !== null) {
+    return materializeLocalWorkflow(uwf, localPath);
+  }
+
+  // Strategy 4: Global registry fallback
   const registry = await loadWorkflowRegistry(storageRoot);
-  const hash = resolveWorkflowHash(registry, workflowId);
+  const hash = resolveWorkflowHash(registry, trimmed);
   if (!isCasRef(hash)) {
-    fail(`workflow not found: ${workflowId}`);
+    fail(`workflow not found: ${trimmed}`);
   }
   const node = uwf.store.get(hash);
   if (node === null) {
