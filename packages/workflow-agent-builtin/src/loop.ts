@@ -23,6 +23,8 @@ export type RunBuiltinLoopOptions = {
   maxTurns: number;
   storageRoot: string;
   sessionId: string;
+  /** When true, do not provide tools — force LLM to emit text only. */
+  noTools: boolean;
 };
 
 export type RunBuiltinLoopResult = {
@@ -73,13 +75,17 @@ export async function runBuiltinLoop(
   options: RunBuiltinLoopOptions,
 ): Promise<RunBuiltinLoopResult> {
   const messages = [...options.messages];
-  const openAiTools = builtinToolsToOpenAi(getBuiltinTools());
+  const openAiTools = options.noTools ? [] : builtinToolsToOpenAi(getBuiltinTools());
   let finalText = "";
   let turnCount = 0;
 
   for (let turn = 0; turn < options.maxTurns; turn++) {
     log("8K2M4N7P", `builtin loop turn ${turn + 1}/${options.maxTurns}`);
-    const response = await chatCompletionWithTools(options.provider, messages, openAiTools);
+    const response = await chatCompletionWithTools(
+      options.provider,
+      messages,
+      openAiTools.length > 0 ? openAiTools : null,
+    );
 
     const assistantMessage: ChatMessage = {
       role: "assistant",

@@ -66,6 +66,7 @@ async function runBuiltinWithMessages(
   session: SessionRecord,
   store: Store,
   maxTurns: number,
+  noTools: boolean,
 ): Promise<AgentRunResult> {
   const loopResult = await runBuiltinLoop({
     provider,
@@ -74,6 +75,7 @@ async function runBuiltinWithMessages(
     maxTurns,
     storageRoot,
     sessionId: session.sessionId,
+    noTools,
   });
 
   session.messages = loopResult.messages;
@@ -119,6 +121,7 @@ async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
     session,
     ctx.store,
     BUILTIN_MAX_TURNS,
+    false,
   );
 }
 
@@ -141,6 +144,7 @@ async function continueBuiltin(
     session,
     store,
     BUILTIN_CONTINUE_MAX_TURNS,
+    true,
   );
 }
 

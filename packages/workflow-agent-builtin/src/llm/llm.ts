@@ -96,8 +96,17 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
 export async function chatCompletionWithTools(
   provider: ResolvedLlmProvider,
   messages: ChatMessage[],
-  tools: OpenAiToolDefinition[],
+  tools: OpenAiToolDefinition[] | null,
 ): Promise<LlmAssistantResponse> {
+  const body: Record<string, unknown> = {
+    model: provider.model,
+    messages: messages.map(serializeMessage),
+  };
+  if (tools !== null && tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = "auto";
+  }
+
   let response: Response;
   try {
     response = await fetch(chatUrl(provider.baseUrl), {
@@ -106,12 +115,7 @@ export async function chatCompletionWithTools(
         Authorization: `Bearer ${provider.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: provider.model,
-        messages: messages.map(serializeMessage),
-        tools,
-        tool_choice: "auto",
-      }),
+      body: JSON.stringify(body),
     });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
