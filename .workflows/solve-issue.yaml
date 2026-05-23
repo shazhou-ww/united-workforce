@@ -154,25 +154,43 @@ conditions:
 graph:
   $START:
     - role: "planner"
+      condition: null
+      prompt: "Analyze the issue and produce an implementation plan."
   planner:
     - role: "$END"
       condition: "insufficientInfo"
+      prompt: "Insufficient information to proceed; end the workflow."
     - role: "developer"
+      condition: null
+      prompt: "Implement the plan from the planner."
   developer:
     - role: "$END"
       condition: "devFailed"
+      prompt: "Development failed; end the workflow."
     - role: "reviewer"
+      condition: null
+      prompt: "Send the implementation to the reviewer."
   reviewer:
     - role: "developer"
       condition: "rejected"
+      prompt: "Reviewer rejected the implementation; fix the issues."
     - role: "tester"
+      condition: null
+      prompt: "Review passed; run tests on the implementation."
   tester:
     - role: "developer"
       condition: "fixCode"
+      prompt: "Tests found code issues; return to developer."
     - role: "planner"
       condition: "fixSpec"
+      prompt: "Tests found spec issues; return to planner."
     - role: "committer"
+      condition: null
+      prompt: "Tests passed; commit and push the changes."
   committer:
     - role: "developer"
       condition: "hookFailed"
+      prompt: "Push hook failed; return to developer to fix."
     - role: "$END"
+      condition: null
+      prompt: "Commit succeeded; complete the workflow."

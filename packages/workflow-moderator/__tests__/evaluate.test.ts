@@ -9,27 +9,27 @@ const solveIssueWorkflow: WorkflowPayload = {
   roles: {
     planner: {
       description: "Creates implementation plan",
-      identity: "You are a planning agent.",
-      prepare: "Review the issue context.",
-      execute: "Create a step-by-step plan.",
-      report: "Output the plan and steps.",
-      outputSchema: "5GWKR8TN1V3JA",
+      goal: "You are a planning agent.",
+      capabilities: ["planning"],
+      procedure: "Create a step-by-step plan.",
+      output: "Output the plan and steps.",
+      frontmatter: "5GWKR8TN1V3JA",
     },
     developer: {
       description: "Implements code changes",
-      identity: "You are a developer agent.",
-      prepare: "Load coding tools.",
-      execute: "Implement the plan.",
-      report: "List files changed and summary.",
-      outputSchema: "8CNWT4KR6D1HV",
+      goal: "You are a developer agent.",
+      capabilities: ["coding"],
+      procedure: "Implement the plan.",
+      output: "List files changed and summary.",
+      frontmatter: "8CNWT4KR6D1HV",
     },
     reviewer: {
       description: "Reviews code changes",
-      identity: "You are a code reviewer.",
-      prepare: "Review project conventions.",
-      execute: "Review the implementation.",
-      report: "Approve or reject with comments.",
-      outputSchema: "1VPBG9SM5E7WK",
+      goal: "You are a code reviewer.",
+      capabilities: ["code-review"],
+      procedure: "Review the implementation.",
+      output: "Approve or reject with comments.",
+      frontmatter: "1VPBG9SM5E7WK",
     },
   },
   conditions: {
@@ -43,15 +43,35 @@ const solveIssueWorkflow: WorkflowPayload = {
     },
   },
   graph: {
-    $START: [{ role: "planner", condition: null }],
-    planner: [
-      { role: "developer", condition: "needsClarification" },
-      { role: "$END", condition: null },
+    $START: [
+      {
+        role: "planner",
+        condition: null,
+        prompt: "Start planning from the issue in the task.",
+      },
     ],
-    developer: [{ role: "reviewer", condition: null }],
+    planner: [
+      {
+        role: "developer",
+        condition: "needsClarification",
+        prompt: "Clarification is needed; hand off to developer.",
+      },
+      { role: "$END", condition: null, prompt: "Planning complete; end workflow." },
+    ],
+    developer: [
+      {
+        role: "reviewer",
+        condition: null,
+        prompt: "Implementation done; send to reviewer.",
+      },
+    ],
     reviewer: [
-      { role: "developer", condition: "rejected" },
-      { role: "$END", condition: null },
+      {
+        role: "developer",
+        condition: "rejected",
+        prompt: "Reviewer rejected; return to developer.",
+      },
+      { role: "$END", condition: null, prompt: "Review passed; end workflow." },
     ],
   },
 };
@@ -69,7 +89,10 @@ function makeContext(steps: ModeratorContext["steps"]): ModeratorContext {
 describe("evaluate", () => {
   test("$START → first role (fallback)", async () => {
     const result = await evaluate(solveIssueWorkflow, makeContext([]));
-    expect(result).toEqual({ ok: true, value: { role: "planner", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "planner", prompt: "Start planning from the issue in the task." },
+    });
   });
 
   test("condition match (rejected → developer)", async () => {
@@ -82,7 +105,10 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: "Reviewer rejected; return to developer." },
+    });
   });
 
   test("fallback when condition does not match → $END", async () => {
@@ -95,7 +121,10 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "$END", prompt: "Review passed; end workflow." },
+    });
   });
 
   test("missing role in graph → error", async () => {
@@ -124,7 +153,10 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(solveIssueWorkflow, context);
-    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: "Clarification is needed; hand off to developer." },
+    });
   });
 
   test("$last returns most recent matching role's frontmatter", async () => {
@@ -137,10 +169,20 @@ describe("evaluate", () => {
         },
       },
       graph: {
-        $START: [{ role: "developer", condition: null }],
+        $START: [
+          {
+            role: "developer",
+            condition: null,
+            prompt: "Begin development.",
+          },
+        ],
         developer: [
-          { role: "$END", condition: "devFailed" },
-          { role: "reviewer", condition: null },
+          { role: "$END", condition: "devFailed", prompt: "Development failed; end." },
+          {
+            role: "reviewer",
+            condition: null,
+            prompt: "Development succeeded; review.",
+          },
         ],
       },
     };
@@ -165,7 +207,10 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(workflow, context);
-    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "$END", prompt: "Development failed; end." },
+    });
   });
 
   test("$first returns earliest matching role's frontmatter", async () => {
@@ -178,10 +223,20 @@ describe("evaluate", () => {
         },
       },
       graph: {
-        $START: [{ role: "planner", condition: null }],
+        $START: [
+          {
+            role: "planner",
+            condition: null,
+            prompt: "Begin planning.",
+          },
+        ],
         planner: [
-          { role: "$END", condition: "firstPlanReady" },
-          { role: "developer", condition: null },
+          { role: "$END", condition: "firstPlanReady", prompt: "First plan was ready; end." },
+          {
+            role: "developer",
+            condition: null,
+            prompt: "Plan not ready on first pass; implement.",
+          },
         ],
       },
     };
@@ -206,7 +261,10 @@ describe("evaluate", () => {
       },
     ]);
     const result = await evaluate(workflow, context);
-    expect(result).toEqual({ ok: true, value: { role: "$END", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "$END", prompt: "First plan was ready; end." },
+    });
   });
 
   test("$last returns undefined for unmatched role", async () => {
@@ -219,10 +277,20 @@ describe("evaluate", () => {
         },
       },
       graph: {
-        $START: [{ role: "planner", condition: null }],
+        $START: [
+          {
+            role: "planner",
+            condition: null,
+            prompt: "Begin planning.",
+          },
+        ],
         planner: [
-          { role: "$END", condition: "hasReviewer" },
-          { role: "developer", condition: null },
+          { role: "$END", condition: "hasReviewer", prompt: "Reviewer already ran; end." },
+          {
+            role: "developer",
+            condition: null,
+            prompt: "No reviewer yet; implement.",
+          },
         ],
       },
     };
@@ -236,6 +304,9 @@ describe("evaluate", () => {
     ]);
     const result = await evaluate(workflow, context);
     // no reviewer step → $exists returns false → fallback to developer
-    expect(result).toEqual({ ok: true, value: { role: "developer", prompt: null } });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: "No reviewer yet; implement." },
+    });
   });
 });

@@ -13,11 +13,10 @@ export type AgentContext = ModeratorContext & {
    */
   outputFormatInstruction: string;
   /**
-   * Edge prompt from the graph transition that led to this role.
-   * null on first entry (use full role definition), non-null on re-entry
-   * (use as continuation instruction from moderator).
+   * Edge prompt from the graph transition that led to this role (UWF_EDGE_PROMPT).
+   * Phase 2 will use visit history to choose full role definition vs continuation.
    */
-  edgePrompt: string | null;
+  edgePrompt: string;
 };
 
 export type AgentRunResult = {

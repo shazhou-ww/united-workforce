@@ -62,19 +62,19 @@ graph:
   $START:
     - role: "planner"
       condition: null
-      prompt: null
+      prompt: "Analyze the issue described in the task and produce a detailed implementation plan."
   planner:
     - role: "developer"
       condition: null
-      prompt: null
+      prompt: "Implement the plan from the planner. Write code, tests, and ensure existing tests pass."
   developer:
     - role: "reviewer"
       condition: null
-      prompt: null
+      prompt: "Review the developer's implementation against the plan for correctness and quality."
   reviewer:
     - role: "developer"
       condition: "notApproved"
       prompt: "The reviewer rejected your implementation. Read their feedback and fix the issues."
     - role: "$END"
       condition: null
-      prompt: null
+      prompt: "The review passed. Complete the workflow."

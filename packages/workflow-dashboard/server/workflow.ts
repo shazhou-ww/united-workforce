@@ -77,9 +77,11 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
           };
         }
       }
+      const targetRole = t.target === "END" ? "$END" : t.target;
       return {
-        role: t.target === "END" ? "$END" : t.target,
+        role: targetRole,
         condition: condName,
+        prompt: `Transition to ${targetRole}.`,
       };
     });
 
@@ -87,7 +89,14 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
   }
 
   if (steps.length > 0) {
-    graph["$START"] = [{ role: steps[0].role.name, condition: null }];
+    const firstRole = steps[0].role.name;
+    graph["$START"] = [
+      {
+        role: firstRole,
+        condition: null,
+        prompt: `Begin workflow at role ${firstRole}.`,
+      },
+    ];
   }
 
   return { name, description, roles, conditions, graph };
