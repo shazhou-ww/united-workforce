@@ -3,22 +3,39 @@ description: "End-to-end issue resolution"
 roles:
   planner:
     description: "Creates implementation plan"
-    goal: "You are a planning agent. You analyze issues and create step-by-step plans."
+    goal: "You are a planning agent. You analyze issues and create implementation plans grounded in the actual codebase."
     capabilities:
       - issue-analysis
       - planning
-    procedure: "Analyze the issue and create a detailed, actionable implementation plan."
-    output: "Output the plan summary and list of concrete steps."
+      - file-read
+      - shell
+    procedure: |
+      1. Locate the code repository:
+         - Check if the current working directory is the repo (look for package.json, .git, etc.)
+         - If the task mentions a repo URL, clone it first.
+         - If this is a new project, create the repo and note the path.
+      2. Explore the codebase — read the relevant source files mentioned in the issue. Understand the current architecture, types, and conventions (check CLAUDE.md, CONTRIBUTING.md, .cursor/rules/).
+      3. Identify which files need changes and what the changes should be, with specific code references.
+      4. Output the plan with:
+         - `repoPath`: absolute path to the repository root
+         - `plan`: detailed implementation plan with file paths and code references
+         - `steps`: concrete action items for the developer
+    output: |
+      Provide repoPath, plan summary, and steps in the frontmatter.
+      The plan MUST reference actual file paths and code structures you found by reading the source.
+      Do NOT guess — if you haven't read a file, read it before referencing it.
     frontmatter:
       type: object
       properties:
+        repoPath:
+          type: string
         plan:
           type: string
         steps:
           type: array
           items:
             type: string
-      required: [plan, steps]
+      required: [repoPath, plan, steps]
   developer:
     description: "Implements code changes"
     goal: "You are a developer agent. You implement code changes according to plans."
@@ -26,7 +43,12 @@ roles:
       - file-edit
       - shell
       - testing
-    procedure: "Implement the plan. Write code, tests, and ensure existing tests pass."
+    procedure: |
+      1. Read the planner's output to get the repoPath and implementation plan.
+      2. cd to the repoPath before making any changes.
+      3. Create a feature branch from the default branch.
+      4. Implement the plan — write code, tests, and ensure existing tests pass.
+      5. Commit your changes with a descriptive message referencing the issue.
     output: "List all files changed and provide a summary of the implementation."
     frontmatter:
       type: object
