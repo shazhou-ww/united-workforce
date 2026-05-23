@@ -95,14 +95,27 @@ export async function runBuiltinLoop(
     messages.push(assistantMessage);
 
     if (response.toolCalls === null || response.toolCalls.length === 0) {
-      finalText = response.content ?? "";
+      const text = response.content ?? "";
       await appendTurn(options.storageRoot, options.sessionId, {
         role: "assistant",
-        content: response.content ?? "",
+        content: text,
         toolCalls: null,
         reasoning: null,
       });
       turnCount += 1;
+
+      // If tools are available but LLM stopped calling them without producing
+      // frontmatter, nudge it to continue working or output frontmatter.
+      if (!options.noTools && !text.trimStart().startsWith("---") && turn < options.maxTurns - 1) {
+        log("7FXQM2KN", "text-only turn without frontmatter, nudging LLM to continue");
+        const nudge =
+          "You stopped calling tools but your response does not start with the required `---` YAML frontmatter. " +
+          "Either continue using tools to complete your work, or output your final response starting with `---`.";
+        messages.push({ role: "user", content: nudge });
+        continue;
+      }
+
+      finalText = text;
       break;
     }
 
