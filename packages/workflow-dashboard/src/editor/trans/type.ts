@@ -1,6 +1,6 @@
 export type {
   WorkFlowRole,
-  WorkFlowTransition,
   WorkFlowStep,
   WorkFlowSteps,
+  WorkFlowTransition,
 } from "../../../shared/types.ts";

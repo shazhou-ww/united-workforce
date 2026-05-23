@@ -1,4 +1,4 @@
-import { ConditionalEdge, GradientEdge } from './conditional';
+import { ConditionalEdge, GradientEdge } from "./conditional";
 
 export const edgeTypes = {
   conditional: ConditionalEdge,

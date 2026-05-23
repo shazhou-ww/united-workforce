@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "../../components/ui/button.tsx";
 
 type Props = {
@@ -13,7 +13,13 @@ export function NodeToolbarActions({ onEdit, onDelete }: Props): ReactNode {
       <Button variant="ghost" size="icon-xs" onClick={onEdit} title="编辑">
         <Pencil />
       </Button>
-      <Button variant="ghost" size="icon-xs" className="hover:bg-destructive/10 hover:text-destructive" onClick={onDelete} title="删除">
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="hover:bg-destructive/10 hover:text-destructive"
+        onClick={onDelete}
+        title="删除"
+      >
         <Trash2 />
       </Button>
     </div>

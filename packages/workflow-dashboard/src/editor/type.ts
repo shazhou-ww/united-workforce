@@ -1,4 +1,4 @@
-import type { Node, Edge } from '@xyflow/react';
+import type { Edge, Node } from "@xyflow/react";
 
 type AnyKeyBase = { [key: string]: unknown | undefined };
 
@@ -19,11 +19,11 @@ export type NodeMap = {
 
 export type WorkNodeType = keyof NodeMap;
 export type WorkNode<T extends WorkNodeType> = Node<NodeMap[T], T>;
-export type AnyWorkNode = WorkNode<'start'> | WorkNode<'end'> | WorkNode<'role'>;
+export type AnyWorkNode = WorkNode<"start"> | WorkNode<"end"> | WorkNode<"role">;
 
 export type ConditionalEdgeData = AnyKeyBase & {
   condition: string;
 };
 
-export type ConditionalEdge = Edge<ConditionalEdgeData, 'conditional'>;
+export type ConditionalEdge = Edge<ConditionalEdgeData, "conditional">;
 export type AnyWorkEdge = ConditionalEdge | Edge;

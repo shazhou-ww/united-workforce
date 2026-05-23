@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { resolvePath } from "../src/tools/path.js";
 import { resolve } from "node:path";
+import { resolvePath } from "../src/tools/path.js";
 
 describe("resolvePath", () => {
   test("resolves relative paths against cwd", () => {

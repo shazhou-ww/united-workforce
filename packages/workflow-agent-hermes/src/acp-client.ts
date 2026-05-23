@@ -267,8 +267,7 @@ export class HermesAcpClient {
       case "tool_call": {
         const title = (update.title as string) ?? "";
         const rawInput = update.rawInput;
-        const args =
-          rawInput !== undefined && rawInput !== null ? JSON.stringify(rawInput) : "";
+        const args = rawInput !== undefined && rawInput !== null ? JSON.stringify(rawInput) : "";
         const toolCallId = update.toolCallId as string;
         this.pendingTools.set(toolCallId, { name: title, args });
 

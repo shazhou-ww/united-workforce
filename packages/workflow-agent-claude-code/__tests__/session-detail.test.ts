@@ -73,9 +73,7 @@ describe("parseClaudeCodeStreamOutput", () => {
         type: "user",
         message: {
           role: "user",
-          content: [
-            { type: "tool_result", tool_use_id: "tool_1", content: "file1.ts\nfile2.ts" },
-          ],
+          content: [{ type: "tool_result", tool_use_id: "tool_1", content: "file1.ts\nfile2.ts" }],
         },
         session_id: "sess-123",
       }),
@@ -167,7 +165,12 @@ describe("storeClaudeCodeDetail", () => {
     durationMs: 15000,
     model: "claude-sonnet-4.5",
     stopReason: "end_turn",
-    usage: { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+    usage: {
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+    },
     turns: [
       { index: 0, role: "assistant", content: "hello", toolCalls: null },
       { index: 1, role: "tool_result", content: "world", toolCalls: null },

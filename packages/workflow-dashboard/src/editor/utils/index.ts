@@ -1,5 +1,3 @@
-
-
 export function uuid() {
   const now = Date.now();
   const randon = 1 + Math.random();

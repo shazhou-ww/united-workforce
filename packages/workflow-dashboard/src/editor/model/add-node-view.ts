@@ -1,13 +1,13 @@
-import type { Edge } from '@xyflow/react';
-import { define } from '../context';
-import { nodesModel } from './nodes';
-import { edgesModel } from './edges';
-import type { RoleNodeData, AnyWorkNode } from '../type';
+import type { Edge } from "@xyflow/react";
+import { define } from "../context";
+import type { AnyWorkNode, RoleNodeData } from "../type";
+import { edgesModel } from "./edges";
+import { nodesModel } from "./nodes";
 
 type ConnectHandle = {
   id?: string | null;
   nodeId: string;
-  type: 'source' | 'target';
+  type: "source" | "target";
 };
 
 export type AddNodeState = {
@@ -21,10 +21,10 @@ type CommitParams = {
 };
 
 function addNodeView() {
-  return null as (AddNodeState | null);
+  return null as AddNodeState | null;
 }
 
-export const addNodeViewModel = define.view('addNodeView', addNodeView, (set, get, model) => {
+export const addNodeViewModel = define.view("addNodeView", addNodeView, (set, get, model) => {
   function start(state: AddNodeState) {
     set(state);
   }
@@ -42,12 +42,19 @@ export const addNodeViewModel = define.view('addNodeView', addNodeView, (set, ge
     const { data } = params;
 
     const id = `n${Date.now()}`;
-    const node = { id, data, position, type: 'role' as const, origin: [0.0, 0.5] as [number, number] };
+    const node = {
+      id,
+      data,
+      position,
+      type: "role" as const,
+      origin: [0.0, 0.5] as [number, number],
+    };
 
     const [fnid, fhid] = [fromNode.id, fromHandle.id];
-    const newEdge: Edge = fromHandle.type === 'source'
-      ? { id: `e${fnid}-${id}`, source: fnid, target: id, sourceHandle: fhid, animated: true }
-      : { id: `e${id}-${fnid}`, source: id, target: fnid, targetHandle: fhid, animated: true };
+    const newEdge: Edge =
+      fromHandle.type === "source"
+        ? { id: `e${fnid}-${id}`, source: fnid, target: id, sourceHandle: fhid, animated: true }
+        : { id: `e${id}-${fnid}`, source: id, target: fnid, targetHandle: fhid, animated: true };
 
     model.startTransaction();
     model.use(nodesModel)[1].set((nds) => nds.concat(node));

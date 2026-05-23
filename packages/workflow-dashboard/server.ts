@@ -7,6 +7,3 @@ const server = await createServer({
 });
 
 await server.listen();
-
-// biome-ignore lint/nursery/noConsole: CLI user-facing output
-console.log(`Workflow UI running at http://localhost:${PORT}`);

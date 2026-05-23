@@ -1,11 +1,7 @@
-import { readdir, readFile, writeFile, unlink, mkdir } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { RoleDefinition, Transition, WorkflowPayload } from "@uncaged/workflow-protocol";
 import YAML from "yaml";
-import type {
-  WorkflowPayload,
-  RoleDefinition,
-  Transition,
-} from "@uncaged/workflow-protocol";
 import type { WorkFlowSteps, WorkFlowTransition, WorkflowSummary } from "../shared/types.ts";
 
 const WORKFLOW_DIR = join(import.meta.dirname, "..", "tmp", "workflow");
@@ -67,7 +63,7 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
       let condName: string | null = null;
       if (t.condition) {
         if (expressionToName.has(t.condition)) {
-          condName = expressionToName.get(t.condition)!;
+          condName = expressionToName.get(t.condition) ?? null;
         } else {
           condName = `cond${condIdx++}`;
           expressionToName.set(t.condition, condName);
@@ -90,7 +86,7 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
 
   if (steps.length > 0) {
     const firstRole = steps[0].role.name;
-    graph["$START"] = [
+    graph.$START = [
       {
         role: firstRole,
         condition: null,

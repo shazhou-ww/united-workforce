@@ -1,21 +1,21 @@
-import { define } from '../context';
-import { nodesModel } from './nodes';
-import type { RoleNodeData, WorkNode } from '../type';
+import { define } from "../context";
+import type { RoleNodeData, WorkNode } from "../type";
+import { nodesModel } from "./nodes";
 
 export type EditNodeState = {
-  node: WorkNode<'role'>;
+  node: WorkNode<"role">;
 };
 
 function editNodeView() {
-  return null as (EditNodeState | null);
+  return null as EditNodeState | null;
 }
 
-export const editNodeViewModel = define.view('editNodeView', editNodeView, (set, get, model) => {
+export const editNodeViewModel = define.view("editNodeView", editNodeView, (set, get, model) => {
   function start(nodeId: string) {
     const [nodes] = model.use(nodesModel);
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node || node.type !== 'role') return;
-    set({ node: node as WorkNode<'role'> });
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || node.type !== "role") return;
+    set({ node: node as WorkNode<"role"> });
   }
 
   function cancel() {
@@ -31,6 +31,7 @@ export const editNodeViewModel = define.view('editNodeView', editNodeView, (set,
 
     model.startTransaction();
     editNode(state.node.id, (node) => {
+      // biome-ignore lint/suspicious/noExplicitAny: node data type varies by node kind
       node.data = data as any;
     });
     requestAnimationFrame(model.endTransaction);

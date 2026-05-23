@@ -1,19 +1,16 @@
-import { useState, useEffect, type ReactNode } from "react";
-import {
-  editNodeViewModel,
-  type EditNodeState,
-} from "../model/edit-node-view.ts";
+import { type ReactNode, useEffect, useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "../../components/ui/dialog.tsx";
 import { Input } from "../../components/ui/input.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { Button } from "../../components/ui/button.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { Textarea } from "../../components/ui/textarea.tsx";
+import { type EditNodeState, editNodeViewModel } from "../model/edit-node-view.ts";
 import type { RoleNodeData } from "../type.ts";
 
 type FormProps = {
@@ -61,11 +58,7 @@ function Form({ state, onSubmit, onCancel }: FormProps): ReactNode {
       <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto p-1">
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs text-muted-foreground">名称 *</Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="角色名称"
-          />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="角色名称" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs text-muted-foreground">描述</Label>
@@ -138,7 +131,9 @@ export function EditNodeDialog(): ReactNode {
   return (
     <Dialog
       open={state !== null}
-      onOpenChange={(open) => { if (!open) cancel(); }}
+      onOpenChange={(open) => {
+        if (!open) cancel();
+      }}
     >
       <DialogContent showCloseButton={false} className="sm:max-w-md">
         {state && <Form state={state} onSubmit={commit} onCancel={cancel} />}

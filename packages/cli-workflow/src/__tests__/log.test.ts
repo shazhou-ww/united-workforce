@@ -62,9 +62,9 @@ const olderEntry = JSON.stringify({
 
 async function writeLogFiles(): Promise<void> {
   const logsDir = join(storageRoot, "logs");
-  await writeFile(join(logsDir, "2026-05-20.jsonl"), [entry1, entry2, entry3].join("\n") + "\n");
-  await writeFile(join(logsDir, "2026-05-19.jsonl"), oldEntry + "\n");
-  await writeFile(join(logsDir, "2026-05-18.jsonl"), olderEntry + "\n");
+  await writeFile(join(logsDir, "2026-05-20.jsonl"), `${[entry1, entry2, entry3].join("\n")}\n`);
+  await writeFile(join(logsDir, "2026-05-19.jsonl"), `${oldEntry}\n`);
+  await writeFile(join(logsDir, "2026-05-18.jsonl"), `${olderEntry}\n`);
 }
 
 describe("cmdLogList", () => {

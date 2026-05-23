@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./app.tsx";
-import { HomePage } from "./pages/home.tsx";
 import { DetailPage } from "./pages/detail.tsx";
+import { HomePage } from "./pages/home.tsx";
 
 export const router = createBrowserRouter([
   {

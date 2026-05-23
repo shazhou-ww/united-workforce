@@ -1,13 +1,13 @@
-import { Handle, Position, Node, NodeProps, useNodeConnections } from '@xyflow/react';
-import { StartNode } from './nodes.style';
-import { useMemo } from 'react';
+import { Handle, type Node, type NodeProps, Position, useNodeConnections } from "@xyflow/react";
+import { useMemo } from "react";
+import { StartNode } from "./nodes.style";
 
 interface NodeData {
   label: string;
   [key: string]: unknown;
 }
 
-type NodeType = Node<NodeData, 'start'>;
+type NodeType = Node<NodeData, "start">;
 type Props = NodeProps<NodeType>;
 
 export function NodeStart({ data, id }: Props) {
@@ -19,7 +19,7 @@ export function NodeStart({ data, id }: Props) {
 
   return (
     <StartNode>
-      {data?.label || 'Start'}
+      {data?.label || "Start"}
       <Handle
         type="source"
         position={Position.Right}
