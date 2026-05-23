@@ -753,7 +753,7 @@ async function cmdThreadStepOnce(
     fail(afterResult.error.message);
   }
 
-  const done = afterResult.value === END_ROLE;
+  const done = afterResult.value.role === END_ROLE;
   if (done) {
     await archiveThread(storageRoot, threadId, workflowHash, newHead);
   }

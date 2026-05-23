@@ -90,7 +90,7 @@ export async function evaluate(
 
   for (const transition of transitions) {
     if (transition.condition === null) {
-      return { ok: true, value: { role: transition.role, prompt: transition.prompt } };
+      return { ok: true, value: { role: transition.role, prompt: transition.prompt ?? null } };
     }
 
     const conditionDef = workflow.conditions[transition.condition];
@@ -106,7 +106,7 @@ export async function evaluate(
       return evalResult;
     }
     if (isTruthy(evalResult.value)) {
-      return { ok: true, value: { role: transition.role, prompt: transition.prompt } };
+      return { ok: true, value: { role: transition.role, prompt: transition.prompt ?? null } };
     }
   }
 
