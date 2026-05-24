@@ -531,13 +531,25 @@ export async function executeThread(
       timestamp: nowMs,
       parentState: options.parentStateHash,
     },
-    steps: input.steps.map((out, i) => ({
-      role: out.role,
-      contentHash: out.contentHash,
-      meta: out.meta,
-      refs: out.refs,
-      timestamp: replayTs?.[i] ?? prefilled?.[i]?.timestamp ?? nowMs + i,
-    })),
+    steps: await Promise.all(
+      input.steps.map(async (out, i) => {
+        // Resolve content for the last step (most relevant for the next agent).
+        // Earlier steps only carry meta summaries to avoid bloating the prompt.
+        const isLast = i === input.steps.length - 1;
+        let content: string | null = null;
+        if (isLast) {
+          content = await getContentMerklePayload(io.cas, out.contentHash);
+        }
+        return {
+          role: out.role,
+          contentHash: out.contentHash,
+          content,
+          meta: out.meta,
+          refs: out.refs,
+          timestamp: replayTs?.[i] ?? prefilled?.[i]?.timestamp ?? nowMs + i,
+        };
+      }),
+    ),
   };
 
   const runtime: WorkflowRuntime = {

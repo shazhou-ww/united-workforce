@@ -71,7 +71,8 @@ async function buildRoleStepsFromStates<M extends RoleMeta>(
   cas: CasStore,
 ): Promise<RoleStep<M>[]> {
   const steps: RoleStep<M>[] = [];
-  for (const st of chronologicalStates) {
+  for (let idx = 0; idx < chronologicalStates.length; idx++) {
+    const st = chronologicalStates[idx];
     if (st.payload.role === END) {
       continue;
     }
@@ -79,10 +80,13 @@ async function buildRoleStepsFromStates<M extends RoleMeta>(
     if (contentParsed === null || contentParsed.kind !== "content") {
       throw new Error(`buildThreadContext: expected content node at ${st.payload.content}`);
     }
+    // Resolve full text content for the last step only
+    const isLast = idx === chronologicalStates.length - 1;
     steps.push({
       role: st.payload.role,
       meta: st.payload.meta,
       contentHash: st.payload.content,
+      content: isLast ? contentParsed.node.payload : null,
       refs: [...contentParsed.node.refs],
       timestamp: st.payload.timestamp,
     } as RoleStep<M>);

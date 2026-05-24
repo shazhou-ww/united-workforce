@@ -71,6 +71,7 @@ export type RoleStep<M extends RoleMeta> = {
     role: K;
     meta: M[K];
     contentHash: string;
+    content: string | null;
     refs: string[];
     timestamp: number;
   };

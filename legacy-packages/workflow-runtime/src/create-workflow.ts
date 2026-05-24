@@ -88,6 +88,7 @@ async function advanceOneRound<M extends RoleMeta>(
   const step = {
     role: next,
     contentHash,
+    content: contentPayload,
     meta,
     refs,
     timestamp: Date.now(),
