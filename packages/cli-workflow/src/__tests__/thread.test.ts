@@ -198,10 +198,10 @@ describe("extractLastAssistantContent", () => {
   });
 });
 
-// ── cmdThreadRead: ### Content section ───────────────────────────────────────
+// ── cmdThreadRead: <output> section ──────────────────────────────────────────
 
-describe("cmdThreadRead ### Content section", () => {
-  test("includes ### Content before ### Output when detail has assistant turns", async () => {
+describe("cmdThreadRead <output> section", () => {
+  test("includes <output> tags when detail has assistant turns", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
@@ -264,12 +264,13 @@ describe("cmdThreadRead ### Content section", () => {
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
-    expect(markdown).toContain("### Content");
+    expect(markdown).toContain("<output>");
+    expect(markdown).toContain("</output>");
     expect(markdown).toContain("The assistant response text");
-    expect(markdown).not.toContain("### Output");
+    expect(markdown).not.toContain("### Content");
   });
 
-  test("omits ### Content when detail has no matching assistant turns", async () => {
+  test("omits <output> tags when detail has no matching assistant turns", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
     const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
@@ -308,8 +309,9 @@ describe("cmdThreadRead ### Content section", () => {
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
+    expect(markdown).not.toContain("<output>");
+    expect(markdown).not.toContain("</output>");
     expect(markdown).not.toContain("### Content");
-    expect(markdown).not.toContain("### Output");
   });
 });
 
@@ -384,9 +386,9 @@ describe("cmdThreadStepDetails", () => {
   });
 });
 
-// ── cmdThreadRead: ### Prompt deduplication ───────────────────────────────────
+// ── cmdThreadRead: <prompt> deduplication ────────────────────────────────────
 
-describe("cmdThreadRead ### Prompt deduplication", () => {
+describe("cmdThreadRead <prompt> deduplication", () => {
   async function makeThreadWithRoles(uwf: UwfStore, roles: string[]): Promise<string> {
     const roleMap: Record<string, unknown> = {};
     for (const r of [...new Set(roles)]) {
@@ -434,36 +436,36 @@ describe("cmdThreadRead ### Prompt deduplication", () => {
     return stepHash;
   }
 
-  test("same consecutive role shows ### Prompt once", async () => {
+  test("same consecutive role shows <prompt> once", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["writer", "writer"]);
     const threadId = "01JTEST0000000000000003" as ThreadId;
     await saveThreadsIndex(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
-    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    const count = (markdown.match(/<prompt>/g) ?? []).length;
     expect(count).toBe(1);
   });
 
-  test("different consecutive roles each show ### Prompt", async () => {
+  test("different consecutive roles each show <prompt>", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["planner", "coder"]);
     const threadId = "01JTEST0000000000000004" as ThreadId;
     await saveThreadsIndex(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
-    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    const count = (markdown.match(/<prompt>/g) ?? []).length;
     expect(count).toBe(2);
   });
 
-  test("non-consecutive same role shows ### Prompt twice", async () => {
+  test("non-consecutive same role shows <prompt> twice", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["roleA", "roleB", "roleA"]);
     const threadId = "01JTEST0000000000000005" as ThreadId;
     await saveThreadsIndex(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
-    const count = (markdown.match(/### Prompt/g) ?? []).length;
+    const count = (markdown.match(/<prompt>/g) ?? []).length;
     expect(count).toBe(2);
   });
 });
