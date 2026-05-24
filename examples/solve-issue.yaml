@@ -44,7 +44,8 @@ roles:
       2. cd to the repoPath before making any changes.
       3. Create a feature branch from the default branch.
       4. Implement the plan — write code, tests, and ensure existing tests pass.
-      5. Commit your changes with a descriptive message referencing the issue.
+      5. Run the project's lint/check command (e.g. `bun run check`, `npm run lint`) and fix ALL errors before proceeding. Build and lint must pass cleanly.
+      6. Commit your changes with a descriptive message referencing the issue.
     output: "List all files changed and provide a summary of the implementation."
     frontmatter:
       type: object
@@ -62,7 +63,10 @@ roles:
     capabilities:
       - code-review
       - static-analysis
-    procedure: "Review the implementation against the plan. Check for bugs, edge cases, and style."
+    procedure: |
+      1. Run hard checks first — build (`bun run build` or equivalent) and lint (`bunx biome check .` or equivalent) MUST pass with zero errors. If they fail, reject immediately.
+      2. Then review code quality: correctness, edge cases, naming, project conventions (CLAUDE.md), and test coverage.
+      3. Only reject for hard check failures or genuine correctness/security issues. Style suggestions alone should not block approval.
     output: "Approve or reject with detailed comments explaining your decision."
     frontmatter:
       type: object
