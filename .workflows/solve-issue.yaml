@@ -137,8 +137,11 @@ roles:
       2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
       3. Push the branch: `git push -u origin <branch-name>`
          - If push hook fails: capture the error log in your output, mark hook_failed
-      4. On push success: create a PR via `tea pr create --title "..." --description "..."`
+      4. On push success: create a PR via `tea pr create --repo uncaged/workflow --title "..." --description "..."`
+         - The `--repo` flag is required to work in worktree directories (fixes #474 "path segment [0] is empty" error)
+         - If working on a different repo, extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
          - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+         - On tea failure: capture stderr/stdout, log the error clearly, include PR details (title, description, branch) for manual creation, and mark success=false
       5. After PR creation, clean up the worktree:
          - `cd ~/repos/workflow`
          - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
