@@ -250,7 +250,7 @@ export async function cmdStepList(
       hash: item.hash,
       role: item.payload.role,
       output: expandOutput(uwf, item.payload.output),
-      detail: item.payload.detail,
+      detail: item.payload.detail ? expandDeep(uwf.store, item.payload.detail) : null,
       agent: item.payload.agent,
       timestamp: item.timestamp,
     });

@@ -92,7 +92,7 @@ export type StepEntry = {
   hash: CasRef;
   role: string;
   output: unknown;
-  detail: CasRef;
+  detail: unknown;
   agent: string;
   timestamp: number;
 };
