@@ -665,14 +665,14 @@ function formatStepPrompt(
 ): string {
   if (!roleDef || shownPromptRoles.has(role)) return "";
   shownPromptRoles.add(role);
-  return ["", "", "### Prompt", "", roleDef.goal].join("\n");
+  return ["", "", "<prompt>", roleDef.goal, "</prompt>"].join("\n");
 }
 
 function formatStepContent(uwf: UwfStore, item: OrderedStepItem): string {
   if (!item.payload.detail) return "";
   const content = extractLastAssistantContent(uwf, item.payload.detail);
   if (content === null) return "";
-  return ["", "", "### Content", "", content].join("\n");
+  return ["", "", "<output>", content, "</output>"].join("\n");
 }
 
 function formatStartSection(options: {
