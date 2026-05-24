@@ -14,53 +14,39 @@ import { storeHermesSessionDetail } from "./session-detail.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
-function buildHistorySummary(steps: AgentContext["steps"]): string {
-  if (steps.length === 0) {
-    return "";
-  }
-
-  const lines: string[] = ["## Previous Steps"];
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    if (step === undefined) {
-      continue;
-    }
-    lines.push("");
-    lines.push(`### Step ${i + 1}: ${step.role}`);
-    lines.push(`Output: ${JSON.stringify(step.output)}`);
-    lines.push(`Agent: ${step.agent}`);
-  }
-  return lines.join("\n");
-}
-
-function buildInitialPrompt(ctx: AgentContext): string {
-  const roleDef = ctx.workflow.roles[ctx.role];
-  const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
+/** Assemble system prompt, task, and prior step outputs for Hermes. */
+export function buildHermesPrompt(ctx: AgentContext): string {
   const parts: string[] = [];
+
   if (ctx.outputFormatInstruction !== "") {
     parts.push(ctx.outputFormatInstruction, "");
   }
-  parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
-  const historyBlock = buildHistorySummary(ctx.steps);
-  if (historyBlock !== "") {
-    parts.push("", historyBlock);
-  }
-  parts.push("", "## Moderator Instruction", "", ctx.edgePrompt);
-  return parts.join("\n");
-}
 
-/** Assemble system prompt, task, and prior step outputs for Hermes. */
-export function buildHermesPrompt(ctx: AgentContext): string {
   if (!ctx.isFirstVisit) {
-    const parts: string[] = [];
-    if (ctx.outputFormatInstruction !== "") {
-      parts.push(ctx.outputFormatInstruction, "");
-    }
+    // Re-entry: show only steps since last visit, meta only
     parts.push(buildContinuationPrompt(ctx.steps, ctx.role, ctx.edgePrompt));
     return parts.join("\n");
   }
 
-  return buildInitialPrompt(ctx);
+  // First visit: show initial context with content for recent steps
+  const roleDef = ctx.workflow.roles[ctx.role];
+  const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
+  parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
+
+  // Add history with content (last 2-3 steps within quota)
+  if (ctx.steps.length > 0) {
+    parts.push(
+      "",
+      buildContinuationPrompt(ctx.steps, ctx.role, ctx.edgePrompt, {
+        includeContent: true,
+        quota: 32000, // Use THREAD_READ_DEFAULT_QUOTA equivalent
+      }),
+    );
+  } else {
+    parts.push("", "## Moderator Instruction", "", ctx.edgePrompt);
+  }
+
+  return parts.join("\n");
 }
 
 async function storePromptResult(

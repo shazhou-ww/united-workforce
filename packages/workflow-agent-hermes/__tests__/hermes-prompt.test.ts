@@ -23,7 +23,7 @@ function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {
       graph: {},
     },
     role: "developer",
-    start: { prompt: "Fix the bug", workflowHash: "abc123", threadId: "t1" },
+    start: { prompt: "Fix the bug", workflow: "abc123" },
     steps: [],
     store: {} as AgentContext["store"],
     outputFormatInstruction: "Use YAML frontmatter",
@@ -55,6 +55,7 @@ describe("buildHermesPrompt", () => {
           agent: "uwf-hermes",
           detail: "detail-1",
           edgePrompt: "Implement the fix.",
+          content: null,
         },
         {
           role: "reviewer",
@@ -62,6 +63,7 @@ describe("buildHermesPrompt", () => {
           agent: "uwf-hermes",
           detail: "detail-2",
           edgePrompt: "Review the code.",
+          content: null,
         },
       ],
     });
@@ -85,6 +87,7 @@ describe("buildHermesPrompt", () => {
             agent: "uwf-hermes",
             detail: "detail-1",
             edgePrompt: "First attempt.",
+            content: null,
           },
         ],
         edgePrompt: "Retry with a fresh approach.",
@@ -94,5 +97,91 @@ describe("buildHermesPrompt", () => {
     expect(result).toContain("## Task");
     expect(result).toContain("Retry with a fresh approach.");
     expect(result).not.toContain("## What Happened Since Your Last Turn");
+  });
+
+  test("first visit includes content from previous steps", () => {
+    const ctx = makeCtx({
+      isFirstVisit: true,
+      steps: [
+        {
+          role: "planner",
+          output: { plan: "hash1" },
+          agent: "uwf-hermes",
+          detail: "detail-1",
+          edgePrompt: "Create the plan.",
+          content: "# Plan\nDetailed plan markdown...",
+        },
+        {
+          role: "developer",
+          output: { files: ["app.ts"] },
+          agent: "uwf-hermes",
+          detail: "detail-2",
+          edgePrompt: "Implement the code.",
+          content: "# Implementation\nCode changes...",
+        },
+        {
+          role: "reviewer",
+          output: { approved: true },
+          agent: "uwf-hermes",
+          detail: "detail-3",
+          edgePrompt: "Review the work.",
+          content: "# Review\nApproved!",
+        },
+      ],
+      role: "committer",
+      edgePrompt: "Commit the reviewed code.",
+    });
+
+    const result = buildHermesPrompt(ctx);
+
+    expect(result).toContain("Use YAML frontmatter");
+    expect(result).toContain("## Task");
+    expect(result).toContain("Fix the bug");
+    expect(result).toContain("## What Happened Since Your Last Turn");
+    expect(result).toContain("### Step 1: planner");
+    expect(result).toContain("#### Step Content");
+    expect(result).toContain("# Plan");
+    expect(result).toContain("Detailed plan markdown");
+    expect(result).toContain("### Step 2: developer");
+    expect(result).toContain("# Implementation");
+    expect(result).toContain("### Step 3: reviewer");
+    expect(result).toContain("# Review");
+    expect(result).toContain("## Moderator Instruction");
+    expect(result).toContain("Commit the reviewed code.");
+  });
+
+  test("re-entry omits content from previous steps", () => {
+    const ctx = makeCtx({
+      isFirstVisit: false,
+      steps: [
+        {
+          role: "developer",
+          output: { files: ["app.ts"] },
+          agent: "uwf-hermes",
+          detail: "detail-1",
+          edgePrompt: "Implement the code.",
+          content: "# Implementation\nCode changes...",
+        },
+        {
+          role: "reviewer",
+          output: { approved: false },
+          agent: "uwf-hermes",
+          detail: "detail-2",
+          edgePrompt: "Review the work.",
+          content: "# Review\nNot approved!",
+        },
+      ],
+      role: "developer",
+      edgePrompt: "Fix the issues.",
+    });
+
+    const result = buildHermesPrompt(ctx);
+
+    expect(result).toContain("## What Happened Since Your Last Turn");
+    expect(result).toContain("### Step 2: reviewer");
+    expect(result).toContain(JSON.stringify({ approved: false }));
+    expect(result).not.toContain("#### Step Content");
+    expect(result).not.toContain("# Review");
+    expect(result).not.toContain("Not approved!");
   });
 });

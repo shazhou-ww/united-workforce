@@ -82,6 +82,38 @@ function expandOutput(store: Store, outputRef: CasRef): unknown {
   return node.payload;
 }
 
+function extractStepContent(store: Store, detailRef: CasRef): string | null {
+  const detailNode = store.get(detailRef);
+  if (detailNode === null) {
+    return null;
+  }
+  const detail = detailNode.payload as Record<string, unknown>;
+  const turns = detail.turns;
+  if (!Array.isArray(turns) || turns.length === 0) {
+    return null;
+  }
+  // Find last assistant content (same logic as extractLastAssistantContent in cli-workflow)
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const turnRef = turns[i];
+    if (typeof turnRef !== "string") {
+      continue;
+    }
+    const turnNode = store.get(turnRef as CasRef);
+    if (turnNode === null) {
+      continue;
+    }
+    const turn = turnNode.payload as Record<string, unknown>;
+    if (
+      turn.role === "assistant" &&
+      typeof turn.content === "string" &&
+      turn.content.trim() !== ""
+    ) {
+      return turn.content;
+    }
+  }
+  return null;
+}
+
 async function buildHistory(
   store: Store,
   stepsNewestFirst: StepNodePayload[],
@@ -89,12 +121,14 @@ async function buildHistory(
   const chronological = [...stepsNewestFirst].reverse();
   const history: StepContext[] = [];
   for (const step of chronological) {
+    const content = extractStepContent(store, step.detail);
     history.push({
       role: step.role,
       output: expandOutput(store, step.output),
       detail: step.detail,
       agent: step.agent,
       edgePrompt: step.edgePrompt ?? "",
+      content,
     });
   }
   return history;

@@ -63,6 +63,7 @@ export type StepNodePayload = StepRecord & {
 /** JSONata 上下文中的 step — output 被展开 */
 export type StepContext = Omit<StepRecord, "output"> & {
   output: unknown;
+  content: string | null;
 };
 
 export type ModeratorContext = {

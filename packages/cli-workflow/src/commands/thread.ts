@@ -649,6 +649,7 @@ function buildModeratorContext(uwf: UwfStore, chain: ChainState): ModeratorConte
     detail: step.detail,
     agent: step.agent,
     edgePrompt: step.edgePrompt ?? "",
+    content: null, // Moderator doesn't need content
   }));
   return { start: chain.start, steps };
 }
