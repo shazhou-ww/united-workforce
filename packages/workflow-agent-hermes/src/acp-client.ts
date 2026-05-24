@@ -245,70 +245,73 @@ export class HermesAcpClient {
   // ---- Session update → structured messages ----
 
   private handleSessionUpdate(update: Record<string, unknown>): void {
-    const updateType = update.sessionUpdate as string;
-
-    switch (updateType) {
-      case "agent_message_chunk": {
-        const content = update.content as { type?: string; text?: string } | undefined;
-        if (content?.type === "text" && typeof content.text === "string") {
-          this.messageChunks.push(content.text);
-        }
+    switch (update.sessionUpdate as string) {
+      case "agent_message_chunk":
+        this.handleAgentMessageChunk(update);
         break;
-      }
-
-      case "agent_thought_chunk": {
-        const content = update.content as { type?: string; text?: string } | undefined;
-        if (content?.type === "text" && typeof content.text === "string") {
-          this.reasoningChunks.push(content.text);
-        }
+      case "agent_thought_chunk":
+        this.handleAgentThoughtChunk(update);
         break;
-      }
-
-      case "tool_call": {
-        const title = (update.title as string) ?? "";
-        const rawInput = update.rawInput;
-        const args = rawInput !== undefined && rawInput !== null ? JSON.stringify(rawInput) : "";
-        const toolCallId = update.toolCallId as string;
-        this.pendingTools.set(toolCallId, { name: title, args });
-
-        // Flush accumulated assistant text before tool call
-        this.flushAssistantMessage();
+      case "tool_call":
+        this.handleToolCall(update);
         break;
-      }
-
-      case "tool_call_update": {
-        const status = update.status as string | undefined;
-        if (status === "completed" || status === "failed") {
-          const toolCallId = update.toolCallId as string;
-          const pending = this.pendingTools.get(toolCallId);
-          const toolName = pending?.name ?? toolCallId;
-          const rawOutput = update.rawOutput;
-          const outputStr =
-            rawOutput !== undefined && rawOutput !== null
-              ? typeof rawOutput === "string"
-                ? rawOutput
-                : JSON.stringify(rawOutput)
-              : "";
-          this.messages.push({
-            role: "assistant",
-            content: null,
-            reasoning: null,
-            tool_calls: [{ function: { name: toolName, arguments: pending?.args ?? "" } }],
-          });
-          this.messages.push({
-            role: "tool",
-            content: outputStr,
-            reasoning: null,
-            tool_calls: null,
-          });
-          this.pendingTools.delete(toolCallId);
-        }
+      case "tool_call_update":
+        this.handleToolCallUpdate(update);
         break;
-      }
-
       default:
         break;
     }
+  }
+
+  private handleAgentMessageChunk(update: Record<string, unknown>): void {
+    const content = update.content as { type?: string; text?: string } | undefined;
+    if (content?.type === "text" && typeof content.text === "string") {
+      this.messageChunks.push(content.text);
+    }
+  }
+
+  private handleAgentThoughtChunk(update: Record<string, unknown>): void {
+    const content = update.content as { type?: string; text?: string } | undefined;
+    if (content?.type === "text" && typeof content.text === "string") {
+      this.reasoningChunks.push(content.text);
+    }
+  }
+
+  private handleToolCall(update: Record<string, unknown>): void {
+    const title = (update.title as string) ?? "";
+    const rawInput = update.rawInput;
+    const args = rawInput !== undefined && rawInput !== null ? JSON.stringify(rawInput) : "";
+    const toolCallId = update.toolCallId as string;
+    this.pendingTools.set(toolCallId, { name: title, args });
+    this.flushAssistantMessage();
+  }
+
+  private handleToolCallUpdate(update: Record<string, unknown>): void {
+    const status = update.status as string | undefined;
+    if (status !== "completed" && status !== "failed") return;
+    const toolCallId = update.toolCallId as string;
+    const pending = this.pendingTools.get(toolCallId);
+    const toolName = pending?.name ?? toolCallId;
+    const rawOutput = update.rawOutput;
+    const outputStr =
+      rawOutput !== undefined && rawOutput !== null
+        ? typeof rawOutput === "string"
+          ? rawOutput
+          : JSON.stringify(rawOutput)
+        : "";
+    this.messages.push({
+      role: "assistant",
+      content: null,
+      reasoning: null,
+      tool_calls: [{ function: { name: toolName, arguments: pending?.args ?? "" } }],
+    });
+    this.messages.push({
+      role: "tool",
+      content: outputStr,
+      reasoning: null,
+      tool_calls: null,
+    });
+    this.pendingTools.delete(toolCallId);
   }
 
   /** Flush any accumulated text/reasoning into an assistant message. */

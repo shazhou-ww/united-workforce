@@ -154,6 +154,99 @@ describe("parseClaudeCodeStreamOutput", () => {
   });
 });
 
+describe("parseClaudeCodeStreamOutput — helper extraction", () => {
+  test("processSystemLine sets model from system message", () => {
+    const lines = [
+      JSON.stringify({ type: "system", model: "claude-opus-4" }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "ok",
+        session_id: "s1",
+        num_turns: 0,
+        total_cost_usd: 0,
+        duration_ms: 0,
+        stop_reason: "end_turn",
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.model).toBe("claude-opus-4");
+  });
+
+  test("processAssistantLine skips empty content", () => {
+    const lines = [
+      JSON.stringify({ type: "assistant", message: { role: "assistant", content: [] } }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "ok",
+        session_id: "s1",
+        num_turns: 0,
+        total_cost_usd: 0,
+        duration_ms: 0,
+        stop_reason: "end_turn",
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.turns).toHaveLength(0);
+  });
+
+  test("processUserLine skips when no tool_result items", () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: [{ type: "text", text: "hi" }] },
+      }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "ok",
+        session_id: "s1",
+        num_turns: 0,
+        total_cost_usd: 0,
+        duration_ms: 0,
+        stop_reason: "end_turn",
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.turns).toHaveLength(0);
+  });
+
+  test("turn indices are sequential across mixed assistant and user lines", () => {
+    const lines = [
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "A" }] },
+      }),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: [{ type: "tool_result", content: "R" }] },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "B" }] },
+      }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "ok",
+        session_id: "s1",
+        num_turns: 3,
+        total_cost_usd: 0,
+        duration_ms: 0,
+        stop_reason: "end_turn",
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.turns).toHaveLength(3);
+    expect(parsed!.turns.map((t) => t.index)).toEqual([0, 1, 2]);
+  });
+});
+
 describe("storeClaudeCodeDetail", () => {
   const baseParsed: ClaudeCodeParsedResult = {
     type: "result",
