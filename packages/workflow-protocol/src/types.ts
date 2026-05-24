@@ -84,6 +84,7 @@ export type StepOutput = {
   thread: ThreadId;
   head: CasRef;
   done: boolean;
+  background: boolean | null;
 };
 
 /** uwf thread steps — single step entry */
@@ -124,6 +125,19 @@ export type ThreadListItem = {
   thread: ThreadId;
   workflow: CasRef;
   head: CasRef;
+};
+
+/** uwf thread running — single running thread entry */
+export type RunningThreadItem = {
+  thread: ThreadId;
+  workflow: CasRef;
+  pid: number;
+  startedAt: number;
+};
+
+/** uwf thread running output */
+export type RunningThreadsOutput = {
+  threads: RunningThreadItem[];
 };
 
 // ── 4.6 配置 ────────────────────────────────────────────────────────

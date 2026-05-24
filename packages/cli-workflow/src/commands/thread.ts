@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
@@ -10,6 +10,7 @@ import type {
   AgentConfig,
   CasRef,
   ModeratorContext,
+  RunningThreadsOutput,
   StartEntry,
   StartNodePayload,
   StartOutput,
@@ -27,7 +28,12 @@ import type {
 import { createProcessLogger, generateUlid, type ProcessLogger } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
 import { parse, stringify } from "yaml";
-
+import {
+  createMarker,
+  deleteMarker,
+  isThreadRunning,
+  listRunningThreads,
+} from "../background/index.js";
 import {
   appendThreadHistory,
   createUwfStore,
@@ -52,6 +58,7 @@ const PL_AGENT_SPAWN = "R5J2W8N4";
 const PL_AGENT_DONE = "C6P9E3H7";
 const PL_THREAD_ARCHIVED = "F4D8Q2K5";
 const PL_STEP_ERROR = "B8T5N1V6";
+const PL_BACKGROUND_START = "X7Q4W9M2";
 
 function failStep(plog: ProcessLogger, message: string): never {
   plog.log(PL_STEP_ERROR, message, null);
@@ -321,6 +328,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: activeHead,
       done: false,
+      background: null,
     };
   }
 
@@ -331,6 +339,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: hist.head,
       done: true,
+      background: null,
     };
   }
 
@@ -853,9 +862,19 @@ export async function cmdThreadStep(
   threadId: ThreadId,
   agentOverride: string | null,
   count: number,
+  background: boolean,
+  backgroundWorker: boolean,
 ): Promise<StepOutput[]> {
   if (count < 1 || !Number.isInteger(count)) {
     fail(`--count must be a positive integer, got: ${count}`);
+  }
+
+  // Check if thread is already running in background (unless we ARE the background worker)
+  if (!backgroundWorker) {
+    const runningMarker = await isThreadRunning(storageRoot, threadId);
+    if (runningMarker !== null) {
+      fail(`thread already executing in background (PID: ${runningMarker.pid})`);
+    }
   }
 
   const workflowHash = await resolveActiveThreadWorkflowHash(storageRoot, threadId);
@@ -864,15 +883,39 @@ export async function cmdThreadStep(
     context: { thread: threadId, workflow: workflowHash },
   });
 
-  const results: StepOutput[] = [];
-  for (let i = 0; i < count; i++) {
-    const result = await cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog);
-    results.push(result);
-    if (result.done) {
-      break;
+  if (background && !backgroundWorker) {
+    // Spawn background process
+    return cmdThreadStepBackground(storageRoot, threadId, agentOverride, count, plog, workflowHash);
+  }
+
+  // If we're the background worker, create marker before execution
+  let markerCreated = false;
+  if (backgroundWorker) {
+    await createMarker(storageRoot, {
+      thread: threadId,
+      workflow: workflowHash,
+      pid: process.pid,
+      startedAt: Date.now(),
+    });
+    markerCreated = true;
+  }
+
+  try {
+    const results: StepOutput[] = [];
+    for (let i = 0; i < count; i++) {
+      const result = await cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog);
+      results.push(result);
+      if (result.done) {
+        break;
+      }
+    }
+    return results;
+  } finally {
+    // Cleanup marker if we created one
+    if (markerCreated) {
+      await deleteMarker(storageRoot, threadId);
     }
   }
-  return results;
 }
 
 async function resolveActiveThreadWorkflowHash(
@@ -887,6 +930,57 @@ async function resolveActiveThreadWorkflowHash(
   const uwf = await createUwfStore(storageRoot);
   const chain = walkChain(uwf, headHash);
   return chain.start.workflow;
+}
+
+async function cmdThreadStepBackground(
+  storageRoot: string,
+  threadId: ThreadId,
+  agentOverride: string | null,
+  count: number,
+  plog: ProcessLogger,
+  workflowHash: CasRef,
+): Promise<StepOutput[]> {
+  // Get current head to return to caller
+  const index = await loadThreadsIndex(storageRoot);
+  const headHash = index[threadId];
+  if (headHash === undefined) {
+    failStep(plog, `thread not active: ${threadId}`);
+  }
+
+  // Spawn detached background process
+  const scriptPath = process.argv[1];
+  if (scriptPath === undefined) {
+    failStep(plog, "unable to determine script path for background execution");
+  }
+
+  const args = ["thread", "step", threadId, "--count", String(count)];
+
+  if (agentOverride !== null) {
+    args.push("--agent", agentOverride);
+  }
+
+  // Internal flag to signal the background worker to create/cleanup markers
+  args.push("--_background-worker");
+
+  plog.log(PL_BACKGROUND_START, `spawning background process count=${count}`, null);
+
+  const child = spawn(scriptPath, args, {
+    detached: true,
+    stdio: "ignore",
+  });
+
+  child.unref();
+
+  // Return immediately with current state and background flag
+  return [
+    {
+      workflow: workflowHash,
+      thread: threadId,
+      head: headHash,
+      done: false,
+      background: true,
+    },
+  ];
 }
 
 async function cmdThreadStepOnce(
@@ -926,6 +1020,7 @@ async function cmdThreadStepOnce(
       thread: threadId,
       head: headHash,
       done: true,
+      background: null,
     };
   }
 
@@ -973,6 +1068,7 @@ async function cmdThreadStepOnce(
     thread: threadId,
     head: newHead,
     done,
+    background: null,
   };
 }
 
@@ -1109,6 +1205,17 @@ export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Pr
     fail(`thread not active: ${threadId}`);
   }
 
+  // Check if thread is running in background and terminate it
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  if (runningMarker !== null) {
+    try {
+      process.kill(runningMarker.pid, "SIGTERM");
+    } catch {
+      // Process may have already exited, ignore error
+    }
+    await deleteMarker(storageRoot, threadId);
+  }
+
   const uwf = await createUwfStore(storageRoot);
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
@@ -1127,4 +1234,9 @@ export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Pr
   await appendThreadHistory(storageRoot, historyEntry);
 
   return { thread: threadId, archived: true };
+}
+
+export async function cmdThreadRunning(storageRoot: string): Promise<RunningThreadsOutput> {
+  const threads = await listRunningThreads(storageRoot);
+  return { threads };
 }
