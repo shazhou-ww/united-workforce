@@ -1,8 +1,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
-import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
-import { getSchema, validate } from "@uncaged/json-cas";
+import { validate } from "@uncaged/json-cas";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-agent-kit";
 import { evaluate } from "@uncaged/workflow-moderator";
 import type {
@@ -11,17 +10,13 @@ import type {
   CasRef,
   ModeratorContext,
   RunningThreadsOutput,
-  StartEntry,
   StartNodePayload,
   StartOutput,
   StepContext,
-  StepEntry,
   StepNodePayload,
   StepOutput,
-  ThreadForkOutput,
   ThreadId,
   ThreadListItem,
-  ThreadStepsOutput,
   WorkflowConfig,
   WorkflowPayload,
 } from "@uncaged/workflow-protocol";
@@ -47,6 +42,14 @@ import {
   type UwfStore,
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
+import {
+  type ChainState,
+  collectOrderedSteps,
+  expandOutput,
+  fail,
+  type OrderedStepItem,
+  walkChain,
+} from "./shared.js";
 import { materializeWorkflowPayload } from "./workflow.js";
 
 const END_ROLE = "$END";
@@ -63,29 +66,6 @@ const PL_BACKGROUND_START = "X7Q4W9M2";
 function failStep(plog: ProcessLogger, message: string): never {
   plog.log(PL_STEP_ERROR, message, null);
   fail(message);
-}
-
-type ChainState = {
-  startHash: CasRef;
-  start: StartNodePayload;
-  stepsNewestFirst: StepNodePayload[];
-  headIsStart: boolean;
-};
-
-type OrderedStepItem = {
-  hash: CasRef;
-  payload: StepNodePayload;
-  timestamp: number;
-};
-
-export type KillOutput = {
-  thread: ThreadId;
-  archived: boolean;
-};
-
-function fail(message: string): never {
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
 }
 
 /**
@@ -346,224 +326,68 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
   fail(`thread not found: ${threadId}`);
 }
 
+export type ThreadStatus = "idle" | "running" | "completed";
+
+export type ThreadListItemWithStatus = ThreadListItem & {
+  status: ThreadStatus;
+};
+
 async function threadListItemFromActive(
+  storageRoot: string,
   uwf: UwfStore,
   threadId: ThreadId,
   head: CasRef,
-): Promise<ThreadListItem | null> {
+): Promise<ThreadListItemWithStatus | null> {
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
     return null;
   }
-  return { thread: threadId, workflow, head };
+
+  // Check if thread is currently running in background
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  const status: ThreadStatus = runningMarker !== null ? "running" : "idle";
+
+  return { thread: threadId, workflow, head, status };
 }
 
 export async function cmdThreadList(
   storageRoot: string,
-  includeAll: boolean,
-): Promise<ThreadListItem[]> {
+  statusFilter: ThreadStatus | null,
+): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
   const index = await loadThreadsIndex(storageRoot);
-  const items: ThreadListItem[] = [];
+  const items: ThreadListItemWithStatus[] = [];
 
+  // Add active threads
   for (const [threadId, head] of Object.entries(index)) {
-    const item = await threadListItemFromActive(uwf, threadId as ThreadId, head);
+    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, head);
     if (item !== null) {
       items.push(item);
     }
   }
 
-  if (!includeAll) {
-    return items;
+  // Add completed threads if requested
+  if (statusFilter === "completed" || statusFilter === null) {
+    const activeIds = new Set(items.map((i) => i.thread));
+    const history = await loadThreadHistory(storageRoot);
+    for (const entry of history) {
+      if (!activeIds.has(entry.thread)) {
+        items.push({
+          thread: entry.thread,
+          workflow: entry.workflow,
+          head: entry.head,
+          status: "completed",
+        });
+      }
+    }
   }
 
-  const activeIds = new Set(items.map((i) => i.thread));
-  const history = await loadThreadHistory(storageRoot);
-  for (const entry of history) {
-    if (!activeIds.has(entry.thread)) {
-      items.push({
-        thread: entry.thread,
-        workflow: entry.workflow,
-        head: entry.head,
-      });
-    }
+  // Apply status filter if provided
+  if (statusFilter !== null) {
+    return items.filter((item) => item.status === statusFilter);
   }
 
   return items;
-}
-
-function walkChain(uwf: UwfStore, headHash: CasRef): ChainState {
-  const headNode = uwf.store.get(headHash);
-  if (headNode === null) {
-    fail(`CAS node not found: ${headHash}`);
-  }
-
-  if (headNode.type === uwf.schemas.startNode) {
-    return {
-      startHash: headHash,
-      start: headNode.payload as StartNodePayload,
-      stepsNewestFirst: [],
-      headIsStart: true,
-    };
-  }
-
-  if (headNode.type !== uwf.schemas.stepNode) {
-    fail(`head ${headHash} is not a StartNode or StepNode`);
-  }
-
-  const stepsNewestFirst: StepNodePayload[] = [];
-  let hash: CasRef | null = headHash;
-
-  while (hash !== null) {
-    const node = uwf.store.get(hash);
-    if (node === null) {
-      fail(`CAS node not found while walking chain: ${hash}`);
-    }
-    if (node.type !== uwf.schemas.stepNode) {
-      break;
-    }
-    const payload = node.payload as StepNodePayload;
-    stepsNewestFirst.push(payload);
-    hash = payload.prev;
-  }
-
-  const newest = stepsNewestFirst[0];
-  if (newest === undefined) {
-    fail(`empty step chain at head ${headHash}`);
-  }
-
-  const startNode = uwf.store.get(newest.start);
-  if (startNode === null || startNode.type !== uwf.schemas.startNode) {
-    fail(`StartNode not found: ${newest.start}`);
-  }
-
-  return {
-    startHash: newest.start,
-    start: startNode.payload as StartNodePayload,
-    stepsNewestFirst,
-    headIsStart: false,
-  };
-}
-
-function expandOutput(uwf: UwfStore, outputRef: CasRef): unknown {
-  const node = uwf.store.get(outputRef);
-  if (node === null) {
-    return {};
-  }
-  return node.payload;
-}
-
-/**
- * Recursively expand all cas_ref fields in a CAS node's payload,
- * replacing hash strings with the referenced node's expanded payload.
- */
-function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unknown {
-  const seen = visited ?? new Set<string>();
-  if (seen.has(hash)) return hash; // cycle guard
-  seen.add(hash);
-
-  const node = store.get(hash);
-  if (node === null) return hash;
-
-  const schema = getSchema(store, node.type);
-  if (schema === null) return node.payload;
-
-  return expandValue(store, schema, node.payload, seen);
-}
-
-function expandCasRefField(store: CasStore, value: unknown, visited: Set<string>): unknown {
-  if (typeof value === "string") {
-    return expandDeep(store, value as CasRef, visited);
-  }
-  return value;
-}
-
-function expandAnyOfField(
-  store: CasStore,
-  schema: JSONSchema,
-  value: unknown,
-  visited: Set<string>,
-): unknown {
-  if (!Array.isArray(schema.anyOf)) return value;
-  for (const sub of schema.anyOf as JSONSchema[]) {
-    if (sub.format === "cas_ref" && typeof value === "string") {
-      return expandDeep(store, value as CasRef, visited);
-    }
-  }
-  return value;
-}
-
-function expandArrayField(
-  store: CasStore,
-  schema: JSONSchema,
-  value: unknown,
-  visited: Set<string>,
-): unknown {
-  if (!schema.items || !Array.isArray(value)) return value;
-  const itemSchema = schema.items as JSONSchema;
-  return (value as unknown[]).map((item) => expandValue(store, itemSchema, item, visited));
-}
-
-function expandObjectField(
-  store: CasStore,
-  schema: JSONSchema,
-  value: unknown,
-  visited: Set<string>,
-): unknown {
-  if (value === null || typeof value !== "object" || Array.isArray(value) || !schema.properties) {
-    return value;
-  }
-  const props = schema.properties as Record<string, JSONSchema>;
-  const obj = value as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(obj)) {
-    const propSchema = props[key];
-    result[key] = propSchema ? expandValue(store, propSchema, val, visited) : val;
-  }
-  return result;
-}
-
-function expandValue(
-  store: CasStore,
-  schema: JSONSchema,
-  value: unknown,
-  visited: Set<string>,
-): unknown {
-  if (schema.format === "cas_ref") return expandCasRefField(store, value, visited);
-  if (Array.isArray(schema.anyOf)) return expandAnyOfField(store, schema, value, visited);
-  if (schema.type === "array") return expandArrayField(store, schema, value, visited);
-  return expandObjectField(store, schema, value, visited);
-}
-
-function collectOrderedSteps(
-  uwf: UwfStore,
-  headHash: CasRef,
-  chain: ChainState,
-): OrderedStepItem[] {
-  let hash: CasRef | null = headHash;
-  const hashToNode = new Map<string, { payload: StepNodePayload; timestamp: number }>();
-  while (hash !== null) {
-    const node = uwf.store.get(hash);
-    if (node === null || node.type !== uwf.schemas.stepNode) {
-      break;
-    }
-    const payload = node.payload as StepNodePayload;
-    hashToNode.set(hash, { payload, timestamp: node.timestamp });
-    hash = payload.prev;
-  }
-
-  let cur: CasRef | null = chain.headIsStart ? null : headHash;
-  const ordered: OrderedStepItem[] = [];
-  while (cur !== null) {
-    const entry = hashToNode.get(cur);
-    if (entry === undefined) {
-      break;
-    }
-    ordered.push({ hash: cur, ...entry });
-    cur = entry.payload.prev;
-  }
-  ordered.reverse();
-  return ordered;
 }
 
 function formatYaml(value: unknown): string {
@@ -857,7 +681,7 @@ async function archiveThread(
   });
 }
 
-export async function cmdThreadStep(
+export async function cmdThreadExec(
   storageRoot: string,
   threadId: ThreadId,
   agentOverride: string | null,
@@ -953,7 +777,7 @@ async function cmdThreadStepBackground(
     failStep(plog, "unable to determine script path for background execution");
   }
 
-  const args = ["thread", "step", threadId, "--count", String(count)];
+  const args = ["thread", "exec", threadId, "--count", String(count)];
 
   if (agentOverride !== null) {
     args.push("--agent", agentOverride);
@@ -1085,47 +909,6 @@ async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise
   fail(`thread not found: ${threadId}`);
 }
 
-export async function cmdThreadSteps(
-  storageRoot: string,
-  threadId: ThreadId,
-): Promise<ThreadStepsOutput> {
-  const headHash = await resolveHeadHash(storageRoot, threadId);
-  const uwf = await createUwfStore(storageRoot);
-  const chain = walkChain(uwf, headHash);
-
-  const startNode = uwf.store.get(chain.startHash);
-  if (startNode === null) {
-    fail(`StartNode not found: ${chain.startHash}`);
-  }
-
-  const startEntry: StartEntry = {
-    hash: chain.startHash,
-    workflow: chain.start.workflow,
-    prompt: chain.start.prompt,
-    timestamp: startNode.timestamp,
-  };
-
-  const stepEntries: StepEntry[] = [];
-  const ordered = collectOrderedSteps(uwf, headHash, chain);
-
-  for (const item of ordered) {
-    stepEntries.push({
-      hash: item.hash,
-      role: item.payload.role,
-      output: expandOutput(uwf, item.payload.output),
-      detail: item.payload.detail,
-      agent: item.payload.agent,
-      timestamp: item.timestamp,
-    });
-  }
-
-  return {
-    thread: threadId,
-    workflow: chain.start.workflow,
-    steps: [startEntry, ...stepEntries],
-  };
-}
-
 export async function cmdThreadRead(
   storageRoot: string,
   threadId: ThreadId,
@@ -1153,52 +936,50 @@ export async function cmdThreadRead(
   });
 }
 
-export async function cmdThreadFork(
-  storageRoot: string,
-  stepHash: CasRef,
-): Promise<ThreadForkOutput> {
-  const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
-  if (node === null) {
-    fail(`CAS node not found: ${stepHash}`);
-  }
-  if (node.type !== uwf.schemas.startNode && node.type !== uwf.schemas.stepNode) {
-    fail(`node ${stepHash} is not a StartNode or StepNode`);
-  }
+export type StopOutput = {
+  thread: ThreadId;
+  stopped: boolean;
+};
 
-  const newThreadId = generateUlid(Date.now()) as ThreadId;
+export type CancelOutput = {
+  thread: ThreadId;
+  cancelled: boolean;
+};
+
+/**
+ * Stop background execution of a thread (but keep thread active)
+ */
+export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  index[newThreadId] = stepHash;
-  await saveThreadsIndex(storageRoot, index);
+  const head = index[threadId];
+  if (head === undefined) {
+    fail(`thread not active: ${threadId}`);
+  }
 
-  return {
-    thread: newThreadId,
-    forkedFrom: {
-      step: stepHash,
-    },
-  };
+  // Check if thread is running in background and terminate it
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  if (runningMarker === null) {
+    process.stderr.write(`Warning: thread ${threadId} is not currently running\n`);
+    return { thread: threadId, stopped: false };
+  }
+
+  try {
+    process.kill(runningMarker.pid, "SIGTERM");
+  } catch {
+    // Process may have already exited, ignore error
+  }
+  await deleteMarker(storageRoot, threadId);
+
+  return { thread: threadId, stopped: true };
 }
 
-export async function cmdThreadStepDetails(
+/**
+ * Cancel a thread (stop execution + move to history)
+ */
+export async function cmdThreadCancel(
   storageRoot: string,
-  stepHash: CasRef,
-): Promise<unknown> {
-  const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
-  if (node === null) {
-    fail(`CAS node not found: ${stepHash}`);
-  }
-  if (node.type !== uwf.schemas.stepNode) {
-    fail(`node ${stepHash} is not a StepNode`);
-  }
-  const payload = node.payload as StepNodePayload;
-  if (!payload.detail) {
-    fail(`step ${stepHash} has no detail`);
-  }
-  return expandDeep(uwf.store, payload.detail);
-}
-
-export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Promise<KillOutput> {
+  threadId: ThreadId,
+): Promise<CancelOutput> {
   const index = await loadThreadsIndex(storageRoot);
   const head = index[threadId];
   if (head === undefined) {
@@ -1233,7 +1014,7 @@ export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Pr
   };
   await appendThreadHistory(storageRoot, historyEntry);
 
-  return { thread: threadId, archived: true };
+  return { thread: threadId, cancelled: true };
 }
 
 export async function cmdThreadRunning(storageRoot: string): Promise<RunningThreadsOutput> {

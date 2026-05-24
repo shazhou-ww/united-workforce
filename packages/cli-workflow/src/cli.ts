@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 
-import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { Command } from "commander";
-import { stringify as yamlStringify } from "yaml";
 import {
   cmdCasGet,
   cmdCasHas,
@@ -17,20 +16,19 @@ import {
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdSkillCli } from "./commands/skill.js";
+import { cmdStepFork, cmdStepList, cmdStepShow } from "./commands/step.js";
 import {
-  cmdThreadFork,
-  cmdThreadKill,
+  cmdThreadCancel,
+  cmdThreadExec,
   cmdThreadList,
   cmdThreadRead,
-  cmdThreadRunning,
   cmdThreadShow,
   cmdThreadStart,
-  cmdThreadStep,
-  cmdThreadStepDetails,
-  cmdThreadSteps,
+  cmdThreadStop,
   THREAD_READ_DEFAULT_QUOTA,
+  type ThreadStatus,
 } from "./commands/thread.js";
-import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
+import { cmdWorkflowAdd, cmdWorkflowList, cmdWorkflowShow } from "./commands/workflow.js";
 import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
 
@@ -53,20 +51,27 @@ const program = new Command();
 const pkg = await import("../package.json", { with: { type: "json" } });
 program
   .name("uwf")
-  .description("Stateless workflow CLI")
+  .description(
+    "Stateless workflow CLI\n\n" +
+      "Four-layer architecture:\n" +
+      "  workflow → thread → step → turn\n" +
+      "  模板定义   执行实例   单步结果   agent内部交互",
+  )
   .version(pkg.default.version, "-V, --version");
 program.option("--format <fmt>", "Output format: json or yaml", "json");
 
-const workflow = program.command("workflow").description("Workflow registry and CAS");
+const workflow = program
+  .command("workflow")
+  .description("Workflow definitions (layer 1: templates)");
 
 workflow
-  .command("put")
+  .command("add")
   .description("Register a workflow from YAML")
   .argument("<file>", "Workflow YAML file")
   .action((file: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdWorkflowPut(storageRoot, file);
+      const result = await cmdWorkflowAdd(storageRoot, file);
       writeOutput(result);
     });
   });
@@ -94,7 +99,7 @@ workflow
     });
   });
 
-const thread = program.command("thread").description("Thread lifecycle and execution");
+const thread = program.command("thread").description("Thread execution (layer 2: instances)");
 
 thread
   .command("start")
@@ -110,7 +115,7 @@ thread
   });
 
 thread
-  .command("step")
+  .command("exec")
   .description("Execute one or more steps")
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
@@ -134,7 +139,7 @@ thread
         const background = opts.background ?? false;
         const backgroundWorker = opts._backgroundWorker ?? false;
 
-        const results = await cmdThreadStep(
+        const results = await cmdThreadExec(
           storageRoot,
           threadId,
           agentOverride,
@@ -165,47 +170,49 @@ thread
 
 thread
   .command("list")
-  .description("List active threads")
-  .option("--all", "Include archived threads")
-  .action((opts: { all: boolean }) => {
+  .description("List threads")
+  .option("--status <status>", "Filter by status: idle, running, or completed")
+  .action((opts: { status: string | undefined }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadList(storageRoot, opts.all);
+      const validStatuses: ThreadStatus[] = ["idle", "running", "completed"];
+      let statusFilter: ThreadStatus | null = null;
+
+      if (opts.status !== undefined) {
+        if (!validStatuses.includes(opts.status as ThreadStatus)) {
+          process.stderr.write(
+            `Invalid status: ${opts.status}. Must be one of: idle, running, completed\n`,
+          );
+          process.exit(1);
+        }
+        statusFilter = opts.status as ThreadStatus;
+      }
+
+      const result = await cmdThreadList(storageRoot, statusFilter);
       writeOutput(result);
     });
   });
 
 thread
-  .command("running")
-  .description("List threads currently executing in the background")
-  .action(() => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const result = await cmdThreadRunning(storageRoot);
-      writeOutput(result);
-    });
-  });
-
-thread
-  .command("kill")
-  .description("Terminate and archive a thread")
+  .command("stop")
+  .description("Stop background execution of a thread (keep thread active)")
   .argument("<thread-id>", "Thread ULID")
   .action((threadId: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadKill(storageRoot, threadId);
+      const result = await cmdThreadStop(storageRoot, threadId);
       writeOutput(result);
     });
   });
 
 thread
-  .command("steps")
-  .description("List all steps in a thread")
+  .command("cancel")
+  .description("Cancel a thread (stop execution and move to history)")
   .argument("<thread-id>", "Thread ULID")
   .action((threadId: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadSteps(storageRoot, threadId);
+      const result = await cmdThreadCancel(storageRoot, threadId);
       writeOutput(result);
     });
   });
@@ -239,28 +246,141 @@ thread
     },
   );
 
-thread
+const step = program.command("step").description("Step results (layer 3: single cycle)");
+
+step
+  .command("list")
+  .description("List all steps in a thread")
+  .argument("<thread-id>", "Thread ULID")
+  .action((threadId: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdStepList(storageRoot, threadId);
+      writeOutput(result);
+    });
+  });
+
+step
+  .command("show")
+  .description("Show details of a specific step")
+  .argument("<step-hash>", "CAS hash of the StepNode")
+  .action((stepHash: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const detail = await cmdStepShow(storageRoot, stepHash as CasRef);
+      writeOutput(detail);
+    });
+  });
+
+// step read is not yet registered (half-baked, see step.ts cmdStepRead)
+
+step
   .command("fork")
   .description("Fork a thread from a specific step")
   .argument("<step-hash>", "CAS hash of the StartNode or StepNode to fork from")
   .action((stepHash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadFork(storageRoot, stepHash);
+      const result = await cmdStepFork(storageRoot, stepHash as CasRef);
       writeOutput(result);
     });
   });
 
+// ── Deprecation Handlers ──────────────────────────────────────────────────────
+// These commands have been removed. Show helpful error messages.
+
+workflow
+  .command("put")
+  .description("[DEPRECATED] Use 'workflow add' instead")
+  .argument("<file>", "Workflow YAML file")
+  .action(() => {
+    process.stderr.write(`Error: Command 'workflow put' has been removed.
+Use 'workflow add' instead.
+
+For more information, see: uwf help workflow add
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("step")
+  .description("[DEPRECATED] Use 'thread exec' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .allowUnknownOption()
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread step' has been removed.
+Use 'thread exec' instead.
+
+For more information, see: uwf help thread exec
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("steps")
+  .description("[DEPRECATED] Use 'step list' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread steps' has been removed.
+Use 'step list' instead.
+
+For more information, see: uwf help step list
+`);
+    process.exit(1);
+  });
+
 thread
   .command("step-details")
-  .description("Dump the full detail node of a step as YAML")
-  .argument("<step-hash>", "CAS hash of the StepNode")
-  .action((stepHash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const detail = await cmdThreadStepDetails(storageRoot, stepHash);
-      process.stdout.write(yamlStringify(detail));
-    });
+  .description("[DEPRECATED] Use 'step show' instead")
+  .argument("<step-hash>", "Step hash")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread step-details' has been removed.
+Use 'step show' instead.
+
+For more information, see: uwf help step show
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("fork")
+  .description("[DEPRECATED] Use 'step fork' instead")
+  .argument("<step-hash>", "Step hash")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread fork' has been removed.
+Use 'step fork' instead.
+
+For more information, see: uwf help step fork
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("kill")
+  .description("[DEPRECATED] Use 'thread stop' or 'thread cancel' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread kill' has been removed.
+Use 'thread stop' to stop background execution (keep thread active),
+or 'thread cancel' to cancel and archive the thread.
+
+For more information, see:
+  uwf help thread stop
+  uwf help thread cancel
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("running")
+  .description("[DEPRECATED] Use 'thread list --status running' instead")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread running' has been removed.
+Use 'thread list --status running' instead.
+
+For more information, see: uwf help thread list
+`);
+    process.exit(1);
   });
 
 const skill = program.command("skill").description("Built-in skill references for agents");

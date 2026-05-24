@@ -5,9 +5,9 @@ import { bootstrap, putSchema } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { cmdStepShow } from "../commands/step.js";
 import {
   cmdThreadRead,
-  cmdThreadStepDetails,
   extractLastAssistantContent,
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
@@ -315,9 +315,9 @@ describe("cmdThreadRead <output> section", () => {
   });
 });
 
-// ── cmdThreadStepDetails ──────────────────────────────────────────────────────
+// ── cmdStepShow ───────────────────────────────────────────────────────────────
 
-describe("cmdThreadStepDetails", () => {
+describe("cmdStepShow", () => {
   test("returns expanded detail node with turns inlined", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
@@ -365,7 +365,7 @@ describe("cmdThreadStepDetails", () => {
       agent: "uwf-hermes",
     });
 
-    const result = await cmdThreadStepDetails(tmpDir, stepHash);
+    const result = await cmdStepShow(tmpDir, stepHash);
 
     expect(result).toMatchObject({
       sessionId: "sess42",
@@ -586,9 +586,9 @@ describe("cmdThreadRead start section / before / quota", () => {
 
 // ── Tests that call process.exit must be last ─────────────────────────────────
 
-describe("cmdThreadStepDetails (process.exit tests - must be last)", () => {
+describe("cmdStepShow (process.exit tests - must be last)", () => {
   test("throws when step hash does not exist", async () => {
-    await expect(cmdThreadStepDetails(tmpDir, "nonexistenth0" as CasRef)).rejects.toThrow();
+    await expect(cmdStepShow(tmpDir, "nonexistenth0" as CasRef)).rejects.toThrow();
   });
 
   test("before with unknown hash rejects", async () => {
