@@ -1,4 +1,4 @@
-import { encodeCrockfordBase32Bits } from "./base32.js";
+import { decodeCrockfordBase32Bits, encodeCrockfordBase32Bits } from "./base32.js";
 
 const ULID_TIME_BITS = 48;
 const ULID_RANDOM_BITS = 80;
@@ -25,4 +25,20 @@ export function generateUlid(nowMs: number): string {
   const rand = readRandomUint80();
   const payload = (time << BigInt(ULID_RANDOM_BITS)) | rand;
   return encodeCrockfordBase32Bits(payload, ULID_TIME_BITS + ULID_RANDOM_BITS);
+}
+
+/**
+ * Extract the timestamp (in milliseconds) from a ULID string.
+ * Returns null if the ULID is invalid.
+ */
+export function extractUlidTimestamp(ulid: string): number | null {
+  if (ulid.length !== 26) {
+    return null;
+  }
+  const timestampPart = ulid.slice(0, 10);
+  const decoded = decodeCrockfordBase32Bits(timestampPart, ULID_TIME_BITS);
+  if (!decoded.ok) {
+    return null;
+  }
+  return Number(decoded.value);
 }

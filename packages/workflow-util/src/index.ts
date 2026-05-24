@@ -24,4 +24,4 @@ export { normalizeRefsField } from "./refs-field.js";
 export { err, ok } from "./result.js";
 export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
 export type { LogFn, Result } from "./types.js";
-export { generateUlid } from "./ulid.js";
+export { extractUlidTimestamp, generateUlid } from "./ulid.js";

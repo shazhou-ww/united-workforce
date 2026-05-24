@@ -16,10 +16,16 @@ import type {
   StepOutput,
   ThreadId,
   ThreadListItem,
+  ThreadsIndex,
   WorkflowConfig,
   WorkflowPayload,
 } from "@uncaged/workflow-protocol";
-import { createProcessLogger, generateUlid, type ProcessLogger } from "@uncaged/workflow-util";
+import {
+  createProcessLogger,
+  extractUlidTimestamp,
+  generateUlid,
+  type ProcessLogger,
+} from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
 import { parse, stringify } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
@@ -344,44 +350,115 @@ async function threadListItemFromActive(
   return { thread: threadId, workflow, head, status };
 }
 
-export async function cmdThreadList(
+async function collectActiveThreads(
   storageRoot: string,
-  statusFilter: ThreadStatus | null,
+  uwf: UwfStore,
+  index: ThreadsIndex,
 ): Promise<ThreadListItemWithStatus[]> {
-  const uwf = await createUwfStore(storageRoot);
-  const index = await loadThreadsIndex(storageRoot);
   const items: ThreadListItemWithStatus[] = [];
-
-  // Add active threads
   for (const [threadId, head] of Object.entries(index)) {
-    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, head);
+    const item = await threadListItemFromActive(
+      storageRoot,
+      uwf,
+      threadId as ThreadId,
+      head as CasRef,
+    );
     if (item !== null) {
       items.push(item);
     }
   }
+  return items;
+}
 
-  // Add completed threads if requested
-  if (statusFilter === "completed" || statusFilter === null) {
-    const activeIds = new Set(items.map((i) => i.thread));
-    const history = await loadThreadHistory(storageRoot);
-    for (const entry of history) {
-      if (!activeIds.has(entry.thread)) {
-        items.push({
-          thread: entry.thread,
-          workflow: entry.workflow,
-          head: entry.head,
-          status: "completed",
-        });
-      }
+async function collectCompletedThreads(
+  storageRoot: string,
+  activeIds: Set<ThreadId>,
+): Promise<ThreadListItemWithStatus[]> {
+  const items: ThreadListItemWithStatus[] = [];
+  const history = await loadThreadHistory(storageRoot);
+  const seen = new Set<ThreadId>(); // Deduplication (issue #470)
+  for (const entry of history) {
+    if (!activeIds.has(entry.thread) && !seen.has(entry.thread)) {
+      seen.add(entry.thread);
+      items.push({
+        thread: entry.thread,
+        workflow: entry.workflow,
+        head: entry.head,
+        status: "completed",
+      });
     }
   }
+  return items;
+}
 
-  // Apply status filter if provided
-  if (statusFilter !== null) {
-    return items.filter((item) => item.status === statusFilter);
+function applyTimeFilters(
+  items: ThreadListItemWithStatus[],
+  afterMs: number | null,
+  beforeMs: number | null,
+): ThreadListItemWithStatus[] {
+  if (afterMs === null && beforeMs === null) return items;
+  return items.filter((item) => {
+    const ts = extractUlidTimestamp(item.thread);
+    if (ts === null) return false;
+    if (afterMs !== null && ts <= afterMs) return false;
+    if (beforeMs !== null && ts >= beforeMs) return false;
+    return true;
+  });
+}
+
+function sortByNewestFirst(items: ThreadListItemWithStatus[]): ThreadListItemWithStatus[] {
+  return items.sort((a, b) => {
+    const tsA = extractUlidTimestamp(a.thread) ?? 0;
+    const tsB = extractUlidTimestamp(b.thread) ?? 0;
+    return tsB - tsA;
+  });
+}
+
+function applyPagination(
+  items: ThreadListItemWithStatus[],
+  skip: number | null,
+  take: number | null,
+): ThreadListItemWithStatus[] {
+  const skipCount = skip ?? 0;
+  const takeCount = take ?? items.length;
+  return items.slice(skipCount, skipCount + takeCount);
+}
+
+export async function cmdThreadList(
+  storageRoot: string,
+  statusFilter: ThreadStatus[] | null,
+  afterMs: number | null,
+  beforeMs: number | null,
+  skip: number | null,
+  take: number | null,
+): Promise<ThreadListItemWithStatus[]> {
+  const uwf = await createUwfStore(storageRoot);
+  const index = await loadThreadsIndex(storageRoot);
+
+  // Collect active threads
+  let items = await collectActiveThreads(storageRoot, uwf, index);
+
+  // Collect completed threads (if relevant for status filter)
+  const includeCompleted = statusFilter === null || statusFilter.includes("completed");
+  if (includeCompleted) {
+    const activeIds = new Set(items.map((i) => i.thread));
+    const completedItems = await collectCompletedThreads(storageRoot, activeIds);
+    items = items.concat(completedItems);
   }
 
-  return items;
+  // Apply status filter
+  if (statusFilter !== null) {
+    items = items.filter((item) => statusFilter.includes(item.status));
+  }
+
+  // Apply time range filters
+  items = applyTimeFilters(items, afterMs, beforeMs);
+
+  // Sort by timestamp descending (newest first)
+  items = sortByNewestFirst(items);
+
+  // Apply pagination
+  return applyPagination(items, skip, take);
 }
 
 function formatYaml(value: unknown): string {

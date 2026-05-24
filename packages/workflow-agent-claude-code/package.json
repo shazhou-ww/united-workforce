@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@uncaged/json-cas": "^0.4.0",
-    "@uncaged/workflow-agent-kit": "workspace:^"
+    "@uncaged/workflow-agent-kit": "workspace:^",
+    "@uncaged/workflow-util": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

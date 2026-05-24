@@ -28,6 +28,7 @@ import {
   THREAD_READ_DEFAULT_QUOTA,
   type ThreadStatus,
 } from "./commands/thread.js";
+import { parseTimeInput } from "./commands/thread-time-parser.js";
 import { cmdWorkflowAdd, cmdWorkflowList, cmdWorkflowShow } from "./commands/workflow.js";
 import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
@@ -168,30 +169,103 @@ thread
     });
   });
 
+// Helper functions for thread list command parsing
+function parseStatusFilter(status: string | undefined): ThreadStatus[] | null {
+  if (status === undefined) return null;
+  const raw = status.trim();
+  if (raw === "active") return ["idle", "running"];
+
+  const parts = raw.split(",").map((s) => s.trim());
+  const validStatuses: ThreadStatus[] = ["idle", "running", "completed"];
+  for (const part of parts) {
+    if (!validStatuses.includes(part as ThreadStatus)) {
+      process.stderr.write(
+        `Invalid status: ${part}. Must be one of: idle, running, completed, active\n`,
+      );
+      process.exit(1);
+    }
+  }
+  return parts as ThreadStatus[];
+}
+
+function parseTimeFilters(
+  after: string | undefined,
+  before: string | undefined,
+  nowMs: number,
+): { afterMs: number | null; beforeMs: number | null } {
+  try {
+    const afterMs = after !== undefined ? parseTimeInput(after, nowMs) : null;
+    const beforeMs = before !== undefined ? parseTimeInput(before, nowMs) : null;
+    return { afterMs, beforeMs };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  }
+}
+
+function parsePaginationOptions(
+  skip: string | undefined,
+  take: string | undefined,
+): { skip: number | null; take: number | null } {
+  let skipVal: number | null = null;
+  let takeVal: number | null = null;
+
+  if (skip !== undefined) {
+    skipVal = Number.parseInt(skip, 10);
+    if (!Number.isInteger(skipVal) || skipVal < 0) {
+      process.stderr.write("--skip must be a non-negative integer\n");
+      process.exit(1);
+    }
+  }
+  if (take !== undefined) {
+    takeVal = Number.parseInt(take, 10);
+    if (!Number.isInteger(takeVal) || takeVal < 1) {
+      process.stderr.write("--take must be a positive integer\n");
+      process.exit(1);
+    }
+  }
+  return { skip: skipVal, take: takeVal };
+}
+
 thread
   .command("list")
   .description("List threads")
-  .option("--status <status>", "Filter by status: idle, running, or completed")
-  .action((opts: { status: string | undefined }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const validStatuses: ThreadStatus[] = ["idle", "running", "completed"];
-      let statusFilter: ThreadStatus | null = null;
+  .option(
+    "--status <status>",
+    "Filter by status: idle, running, completed, active (idle+running), or comma-separated values",
+  )
+  .option("--after <date>", "Filter threads created after this date (ISO or relative like '7d')")
+  .option("--before <date>", "Filter threads created before this date (ISO or relative like '7d')")
+  .option("--skip <n>", "Skip first n threads")
+  .option("--take <n>", "Return at most n threads")
+  .action(
+    (opts: {
+      status: string | undefined;
+      after: string | undefined;
+      before: string | undefined;
+      skip: string | undefined;
+      take: string | undefined;
+    }) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        const statusFilter = parseStatusFilter(opts.status);
+        const nowMs = Date.now();
+        const { afterMs, beforeMs } = parseTimeFilters(opts.after, opts.before, nowMs);
+        const { skip, take } = parsePaginationOptions(opts.skip, opts.take);
 
-      if (opts.status !== undefined) {
-        if (!validStatuses.includes(opts.status as ThreadStatus)) {
-          process.stderr.write(
-            `Invalid status: ${opts.status}. Must be one of: idle, running, completed\n`,
-          );
-          process.exit(1);
-        }
-        statusFilter = opts.status as ThreadStatus;
-      }
-
-      const result = await cmdThreadList(storageRoot, statusFilter);
-      writeOutput(result);
-    });
-  });
+        const result = await cmdThreadList(
+          storageRoot,
+          statusFilter,
+          afterMs,
+          beforeMs,
+          skip,
+          take,
+        );
+        writeOutput(result);
+      });
+    },
+  );
 
 thread
   .command("stop")
