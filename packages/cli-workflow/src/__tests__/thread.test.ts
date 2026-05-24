@@ -5,7 +5,7 @@ import { bootstrap, putSchema } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { cmdStepShow } from "../commands/step.js";
+import { cmdStepList, cmdStepShow } from "../commands/step.js";
 import {
   cmdThreadRead,
   extractLastAssistantContent,
@@ -13,7 +13,7 @@ import {
 } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
 import type { UwfStore } from "../store.js";
-import { saveThreadsIndex } from "../store.js";
+import { appendThreadHistory, saveThreadsIndex } from "../store.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -645,5 +645,385 @@ describe("cmdStepShow (process.exit tests - must be last)", () => {
         false,
       ),
     ).rejects.toThrow();
+  });
+});
+
+// ── cmdStepList / cmdStepShow: completed threads ──────────────────────────────
+
+describe("cmdStepList with completed threads", () => {
+  test("lists steps from active thread", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-active",
+      description: "desc",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Start prompt",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "role1",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: step1Hash,
+      role: "role2",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    const step3Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: step2Hash,
+      role: "role3",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+
+    const threadId = "01JTEST0000000000000000A1" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: step3Hash });
+
+    const result = await cmdStepList(tmpDir, threadId);
+
+    expect(result.thread).toBe(threadId);
+    expect(result.steps).toHaveLength(4); // start + 3 steps
+    expect(result.steps[1].role).toBe("role1");
+    expect(result.steps[2].role).toBe("role2");
+    expect(result.steps[3].role).toBe("role3");
+  });
+
+  test("lists steps from completed thread", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-completed",
+      description: "desc",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Start prompt",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "roleA",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: step1Hash,
+      role: "roleB",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+
+    const threadId = "01JTEST0000000000000000A2" as ThreadId;
+    // Thread is NOT in threads.yaml (simulating completed thread)
+    await saveThreadsIndex(tmpDir, {});
+    // But it IS in history.jsonl
+    await appendThreadHistory(tmpDir, {
+      thread: threadId,
+      workflow: workflowHash,
+      head: step2Hash,
+      completedAt: Date.now(),
+    });
+
+    const result = await cmdStepList(tmpDir, threadId);
+
+    expect(result.thread).toBe(threadId);
+    expect(result.steps).toHaveLength(3); // start + 2 steps
+    expect(result.steps[1].role).toBe("roleA");
+    expect(result.steps[2].role).toBe("roleB");
+  });
+});
+
+describe("cmdStepShow with completed threads", () => {
+  test("shows step detail from active thread", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const detailSchemas = await registerDetailSchemas(uwf.store);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-step-active",
+      description: "desc",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "p",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const turnHash = await uwf.store.put(detailSchemas.turn, {
+      index: 0,
+      role: "assistant",
+      content: "Active thread response",
+      toolCalls: null,
+      reasoning: null,
+    });
+    const detailHash = await uwf.store.put(detailSchemas.detail, {
+      sessionId: "sess-active",
+      model: "model-x",
+      duration: 1234,
+      turnCount: 1,
+      turns: [turnHash],
+    });
+
+    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "coder",
+      output: outputHash,
+      detail: detailHash,
+      agent: "uwf-hermes",
+    });
+
+    const threadId = "01JTEST0000000000000000B1" as ThreadId;
+    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+
+    const result = await cmdStepShow(tmpDir, stepHash);
+
+    expect(result).toMatchObject({
+      sessionId: "sess-active",
+      model: "model-x",
+      duration: 1234,
+      turnCount: 1,
+    });
+  });
+
+  test("shows step detail from completed thread", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const detailSchemas = await registerDetailSchemas(uwf.store);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-step-completed",
+      description: "desc",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "p",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const turnHash = await uwf.store.put(detailSchemas.turn, {
+      index: 0,
+      role: "assistant",
+      content: "Completed thread response",
+      toolCalls: null,
+      reasoning: null,
+    });
+    const detailHash = await uwf.store.put(detailSchemas.detail, {
+      sessionId: "sess-completed",
+      model: "model-y",
+      duration: 5678,
+      turnCount: 1,
+      turns: [turnHash],
+    });
+
+    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "reviewer",
+      output: outputHash,
+      detail: detailHash,
+      agent: "uwf-hermes",
+    });
+
+    const threadId = "01JTEST0000000000000000B2" as ThreadId;
+    // Thread is NOT in threads.yaml
+    await saveThreadsIndex(tmpDir, {});
+    // But it IS in history.jsonl
+    await appendThreadHistory(tmpDir, {
+      thread: threadId,
+      workflow: workflowHash,
+      head: stepHash,
+      completedAt: Date.now(),
+    });
+
+    const result = await cmdStepShow(tmpDir, stepHash);
+
+    expect(result).toMatchObject({
+      sessionId: "sess-completed",
+      model: "model-y",
+      duration: 5678,
+      turnCount: 1,
+    });
+  });
+});
+
+describe("cmdThreadRead with completed threads", () => {
+  test("reads completed thread context", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-read-completed",
+      description: "desc",
+      roles: {
+        writer: {
+          description: "Write",
+          goal: "You are a writer.",
+          capabilities: [],
+          procedure: "Write content.",
+          output: "Summary.",
+          meta: "placeholder00" as CasRef,
+        },
+      },
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Write something",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "writer",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-hermes",
+    });
+
+    const threadId = "01JTEST0000000000000000C1" as ThreadId;
+    // Thread is NOT in threads.yaml
+    await saveThreadsIndex(tmpDir, {});
+    // But it IS in history.jsonl
+    await appendThreadHistory(tmpDir, {
+      thread: threadId,
+      workflow: workflowHash,
+      head: stepHash,
+      completedAt: Date.now(),
+    });
+
+    const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
+
+    expect(markdown).toContain("writer");
+    expect(markdown).toContain("Write something");
+  });
+
+  test("reads completed thread with before filter", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+
+    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "test-wf-read-before",
+      description: "desc",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Do task",
+    });
+    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "roleX",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: step1Hash,
+      role: "roleY",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+    const step3Hash = await uwf.store.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev: step2Hash,
+      role: "roleZ",
+      output: outputHash,
+      detail: null,
+      agent: "uwf-test",
+    });
+
+    const threadId = "01JTEST0000000000000000C2" as ThreadId;
+    await saveThreadsIndex(tmpDir, {});
+    await appendThreadHistory(tmpDir, {
+      thread: threadId,
+      workflow: workflowHash,
+      head: step3Hash,
+      completedAt: Date.now(),
+    });
+
+    const markdown = await cmdThreadRead(
+      tmpDir,
+      threadId,
+      THREAD_READ_DEFAULT_QUOTA,
+      step2Hash,
+      false,
+    );
+
+    // Should contain step1 (roleX) but not step2 (roleY) or step3 (roleZ)
+    expect(markdown).toContain("roleX");
+    expect(markdown).not.toContain("roleY");
+    expect(markdown).not.toContain("roleZ");
   });
 });
