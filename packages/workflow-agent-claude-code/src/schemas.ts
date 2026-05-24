@@ -34,7 +34,7 @@ export const CLAUDE_CODE_DETAIL_SCHEMA: JSONSchema = {
     },
     turns: {
       type: "array",
-      items: { type: "string" },
+      items: { type: "string", format: "cas_ref" },
     },
   },
   additionalProperties: false,
