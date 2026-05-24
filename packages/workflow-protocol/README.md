@@ -92,7 +92,7 @@ type StepNodePayload = StepRecord & {
 ### Moderator context
 
 ```typescript
-type StepContext = Omit<StepRecord, "output"> & { output: unknown };
+type StepContext = Omit<StepRecord, "output"> & { output: unknown; content: string | null };
 
 type ModeratorContext = {
   start: StartNodePayload;

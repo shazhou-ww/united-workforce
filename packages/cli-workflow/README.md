@@ -49,8 +49,10 @@ bun link packages/cli-workflow
 | `uwf thread start <workflow> -p <prompt>` | Create a thread without executing |
 | `uwf thread exec <thread-id> [--agent <cmd>] [-c <count>] [--background]` | Execute one or more moderator→agent→extract cycles |
 | `uwf thread show <thread-id>` | Show thread head pointer |
-| `uwf thread list [--status <idle\|running\|completed>]` | List threads, optionally filtered by status |
+| `uwf thread list [--status <status>] [--after <date>] [--before <date>] [--skip <n>] [--take <n>]` | List threads filtered by status (idle, running, completed, active, or comma-separated), time range (ISO or relative like '7d'), with pagination |
 | `uwf thread read <thread-id> [--quota N] [--before <hash>] [--start]` | Render thread as readable markdown |
+
+`thread read`, `step list`, and `step show` work on both active and completed threads.
 | `uwf thread stop <thread-id>` | Stop background execution (keep thread active) |
 | `uwf thread cancel <thread-id>` | Cancel thread (stop + archive to history) |
 
@@ -62,6 +64,9 @@ uwf thread exec 01ARZ3NDEKTSV4RRFFQ69G5FAV
 uwf thread exec 01ARZ3NDEKTSV4RRFFQ69G5FAV -c 3 --agent uwf-builtin
 uwf thread exec 01ARZ3NDEKTSV4RRFFQ69G5FAV --background
 uwf thread list --status running
+uwf thread list --status active
+uwf thread list --status idle,completed
+uwf thread list --after 7d --take 10
 uwf thread read 01ARZ3NDEKTSV4RRFFQ69G5FAV --quota 8000
 uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 ```

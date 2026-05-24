@@ -23,6 +23,7 @@ All exports come from `src/index.ts`.
 ```typescript
 function encodeUint64AsCrockford(value: bigint): string
 function generateUlid(nowMs: number): string
+function extractUlidTimestamp(ulid: string): number | null
 ```
 
 ### Logging

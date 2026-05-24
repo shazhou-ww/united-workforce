@@ -83,9 +83,10 @@ Requires `UWF_EDGE_PROMPT` in the environment (set by `uwf thread step`).
 function buildRolePrompt(role: RoleDefinition): string
 function buildOutputFormatInstruction(schema: JSONSchema): string
 function buildContinuationPrompt(
-  ctx: AgentContext,
-  priorOutput: string,
-  instruction: string,
+  steps: StepContext[],
+  role: string,
+  edgePrompt: string,
+  options?: { includeContent?: boolean; quota?: number },
 ): string
 ```
 

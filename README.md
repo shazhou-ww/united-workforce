@@ -62,16 +62,16 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 uwf setup
 
 # 2. Register a workflow from YAML
-uwf workflow put examples/solve-issue.yaml
+uwf workflow add examples/solve-issue.yaml
 
 # 3. Start a thread (creates head pointer; does not execute)
 uwf thread start solve-issue -p "Fix the login redirect bug"
 
 # 4. Execute steps (one at a time, until done)
-uwf thread step <thread-id>
+uwf thread exec <thread-id>
 ```
 
-Use `-c, --count <number>` on `thread step` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
+Use `-c, --count <number>` on `thread exec` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
 
 ## CLI Reference
 
@@ -79,8 +79,9 @@ Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 
 | Group | Commands |
 |-------|----------|
-| **thread** | `start`, `step`, `show`, `list`, `kill`, `steps`, `read`, `fork`, `step-details` |
-| **workflow** | `put`, `show`, `list` |
+| **thread** | `start`, `exec`, `show`, `list`, `stop`, `cancel`, `read` |
+| **step** | `list`, `show`, `fork` |
+| **workflow** | `add`, `show`, `list` |
 | **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
 | **setup** | Interactive or `--provider`, `--base-url`, `--api-key`, `--model`, `--agent` |
 | **skill** | `cli` — print markdown reference of all uwf commands |
