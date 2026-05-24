@@ -346,47 +346,65 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
   fail(`thread not found: ${threadId}`);
 }
 
+export type ThreadStatus = "idle" | "running" | "completed";
+
+export type ThreadListItemWithStatus = ThreadListItem & {
+  status: ThreadStatus;
+};
+
 async function threadListItemFromActive(
+  storageRoot: string,
   uwf: UwfStore,
   threadId: ThreadId,
   head: CasRef,
-): Promise<ThreadListItem | null> {
+): Promise<ThreadListItemWithStatus | null> {
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
     return null;
   }
-  return { thread: threadId, workflow, head };
+
+  // Check if thread is currently running in background
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  const status: ThreadStatus = runningMarker !== null ? "running" : "idle";
+
+  return { thread: threadId, workflow, head, status };
 }
 
 export async function cmdThreadList(
   storageRoot: string,
-  includeAll: boolean,
-): Promise<ThreadListItem[]> {
+  statusFilter: ThreadStatus | null,
+): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
   const index = await loadThreadsIndex(storageRoot);
-  const items: ThreadListItem[] = [];
+  const items: ThreadListItemWithStatus[] = [];
 
+  // Add active threads
   for (const [threadId, head] of Object.entries(index)) {
-    const item = await threadListItemFromActive(uwf, threadId as ThreadId, head);
+    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, head);
     if (item !== null) {
       items.push(item);
     }
   }
 
-  if (!includeAll) {
-    return items;
+  // Add completed threads if requested
+  if (statusFilter === "completed" || statusFilter === null) {
+    const activeIds = new Set(items.map((i) => i.thread));
+    const history = await loadThreadHistory(storageRoot);
+    for (const entry of history) {
+      if (!activeIds.has(entry.thread)) {
+        items.push({
+          thread: entry.thread,
+          workflow: entry.workflow,
+          head: entry.head,
+          status: "completed",
+        });
+      }
+    }
   }
 
-  const activeIds = new Set(items.map((i) => i.thread));
-  const history = await loadThreadHistory(storageRoot);
-  for (const entry of history) {
-    if (!activeIds.has(entry.thread)) {
-      items.push({
-        thread: entry.thread,
-        workflow: entry.workflow,
-        head: entry.head,
-      });
-    }
+  // Apply status filter if provided
+  if (statusFilter !== null) {
+    return items.filter((item) => item.status === statusFilter);
   }
 
   return items;
@@ -857,7 +875,7 @@ async function archiveThread(
   });
 }
 
-export async function cmdThreadStep(
+export async function cmdThreadExec(
   storageRoot: string,
   threadId: ThreadId,
   agentOverride: string | null,
@@ -953,7 +971,7 @@ async function cmdThreadStepBackground(
     failStep(plog, "unable to determine script path for background execution");
   }
 
-  const args = ["thread", "step", threadId, "--count", String(count)];
+  const args = ["thread", "exec", threadId, "--count", String(count)];
 
   if (agentOverride !== null) {
     args.push("--agent", agentOverride);
@@ -1085,47 +1103,6 @@ async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise
   fail(`thread not found: ${threadId}`);
 }
 
-export async function cmdThreadSteps(
-  storageRoot: string,
-  threadId: ThreadId,
-): Promise<ThreadStepsOutput> {
-  const headHash = await resolveHeadHash(storageRoot, threadId);
-  const uwf = await createUwfStore(storageRoot);
-  const chain = walkChain(uwf, headHash);
-
-  const startNode = uwf.store.get(chain.startHash);
-  if (startNode === null) {
-    fail(`StartNode not found: ${chain.startHash}`);
-  }
-
-  const startEntry: StartEntry = {
-    hash: chain.startHash,
-    workflow: chain.start.workflow,
-    prompt: chain.start.prompt,
-    timestamp: startNode.timestamp,
-  };
-
-  const stepEntries: StepEntry[] = [];
-  const ordered = collectOrderedSteps(uwf, headHash, chain);
-
-  for (const item of ordered) {
-    stepEntries.push({
-      hash: item.hash,
-      role: item.payload.role,
-      output: expandOutput(uwf, item.payload.output),
-      detail: item.payload.detail,
-      agent: item.payload.agent,
-      timestamp: item.timestamp,
-    });
-  }
-
-  return {
-    thread: threadId,
-    workflow: chain.start.workflow,
-    steps: [startEntry, ...stepEntries],
-  };
-}
-
 export async function cmdThreadRead(
   storageRoot: string,
   threadId: ThreadId,
@@ -1153,49 +1130,85 @@ export async function cmdThreadRead(
   });
 }
 
-export async function cmdThreadFork(
-  storageRoot: string,
-  stepHash: CasRef,
-): Promise<ThreadForkOutput> {
-  const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
-  if (node === null) {
-    fail(`CAS node not found: ${stepHash}`);
-  }
-  if (node.type !== uwf.schemas.startNode && node.type !== uwf.schemas.stepNode) {
-    fail(`node ${stepHash} is not a StartNode or StepNode`);
-  }
+export type StopOutput = {
+  thread: ThreadId;
+  stopped: boolean;
+};
 
-  const newThreadId = generateUlid(Date.now()) as ThreadId;
+export type CancelOutput = {
+  thread: ThreadId;
+  cancelled: boolean;
+};
+
+/**
+ * Stop background execution of a thread (but keep thread active)
+ */
+export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  index[newThreadId] = stepHash;
-  await saveThreadsIndex(storageRoot, index);
+  const head = index[threadId];
+  if (head === undefined) {
+    fail(`thread not active: ${threadId}`);
+  }
 
-  return {
-    thread: newThreadId,
-    forkedFrom: {
-      step: stepHash,
-    },
-  };
+  // Check if thread is running in background and terminate it
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  if (runningMarker === null) {
+    process.stderr.write(`Warning: thread ${threadId} is not currently running\n`);
+    return { thread: threadId, stopped: false };
+  }
+
+  try {
+    process.kill(runningMarker.pid, "SIGTERM");
+  } catch {
+    // Process may have already exited, ignore error
+  }
+  await deleteMarker(storageRoot, threadId);
+
+  return { thread: threadId, stopped: true };
 }
 
-export async function cmdThreadStepDetails(
+/**
+ * Cancel a thread (stop execution + move to history)
+ */
+export async function cmdThreadCancel(
   storageRoot: string,
-  stepHash: CasRef,
-): Promise<unknown> {
+  threadId: ThreadId,
+): Promise<CancelOutput> {
+  const index = await loadThreadsIndex(storageRoot);
+  const head = index[threadId];
+  if (head === undefined) {
+    fail(`thread not active: ${threadId}`);
+  }
+
+  // Check if thread is running in background and terminate it
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  if (runningMarker !== null) {
+    try {
+      process.kill(runningMarker.pid, "SIGTERM");
+    } catch {
+      // Process may have already exited, ignore error
+    }
+    await deleteMarker(storageRoot, threadId);
+  }
+
   const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
-  if (node === null) {
-    fail(`CAS node not found: ${stepHash}`);
+  const workflow = resolveWorkflowFromHead(uwf, head);
+  if (workflow === null) {
+    fail(`failed to resolve workflow from head: ${head}`);
   }
-  if (node.type !== uwf.schemas.stepNode) {
-    fail(`node ${stepHash} is not a StepNode`);
-  }
-  const payload = node.payload as StepNodePayload;
-  if (!payload.detail) {
-    fail(`step ${stepHash} has no detail`);
-  }
-  return expandDeep(uwf.store, payload.detail);
+
+  delete index[threadId];
+  await saveThreadsIndex(storageRoot, index);
+
+  const historyEntry: ThreadHistoryLine = {
+    thread: threadId,
+    workflow,
+    head,
+    completedAt: Date.now(),
+  };
+  await appendThreadHistory(storageRoot, historyEntry);
+
+  return { thread: threadId, cancelled: true };
 }
 
 export async function cmdThreadKill(storageRoot: string, threadId: ThreadId): Promise<KillOutput> {

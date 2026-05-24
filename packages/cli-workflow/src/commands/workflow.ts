@@ -29,7 +29,7 @@ export type WorkflowListEntry = {
   origin: WorkflowOrigin;
 };
 
-export type WorkflowPutOutput = {
+export type WorkflowAddOutput = {
   name: string;
   hash: CasRef;
 };
@@ -111,10 +111,10 @@ export async function materializeWorkflowPayload(
   };
 }
 
-export async function cmdWorkflowPut(
+export async function cmdWorkflowAdd(
   storageRoot: string,
   filePath: string,
-): Promise<WorkflowPutOutput> {
+): Promise<WorkflowAddOutput> {
   let text: string;
   try {
     text = await readFile(filePath, "utf8");

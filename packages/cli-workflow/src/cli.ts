@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { Command } from "commander";
 import { stringify as yamlStringify } from "yaml";
 import {
@@ -17,20 +17,19 @@ import {
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdSkillCli } from "./commands/skill.js";
+import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
-  cmdThreadFork,
-  cmdThreadKill,
+  cmdThreadCancel,
+  cmdThreadExec,
   cmdThreadList,
   cmdThreadRead,
-  cmdThreadRunning,
   cmdThreadShow,
   cmdThreadStart,
-  cmdThreadStep,
-  cmdThreadStepDetails,
-  cmdThreadSteps,
+  cmdThreadStop,
   THREAD_READ_DEFAULT_QUOTA,
+  type ThreadStatus,
 } from "./commands/thread.js";
-import { cmdWorkflowList, cmdWorkflowPut, cmdWorkflowShow } from "./commands/workflow.js";
+import { cmdWorkflowAdd, cmdWorkflowList, cmdWorkflowShow } from "./commands/workflow.js";
 import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
 
@@ -60,13 +59,13 @@ program.option("--format <fmt>", "Output format: json or yaml", "json");
 const workflow = program.command("workflow").description("Workflow registry and CAS");
 
 workflow
-  .command("put")
+  .command("add")
   .description("Register a workflow from YAML")
   .argument("<file>", "Workflow YAML file")
   .action((file: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdWorkflowPut(storageRoot, file);
+      const result = await cmdWorkflowAdd(storageRoot, file);
       writeOutput(result);
     });
   });
@@ -110,7 +109,7 @@ thread
   });
 
 thread
-  .command("step")
+  .command("exec")
   .description("Execute one or more steps")
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
@@ -134,7 +133,7 @@ thread
         const background = opts.background ?? false;
         const backgroundWorker = opts._backgroundWorker ?? false;
 
-        const results = await cmdThreadStep(
+        const results = await cmdThreadExec(
           storageRoot,
           threadId,
           agentOverride,
@@ -165,47 +164,49 @@ thread
 
 thread
   .command("list")
-  .description("List active threads")
-  .option("--all", "Include archived threads")
-  .action((opts: { all: boolean }) => {
+  .description("List threads")
+  .option("--status <status>", "Filter by status: idle, running, or completed")
+  .action((opts: { status: string | undefined }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadList(storageRoot, opts.all);
+      const validStatuses: ThreadStatus[] = ["idle", "running", "completed"];
+      let statusFilter: ThreadStatus | null = null;
+
+      if (opts.status !== undefined) {
+        if (!validStatuses.includes(opts.status as ThreadStatus)) {
+          process.stderr.write(
+            `Invalid status: ${opts.status}. Must be one of: idle, running, completed\n`,
+          );
+          process.exit(1);
+        }
+        statusFilter = opts.status as ThreadStatus;
+      }
+
+      const result = await cmdThreadList(storageRoot, statusFilter);
       writeOutput(result);
     });
   });
 
 thread
-  .command("running")
-  .description("List threads currently executing in the background")
-  .action(() => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const result = await cmdThreadRunning(storageRoot);
-      writeOutput(result);
-    });
-  });
-
-thread
-  .command("kill")
-  .description("Terminate and archive a thread")
+  .command("stop")
+  .description("Stop background execution of a thread (keep thread active)")
   .argument("<thread-id>", "Thread ULID")
   .action((threadId: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadKill(storageRoot, threadId);
+      const result = await cmdThreadStop(storageRoot, threadId);
       writeOutput(result);
     });
   });
 
 thread
-  .command("steps")
-  .description("List all steps in a thread")
+  .command("cancel")
+  .description("Cancel a thread (stop execution and move to history)")
   .argument("<thread-id>", "Thread ULID")
   .action((threadId: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadSteps(storageRoot, threadId);
+      const result = await cmdThreadCancel(storageRoot, threadId);
       writeOutput(result);
     });
   });
@@ -239,27 +240,55 @@ thread
     },
   );
 
-thread
+const step = program.command("step").description("Step operations");
+
+step
+  .command("list")
+  .description("List all steps in a thread")
+  .argument("<thread-id>", "Thread ULID")
+  .action((threadId: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdStepList(storageRoot, threadId);
+      writeOutput(result);
+    });
+  });
+
+step
+  .command("show")
+  .description("Show details of a specific step")
+  .argument("<step-hash>", "CAS hash of the StepNode")
+  .action((stepHash: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const detail = await cmdStepShow(storageRoot, stepHash as CasRef);
+      writeOutput(detail);
+    });
+  });
+
+step
+  .command("read")
+  .description("Read a step's agent output as markdown")
+  .argument("<step-hash>", "CAS hash of the StepNode")
+  .option("--before <n>", "Show only first N turns")
+  .action((stepHash: string, opts: { before: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const before = opts.before !== undefined ? Number.parseInt(opts.before, 10) : null;
+      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, before);
+      process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+    });
+  });
+
+step
   .command("fork")
   .description("Fork a thread from a specific step")
   .argument("<step-hash>", "CAS hash of the StartNode or StepNode to fork from")
   .action((stepHash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadFork(storageRoot, stepHash);
+      const result = await cmdStepFork(storageRoot, stepHash as CasRef);
       writeOutput(result);
-    });
-  });
-
-thread
-  .command("step-details")
-  .description("Dump the full detail node of a step as YAML")
-  .argument("<step-hash>", "CAS hash of the StepNode")
-  .action((stepHash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const detail = await cmdThreadStepDetails(storageRoot, stepHash);
-      process.stdout.write(yamlStringify(detail));
     });
   });
 
