@@ -5,12 +5,12 @@ import { bootstrap, putSchema } from "@uncaged/json-cas";
 import { createFsStore } from "@uncaged/json-cas-fs";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { cmdStepShow } from "../commands/step.js";
 import {
   cmdThreadRead,
   extractLastAssistantContent,
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
-import { cmdStepShow } from "../commands/step.js";
 import { registerUwfSchemas } from "../schemas.js";
 import type { UwfStore } from "../store.js";
 import { saveThreadsIndex } from "../store.js";

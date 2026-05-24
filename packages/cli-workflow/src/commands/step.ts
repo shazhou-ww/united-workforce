@@ -318,7 +318,7 @@ export async function cmdStepFork(
 export async function cmdStepRead(
   storageRoot: string,
   stepHash: CasRef,
-  before: number | null = null,
+  _before: number | null = null,
 ): Promise<string> {
   const uwf = await createUwfStore(storageRoot);
   const node = uwf.store.get(stepHash);

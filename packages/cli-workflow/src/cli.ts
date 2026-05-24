@@ -2,7 +2,6 @@
 
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { Command } from "commander";
-import { stringify as yamlStringify } from "yaml";
 import {
   cmdCasGet,
   cmdCasHas,
@@ -100,9 +99,7 @@ workflow
     });
   });
 
-const thread = program
-  .command("thread")
-  .description("Thread execution (layer 2: instances)");
+const thread = program.command("thread").description("Thread execution (layer 2: instances)");
 
 thread
   .command("start")
