@@ -38,19 +38,26 @@ roles:
     capabilities:
       - coding
     procedure: |
-      Before starting any work, ensure a clean worktree:
-      1. `git checkout main && git pull` to get the latest code
-      2. `git checkout -b fix/<issue-number>-<short-description>` to create a fresh branch
-         - If bounced back from reviewer or tester, reuse the existing branch and rebase onto latest main:
-           `git checkout main && git pull && git checkout <branch> && git rebase main`
+      IMPORTANT: Always work in a git worktree, NEVER modify the main working directory directly.
+
+      Before starting any work, set up an isolated worktree:
+      1. `cd ~/repos/workflow && git fetch origin` to get latest refs
+      2. First time (no existing branch):
+         - `git worktree add ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
+         - `cd ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug> && bun install`
+      3. If bounced back from reviewer or tester (branch already exists):
+         - The worktree should already exist at `~/repos/workflow-worktrees/fix/<issue-number>-<short-slug>`
+         - `cd ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug>`
+         - `git fetch origin && git rebase origin/main`
+      4. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
-      3. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
-      4. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
-      5. Write tests first based on the spec
-      6. Implement the code to make tests pass
-      7. Ensure `bun run build` passes with no errors
-      8. Run `bun test` to verify all tests pass
+      5. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
+      6. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
+      7. Write tests first based on the spec
+      8. Implement the code to make tests pass
+      9. Ensure `bun run build` passes with no errors
+      10. Run `bun test` to verify all tests pass
     output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
     frontmatter:
       type: object
@@ -66,6 +73,8 @@ roles:
       - code-review
       - static-analysis
     procedure: |
+      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+
       Before reviewing, verify the git branch:
       1. Run `git branch --show-current` — confirm the branch name references the issue number being worked on
       2. If the branch doesn't correspond to the issue, flag it in your output and reject
@@ -99,6 +108,8 @@ roles:
     capabilities:
       - testing
     procedure: |
+      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+
       1. Run `bun test` for automated test verification
       2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
       3. Verify each scenario in the spec is covered and passing
@@ -119,6 +130,8 @@ roles:
     goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
     capabilities: []
     procedure: |
+      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+
       Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
       1. Stage all changes: `git add -A`
       2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
@@ -126,6 +139,9 @@ roles:
          - If push hook fails: capture the error log in your output, mark hook_failed
       4. On push success: create a PR via `tea pr create --title "..." --description "..."`
          - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+      5. After PR creation, clean up the worktree:
+         - `cd ~/repos/workflow`
+         - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
     output: "Include PR URL on success or error log on failure. Frontmatter must include: success (true or false)."
     frontmatter:
       type: object
