@@ -52,11 +52,18 @@ const program = new Command();
 const pkg = await import("../package.json", { with: { type: "json" } });
 program
   .name("uwf")
-  .description("Stateless workflow CLI")
+  .description(
+    "Stateless workflow CLI\n\n" +
+      "Four-layer architecture:\n" +
+      "  workflow → thread → step → turn\n" +
+      "  模板定义   执行实例   单步结果   agent内部交互",
+  )
   .version(pkg.default.version, "-V, --version");
 program.option("--format <fmt>", "Output format: json or yaml", "json");
 
-const workflow = program.command("workflow").description("Workflow registry and CAS");
+const workflow = program
+  .command("workflow")
+  .description("Workflow definitions (layer 1: templates)");
 
 workflow
   .command("add")
@@ -93,7 +100,9 @@ workflow
     });
   });
 
-const thread = program.command("thread").description("Thread lifecycle and execution");
+const thread = program
+  .command("thread")
+  .description("Thread execution (layer 2: instances)");
 
 thread
   .command("start")
@@ -240,7 +249,7 @@ thread
     },
   );
 
-const step = program.command("step").description("Step operations");
+const step = program.command("step").description("Step results (layer 3: single cycle)");
 
 step
   .command("list")
@@ -290,6 +299,103 @@ step
       const result = await cmdStepFork(storageRoot, stepHash as CasRef);
       writeOutput(result);
     });
+  });
+
+// ── Deprecation Handlers ──────────────────────────────────────────────────────
+// These commands have been removed. Show helpful error messages.
+
+workflow
+  .command("put")
+  .description("[DEPRECATED] Use 'workflow add' instead")
+  .argument("<file>", "Workflow YAML file")
+  .action(() => {
+    process.stderr.write(`Error: Command 'workflow put' has been removed.
+Use 'workflow add' instead.
+
+For more information, see: uwf help workflow add
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("step")
+  .description("[DEPRECATED] Use 'thread exec' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .allowUnknownOption()
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread step' has been removed.
+Use 'thread exec' instead.
+
+For more information, see: uwf help thread exec
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("steps")
+  .description("[DEPRECATED] Use 'step list' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread steps' has been removed.
+Use 'step list' instead.
+
+For more information, see: uwf help step list
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("step-details")
+  .description("[DEPRECATED] Use 'step show' instead")
+  .argument("<step-hash>", "Step hash")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread step-details' has been removed.
+Use 'step show' instead.
+
+For more information, see: uwf help step show
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("fork")
+  .description("[DEPRECATED] Use 'step fork' instead")
+  .argument("<step-hash>", "Step hash")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread fork' has been removed.
+Use 'step fork' instead.
+
+For more information, see: uwf help step fork
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("kill")
+  .description("[DEPRECATED] Use 'thread stop' or 'thread cancel' instead")
+  .argument("<thread-id>", "Thread ULID")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread kill' has been removed.
+Use 'thread stop' to stop background execution (keep thread active),
+or 'thread cancel' to cancel and archive the thread.
+
+For more information, see:
+  uwf help thread stop
+  uwf help thread cancel
+`);
+    process.exit(1);
+  });
+
+thread
+  .command("running")
+  .description("[DEPRECATED] Use 'thread list --status running' instead")
+  .action(() => {
+    process.stderr.write(`Error: Command 'thread running' has been removed.
+Use 'thread list --status running' instead.
+
+For more information, see: uwf help thread list
+`);
+    process.exit(1);
   });
 
 const skill = program.command("skill").description("Built-in skill references for agents");
