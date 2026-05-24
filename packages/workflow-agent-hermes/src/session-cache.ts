@@ -1,5 +1,22 @@
-// Re-export session cache from the shared agent-kit package.
-export { getCachedSessionId, setCachedSessionId } from "@uncaged/workflow-agent-kit";
+// Re-export session cache from the shared agent-kit package with agent name injected.
+
+import {
+  getCachedSessionId as getCachedSessionIdBase,
+  setCachedSessionId as setCachedSessionIdBase,
+} from "@uncaged/workflow-agent-kit";
+import type { ThreadId } from "@uncaged/workflow-protocol";
+
+export async function getCachedSessionId(threadId: ThreadId, role: string): Promise<string | null> {
+  return getCachedSessionIdBase("hermes", threadId, role);
+}
+
+export async function setCachedSessionId(
+  threadId: ThreadId,
+  role: string,
+  sessionId: string,
+): Promise<void> {
+  return setCachedSessionIdBase("hermes", threadId, role, sessionId);
+}
 
 export function isResumeDisabled(): boolean {
   // Hermes ACP session/resume is broken: _restore fails for custom providers

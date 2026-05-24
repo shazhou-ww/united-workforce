@@ -146,13 +146,13 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
 
   // Try resuming a cached session for re-entry scenarios (e.g. reviewer reject → developer re-entry).
   if (!ctx.isFirstVisit) {
-    const cachedSessionId = await getCachedSessionId(ctx.threadId, ctx.role);
+    const cachedSessionId = await getCachedSessionId("claude-code", ctx.threadId, ctx.role);
     if (cachedSessionId !== null) {
       try {
         const { stdout } = await spawnClaudeResume(cachedSessionId, fullPrompt);
         const result = await processClaudeOutput(stdout, ctx.store);
         if (result.sessionId !== undefined && result.sessionId !== "") {
-          await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+          await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
         }
         return result;
       } catch (err) {
@@ -169,7 +169,7 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
   const { stdout } = await spawnClaudeRun(fullPrompt);
   const result = await processClaudeOutput(stdout, ctx.store);
   if (result.sessionId !== undefined && result.sessionId !== "") {
-    await setCachedSessionId(ctx.threadId, ctx.role, result.sessionId);
+    await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
   }
   return result;
 }
