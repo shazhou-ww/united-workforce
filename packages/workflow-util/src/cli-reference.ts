@@ -15,7 +15,7 @@ uwf setup --provider <name> --base-url <url> \\
 ## Workflow Commands
 
 \`\`\`
-uwf workflow put <file>           # register a workflow from YAML file
+uwf workflow add <file>           # register a workflow from YAML file
 uwf workflow show <id>            # show workflow by name or CAS hash
 uwf workflow list                 # list all registered workflows
 \`\`\`
@@ -24,20 +24,27 @@ uwf workflow list                 # list all registered workflows
 
 \`\`\`
 uwf thread start <workflow> -p <prompt>           # create a thread (no execution)
-uwf thread step <thread-id>                       # execute one moderator→agent→extract cycle
+uwf thread exec <thread-id>                       # execute one moderator→agent→extract cycle
                [--agent <cmd>]                    # override agent command
                [-c, --count <number>]             # run multiple steps (default: 1)
+               [--background]                     # run in background
 uwf thread show <thread-id>                       # show thread head pointer
-uwf thread list                                   # list active threads
-               [--all]                            # include archived threads
-uwf thread kill <thread-id>                       # terminate and archive a thread
-uwf thread steps <thread-id>                      # list all steps in a thread
+uwf thread list                                   # list threads
+               [--status <status>]                # filter: idle, running, or completed
 uwf thread read <thread-id>                       # render thread context as markdown
                [--quota <chars>]                  # max output characters (default 32000)
                [--before <step-hash>]             # load steps before this hash (exclusive)
                [--start]                          # include start step in output
-uwf thread fork <step-hash>                       # fork a thread from a specific step
-uwf thread step-details <step-hash>               # dump full detail node of a step as YAML
+uwf thread stop <thread-id>                       # stop background execution (keep thread active)
+uwf thread cancel <thread-id>                     # cancel thread (stop + move to history)
+\`\`\`
+
+## Step Commands
+
+\`\`\`
+uwf step list <thread-id>        # list all steps in a thread
+uwf step show <step-hash>        # show details of a specific step
+uwf step fork <step-hash>        # fork a thread from a specific step
 \`\`\`
 
 ## CAS Commands
@@ -78,10 +85,9 @@ uwf -V, --version                 # print version
 ## Key Concepts
 
 - **Workflow**: YAML definition with roles, conditions, and a routing graph; stored as a CAS node identified by its XXH64 hash.
-- **Thread**: A single workflow execution (ULID). State is an immutable CAS chain; active threads are indexed in \`threads.yaml\`.
-- **Step**: One moderator→agent→extract cycle. Run \`uwf thread step\` repeatedly until \`$END\`.
-- **CAS**: Content-Addressed Storage — all nodes are immutable and identified by hash.
-- **Role**: Named actor with goal, capabilities, procedure, output, and frontmatter schema; the moderator routes between roles.
-- **Edge Prompt**: Required instruction on each graph edge — the moderator's dispatch message to the agent.
+- **Thread**: A running instance of a workflow; points to a chain of CAS step nodes.
+- **Step**: One moderator→agent→extract cycle; stored as a CAS node with output + detail refs.
+- **Turn**: Agent-internal interaction (within a single step); stored per-turn in the detail node.
+- **CAS**: Content-addressable store; every artifact (workflows, steps, details, turns) is hashed.
 `;
 }

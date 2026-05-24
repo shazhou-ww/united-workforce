@@ -16,7 +16,7 @@ workflow → thread → step → turn
 - **Workflow** (layer 1): YAML template with roles and routing graph
 - **Thread** (layer 2): Single workflow execution instance
 - **Step** (layer 3): One moderator→agent→extract cycle
-- **Turn** (layer 4): Agent-internal interactions (use `step read` or CAS to inspect)
+- **Turn** (layer 4): Agent-internal interactions (use `step show` or CAS to inspect)
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
@@ -72,7 +72,6 @@ uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 |---------|-------------|
 | `uwf step list <thread-id>` | List all steps in a thread chronologically |
 | `uwf step show <step-hash>` | Show step metadata and frontmatter |
-| `uwf step read <step-hash> [--before N]` | Read step output as markdown |
 | `uwf step fork <step-hash>` | Fork a thread from a specific step |
 
 Examples:
@@ -80,7 +79,6 @@ Examples:
 ```bash
 uwf step list 01ARZ3NDEKTSV4RRFFQ69G5FAV
 uwf step show 32GCDE899RRQ3
-uwf step read 32GCDE899RRQ3 --before 3
 uwf step fork 32GCDE899RRQ3
 ```
 

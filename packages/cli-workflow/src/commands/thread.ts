@@ -9,7 +9,6 @@ import type {
   AgentConfig,
   CasRef,
   ModeratorContext,
-  RunningThreadsOutput,
   StartNodePayload,
   StartOutput,
   StepContext,
@@ -23,12 +22,7 @@ import type {
 import { createProcessLogger, generateUlid, type ProcessLogger } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
 import { parse, stringify } from "yaml";
-import {
-  createMarker,
-  deleteMarker,
-  isThreadRunning,
-  listRunningThreads,
-} from "../background/index.js";
+import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
 import {
   appendThreadHistory,
   createUwfStore,
@@ -1015,9 +1009,4 @@ export async function cmdThreadCancel(
   await appendThreadHistory(storageRoot, historyEntry);
 
   return { thread: threadId, cancelled: true };
-}
-
-export async function cmdThreadRunning(storageRoot: string): Promise<RunningThreadsOutput> {
-  const threads = await listRunningThreads(storageRoot);
-  return { threads };
 }
