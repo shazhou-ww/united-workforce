@@ -43,6 +43,65 @@ function buildGraph(nodes: Node[], edges: Edge[]) {
   return { outgoing, incoming, inDegree };
 }
 
+function processTarget(
+  target: string,
+  newLayer: number,
+  layers: Map<string, number>,
+  inDegree: Map<string, number>,
+  queue: string[],
+): void {
+  const existingLayer = layers.get(target);
+  if (existingLayer === undefined) {
+    layers.set(target, newLayer);
+    inDegree.set(target, (inDegree.get(target) ?? 1) - 1);
+    if (inDegree.get(target) === 0) queue.push(target);
+  } else {
+    layers.set(target, Math.max(existingLayer, newLayer));
+  }
+}
+
+/**
+ * BFS 分层（排除 end 节点，稍后单独处理）
+ */
+function bfsLayers(
+  outgoing: Map<string, string[]>,
+  inDegree: Map<string, number>,
+  layers: Map<string, number>,
+): void {
+  const queue: string[] = ["start"];
+  while (queue.length > 0) {
+    const current = queue.shift() ?? "";
+    const currentLayer = layers.get(current) ?? 0;
+    for (const target of outgoing.get(current) ?? []) {
+      if (target === "end") continue;
+      processTarget(target, currentLayer + 1, layers, inDegree, queue);
+    }
+  }
+}
+
+/**
+ * 处理孤立节点（没有被分配层级的非 start/end 节点），放在中间层
+ */
+function placeIsolatedNodes(nodes: Node[], layers: Map<string, number>, maxLayer: number): void {
+  const middleLayer = Math.max(1, Math.floor((maxLayer + 1) / 2));
+  for (const node of nodes) {
+    if (node.id !== "start" && node.id !== "end" && !layers.has(node.id)) {
+      layers.set(node.id, middleLayer);
+    }
+  }
+}
+
+/**
+ * 计算最大层级（排除 end 节点）
+ */
+function maxLayerExcludingEnd(layers: Map<string, number>): number {
+  let max = 0;
+  for (const [id, layer] of layers) {
+    if (id !== "end") max = Math.max(max, layer);
+  }
+  return max;
+}
+
 /**
  * 使用拓扑排序将节点分层
  * - 'start' 节点固定在第 0 层
@@ -52,62 +111,15 @@ function buildGraph(nodes: Node[], edges: Edge[]) {
 function assignLayers(nodes: Node[], edges: Edge[]): Map<string, number> {
   const { outgoing, inDegree } = buildGraph(nodes, edges);
   const layers = new Map<string, number>();
-  const queue: string[] = [];
 
-  // 1. start 节点固定在第 0 层
   layers.set("start", 0);
-  queue.push("start");
+  bfsLayers(outgoing, inDegree, layers);
 
-  // 2. BFS 分层（排除 end 节点，稍后单独处理）
-  while (queue.length > 0) {
-    const current = queue.shift() ?? "";
-    const currentLayer = layers.get(current) ?? 0;
+  const afterBfsMax = maxLayerExcludingEnd(layers);
+  placeIsolatedNodes(nodes, layers, afterBfsMax);
 
-    for (const target of outgoing.get(current) ?? []) {
-      // 跳过 end 节点，稍后处理
-      if (target === "end") continue;
-
-      const newLayer = currentLayer + 1;
-      const existingLayer = layers.get(target);
-
-      if (existingLayer === undefined) {
-        layers.set(target, newLayer);
-        inDegree.set(target, (inDegree.get(target) ?? 1) - 1);
-        if (inDegree.get(target) === 0) {
-          queue.push(target);
-        }
-      } else {
-        // 如果已有层级，取更大的值（确保所有前驱都在前面）
-        layers.set(target, Math.max(existingLayer, newLayer));
-      }
-    }
-  }
-
-  // 3. 找到当前最大层级
-  let maxLayer = 0;
-  for (const layer of layers.values()) {
-    maxLayer = Math.max(maxLayer, layer);
-  }
-
-  // 4. 处理孤立节点（没有被分配层级的非 start/end 节点）
-  // 把它们放在中间层
-  const middleLayer = Math.max(1, Math.floor((maxLayer + 1) / 2));
-  for (const node of nodes) {
-    if (node.id !== "start" && node.id !== "end" && !layers.has(node.id)) {
-      layers.set(node.id, middleLayer);
-    }
-  }
-
-  // 5. 重新计算最大层级（可能因为孤立节点而变化）
-  maxLayer = 0;
-  for (const [id, layer] of layers) {
-    if (id !== "end") {
-      maxLayer = Math.max(maxLayer, layer);
-    }
-  }
-
-  // 6. end 节点固定在最后一层
-  layers.set("end", maxLayer + 1);
+  const finalMax = maxLayerExcludingEnd(layers);
+  layers.set("end", finalMax + 1);
 
   return layers;
 }

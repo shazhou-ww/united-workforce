@@ -30,23 +30,24 @@ export const handlers = define.memoize((use, model) => {
     });
   };
 
+  function isProtectedNode(node: AnyWorkNode): boolean {
+    return node.type === "start" || node.type === "end";
+  }
+
+  function isFirstConditionalSibling(
+    edge: { id: string; source: string; type: string | null },
+    allEdges: { id: string; source: string; type: string | null }[],
+  ): boolean {
+    if (edge.type !== "conditional") return false;
+    const siblings = allEdges.filter((e) => e.source === edge.source && e.type === "conditional");
+    return siblings.length >= 2 && siblings[0].id === edge.id;
+  }
+
   const onBeforeDelete: OnBeforeDelete<AnyWorkNode> = async ({ nodes, edges }) => {
-    for (const node of nodes) {
-      if (node.type === "start" || node.type === "end") {
-        return false;
-      }
-    }
+    if (nodes.some(isProtectedNode)) return false;
     if (edges.length > 0) {
       const allEdges = use(edgesModel)[0];
-      for (const edge of edges) {
-        if (edge.type !== "conditional") continue;
-        const siblings = allEdges.filter(
-          (e) => e.source === edge.source && e.type === "conditional",
-        );
-        if (siblings.length >= 2 && siblings[0].id === edge.id) {
-          return false;
-        }
-      }
+      if (edges.some((e) => isFirstConditionalSibling(e, allEdges))) return false;
     }
     model.startTransaction();
     return true;
@@ -96,25 +97,28 @@ export const handlers = define.memoize((use, model) => {
     use(editNodeViewModel)[1].cancel();
   }
 
+  function handleEscape() {
+    const [addView, addViewActions] = use(addNodeViewModel);
+    const [editView, editViewActions] = use(editNodeViewModel);
+    if (addView) addViewActions.cancel();
+    if (editView) editViewActions.cancel();
+  }
+
+  function handleUndoRedo(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.code === "KeyZ" && (event.ctrlKey || event.metaKey)) {
+      if (event.shiftKey) model.redo();
+      else model.undo();
+    } else if (event.code === "KeyY" && (event.ctrlKey || event.metaKey)) {
+      model.redo();
+    }
+  }
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.code === "Escape") {
-      const [addView, addViewActions] = use(addNodeViewModel);
-      const [editView, editViewActions] = use(editNodeViewModel);
-      if (addView) addViewActions.cancel();
-      if (editView) editViewActions.cancel();
+      handleEscape();
       return;
     }
-
-    if (event.code === "KeyZ") {
-      if (event.ctrlKey || event.metaKey) {
-        if (event.shiftKey) model.redo();
-        else model.undo();
-      }
-    } else if (event.code === "KeyY") {
-      if (event.ctrlKey || event.metaKey) {
-        model.redo();
-      }
-    }
+    handleUndoRedo(event);
   }
 
   function loadSteps(steps: WorkFlowSteps) {

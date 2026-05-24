@@ -91,6 +91,36 @@ function validateEndNode(
   }
 }
 
+function hasEmptyConditionOnIfEdge(conditionalEdges: AnyWorkEdge[]): boolean {
+  return conditionalEdges.slice(1).some((edge) => {
+    const cond = (edge as ConditionalEdge).data?.condition?.trim();
+    return !cond;
+  });
+}
+
+function validateRoleNodeEdges(
+  node: AnyWorkNode,
+  outEdges: AnyWorkEdge[],
+  inEdges: AnyWorkEdge[],
+  errors: ValidationError[],
+): void {
+  if (inEdges.length === 0) {
+    errors.push({ nodeId: node.id, message: "角色节点缺少输入连接" });
+  }
+  if (outEdges.length === 0) {
+    errors.push({ nodeId: node.id, message: "角色节点缺少输出连接" });
+    return;
+  }
+  if (outEdges.length <= 1) return;
+
+  const conditionalEdges = outEdges.filter((e) => e.type === "conditional");
+  if (conditionalEdges.length !== outEdges.length) {
+    errors.push({ nodeId: node.id, message: "多输出节点的所有出边必须附带条件" });
+  } else if (hasEmptyConditionOnIfEdge(conditionalEdges)) {
+    errors.push({ nodeId: node.id, message: "条件边的条件表达式不能为空" });
+  }
+}
+
 function validateRoleNodes(
   roleNodes: AnyWorkNode[],
   outgoing: Map<string, AnyWorkEdge[]>,
@@ -98,31 +128,7 @@ function validateRoleNodes(
   errors: ValidationError[],
 ): void {
   for (const node of roleNodes) {
-    const inEdges = incoming.get(node.id) ?? [];
-    const outEdges = outgoing.get(node.id) ?? [];
-
-    if (inEdges.length === 0) {
-      errors.push({ nodeId: node.id, message: "角色节点缺少输入连接" });
-    }
-    if (outEdges.length === 0) {
-      errors.push({ nodeId: node.id, message: "角色节点缺少输出连接" });
-    }
-
-    if (outEdges.length > 1) {
-      const conditionalEdges = outEdges.filter((e) => e.type === "conditional");
-      if (conditionalEdges.length !== outEdges.length) {
-        errors.push({ nodeId: node.id, message: "多输出节点的所有出边必须附带条件" });
-      } else {
-        const ifEdges = conditionalEdges.slice(1);
-        for (const edge of ifEdges) {
-          const condEdge = edge as ConditionalEdge;
-          if (!condEdge.data?.condition?.trim()) {
-            errors.push({ nodeId: node.id, message: "条件边的条件表达式不能为空" });
-            break;
-          }
-        }
-      }
-    }
+    validateRoleNodeEdges(node, outgoing.get(node.id) ?? [], incoming.get(node.id) ?? [], errors);
   }
 }
 

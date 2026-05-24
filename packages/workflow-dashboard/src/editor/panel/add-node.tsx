@@ -10,16 +10,15 @@ import {
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
-import { type AddNodeState, addNodeViewModel } from "../model/index.ts";
+import { addNodeViewModel } from "../model/index.ts";
 import type { RoleNodeData } from "../type.ts";
 
 type FormProps = {
-  state: AddNodeState;
   onSubmit: (params: { data: RoleNodeData }) => void;
   onCancel: () => void;
 };
 
-function Form({ state, onSubmit, onCancel }: FormProps): ReactNode {
+function Form({ onSubmit, onCancel }: FormProps): ReactNode {
   const [name, setName] = useState("新角色");
   const [description, setDescription] = useState("");
   const [identity, setIdentity] = useState("");
@@ -137,7 +136,7 @@ export function AddNodeDialog(): ReactNode {
       }}
     >
       <DialogContent showCloseButton={false} className="sm:max-w-md">
-        {state && <Form state={state} onSubmit={commit} onCancel={cancel} />}
+        {state && <Form onSubmit={commit} onCancel={cancel} />}
       </DialogContent>
     </Dialog>
   );
