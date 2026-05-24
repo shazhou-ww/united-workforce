@@ -22,16 +22,24 @@ function agentLabel(name: string): string {
   return `uwf-${name}`;
 }
 
-function parseArgv(argv: string[]): { threadId: ThreadId; role: string } {
-  const threadId = argv[2];
-  const role = argv[3];
-  if (threadId === undefined || threadId === "") {
-    fail("usage: <agent-cli> <thread-id> <role>");
+const USAGE = "usage: <agent-cli> --thread <id> --role <role> --prompt <text>";
+
+function getNamedArg(argv: string[], name: string): string {
+  const idx = argv.indexOf(name);
+  if (idx === -1 || idx + 1 >= argv.length) {
+    return "";
   }
-  if (role === undefined || role === "") {
-    fail("usage: <agent-cli> <thread-id> <role>");
-  }
-  return { threadId: threadId as ThreadId, role };
+  return argv[idx + 1];
+}
+
+function parseArgv(argv: string[]): { threadId: ThreadId; role: string; prompt: string } {
+  const threadId = getNamedArg(argv, "--thread");
+  const role = getNamedArg(argv, "--role");
+  const prompt = getNamedArg(argv, "--prompt");
+  if (threadId === "") fail(USAGE);
+  if (role === "") fail(USAGE);
+  if (prompt === "") fail(USAGE);
+  return { threadId: threadId as ThreadId, role, prompt };
 }
 
 function runWithMessage<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -103,11 +111,11 @@ async function persistStep(options: {
 
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
-    const { threadId, role } = parseArgv(process.argv);
+    const { threadId, role, prompt } = parseArgv(process.argv);
     const storageRoot = resolveStorageRoot();
     loadDotenv({ path: getEnvPath(storageRoot) });
 
-    const ctx = await runWithMessage("context", () => buildContextWithMeta(threadId, role));
+    const ctx = await runWithMessage("context", () => buildContextWithMeta(threadId, role, prompt));
 
     const roleDef = ctx.workflow.roles[role];
     if (roleDef === undefined) {

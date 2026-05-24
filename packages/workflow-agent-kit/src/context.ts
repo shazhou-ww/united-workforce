@@ -21,14 +21,6 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-function readEdgePrompt(): string {
-  const value = process.env.UWF_EDGE_PROMPT;
-  if (value === undefined || value === "") {
-    fail("UWF_EDGE_PROMPT environment variable is required");
-  }
-  return value;
-}
-
 function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRef): ChainState {
   const headNode = store.get(headHash);
   if (headNode === null) {
@@ -123,7 +115,11 @@ async function loadWorkflow(store: Store, schemas: AgentStore["schemas"], workfl
  * Build agent execution context from thread head in threads.yaml.
  * Walks the CAS chain from head to StartNode and expands step outputs.
  */
-export async function buildContext(threadId: ThreadId, role: string): Promise<AgentContext> {
+export async function buildContext(
+  threadId: ThreadId,
+  role: string,
+  edgePrompt: string,
+): Promise<AgentContext> {
   const storageRoot = resolveStorageRoot();
   const agentStore = await createAgentStore(storageRoot);
   const { store, schemas } = agentStore;
@@ -142,7 +138,6 @@ export async function buildContext(threadId: ThreadId, role: string): Promise<Ag
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
-  const edgePrompt = readEdgePrompt();
   const isFirstVisit = !steps.some((s) => s.role === role);
 
   return {
@@ -172,6 +167,7 @@ export type BuildContextMeta = {
 export async function buildContextWithMeta(
   threadId: ThreadId,
   role: string,
+  edgePrompt: string,
 ): Promise<AgentContext & { meta: BuildContextMeta }> {
   const storageRoot = resolveStorageRoot();
   const agentStore = await createAgentStore(storageRoot);
@@ -191,7 +187,6 @@ export async function buildContextWithMeta(
   }
 
   const steps = await buildHistory(store, chain.stepsNewestFirst);
-  const edgePrompt = readEdgePrompt();
   const isFirstVisit = !steps.some((s) => s.role === role);
 
   return {

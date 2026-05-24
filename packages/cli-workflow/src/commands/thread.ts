@@ -804,13 +804,11 @@ function spawnAgent(
   role: string,
   edgePrompt: string,
 ): CasRef {
-  const argv = [...agent.args, threadId, role];
-  const env = { ...process.env, UWF_EDGE_PROMPT: edgePrompt };
+  const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
   let stdout: string;
   try {
     stdout = execFileSync(agent.command, argv, {
       encoding: "utf8",
-      env,
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
     });

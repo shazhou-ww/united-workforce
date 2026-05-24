@@ -13,7 +13,7 @@ export type AgentContext = ModeratorContext & {
    */
   outputFormatInstruction: string;
   /**
-   * Edge prompt from the graph transition that led to this role (UWF_EDGE_PROMPT).
+   * Edge prompt from the graph transition that led to this role (--prompt CLI arg).
    * Always the real moderator instruction for this step.
    */
   edgePrompt: string;
