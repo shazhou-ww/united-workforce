@@ -15,6 +15,8 @@ export type {
   ProviderConfig,
   RoleDefinition,
   RoleName,
+  RunningThreadItem,
+  RunningThreadsOutput,
   Scenario,
   StartEntry,
   StartNodePayload,

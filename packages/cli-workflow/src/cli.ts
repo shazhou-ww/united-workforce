@@ -22,6 +22,7 @@ import {
   cmdThreadKill,
   cmdThreadList,
   cmdThreadRead,
+  cmdThreadRunning,
   cmdThreadShow,
   cmdThreadStart,
   cmdThreadStep,
@@ -114,19 +115,41 @@ thread
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
   .option("-c, --count <number>", "Number of steps to run (default: 1)")
-  .action((threadId: string, opts: { agent: string | undefined; count: string | undefined }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const agentOverride = opts.agent ?? null;
-      const count = opts.count !== undefined ? Number(opts.count) : 1;
-      const results = await cmdThreadStep(storageRoot, threadId, agentOverride, count);
-      if (results.length === 1) {
-        writeOutput(results[0]);
-      } else {
-        writeOutput(results);
-      }
-    });
-  });
+  .option("--background", "Run in background and return immediately")
+  .option("--_background-worker", "Internal flag for background worker process", false)
+  .action(
+    (
+      threadId: string,
+      opts: {
+        agent: string | undefined;
+        count: string | undefined;
+        background: boolean;
+        _backgroundWorker: boolean;
+      },
+    ) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        const agentOverride = opts.agent ?? null;
+        const count = opts.count !== undefined ? Number(opts.count) : 1;
+        const background = opts.background ?? false;
+        const backgroundWorker = opts._backgroundWorker ?? false;
+
+        const results = await cmdThreadStep(
+          storageRoot,
+          threadId,
+          agentOverride,
+          count,
+          background,
+          backgroundWorker,
+        );
+        if (results.length === 1) {
+          writeOutput(results[0]);
+        } else {
+          writeOutput(results);
+        }
+      });
+    },
+  );
 
 thread
   .command("show")
@@ -148,6 +171,17 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadList(storageRoot, opts.all);
+      writeOutput(result);
+    });
+  });
+
+thread
+  .command("running")
+  .description("List threads currently executing in the background")
+  .action(() => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdThreadRunning(storageRoot);
       writeOutput(result);
     });
   });
