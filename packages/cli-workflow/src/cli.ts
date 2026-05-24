@@ -16,7 +16,7 @@ import {
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdSkillCli } from "./commands/skill.js";
-import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
+import { cmdStepFork, cmdStepList, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
   cmdThreadExec,
@@ -272,19 +272,7 @@ step
     });
   });
 
-step
-  .command("read")
-  .description("Read a step's agent output as markdown")
-  .argument("<step-hash>", "CAS hash of the StepNode")
-  .option("--before <n>", "Show only first N turns")
-  .action((stepHash: string, opts: { before: string | undefined }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const before = opts.before !== undefined ? Number.parseInt(opts.before, 10) : null;
-      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, before);
-      process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
-    });
-  });
+// step read is not yet registered (half-baked, see step.ts cmdStepRead)
 
 step
   .command("fork")
