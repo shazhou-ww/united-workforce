@@ -74,6 +74,7 @@ async function completeThread(
     workflow: workflowHash,
     head: headHash,
     completedAt: Date.now(),
+    reason: null,
   });
 }
 

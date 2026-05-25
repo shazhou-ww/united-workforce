@@ -88,6 +88,7 @@ export function getHistoryPath(storageRoot: string): string {
 
 export type ThreadHistoryLine = ThreadListItem & {
   completedAt: number;
+  reason: "completed" | "cancelled" | null;
 };
 
 export type UwfStore = {
@@ -228,7 +229,15 @@ export async function loadThreadHistory(storageRoot: string): Promise<ThreadHist
         typeof head === "string" &&
         typeof completedAt === "number"
       ) {
-        lines.push({ thread: thread as ThreadId, workflow, head, completedAt });
+        const reason = rec.reason;
+        const parsedReason = reason === "completed" || reason === "cancelled" ? reason : null;
+        lines.push({
+          thread: thread as ThreadId,
+          workflow,
+          head,
+          completedAt,
+          reason: parsedReason,
+        });
       }
     }
     return lines;

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { Command } from "commander";
@@ -181,11 +181,11 @@ function parseStatusFilter(status: string | undefined): ThreadStatus[] | null {
   if (raw === "active") return ["idle", "running"];
 
   const parts = raw.split(",").map((s) => s.trim());
-  const validStatuses: ThreadStatus[] = ["idle", "running", "completed"];
+  const validStatuses: ThreadStatus[] = ["idle", "running", "completed", "cancelled"];
   for (const part of parts) {
     if (!validStatuses.includes(part as ThreadStatus)) {
       process.stderr.write(
-        `Invalid status: ${part}. Must be one of: idle, running, completed, active\n`,
+        `Invalid status: ${part}. Must be one of: idle, running, completed, cancelled, active\n`,
       );
       process.exit(1);
     }
@@ -238,7 +238,7 @@ thread
   .description("List threads")
   .option(
     "--status <status>",
-    "Filter by status: idle, running, completed, active (idle+running), or comma-separated values",
+    "Filter by status: idle, running, completed, cancelled, active (idle+running), or comma-separated values",
   )
   .option("--after <date>", "Filter threads created after this date (ISO or relative like '7d')")
   .option("--before <date>", "Filter threads created before this date (ISO or relative like '7d')")

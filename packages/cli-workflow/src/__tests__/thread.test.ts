@@ -758,6 +758,7 @@ describe("cmdStepList with completed threads", () => {
       workflow: workflowHash,
       head: step2Hash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const result = await cmdStepList(tmpDir, threadId);
@@ -886,6 +887,7 @@ describe("cmdStepShow with completed threads", () => {
       workflow: workflowHash,
       head: stepHash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const result = await cmdStepShow(tmpDir, stepHash);
@@ -949,6 +951,7 @@ describe("cmdThreadRead with completed threads", () => {
       workflow: workflowHash,
       head: stepHash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
@@ -1011,6 +1014,7 @@ describe("cmdThreadRead with completed threads", () => {
       workflow: workflowHash,
       head: step3Hash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const markdown = await cmdThreadRead(

@@ -12,4 +12,4 @@ packages/workflow-template-develop/develop.esm.js
 .DS_Store
 *.py
 .claude
-tmp
+tmp.worktrees/
