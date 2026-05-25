@@ -22,16 +22,17 @@ roles:
       After producing the test spec:
       1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
       2. Put the hash in frontmatter.plan (required when status=ready)
-    output: "Output a brief summary of the test spec. Frontmatter must include: $status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
+    output: "Output a brief summary of the test spec. Set $status to ready (with plan hash and repoPath) or insufficient_info."
     frontmatter:
-      type: object
-      properties:
-        $status:
-          type: string
-          enum: [ready, insufficient_info]
-        plan:
-          type: string
-      required: [$status]
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+            plan: { type: string }
+            repoPath: { type: string }
+          required: [$status, plan, repoPath]
+        - properties:
+            $status: { const: "insufficient_info" }
+          required: [$status]
   developer:
     description: "TDD implementation per test spec"
     goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
@@ -58,14 +59,13 @@ roles:
       8. Implement the code to make tests pass
       9. Ensure `bun run build` passes with no errors
       10. Run `bun test` to verify all tests pass
-    output: "List all files changed and provide a summary. Frontmatter must include: $status (done or failed)."
+    output: "List all files changed and provide a summary. Include branch name and worktree path in frontmatter."
     frontmatter:
       type: object
       properties:
-        $status:
-          type: string
-          enum: [done, failed]
-      required: [$status]
+        branch: { type: string }
+        worktree: { type: string }
+      required: [branch, worktree]
   reviewer:
     description: "Code standards compliance check"
     goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
@@ -95,14 +95,18 @@ roles:
 
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
-    output: "Explain your decision with specific file/line references. Frontmatter must include: $status (approved or rejected)."
+    output: "Explain your decision with specific file/line references. Set $status to approved (with branch/worktree) or rejected (with comments)."
     frontmatter:
-      type: object
-      properties:
-        $status:
-          type: string
-          enum: [approved, rejected]
-      required: [$status]
+      oneOf:
+        - properties:
+            $status: { const: "approved" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "rejected" }
+            comments: { type: string }
+          required: [$status, comments]
   tester:
     description: "Functional correctness verification"
     goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
@@ -118,14 +122,22 @@ roles:
          - passed: all scenarios verified, tests pass
          - fix_code: tests fail or implementation doesn't match spec → send back to developer
          - fix_spec: the spec itself is wrong or incomplete → send back to planner
-    output: "Report test results per scenario. Frontmatter must include: $status (passed, fix_code, or fix_spec)."
+    output: "Report test results per scenario. Set $status to passed (with branch/worktree), fix_code (with report), or fix_spec (with report)."
     frontmatter:
-      type: object
-      properties:
-        $status:
-          type: string
-          enum: [passed, fix_code, fix_spec]
-      required: [$status]
+      oneOf:
+        - properties:
+            $status: { const: "passed" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "fix_code" }
+            report: { type: string }
+          required: [$status, report]
+        - properties:
+            $status: { const: "fix_spec" }
+            report: { type: string }
+          required: [$status, report]
   committer:
     description: "Commits and creates PR"
     goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
@@ -146,30 +158,32 @@ roles:
       5. After PR creation, clean up the worktree:
          - `cd ~/repos/workflow`
          - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
-    output: "Include PR URL on success or error log on failure. Frontmatter must include: $status (committed or hook_failed)."
+    output: "Include PR URL on success or error log on failure. Set $status to committed (with prUrl) or hook_failed (with error)."
     frontmatter:
-      type: object
-      properties:
-        $status:
-          type: string
-          enum: [committed, hook_failed]
-      required: [$status]
+      oneOf:
+        - properties:
+            $status: { const: "committed" }
+            prUrl: { type: string }
+          required: [$status, prUrl]
+        - properties:
+            $status: { const: "hook_failed" }
+            error: { type: string }
+          required: [$status, error]
 graph:
   $START:
     _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
   planner:
     insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
-    ready: { role: "developer", prompt: "Implement the plan from the planner." }
+    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
   developer:
-    failed: { role: "$END", prompt: "Development failed; end the workflow." }
-    done: { role: "reviewer", prompt: "Send the implementation to the reviewer." }
+    _: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
   reviewer:
-    rejected: { role: "developer", prompt: "Reviewer rejected the implementation; fix the issues." }
-    approved: { role: "tester", prompt: "Review passed; run tests on the implementation." }
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues." }
+    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}." }
   tester:
-    fix_code: { role: "developer", prompt: "Tests found code issues; return to developer." }
-    fix_spec: { role: "planner", prompt: "Tests found spec issues; return to planner." }
-    passed: { role: "committer", prompt: "Tests passed; commit and push the changes." }
+    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the test spec." }
+    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{{branch}}} from {{{worktree}}}." }
   committer:
-    hook_failed: { role: "developer", prompt: "Push hook failed; return to developer to fix." }
-    committed: { role: "$END", prompt: "Commit succeeded; complete the workflow." }
+    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit." }
+    committed: { role: "$END", prompt: "PR created: {{{prUrl}}}. Workflow complete." }
