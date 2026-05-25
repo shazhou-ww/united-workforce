@@ -22,6 +22,8 @@ roles:
     frontmatter:
       type: object
       properties:
+        status:
+          enum: ["_"]
         thesis:
           type: string
         keyPoints:
@@ -30,14 +32,9 @@ roles:
             type: string
         caveats:
           type: string
-      required: [thesis, keyPoints]
-conditions: {}
+      required: [status, thesis, keyPoints]
 graph:
   $START:
-    - role: "analyst"
-      condition: null
-      prompt: "Analyze the topic in the task and produce a structured summary with key points."
+    _: { role: "analyst", prompt: "Analyze the topic in the task and produce a structured summary with key points." }
   analyst:
-    - role: "$END"
-      condition: null
-      prompt: "Analysis complete. Finish the workflow."
+    _: { role: "$END", prompt: "Analysis complete. Finish the workflow." }

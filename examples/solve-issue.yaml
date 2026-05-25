@@ -27,11 +27,13 @@ roles:
     frontmatter:
       type: object
       properties:
+        status:
+          enum: ["_"]
         repoPath:
           type: string
         plan:
           type: string
-      required: [repoPath, plan]
+      required: [status, repoPath, plan]
   developer:
     description: "Implements code changes"
     goal: "You are a developer agent. You implement code changes according to plans."
@@ -50,13 +52,15 @@ roles:
     frontmatter:
       type: object
       properties:
+        status:
+          enum: ["_"]
         filesChanged:
           type: array
           items:
             type: string
         summary:
           type: string
-      required: [filesChanged, summary]
+      required: [status, filesChanged, summary]
   reviewer:
     description: "Reviews code changes"
     goal: "You are a code reviewer. You review implementations for correctness and quality."
@@ -71,32 +75,18 @@ roles:
     frontmatter:
       type: object
       properties:
-        approved:
-          type: boolean
+        status:
+          enum: ["approved", "rejected"]
         comments:
           type: string
-      required: [approved, comments]
-conditions:
-  notApproved:
-    description: "Reviewer rejected the implementation"
-    expression: "$last('reviewer').approved = false"
+      required: [status, comments]
 graph:
   $START:
-    - role: "planner"
-      condition: null
-      prompt: "Analyze the issue described in the task and produce a detailed implementation plan."
+    _: { role: "planner", prompt: "Analyze the issue described in the task and produce a detailed implementation plan." }
   planner:
-    - role: "developer"
-      condition: null
-      prompt: "Implement the plan from the planner. Write code, tests, and ensure existing tests pass."
+    _: { role: "developer", prompt: "Implement the plan from the planner. Write code, tests, and ensure existing tests pass." }
   developer:
-    - role: "reviewer"
-      condition: null
-      prompt: "Review the developer's implementation against the plan for correctness and quality."
+    _: { role: "reviewer", prompt: "Review the developer's implementation against the plan for correctness and quality." }
   reviewer:
-    - role: "developer"
-      condition: "notApproved"
-      prompt: "The reviewer rejected your implementation. Read their feedback and fix the issues."
-    - role: "$END"
-      condition: null
-      prompt: "The review passed. Complete the workflow."
+    approved: { role: "$END", prompt: "The review passed. Complete the workflow." }
+    rejected: { role: "developer", prompt: "The reviewer rejected your implementation. Read their feedback and fix the issues: {{{comments}}}" }

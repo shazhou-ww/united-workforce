@@ -3,6 +3,9 @@ import mustache from "mustache";
 
 import type { EvaluateResult, Result } from "./types.js";
 
+// Disable HTML escaping — prompts are plain text, not HTML.
+mustache.escape = (text: string) => text;
+
 const START_ROLE = "$START";
 const UNIT_STATUS = "_";
 

@@ -74,6 +74,33 @@ describe("evaluate", () => {
     });
   });
 
+  test("mustache does not HTML-escape prompt content", () => {
+    const result = evaluate(solveIssueGraph, "reviewer", {
+      status: "rejected",
+      comments: 'use <T> & "Result<T, E>" types',
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: 'Fix: use <T> & "Result<T, E>" types' },
+    });
+  });
+
+  test("triple mustache also works for unescaped output", () => {
+    const graph: Record<string, Record<string, Target>> = {
+      reviewer: {
+        _: { role: "developer", prompt: "Fix: {{{comments}}}" },
+      },
+    };
+    const result = evaluate(graph, "reviewer", {
+      status: "_",
+      comments: "<script>alert(1)</script>",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: "Fix: <script>alert(1)</script>" },
+    });
+  });
+
   test("mustache template with nested object paths", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {

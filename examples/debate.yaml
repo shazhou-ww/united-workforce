@@ -16,15 +16,16 @@ roles:
       3. If you find yourself genuinely convinced by the other side, you may concede.
     output: |
       Provide your argument in the frontmatter.
-      Set conceded to true ONLY if you are genuinely convinced and wish to stop debating.
+      Set status to "conceded" ONLY if you are genuinely convinced and wish to stop debating.
+      Otherwise set status to "continue".
     frontmatter:
       type: object
       properties:
+        status:
+          enum: ["continue", "conceded"]
         argument:
           type: string
-        conceded:
-          type: boolean
-      required: [argument, conceded]
+      required: [status, argument]
   for:
     description: "Argues for the proposition"
     goal: |
@@ -40,38 +41,22 @@ roles:
       3. If you find yourself genuinely convinced by the other side, you may concede.
     output: |
       Provide your argument in the frontmatter.
-      Set conceded to true ONLY if you are genuinely convinced and wish to stop debating.
+      Set status to "conceded" ONLY if you are genuinely convinced and wish to stop debating.
+      Otherwise set status to "continue".
     frontmatter:
       type: object
       properties:
+        status:
+          enum: ["continue", "conceded"]
         argument:
           type: string
-        conceded:
-          type: boolean
-      required: [argument, conceded]
-conditions:
-  againstConceded:
-    description: "The against side conceded"
-    expression: "$last('against').conceded = true"
-  forConceded:
-    description: "The for side conceded"
-    expression: "$last('for').conceded = true"
+      required: [status, argument]
 graph:
   $START:
-    - role: "against"
-      condition: null
-      prompt: "Present your opening argument against the proposition."
+    _: { role: "against", prompt: "Present your opening argument against the proposition." }
   against:
-    - role: "$END"
-      condition: "againstConceded"
-      prompt: "The against side conceded. Debate over."
-    - role: "for"
-      condition: null
-      prompt: "Counter the opposing argument. Address their points directly."
+    conceded: { role: "$END", prompt: "The against side conceded. Debate over." }
+    continue: { role: "for", prompt: "Counter the opposing argument: {{{argument}}}" }
   for:
-    - role: "$END"
-      condition: "forConceded"
-      prompt: "The for side conceded. Debate over."
-    - role: "against"
-      condition: null
-      prompt: "Counter the opposing argument. Address their points directly."
+    conceded: { role: "$END", prompt: "The for side conceded. Debate over." }
+    continue: { role: "against", prompt: "Counter the opposing argument: {{{argument}}}" }
