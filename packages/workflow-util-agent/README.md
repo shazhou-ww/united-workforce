@@ -1,4 +1,4 @@
-# @uncaged/workflow-agent-kit
+# @uncaged/workflow-util-agent
 
 Agent framework — `createAgent` factory, context builder, frontmatter fast-path, and LLM extract pipeline.
 
@@ -13,7 +13,7 @@ Also exports prompt builders, config/storage helpers, and session ID caching for
 ## Installation
 
 ```bash
-bun add @uncaged/workflow-agent-kit
+bun add @uncaged/workflow-util-agent
 ```
 
 ## API
@@ -140,8 +140,8 @@ function loadWorkflowConfig(storageRoot: string): Promise<WorkflowConfig>
 ## Usage
 
 ```typescript
-import { createAgent, buildRolePrompt } from "@uncaged/workflow-agent-kit";
-import type { AgentContext, AgentRunResult } from "@uncaged/workflow-agent-kit";
+import { createAgent, buildRolePrompt } from "@uncaged/workflow-util-agent";
+import type { AgentContext, AgentRunResult } from "@uncaged/workflow-util-agent";
 
 async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const prompt = buildRolePrompt(ctx.workflow.roles[ctx.role]!);

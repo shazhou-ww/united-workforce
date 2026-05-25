@@ -8,7 +8,7 @@ import {
   createAgent,
   getCachedSessionId,
   setCachedSessionId,
-} from "@uncaged/workflow-agent-kit";
+} from "@uncaged/workflow-util-agent";
 import { createLogger } from "@uncaged/workflow-util";
 
 import { parseClaudeCodeStreamOutput, storeClaudeCodeDetail } from "./session-detail.js";

@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-agent-kit",
+  "name": "@uncaged/workflow-moderator",
   "version": "0.5.0",
   "files": [
     "src",
@@ -19,14 +19,11 @@
     "test:ci": "bun test"
   },
   "dependencies": {
-    "@uncaged/json-cas": "^0.5.2",
-    "@uncaged/json-cas-fs": "^0.5.2",
     "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
-    "dotenv": "^16.6.1",
-    "yaml": "^2.8.4"
+    "mustache": "^4.2.0"
   },
   "devDependencies": {
+    "@types/mustache": "^4.2.6",
     "typescript": "^5.8.3"
   },
   "publishConfig": {
@@ -35,7 +32,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/shazhou-ww/uncaged-workflow.git",
-    "directory": "packages/workflow-agent-kit"
+    "directory": "legacy-packages/workflow-moderator"
   },
   "homepage": "https://github.com/shazhou-ww/uncaged-workflow#readme",
   "bugs": {

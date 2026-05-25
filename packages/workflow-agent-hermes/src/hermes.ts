@@ -5,7 +5,7 @@ import {
   buildContinuationPrompt,
   buildRolePrompt,
   createAgent,
-} from "@uncaged/workflow-agent-kit";
+} from "@uncaged/workflow-util-agent";
 import { createLogger } from "@uncaged/workflow-util";
 
 import { HermesAcpClient } from "./acp-client.js";

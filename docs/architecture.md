@@ -8,7 +8,7 @@
 
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions stored as CAS nodes; threads are immutable chains of CAS-linked step nodes. No daemon — each `uwf thread step` invocation runs one moderator→agent→extract cycle and exits.
 
-The implementation lives in **6** active packages under `packages/`, plus two external CAS packages (`@uncaged/json-cas`, `@uncaged/json-cas-fs`). Legacy packages reside in `legacy-packages/` and are not part of the active stack.
+The implementation lives in **5** active packages under `packages/`, plus two external CAS packages (`@uncaged/json-cas`, `@uncaged/json-cas-fs`). Legacy packages reside in `legacy-packages/` and are not part of the active stack.
 
 ## Package map
 
@@ -16,10 +16,9 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 |-------|---------|---------------|
 | Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@uncaged/json-cas-fs`. |
 | Shared infra | `@uncaged/workflow-util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
-| Moderator | `@uncaged/workflow-moderator` → `workflow-moderator` | Status-based graph evaluator: given a routing graph, last role, and last output, returns the next role or `$END`. |
-| Agent framework | `@uncaged/workflow-agent-kit` → `workflow-agent-kit` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
+| Agent framework | `@uncaged/workflow-util-agent` → `workflow-util-agent` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
 | Agent: Hermes | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
-| CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. |
+| CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. Includes status-based graph evaluator in `src/moderator/` (next role or `$END`). |
 
 ### External dependencies
 
@@ -27,7 +26,7 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 |---------|------|
 | `@uncaged/json-cas` | Content-addressed store API, XXH64 hashing, JSON Schema registration and validation. |
 | `@uncaged/json-cas-fs` | Filesystem backend for `json-cas`. |
-| `mustache` | Template renderer for edge prompts (used by `workflow-moderator`). |
+| `mustache` | Template renderer for edge prompts (used by `cli-workflow` moderator). |
 | `commander` | CLI argument parsing (used by `cli-workflow`). |
 | `dotenv` | Loads `.env` files for API keys. |
 | `yaml` | YAML parse/stringify. |
@@ -45,10 +44,9 @@ flowchart BT
   end
   subgraph L1["Layer 1 — shared"]
     util["@uncaged/workflow-util"]
-    moderator["@uncaged/workflow-moderator"]
   end
   subgraph L2["Layer 2 — agent framework"]
-    kit["@uncaged/workflow-agent-kit"]
+    kit["@uncaged/workflow-util-agent"]
   end
   subgraph L3["Layer 3 — agent implementations"]
     hermes["@uncaged/workflow-agent-hermes"]
@@ -58,7 +56,6 @@ flowchart BT
   end
   protocol --> jcasfs
   util --> protocol
-  moderator --> protocol
   kit --> protocol
   kit --> util
   kit --> jcas
@@ -68,7 +65,6 @@ flowchart BT
   cli --> protocol
   cli --> util
   cli --> kit
-  cli --> moderator
   cli --> jcas
   cli --> jcasfs
 ```
@@ -222,7 +218,7 @@ Each agent is an external command invoked by `uwf thread step`:
 Contract:
 1. `uwf thread step` determines the next role via the moderator
 2. Agent CLI is spawned with `(thread-id, role)` as positional args
-3. `workflow-agent-kit` (`createAgent`) handles the boilerplate:
+3. `workflow-util-agent` (`createAgent`) handles the boilerplate:
    - Parses argv
    - Loads `.env` from storage root
    - Builds `AgentContext` by walking the CAS chain from `threads.yaml` head
@@ -255,11 +251,11 @@ scope: role
 Fixed the login redirect by updating the auth middleware...
 ```
 
-The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `workflow-agent-kit`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's `meta` JSON Schema.
+The `outputFormatInstruction` (built by `buildOutputFormatInstruction` in `workflow-util-agent`) is prepended to the role's system prompt, so the deliverable format is the first thing the agent sees. It lists the expected frontmatter fields derived from the role's `meta` JSON Schema.
 
 ## Two-layer extract
 
-Structured output extraction uses a two-layer strategy (`workflow-agent-kit`):
+Structured output extraction uses a two-layer strategy (`workflow-util-agent`):
 
 ### Layer 1: frontmatter fast path (`frontmatter.ts`)
 
@@ -283,7 +279,7 @@ If the fast path returns `null` (no frontmatter, invalid, or doesn't satisfy sch
 
 ## Prompt injection
 
-`workflow-agent-kit` prepends two pieces of context to the agent's system prompt:
+`workflow-util-agent` prepends two pieces of context to the agent's system prompt:
 
 1. **Deliverable format instruction** — generated from the role's `meta` schema, tells the agent exactly what frontmatter fields to produce and the expected format
 2. **Scope constraint** — "Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope."

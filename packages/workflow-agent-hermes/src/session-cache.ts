@@ -3,7 +3,7 @@
 import {
   getCachedSessionId as getCachedSessionIdBase,
   setCachedSessionId as setCachedSessionIdBase,
-} from "@uncaged/workflow-agent-kit";
+} from "@uncaged/workflow-util-agent";
 import type { ThreadId } from "@uncaged/workflow-protocol";
 
 export async function getCachedSessionId(threadId: ThreadId, role: string): Promise<string | null> {
