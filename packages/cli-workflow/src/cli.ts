@@ -55,8 +55,7 @@ program
   .description(
     "Stateless workflow CLI\n\n" +
       "Four-layer architecture:\n" +
-      "  workflow → thread → step → turn\n" +
-      "  模板定义   执行实例   单步结果   agent内部交互",
+      "  workflow → thread → step → turn",
   )
   .version(pkg.default.version, "-V, --version");
 program.option("--format <fmt>", "Output format: json or yaml", "json");
