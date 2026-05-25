@@ -22,7 +22,8 @@
     "yaml": "^2.8.4"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:ci": "vitest run"
   },
   "publishConfig": {
     "access": "public"
