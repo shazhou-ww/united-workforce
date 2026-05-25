@@ -1,6 +1,12 @@
-import { describe, expect, test } from "vitest";
-import { cmdSkillCli, cmdSkillArchitecture, cmdSkillYaml, cmdSkillModerator, cmdSkillList } from "../commands/skill.js";
 import { execFileSync } from "node:child_process";
+import { describe, expect, test } from "vitest";
+import {
+  cmdSkillArchitecture,
+  cmdSkillCli,
+  cmdSkillList,
+  cmdSkillModerator,
+  cmdSkillYaml,
+} from "../commands/skill.js";
 
 describe("skill commands", () => {
   test("skill list returns all skill names", () => {
@@ -55,7 +61,7 @@ describe("skill commands", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
       cwd: "/Users/scottwei/Code/workflow/.worktrees/fix/517-expand-skill/packages/cli-workflow",
       encoding: "utf-8",
-      env: { ...process.env, PATH: "/opt/homebrew/bin:" + process.env.PATH },
+      env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
     });
     expect(output).not.toMatch(/help\s+\[command\]/i);
     expect(output).toContain("cli");
