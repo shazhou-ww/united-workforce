@@ -1,0 +1,225 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { parse, stringify } from "yaml";
+
+/**
+ * Returns the path to the config.yaml file
+ */
+export function getConfigPath(storageRoot: string): string {
+  return join(storageRoot, "config.yaml");
+}
+
+/**
+ * Load and parse YAML config file
+ */
+export function loadConfig(configPath: string): Record<string, unknown> {
+  if (!existsSync(configPath)) {
+    throw new Error(`Config file not found: ${configPath}`);
+  }
+  const content = readFileSync(configPath, "utf8");
+  if (!content.trim()) {
+    return {};
+  }
+  try {
+    const parsed = parse(content);
+    return (parsed ?? {}) as Record<string, unknown>;
+  } catch (error) {
+    throw new Error(
+      `Invalid YAML in config file: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
+ * Save config as YAML
+ */
+export function saveConfig(configPath: string, config: Record<string, unknown>): void {
+  const dir = join(configPath, "..");
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const yaml = stringify(config);
+  writeFileSync(configPath, yaml, "utf8");
+}
+
+/**
+ * Parse dot-notation key into path segments
+ */
+export function parseDotPath(key: string): string[] {
+  return key.split(".");
+}
+
+/**
+ * Get nested value from object using path array
+ */
+export function getNestedValue(obj: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = obj;
+  for (const segment of path) {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+/**
+ * Set nested value in object using path array (mutates obj)
+ */
+export function setNestedValue(obj: Record<string, unknown>, path: string[], value: unknown): void {
+  if (path.length === 0) {
+    throw new Error("Path cannot be empty");
+  }
+
+  let current: Record<string, unknown> = obj;
+
+  // Navigate/create to the parent of the target
+  for (let i = 0; i < path.length - 1; i++) {
+    const segment = path[i];
+    const next = current[segment];
+
+    if (next === null || next === undefined) {
+      // Create intermediate object
+      const newObj: Record<string, unknown> = {};
+      current[segment] = newObj;
+      current = newObj;
+    } else if (typeof next === "object" && !Array.isArray(next)) {
+      // Navigate into existing object
+      current = next as Record<string, unknown>;
+    } else {
+      // Cannot navigate into non-object
+      throw new Error(
+        `Cannot set property '${path[i + 1]}' on non-object at path '${path.slice(0, i + 1).join(".")}'`,
+      );
+    }
+  }
+
+  // Set the final value
+  const lastSegment = path[path.length - 1];
+  current[lastSegment] = value;
+}
+
+/**
+ * Deep clone and mask all apiKeyEnv values in providers section
+ */
+export function maskApiKeys(config: Record<string, unknown>): Record<string, unknown> {
+  // Deep clone
+  const cloned = JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
+
+  // Mask apiKeyEnv values in providers
+  if (cloned.providers && typeof cloned.providers === "object") {
+    const providers = cloned.providers as Record<string, unknown>;
+    for (const providerName of Object.keys(providers)) {
+      const provider = providers[providerName];
+      if (provider && typeof provider === "object") {
+        const providerObj = provider as Record<string, unknown>;
+        if ("apiKeyEnv" in providerObj) {
+          providerObj.apiKeyEnv = "***MASKED***";
+        }
+      }
+    }
+  }
+
+  return cloned;
+}
+
+/**
+ * List all configuration values (masks API keys)
+ */
+export async function cmdConfigList(storageRoot: string): Promise<unknown> {
+  const configPath = getConfigPath(storageRoot);
+  const config = loadConfig(configPath);
+  const masked = maskApiKeys(config);
+  return masked;
+}
+
+/**
+ * Get a specific configuration value
+ */
+export async function cmdConfigGet(storageRoot: string, key: string): Promise<unknown> {
+  const configPath = getConfigPath(storageRoot);
+  const config = loadConfig(configPath);
+  const path = parseDotPath(key);
+  const value = getNestedValue(config, path);
+
+  if (value === undefined) {
+    throw new Error(`Key not found: ${key}`);
+  }
+
+  return value;
+}
+
+/**
+ * Parse value for args key (must be JSON array)
+ */
+function parseArgsValue(value: string): unknown {
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) {
+        throw new Error("Value must be an array");
+      }
+      return parsed;
+    } catch (error) {
+      throw new Error(
+        `Invalid JSON array for args key: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  throw new Error("Value for 'args' key must be a JSON array starting with '['");
+}
+
+/**
+ * Validate that we're not setting a property on a non-object
+ */
+function validateParentPath(
+  config: Record<string, unknown>,
+  path: string[],
+  lastSegment: string,
+): void {
+  if (path.length > 1) {
+    const parentPath = path.slice(0, -1);
+    const parent = getNestedValue(config, parentPath);
+    if (parent !== null && parent !== undefined && typeof parent !== "object") {
+      throw new Error(
+        `Cannot set property '${lastSegment}' on non-object at path '${parentPath.join(".")}'`,
+      );
+    }
+  }
+}
+
+/**
+ * Set a specific configuration value
+ */
+export async function cmdConfigSet(
+  storageRoot: string,
+  key: string,
+  value: string,
+): Promise<unknown> {
+  const configPath = getConfigPath(storageRoot);
+
+  // Load existing config or create empty one
+  let config: Record<string, unknown>;
+  if (existsSync(configPath)) {
+    config = loadConfig(configPath);
+  } else {
+    config = {};
+  }
+
+  const path = parseDotPath(key);
+  const lastSegment = path[path.length - 1];
+
+  // Parse value if it's for an array key (args)
+  let parsedValue: unknown = value;
+  if (lastSegment === "args") {
+    parsedValue = parseArgsValue(value);
+  }
+
+  // Validate we're not setting a property on a non-object
+  validateParentPath(config, path, lastSegment);
+
+  setNestedValue(config, path, parsedValue);
+  saveConfig(configPath, config);
+
+  return { key, value: parsedValue };
+}

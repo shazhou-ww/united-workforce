@@ -13,6 +13,7 @@ import {
   cmdCasSchemaList,
   cmdCasWalk,
 } from "./commands/cas.js";
+import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
@@ -707,6 +708,47 @@ log
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdLogClean(storageRoot, opts.before);
+      writeOutput(result);
+    });
+  });
+
+const config = program.command("config").description("Configuration management");
+
+config
+  .command("list")
+  .description("Display all configuration values (masks API keys)")
+  .action(() => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdConfigList(storageRoot);
+      writeOutput(result);
+    });
+  });
+
+config
+  .command("get")
+  .description("Get a specific configuration value")
+  .argument(
+    "<key>",
+    "Dot-notation path to config value (e.g., defaultAgent, providers.dashscope.baseUrl)",
+  )
+  .action((key: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdConfigGet(storageRoot, key);
+      writeOutput({ value: result });
+    });
+  });
+
+config
+  .command("set")
+  .description("Set a specific configuration value")
+  .argument("<key>", "Dot-notation path to config value")
+  .argument("<value>", "New value (use JSON array for 'args' key, e.g., '[\"--flag\"]')")
+  .action((key: string, value: string) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const result = await cmdConfigSet(storageRoot, key, value);
       writeOutput(result);
     });
   });
