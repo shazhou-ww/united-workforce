@@ -11,8 +11,8 @@
     "uwf": "./src/cli.ts"
   },
   "dependencies": {
-    "@uncaged/json-cas": "^0.5.2",
-    "@uncaged/json-cas-fs": "^0.5.2",
+    "@uncaged/json-cas": "^0.5.3",
+    "@uncaged/json-cas-fs": "^0.5.3",
     "@uncaged/workflow-protocol": "workspace:^",
     "@uncaged/workflow-util": "workspace:^",
     "@uncaged/workflow-util-agent": "workspace:^",

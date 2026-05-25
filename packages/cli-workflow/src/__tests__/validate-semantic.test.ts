@@ -250,6 +250,110 @@ describe("Suite 3: Status-Edge Consistency", () => {
   });
 });
 
+describe("Suite 3b: Enum-Based Multi-Exit", () => {
+  test("3b.1 enum multi-exit passes with matching graph keys", () => {
+    const wf = makeWorkflow();
+    wf.roles.reviewer = {
+      ...wf.roles.reviewer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { enum: ["approved", "rejected"] },
+          comments: { type: "string" },
+        },
+        required: ["$status", "comments"],
+      } as unknown as string,
+    };
+    wf.graph.reviewer = {
+      approved: { role: "$END", prompt: "Done" },
+      rejected: { role: "writer", prompt: "Fix: {{{comments}}}" },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors).toEqual([]);
+  });
+
+  test("3b.2 enum multi-exit with extra graph key", () => {
+    const wf = makeWorkflow();
+    wf.roles.reviewer = {
+      ...wf.roles.reviewer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { enum: ["approved", "rejected"] },
+          comments: { type: "string" },
+        },
+        required: ["$status", "comments"],
+      } as unknown as string,
+    };
+    wf.graph.reviewer = {
+      approved: { role: "$END", prompt: "Done" },
+      rejected: { role: "writer", prompt: "Fix" },
+      timeout: { role: "$END", prompt: "Timed out" },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("extra status keys: timeout"))).toBe(true);
+  });
+
+  test("3b.3 enum multi-exit with missing graph key", () => {
+    const wf = makeWorkflow();
+    wf.roles.reviewer = {
+      ...wf.roles.reviewer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { enum: ["approved", "rejected"] },
+          comments: { type: "string" },
+        },
+        required: ["$status", "comments"],
+      } as unknown as string,
+    };
+    wf.graph.reviewer = {
+      approved: { role: "$END", prompt: "Done" },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("missing status keys: rejected"))).toBe(true);
+  });
+
+  test("3b.4 enum with single value (not multi-exit) treated as single-exit", () => {
+    const wf = makeWorkflow();
+    wf.roles.writer = {
+      ...wf.roles.writer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { enum: ["_"] },
+          plan: { type: "string" },
+        },
+        required: ["$status", "plan"],
+      } as unknown as string,
+    };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{plan}}}" } };
+    const errors = validateWorkflow(wf);
+    expect(errors).toEqual([]);
+  });
+
+  test("3b.5 enum multi-exit mustache var not in frontmatter", () => {
+    const wf = makeWorkflow();
+    wf.roles.reviewer = {
+      ...wf.roles.reviewer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { enum: ["approved", "rejected"] },
+          comments: { type: "string" },
+        },
+        required: ["$status", "comments"],
+      } as unknown as string,
+    };
+    wf.graph.reviewer = {
+      approved: { role: "$END", prompt: "Done: {{{nonexistent}}}" },
+      rejected: { role: "writer", prompt: "Fix: {{{comments}}}" },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("nonexistent") && e.includes("not found"))).toBe(true);
+  });
+});
+
 describe("Suite 4: Mustache Template Variable Existence", () => {
   test("4.1 prompt references nonexistent variable (single-exit)", () => {
     const wf = makeWorkflow();

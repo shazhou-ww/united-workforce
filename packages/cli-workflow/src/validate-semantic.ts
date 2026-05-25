@@ -23,6 +23,28 @@ function isOneOfSchema(fm: unknown): fm is SchemaObj & { oneOf: SchemaObj[] } {
   return Array.isArray(obj.oneOf);
 }
 
+/** Check if a frontmatter schema uses enum-based multi-exit ($status with multiple enum values). */
+function isEnumMultiExit(fm: unknown): boolean {
+  if (typeof fm !== "object" || fm === null) return false;
+  const obj = fm as SchemaObj;
+  const props = obj.properties as Record<string, SchemaObj> | undefined;
+  if (!props?.$status) return false;
+  const statusDef = props.$status;
+  if (!Array.isArray(statusDef.enum)) return false;
+  // Filter out "_" (wildcard) — if remaining values > 1, it's multi-exit
+  const statuses = (statusDef.enum as string[]).filter((s) => s !== "_");
+  return statuses.length > 1;
+}
+
+/** Extract status values from an enum-based $status field. */
+function getEnumStatuses(fm: SchemaObj): string[] {
+  const props = fm.properties as Record<string, SchemaObj> | undefined;
+  if (!props?.$status) return [];
+  const statusDef = props.$status;
+  if (!Array.isArray(statusDef.enum)) return [];
+  return (statusDef.enum as string[]).filter((s) => s !== "_");
+}
+
 /** Get property names from a schema object. */
 function getPropertyNames(schema: SchemaObj): Set<string> {
   const props = schema.properties;
@@ -230,6 +252,11 @@ function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void 
       checkOneOfDiscriminant(roleName, variants, statuses, errors);
       checkMultiExitEdges(roleName, graphKeys, new Set(statuses), errors);
       checkMultiExitMustache(roleName, graphEntry, variants, errors);
+    } else if (isEnumMultiExit(fm)) {
+      const statuses = getEnumStatuses(fm as SchemaObj);
+      checkMultiExitEdges(roleName, graphKeys, new Set(statuses), errors);
+      // For enum-based schemas, mustache vars come from the flat properties
+      checkSingleExitMustache(roleName, graphEntry, fm as SchemaObj, errors);
     } else {
       checkSingleExitRole(roleName, graphKeys, graphEntry, fm as SchemaObj | null, errors);
     }
@@ -261,6 +288,27 @@ function checkSingleExitRole(
     if (v === "$status") continue;
     if (!propNames.has(v)) {
       errors.push(`prompt variable "${v}" not found in role "${roleName}" frontmatter`);
+    }
+  }
+}
+
+/** Check mustache vars in all edge prompts against flat schema properties. */
+function checkSingleExitMustache(
+  roleName: string,
+  graphEntry: Record<string, { role: string; prompt: string }>,
+  fm: SchemaObj,
+  errors: string[],
+): void {
+  const propNames = getPropertyNames(fm);
+  for (const [status, target] of Object.entries(graphEntry)) {
+    const vars = extractMustacheVars(target.prompt);
+    for (const v of vars) {
+      if (v === "$status") continue;
+      if (!propNames.has(v)) {
+        errors.push(
+          `prompt variable "${v}" in graph[${roleName}][${status}] not found in role "${roleName}" frontmatter`,
+        );
+      }
     }
   }
 }

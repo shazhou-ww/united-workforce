@@ -22,7 +22,7 @@
     "test:ci": "bun test __tests__/*.test.ts"
   },
   "dependencies": {
-    "@uncaged/json-cas": "^0.5.2",
+    "@uncaged/json-cas": "^0.5.3",
     "@uncaged/workflow-util-agent": "workspace:^",
     "@uncaged/workflow-protocol": "workspace:^",
     "@uncaged/workflow-util": "workspace:^"
