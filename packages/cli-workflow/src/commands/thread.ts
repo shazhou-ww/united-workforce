@@ -331,7 +331,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
   fail(`thread not found: ${threadId}`);
 }
 
-export type ThreadStatus = "idle" | "running" | "completed";
+export type ThreadStatus = "idle" | "running" | "completed" | "cancelled";
 
 export type ThreadListItemWithStatus = ThreadListItem & {
   status: ThreadStatus;
@@ -389,7 +389,7 @@ async function collectCompletedThreads(
         thread: entry.thread,
         workflow: entry.workflow,
         head: entry.head,
-        status: "completed",
+        status: entry.reason === "cancelled" ? "cancelled" : "completed",
       });
     }
   }
@@ -444,7 +444,10 @@ export async function cmdThreadList(
   let items = await collectActiveThreads(storageRoot, uwf, index);
 
   // Collect completed threads (if relevant for status filter)
-  const includeCompleted = statusFilter === null || statusFilter.includes("completed");
+  const includeCompleted =
+    statusFilter === null ||
+    statusFilter.includes("completed") ||
+    statusFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
     const completedItems = await collectCompletedThreads(storageRoot, activeIds);
@@ -811,6 +814,7 @@ async function archiveThread(
     workflow,
     head,
     completedAt: Date.now(),
+    reason: "completed",
   });
 }
 
@@ -1147,6 +1151,7 @@ export async function cmdThreadCancel(
     workflow,
     head,
     completedAt: Date.now(),
+    reason: "cancelled",
   };
   await appendThreadHistory(storageRoot, historyEntry);
 

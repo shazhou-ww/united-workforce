@@ -40,6 +40,7 @@ describe("resolveHeadHash", () => {
       workflow: workflowHash,
       head: headHash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const result = await resolveHeadHash(tmpDir, threadId);
@@ -64,6 +65,7 @@ describe("resolveHeadHash", () => {
       workflow: workflowHash,
       head: historicalHash,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const result = await resolveHeadHash(tmpDir, threadId);
@@ -87,18 +89,21 @@ describe("resolveHeadHash", () => {
       workflow: workflowHash,
       head: hash1,
       completedAt: Date.now() - 2000,
+      reason: null,
     });
     await appendThreadHistory(tmpDir, {
       thread: threadId2,
       workflow: workflowHash,
       head: hash2,
       completedAt: Date.now() - 1000,
+      reason: null,
     });
     await appendThreadHistory(tmpDir, {
       thread: threadId3,
       workflow: workflowHash,
       head: hash3,
       completedAt: Date.now(),
+      reason: null,
     });
 
     const result = await resolveHeadHash(tmpDir, threadId2);
