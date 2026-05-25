@@ -297,6 +297,80 @@ export function _printModelMenu(models: string[], termCols: number): void {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Agent selection prompt
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Known agent binary → display label mapping. */
+const KNOWN_AGENTS: Record<string, string> = {
+  "uwf-hermes": "Hermes (hermes-agent)",
+  "uwf-claude-code": "Claude Code",
+  "uwf-cursor": "Cursor",
+  "uwf-builtin": "Built-in (lightweight, no external agent)",
+};
+
+/** Extract short agent name from binary name: uwf-claude-code → claude-code */
+export function _agentNameFromBinary(binary: string): string {
+  return binary.replace(/^uwf-/, "");
+}
+
+/** Prints numbered agent list to stdout. */
+export function _printAgentMenu(agents: string[]): void {
+  const numWidth = String(agents.length).length;
+  for (let i = 0; i < agents.length; i++) {
+    const bin = agents[i] ?? "";
+    const label = KNOWN_AGENTS[bin] ?? bin;
+    const num = String(i + 1).padStart(numWidth);
+    console.log(`  ${num}) ${label}  (${bin})`);
+  }
+  console.log("");
+}
+
+/**
+ * Interactive agent selection. Discovers uwf-* binaries, lets user pick default.
+ * Returns short agent name (e.g. "hermes", "claude-code").
+ */
+export async function _promptAgentSelection(
+  rl: ReturnType<typeof createInterface>,
+): Promise<string> {
+  console.log("Discovering installed agents...\n");
+  const agents = await _discoverAgents();
+
+  if (agents.length === 0) {
+    console.log("  No uwf-* agent binaries found in PATH.\n");
+    console.log("  Install one first, for example:");
+    console.log("    npm i -g @uncaged/workflow-agent-hermes");
+    console.log("    npm i -g @uncaged/workflow-agent-claude-code\n");
+    const manual = (
+      await rl.question("Agent binary name (e.g. uwf-hermes), or press Enter to skip: ")
+    ).trim();
+    if (!manual) return "hermes";
+    return _agentNameFromBinary(manual.startsWith("uwf-") ? manual : `uwf-${manual}`);
+  }
+
+  if (agents.length === 1) {
+    const name = _agentNameFromBinary(agents[0] ?? "uwf-hermes");
+    const label = KNOWN_AGENTS[agents[0] ?? ""] ?? agents[0];
+    console.log(`  Found 1 agent: ${label} — auto-selected.\n`);
+    return name;
+  }
+
+  console.log(`  Found ${agents.length} agents:\n`);
+  _printAgentMenu(agents);
+  const choice = (await rl.question(`Choose default agent [1-${agents.length}]: `)).trim();
+  const n = Number.parseInt(choice, 10);
+  if (!Number.isNaN(n) && n >= 1 && n <= agents.length) {
+    const selected = agents[n - 1] ?? "uwf-hermes";
+    const name = _agentNameFromBinary(selected);
+    console.log(`  → ${name}\n`);
+    return name;
+  }
+  // Treat as literal name
+  const name = _agentNameFromBinary(choice.startsWith("uwf-") ? choice : `uwf-${choice}`);
+  console.log(`  → ${name}\n`);
+  return name;
+}
+
 type ValidationResult = { ok: boolean; error: string | null };
 
 /** Prints the model validation result to stdout. */
@@ -340,8 +414,9 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
   ) as Record<string, unknown>;
 
   const agentName = args.agent ?? "hermes";
-  if (Object.keys(agents).length === 0) {
-    agents.hermes = { command: "uwf-hermes", args: [] };
+  // Ensure the selected agent has an entry
+  if (!agents[agentName]) {
+    agents[agentName] = { command: `uwf-${agentName}`, args: [] };
   }
 
   return {
@@ -349,7 +424,7 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
     providers,
     models,
     agents,
-    defaultAgent: existing.defaultAgent ?? agentName,
+    defaultAgent: agentName,
     defaultModel: existing.defaultModel ?? "default",
   };
 }
@@ -543,11 +618,17 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
     rl2.close();
     console.log(`  → ${providerName}/${model}\n`);
 
+    // 4. Agent discovery & selection
+    const rl3 = createInterface({ input, output });
+    const agentName = await _promptAgentSelection(rl3);
+    rl3.close();
+
     const setupResult = await cmdSetup({
       provider: providerName,
       baseUrl,
       apiKey,
       model,
+      agent: agentName,
       storageRoot,
     });
 
