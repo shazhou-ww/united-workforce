@@ -2,8 +2,6 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
-import type { HermesSessionMessage } from "./types.js";
-
 const HERMES_COMMAND = "hermes";
 const PROTOCOL_VERSION = 1;
 
@@ -19,16 +17,9 @@ type PendingRequest = {
   reject: (reason: Error) => void;
 };
 
-/** Tracks in-flight tool calls so we can build complete messages when they finish. */
-type PendingToolCall = {
-  name: string;
-  args: string;
-};
-
 export type AcpPromptResult = {
   text: string;
   sessionId: string;
-  messages: HermesSessionMessage[];
 };
 
 export class HermesAcpClient {
@@ -38,11 +29,8 @@ export class HermesAcpClient {
   private stderrBuffer = "";
   private pending = new Map<number, PendingRequest>();
 
-  // Message collection state
+  /** Accumulated assistant text chunks from agent_message_chunk updates. */
   private messageChunks: string[] = [];
-  private reasoningChunks: string[] = [];
-  private pendingTools = new Map<string, PendingToolCall>();
-  messages: HermesSessionMessage[] = [];
 
   /** Spawn hermes acp, initialize, create session */
   async connect(cwd: string): Promise<string> {
@@ -84,14 +72,13 @@ export class HermesAcpClient {
     return sessionId;
   }
 
-  /** Send prompt and collect full response text + structured messages. */
+  /** Send prompt and collect final assistant text from ACP stream chunks. */
   async prompt(text: string): Promise<AcpPromptResult> {
     if (this.sessionId === null) {
       throw new Error("Not connected — call connect() first");
     }
 
     this.messageChunks = [];
-    this.reasoningChunks = [];
 
     const response = await this.sendRequest("session/prompt", {
       sessionId: this.sessionId,
@@ -104,28 +91,9 @@ export class HermesAcpClient {
       );
     }
 
-    // Flush any trailing assistant text that wasn't followed by a tool call.
-    this.flushAssistantMessage();
-
-    // Extract the final assistant text from collected messages.
-    let finalText = "";
-    for (let i = this.messages.length - 1; i >= 0; i--) {
-      const msg = this.messages[i];
-      if (
-        msg !== undefined &&
-        msg.role === "assistant" &&
-        msg.content !== null &&
-        msg.content.trim() !== ""
-      ) {
-        finalText = msg.content;
-        break;
-      }
-    }
-
     return {
-      text: finalText,
+      text: this.messageChunks.join(""),
       sessionId: this.sessionId,
-      messages: this.messages,
     };
   }
 
@@ -242,92 +210,14 @@ export class HermesAcpClient {
     }
   }
 
-  // ---- Session update → structured messages ----
-
   private handleSessionUpdate(update: Record<string, unknown>): void {
-    switch (update.sessionUpdate as string) {
-      case "agent_message_chunk":
-        this.handleAgentMessageChunk(update);
-        break;
-      case "agent_thought_chunk":
-        this.handleAgentThoughtChunk(update);
-        break;
-      case "tool_call":
-        this.handleToolCall(update);
-        break;
-      case "tool_call_update":
-        this.handleToolCallUpdate(update);
-        break;
-      default:
-        break;
+    if (update.sessionUpdate !== "agent_message_chunk") {
+      return;
     }
-  }
-
-  private handleAgentMessageChunk(update: Record<string, unknown>): void {
     const content = update.content as { type?: string; text?: string } | undefined;
     if (content?.type === "text" && typeof content.text === "string") {
       this.messageChunks.push(content.text);
     }
-  }
-
-  private handleAgentThoughtChunk(update: Record<string, unknown>): void {
-    const content = update.content as { type?: string; text?: string } | undefined;
-    if (content?.type === "text" && typeof content.text === "string") {
-      this.reasoningChunks.push(content.text);
-    }
-  }
-
-  private handleToolCall(update: Record<string, unknown>): void {
-    const title = (update.title as string) ?? "";
-    const rawInput = update.rawInput;
-    const args = rawInput !== undefined && rawInput !== null ? JSON.stringify(rawInput) : "";
-    const toolCallId = update.toolCallId as string;
-    this.pendingTools.set(toolCallId, { name: title, args });
-    this.flushAssistantMessage();
-  }
-
-  private handleToolCallUpdate(update: Record<string, unknown>): void {
-    const status = update.status as string | undefined;
-    if (status !== "completed" && status !== "failed") return;
-    const toolCallId = update.toolCallId as string;
-    const pending = this.pendingTools.get(toolCallId);
-    const toolName = pending?.name ?? toolCallId;
-    const rawOutput = update.rawOutput;
-    const outputStr =
-      rawOutput !== undefined && rawOutput !== null
-        ? typeof rawOutput === "string"
-          ? rawOutput
-          : JSON.stringify(rawOutput)
-        : "";
-    this.messages.push({
-      role: "assistant",
-      content: null,
-      reasoning: null,
-      tool_calls: [{ function: { name: toolName, arguments: pending?.args ?? "" } }],
-    });
-    this.messages.push({
-      role: "tool",
-      content: outputStr,
-      reasoning: null,
-      tool_calls: null,
-    });
-    this.pendingTools.delete(toolCallId);
-  }
-
-  /** Flush any accumulated text/reasoning into an assistant message. */
-  private flushAssistantMessage(): void {
-    const text = this.messageChunks.join("");
-    const reasoning = this.reasoningChunks.join("");
-    if (text !== "" || reasoning !== "") {
-      this.messages.push({
-        role: "assistant",
-        content: text || null,
-        reasoning: reasoning || null,
-        tool_calls: null,
-      });
-    }
-    this.messageChunks = [];
-    this.reasoningChunks = [];
   }
 
   private rejectAll(err: Error): void {

@@ -18,6 +18,15 @@ bun add -g @uncaged/workflow-agent-hermes
 
 Requires the `hermes` CLI on `PATH`.
 
+Hermes must write session JSON snapshots so `uwf-hermes` can load structured tool calls from disk. Add this to `~/.hermes/config.yaml`:
+
+```yaml
+sessions:
+  write_json_snapshots: true
+```
+
+Session files are stored at `~/.hermes/sessions/session_{sessionId}.json`.
+
 ## CLI Usage
 
 Invoked by `uwf thread step` (not typically run directly):

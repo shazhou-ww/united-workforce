@@ -453,7 +453,78 @@ describe("step read", () => {
     expect(markdown).not.toContain("## Turn");
   });
 
-  test("test 6: turn content with special characters", async () => {
+  test("test 6: displays role and tool calls in turn body", async () => {
+    const casDir = join(tmpDir, "cas");
+    await mkdir(casDir, { recursive: true });
+    const store = createFsStore(casDir);
+    const schemas = await registerUwfSchemas(store);
+    const detailSchemas = await registerDetailSchemas(store);
+
+    const workflowHash = await store.put(schemas.workflow, {
+      name: "test-wf",
+      description: "desc",
+      roles: {
+        worker: {
+          description: "Worker",
+          goal: "You are a worker agent.",
+          capabilities: [],
+          procedure: "Do the work.",
+          output: "Summarize the work.",
+          meta: "placeholder00" as CasRef,
+        },
+      },
+      conditions: {},
+      graph: {},
+    });
+
+    const startHash = await store.put(schemas.startNode, {
+      workflow: workflowHash,
+      prompt: "Test task",
+    });
+
+    const outputHash = await store.put(schemas.workflow, {
+      name: "out",
+      description: "",
+      roles: {},
+      conditions: {},
+      graph: {},
+    });
+
+    const turnHash = await store.put(detailSchemas.turn, {
+      index: 0,
+      role: "assistant",
+      content: "",
+      toolCalls: [{ name: "terminal", args: '{"command":"echo hi"}' }],
+      reasoning: null,
+    });
+
+    const detailHash = await store.put(detailSchemas.detail, {
+      sessionId: "session-1",
+      model: "test-model",
+      duration: 1000,
+      turnCount: 1,
+      turns: [turnHash],
+    });
+
+    const stepHash = await store.put(schemas.stepNode, {
+      start: startHash,
+      prev: null,
+      role: "worker",
+      output: outputHash,
+      detail: detailHash,
+      agent: "uwf-hermes",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
+    });
+
+    const markdown = await cmdStepRead(tmpDir, stepHash, 4000);
+
+    expect(markdown).toContain("**Turn role:** assistant");
+    expect(markdown).toContain("**terminal**");
+    expect(markdown).toContain('{"command":"echo hi"}');
+  });
+
+  test("test 7: turn content with special characters", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
     const store = createFsStore(casDir);

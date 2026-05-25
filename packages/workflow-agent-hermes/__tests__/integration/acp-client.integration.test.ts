@@ -53,23 +53,4 @@ describe("HermesAcpClient", () => {
     },
     { timeout: 2 * 60 * 1000 },
   );
-
-  // TODO(#435): flaky — depends on live LLM; mock or move to integration suite
-  it.skip(
-    "prompt() collects structured messages including tool calls",
-    async () => {
-      await client.connect(process.cwd());
-      const result = await client.prompt("Run this command: echo TOOL_DETAIL_TEST");
-      expect(result.messages.length).toBeGreaterThan(0);
-      const toolMessages = result.messages.filter((m) => m.role === "tool");
-      expect(toolMessages.length).toBeGreaterThan(0);
-      const toolContent = toolMessages[0]?.content ?? "";
-      expect(toolContent).toContain("TOOL_DETAIL_TEST");
-      const assistantWithTools = result.messages.filter(
-        (m) => m.role === "assistant" && m.tool_calls !== null,
-      );
-      expect(assistantWithTools.length).toBeGreaterThan(0);
-    },
-    { timeout: 2 * 60 * 1000 },
-  );
 });
