@@ -1,3 +1,4 @@
+import type { BootstrapCapableStore } from "@uncaged/json-cas";
 import type {
   CasRef,
   StartEntry,
@@ -17,6 +18,11 @@ import {
   resolveHeadHash,
   walkChain,
 } from "./shared.js";
+
+type TurnData = {
+  index: number;
+  content: string;
+};
 
 /**
  * List all steps in a thread (previously: thread steps)
@@ -111,6 +117,108 @@ export async function cmdStepFork(
 }
 
 /**
+ * Load and validate step detail node from CAS store
+ */
+function loadStepDetail(store: BootstrapCapableStore, detailRef: CasRef): Record<string, unknown> {
+  const detailNode = store.get(detailRef);
+  if (detailNode === null) {
+    fail(`detail node not found: ${detailRef}`);
+  }
+  return detailNode.payload as Record<string, unknown>;
+}
+
+/**
+ * Load all turn nodes from CAS store and extract content
+ */
+function loadTurnData(store: BootstrapCapableStore, turns: unknown): TurnData[] {
+  if (!Array.isArray(turns) || turns.length === 0) {
+    return [];
+  }
+
+  const turnData: TurnData[] = [];
+  for (const turnRef of turns) {
+    if (typeof turnRef !== "string") {
+      continue;
+    }
+    const turnNode = store.get(turnRef as CasRef);
+    if (turnNode === null) {
+      continue;
+    }
+    const turn = turnNode.payload as Record<string, unknown>;
+    if (typeof turn.content === "string") {
+      turnData.push({
+        index: typeof turn.index === "number" ? turn.index : turnData.length,
+        content: turn.content,
+      });
+    }
+  }
+  return turnData;
+}
+
+/**
+ * Select turns that fit within quota, working backwards from most recent
+ */
+function selectTurnsForQuota(turnData: TurnData[], availableQuota: number): TurnData[] {
+  const selectedTurns: TurnData[] = [];
+  let totalChars = 0;
+
+  for (let i = turnData.length - 1; i >= 0; i--) {
+    const turn = turnData[i];
+    if (turn === undefined) continue;
+
+    const turnHeader = `## Turn ${turn.index + 1}\n\n`;
+    const turnBlock = turnHeader + turn.content;
+    const separatorCost = selectedTurns.length > 0 ? 2 : 0;
+    const addCost = turnBlock.length + separatorCost;
+
+    if (totalChars + addCost > availableQuota && selectedTurns.length > 0) {
+      break;
+    }
+
+    selectedTurns.unshift(turn);
+    totalChars += addCost;
+  }
+
+  return selectedTurns;
+}
+
+/**
+ * Assemble final markdown output from header and selected turns
+ */
+function formatStepMarkdown(
+  stepHash: CasRef,
+  role: string,
+  agent: string,
+  turnData: TurnData[],
+  selectedTurns: TurnData[],
+): string {
+  const parts: string[] = [];
+  parts.push(`# Step ${stepHash}`);
+  parts.push("");
+  parts.push(`**Role:** ${role}`);
+  parts.push(`**Agent:** ${agent}`);
+
+  if (selectedTurns.length === 0) {
+    return parts.join("\n");
+  }
+
+  const skippedCount = turnData.length - selectedTurns.length;
+  if (skippedCount > 0) {
+    parts.push("");
+    parts.push(`_[Earlier turns omitted due to quota. Use --quota to increase.]_`);
+  }
+
+  for (const turn of selectedTurns) {
+    parts.push("");
+    parts.push(`## Turn ${turn.index + 1}`);
+    parts.push("");
+    parts.push(turn.content);
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Read a step's agent turns as human-readable markdown with quota enforcement
  */
 export async function cmdStepRead(
@@ -128,103 +236,21 @@ export async function cmdStepRead(
   }
   const payload = node.payload as StepNodePayload;
 
-  // Build header section
-  const parts: string[] = [];
-  parts.push(`# Step ${stepHash}`);
-  parts.push("");
-  parts.push(`**Role:** ${payload.role}`);
-  parts.push(`**Agent:** ${payload.agent}`);
-
-  // If no detail, return metadata only
   if (payload.detail === null) {
-    return parts.join("\n");
+    return formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);
   }
 
-  // Load detail node
-  const detailNode = uwf.store.get(payload.detail);
-  if (detailNode === null) {
-    fail(`detail node not found: ${payload.detail}`);
-  }
-
-  const detail = detailNode.payload as Record<string, unknown>;
-  const turns = detail.turns;
-
-  // If no turns array, return metadata only
-  if (!Array.isArray(turns) || turns.length === 0) {
-    return parts.join("\n");
-  }
-
-  // Load all turn nodes
-  type TurnData = {
-    index: number;
-    content: string;
-  };
-  const turnData: TurnData[] = [];
-  for (const turnRef of turns) {
-    if (typeof turnRef !== "string") {
-      continue;
-    }
-    const turnNode = uwf.store.get(turnRef as CasRef);
-    if (turnNode === null) {
-      continue;
-    }
-    const turn = turnNode.payload as Record<string, unknown>;
-    if (typeof turn.content === "string") {
-      turnData.push({
-        index: typeof turn.index === "number" ? turn.index : turnData.length,
-        content: turn.content,
-      });
-    }
-  }
+  const detail = loadStepDetail(uwf.store, payload.detail);
+  const turnData = loadTurnData(uwf.store, detail.turns);
 
   if (turnData.length === 0) {
-    return parts.join("\n");
+    return formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);
   }
 
-  // Calculate header length for quota accounting
-  const headerSection = parts.join("\n");
-  const headerLength = headerSection.length;
+  const headerSection = formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);
+  const BUFFER = 200;
+  const availableQuota = quota - headerSection.length - BUFFER;
+  const selectedTurns = selectTurnsForQuota(turnData, availableQuota);
 
-  // Select turns that fit within quota (working backwards from most recent)
-  const BUFFER = 200; // Conservative buffer for structural overhead
-  const availableQuota = quota - headerLength - BUFFER;
-
-  const selectedTurns: TurnData[] = [];
-  let totalChars = 0;
-
-  for (let i = turnData.length - 1; i >= 0; i--) {
-    const turn = turnData[i];
-    if (turn === undefined) continue;
-
-    // Calculate formatted turn length
-    const turnHeader = `## Turn ${turn.index + 1}\n\n`;
-    const turnBlock = turnHeader + turn.content;
-    const separatorCost = selectedTurns.length > 0 ? 2 : 0; // "\n\n" between turns
-    const addCost = turnBlock.length + separatorCost;
-
-    // Check quota - but always include at least one turn
-    if (totalChars + addCost > availableQuota && selectedTurns.length > 0) {
-      break;
-    }
-
-    selectedTurns.unshift(turn);
-    totalChars += addCost;
-  }
-
-  // Add skip hint if not all turns fit
-  const skippedCount = turnData.length - selectedTurns.length;
-  if (skippedCount > 0) {
-    parts.push("");
-    parts.push(`_[Earlier turns omitted due to quota. Use --quota to increase.]_`);
-  }
-
-  // Add selected turns
-  for (const turn of selectedTurns) {
-    parts.push("");
-    parts.push(`## Turn ${turn.index + 1}`);
-    parts.push("");
-    parts.push(turn.content);
-  }
-
-  return parts.join("\n");
+  return formatStepMarkdown(stepHash, payload.role, payload.agent, turnData, selectedTurns);
 }
