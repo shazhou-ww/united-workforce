@@ -31,7 +31,13 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
         capabilities: [],
         procedure: "",
         output: "",
-        frontmatter: { type: "0000000000000" } as unknown as CasRef,
+        frontmatter: {
+          type: "object",
+          properties: {
+            $status: { type: "string" },
+          },
+          required: ["$status"],
+        } as unknown as CasRef,
       },
     },
     graph: {
