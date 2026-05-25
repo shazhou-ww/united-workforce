@@ -549,7 +549,11 @@ cas
   .action((hash: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      writeOutput(await cmdCasHas(storageRoot, hash));
+      const result = await cmdCasHas(storageRoot, hash);
+      writeOutput(result);
+      if (!result.exists) {
+        process.exit(1);
+      }
     });
   });
 
