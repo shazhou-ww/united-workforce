@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "bin": {
-    "uwf": "./src/cli.ts"
+    "uwf": "./dist/cli.js"
   },
   "dependencies": {
     "@uncaged/json-cas": "^0.5.3",
