@@ -1,5 +1,10 @@
 # @uncaged/workflow
 
+[![CI](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@uncaged/cli-workflow?label=%40uncaged%2Fcli-workflow)](https://www.npmjs.com/package/@uncaged/cli-workflow)
+[![npm](https://img.shields.io/npm/v/@uncaged/workflow-protocol?label=%40uncaged%2Fworkflow-protocol)](https://www.npmjs.com/package/@uncaged/workflow-protocol)
+[![npm](https://img.shields.io/npm/v/@uncaged/workflow-agent-kit?label=%40uncaged%2Fworkflow-agent-kit)](https://www.npmjs.com/package/@uncaged/workflow-agent-kit)
+
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, status-based routing, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
 ## Overview
