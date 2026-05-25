@@ -16,7 +16,7 @@ import {
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdSkillCli } from "./commands/skill.js";
-import { cmdStepFork, cmdStepList, cmdStepShow } from "./commands/step.js";
+import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
   cmdThreadExec,
@@ -346,7 +346,23 @@ step
     });
   });
 
-// step read is not yet registered (half-baked, see step.ts cmdStepRead)
+step
+  .command("read")
+  .description("Read a step's turns as human-readable markdown")
+  .argument("<step-hash>", "CAS hash of the StepNode")
+  .option("--quota <chars>", "Max output characters", "4000")
+  .action((stepHash: string, opts: { quota: string }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const quota = Number.parseInt(opts.quota, 10);
+      if (!Number.isFinite(quota) || quota < 1) {
+        process.stderr.write("invalid --quota: must be a positive integer\n");
+        process.exit(1);
+      }
+      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, quota);
+      process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+    });
+  });
 
 step
   .command("fork")
