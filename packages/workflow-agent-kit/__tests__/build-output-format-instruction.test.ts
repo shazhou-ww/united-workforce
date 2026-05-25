@@ -87,7 +87,7 @@ describe("buildOutputFormatInstruction", () => {
     expect(result).toContain("beta: <number>");
   });
 
-  test("lists union of fields from a oneOf schema", () => {
+  test("lists union of fields from a oneOf schema (no discriminant — flat merge)", () => {
     const schema = {
       oneOf: [
         {
@@ -101,10 +101,69 @@ describe("buildOutputFormatInstruction", () => {
       ],
     };
     const result = buildOutputFormatInstruction(schema);
+    // No discriminant detected → falls back to flat merge
     expect(result).toContain("`foo`");
     expect(result).toContain("`bar`");
     expect(result).toContain("foo: <string>");
     expect(result).toContain("bar: true  # true | false");
+  });
+
+  test("renders per-variant instructions for discriminated oneOf", () => {
+    const schema = {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            $status: { const: "ready" },
+            plan: { type: "string" },
+          },
+          required: ["$status", "plan"],
+        },
+        {
+          type: "object",
+          properties: {
+            $status: { const: "insufficient_info" },
+          },
+          required: ["$status"],
+        },
+      ],
+    };
+    const result = buildOutputFormatInstruction(schema);
+    expect(result).toContain("Choose ONE of the following variants");
+    expect(result).toContain("When `$status: ready`");
+    expect(result).toContain("When `$status: insufficient_info`");
+    expect(result).toContain("plan: <string>");
+    // The insufficient_info variant should NOT mention plan
+    const insufficientBlock = result.split("When `$status: insufficient_info`")[1];
+    expect(insufficientBlock).not.toContain("plan:");
+  });
+
+  test("renders per-variant for single-enum discriminant", () => {
+    const schema = {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            $status: { type: "string", enum: ["approved"] },
+            branch: { type: "string" },
+          },
+          required: ["$status"],
+        },
+        {
+          type: "object",
+          properties: {
+            $status: { type: "string", enum: ["rejected"] },
+            comments: { type: "string" },
+          },
+          required: ["$status"],
+        },
+      ],
+    };
+    const result = buildOutputFormatInstruction(schema);
+    expect(result).toContain("When `$status: approved`");
+    expect(result).toContain("When `$status: rejected`");
+    expect(result).toContain("branch: <string>");
+    expect(result).toContain("comments: <string>");
   });
 
   test("falls back gracefully for a non-object schema with no properties", () => {

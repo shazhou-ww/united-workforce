@@ -167,13 +167,108 @@ function buildFieldList(properties: SchemaProperty[]): string {
 }
 
 /**
+ * Detect the discriminant property name from a oneOf schema.
+ * Returns the property name if all variants share a const/single-enum string property, else null.
+ */
+function detectDiscriminant(variants: JSONSchema[]): string | null {
+  // Find property names that appear in ALL variants with const or single-enum
+  const candidateNames = new Set<string>();
+
+  for (const variant of variants) {
+    const props = variant.properties as Record<string, JSONSchema> | null | undefined;
+    if (typeof props !== "object" || props === null) return null;
+
+    for (const [name, propSchema] of Object.entries(props)) {
+      const isConst =
+        propSchema.const !== undefined ||
+        (Array.isArray(propSchema.enum) && propSchema.enum.length === 1);
+      if (isConst) candidateNames.add(name);
+    }
+  }
+
+  // Check which candidate appears in ALL variants
+  for (const name of candidateNames) {
+    const allHaveIt = variants.every((v) => {
+      const props = v.properties as Record<string, JSONSchema> | null | undefined;
+      if (typeof props !== "object" || props === null) return false;
+      const propSchema = props[name];
+      if (!propSchema) return false;
+      return (
+        propSchema.const !== undefined ||
+        (Array.isArray(propSchema.enum) && propSchema.enum.length === 1)
+      );
+    });
+    if (allHaveIt) return name;
+  }
+
+  return null;
+}
+
+function getConstValue(propSchema: JSONSchema): string {
+  if (propSchema.const !== undefined) return String(propSchema.const);
+  if (Array.isArray(propSchema.enum) && propSchema.enum.length === 1)
+    return String(propSchema.enum[0]);
+  return "<unknown>";
+}
+
+function buildVariantBlock(variant: JSONSchema, discriminant: string): string {
+  const props = extractSchemaProperties(variant);
+  const value = getConstValue(
+    ((variant.properties as Record<string, JSONSchema>) ?? {})[discriminant] ?? {},
+  );
+  const yamlExample = buildYamlExampleBlock(props);
+  const fieldList = buildFieldList(props);
+
+  return `### When \`${discriminant}: ${value}\`
+
+\`\`\`
+${yamlExample}
+\`\`\`
+
+Fields:
+${fieldList}`;
+}
+
+/**
  * Build a concise output format instruction block for an agent role.
  *
- * The instruction describes the expected frontmatter markdown format and lists
- * the meta fields derived from the JSON Schema.  It is prepended to the agent's
- * system prompt so the deliverable format is the first thing the agent sees.
+ * For discriminated union schemas (oneOf with a shared const/$status field),
+ * renders per-variant instructions so the agent knows exactly which fields
+ * belong to which outcome.
+ *
+ * For flat object schemas, renders a single YAML example block.
  */
 export function buildOutputFormatInstruction(schema: JSONSchema): string {
+  // Check for discriminated union (oneOf with shared discriminant)
+  const unionKey = Array.isArray(schema.oneOf)
+    ? "oneOf"
+    : Array.isArray(schema.anyOf)
+      ? "anyOf"
+      : null;
+
+  if (unionKey !== null) {
+    const variants = schema[unionKey] as JSONSchema[];
+    const discriminant = detectDiscriminant(variants);
+
+    if (discriminant !== null && variants.length > 1) {
+      const variantBlocks = variants.map((v) => buildVariantBlock(v, discriminant)).join("\n\n");
+
+      return `## Deliverable Format
+
+Your response MUST begin with a YAML frontmatter block followed by your markdown work.
+
+Choose ONE of the following variants based on your outcome:
+
+${variantBlocks}
+
+The frontmatter is the **primary deliverable** — the engine reads it directly.
+Output ONLY the fields listed for your chosen variant. Do not add extra fields that are not specified in the schema.
+
+Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
+    }
+  }
+
+  // Flat object schema fallback
   const properties = extractSchemaProperties(schema);
   const yamlExample = buildYamlExampleBlock(properties);
   const fieldList = buildFieldList(properties);
