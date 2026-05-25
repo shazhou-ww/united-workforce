@@ -16,7 +16,9 @@ function isRoleDefinition(value: unknown): boolean {
     return false;
   }
   const frontmatter = value.frontmatter;
-  const frontmatterOk = isRecord(frontmatter) && typeof frontmatter.type === "string";
+  const frontmatterOk =
+    isRecord(frontmatter) &&
+    (typeof frontmatter.type === "string" || Array.isArray(frontmatter.oneOf));
   const capabilities = value.capabilities;
   const capabilitiesOk =
     Array.isArray(capabilities) && capabilities.every((c) => typeof c === "string");
