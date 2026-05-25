@@ -5,6 +5,7 @@
     "packages/*"
   ],
   "scripts": {
+    "uwf": "bun packages/cli-workflow/src/cli.ts",
     "build": "bunx tsc --build",
     "check": "bunx tsc --build && biome check . && bash scripts/lint-log-tags.sh",
     "typecheck": "bunx tsc --build",
