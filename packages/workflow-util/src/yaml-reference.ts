@@ -11,29 +11,31 @@ description: "..."         # human-readable description
 
 roles:                     # named actors in the workflow
   planner:
-    system: |              # system prompt for the agent
-      You are a planner...
-    outputSchema:          # JSON Schema for structured output
-      type: object
-      required: [plan, $status]
-      properties:
-        plan:
-          type: string
-        $status:
-          type: string
-          enum: [ready, failed]
+    description: "Analyzes issue and outputs a plan"
+    goal: "You are a planning agent."
+    capabilities:
+      - issue-analysis
+      - planning
+    procedure: |
+      1. Read the issue
+      2. Produce a test spec
+    output: "Output the plan summary. Set $status to ready or insufficient_info."
+    frontmatter:           # JSON Schema for structured output (drives routing)
+      oneOf:
+        - properties:
+            $status: { const: ready }
+            plan: { type: string }
+          required: [$status, plan]
+        - properties:
+            $status: { const: insufficient_info }
+          required: [$status]
 
-graph:                     # status-based routing edges
-  - from: $START
-    to: planner
-  - from: planner
-    to: developer
-    when:
-      $status: ready
-  - from: planner
-    to: $END
-    when:
-      $status: failed
+graph:                     # status-based routing (nested map)
+  $START:
+    _: { role: planner, prompt: "Analyze the issue." }
+  planner:
+    ready: { role: developer, prompt: "Implement plan {{{plan}}}." }
+    insufficient_info: { role: $END, prompt: "Not enough info." }
 \`\`\`
 
 ## roles
@@ -42,32 +44,39 @@ Each role defines an actor in the workflow:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| \`system\` | string | System prompt — instructions for the agent |
-| \`outputSchema\` | JSON Schema | Defines the structured output the agent must produce |
-| \`agent\` | string (optional) | Override the default agent command for this role |
+| \`description\` | string | Short description of the role's purpose |
+| \`goal\` | string | System-level goal statement for the agent |
+| \`capabilities\` | string[] | Tags describing what the role can do |
+| \`procedure\` | string | Step-by-step instructions for the agent |
+| \`output\` | string | Description of expected output format |
+| \`frontmatter\` | JSON Schema | Defines the structured output the agent must produce |
 
-### outputSchema
+### frontmatter
 
-The \`outputSchema\` is a standard JSON Schema object. The extract pipeline validates agent output against it. Key conventions:
+The \`frontmatter\` field is a standard JSON Schema object. The extract pipeline validates agent output against it. Key conventions:
 - \`$status\` field drives routing decisions in the graph
-- Use \`enum\` to constrain status values
-- All required fields must appear in the agent's frontmatter output
+- Use \`const\` or \`enum\` to constrain status values
+- Use \`oneOf\` to define multiple valid output shapes (one per status)
+- All \`required\` fields must appear in the agent's frontmatter output
 
 ## graph
 
-The graph is an array of directed edges defining status-based routing:
+The graph is a nested map defining status-based routing:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| \`from\` | string | Source role name, or \`$START\` |
-| \`to\` | string | Target role name, or \`$END\` |
-| \`when\` | object | Condition map — field/value pairs to match against previous output |
+\`\`\`
+Record<Role | "$START", Record<Status, { role: string, prompt: string }>>
+\`\`\`
+
+| Level | Key | Value |
+|-------|-----|-------|
+| Outer | Role name or \`$START\` | Status map for that role |
+| Inner | \`$status\` value (or \`_\` for unconditional) | Target: \`{ role, prompt }\` |
 
 ### Special Nodes
-- \`$START\` — entry point, must have exactly one outgoing edge
-- \`$END\` — terminal node, thread completes when reached
+- \`$START\` — entry point; uses status key \`_\` (unconditional, no previous output)
+- \`$END\` — terminal node; thread completes when reached
 
-### Edge Evaluation
-Edges are evaluated in order. The first edge whose \`when\` condition matches the current step output is selected. If no \`when\` is specified, the edge is unconditional (always matches).
+### Edge Prompts
+Prompts use triple-brace Mustache templates (\`{{{field}}}\`) to interpolate values from the previous step's output. Example: \`"Implement plan {{{plan}}} in repo {{{repoPath}}}."\`
 `;
 }

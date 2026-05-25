@@ -1,5 +1,10 @@
 import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 import {
   cmdSkillArchitecture,
   cmdSkillCli,
@@ -37,7 +42,7 @@ describe("skill commands", () => {
     expect(typeof result).toBe("string");
     expect(result).toContain("roles");
     expect(result).toContain("graph");
-    expect(result).toContain("outputSchema");
+    expect(result).toContain("frontmatter");
     expect(result.length).toBeGreaterThan(200);
   });
 
@@ -59,7 +64,7 @@ describe("skill commands", () => {
 
   test("skill help subcommand is suppressed", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
-      cwd: "/Users/scottwei/Code/workflow/.worktrees/fix/517-expand-skill/packages/cli-workflow",
+      cwd: join(__dirname, "..", ".."),
       encoding: "utf-8",
       env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
     });

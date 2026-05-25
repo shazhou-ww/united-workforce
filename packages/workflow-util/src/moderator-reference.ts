@@ -7,58 +7,50 @@ The moderator is the workflow engine's routing component. It evaluates the direc
 
 ## Status-Based Routing
 
-The moderator uses **status-based routing**: it inspects the previous step's extracted output (specifically the \`$status\` field and other output fields) and matches them against edge conditions in the graph.
+The moderator uses **status-based routing**: it inspects the previous step's extracted output (specifically the \`$status\` field) and looks up the corresponding edge in the graph.
 
-### Routing Algorithm
+### Graph Structure
 
-1. Find all edges where \`from\` matches the current role
-2. For each edge (in order), evaluate the \`when\` condition:
-   - If \`when\` is absent → unconditional match (always taken)
-   - If \`when\` is present → every key/value pair must match the step output
-3. The first matching edge determines the next role
-4. If no edge matches → thread stalls (error condition)
-
-### Example
+The graph is a nested map: \`Record<Role | "$START", Record<Status, Target>>\`. Each role maps its possible \`$status\` values to a target with a \`role\` and \`prompt\`:
 
 \`\`\`yaml
 graph:
-  - from: developer
-    to: reviewer
-    when:
-      $status: done
-  - from: developer
-    to: $END
-    when:
-      $status: failed
-  - from: reviewer
-    to: developer
-    when:
-      $status: needs-changes
-  - from: reviewer
-    to: $END
-    when:
-      $status: approved
+  $START:
+    _: { role: planner, prompt: "Analyze the issue." }
+  planner:
+    ready: { role: developer, prompt: "Implement the plan (CAS hash: {{{plan}}})." }
+    insufficient_info: { role: $END, prompt: "Not enough info." }
+  developer:
+    done: { role: reviewer, prompt: "Review branch {{{branch}}} at {{{worktree}}}." }
+    failed: { role: $END, prompt: "Developer failed: {{{reason}}}." }
+  reviewer:
+    approved: { role: tester, prompt: "Run tests on {{{branch}}} at {{{worktree}}}." }
+    rejected: { role: developer, prompt: "Fix issues: {{{comments}}}." }
 \`\`\`
 
-In this graph:
-- After \`developer\` produces \`$status: done\`, the moderator routes to \`reviewer\`
-- After \`reviewer\` produces \`$status: needs-changes\`, it routes back to \`developer\`
-- \`$status: failed\` or \`$status: approved\` terminates the thread
+### Routing Algorithm
 
-## Edge Evaluation Details
+1. Look up \`graph[lastRole]\` to get the status map for the current role
+2. Look up \`statusMap[lastOutput.$status]\` to get the target
+3. If target role is \`$END\`, mark thread as completed
+4. Otherwise, render the edge prompt (Mustache templates with \`{{{field}}}\` from output) and spawn the next agent
 
-- Edges are evaluated **in declaration order** — put specific conditions before general ones
-- \`when\` values are compared as **exact string matches**
-- Multiple \`when\` fields are ANDed — all must match
-- An edge without \`when\` acts as a **fallback** — place it last
+### Edge Prompts and Mustache Templates
+
+Edge prompts use triple-brace Mustache syntax (\`{{{field}}}\`) to interpolate values from the previous step's output into the next agent's task prompt. This passes structured data (branch names, file paths, CAS hashes) between roles without manual wiring.
+
+## Special Nodes
+
+- \`$START\` — entry point; uses status key \`_\` (unconditional) since there is no previous output
+- \`$END\` — terminal node; thread completes when reached and is moved to history
 
 ## Integration with Steps
 
 Each \`uwf thread exec\` cycle:
 1. Moderator reads the thread's head step output
-2. Evaluates graph edges to pick the next role
+2. Looks up \`graph[lastRole][output.$status]\` to pick the next role
 3. If next is \`$END\`, marks thread as completed
-4. Otherwise, spawns the agent for the selected role
+4. Otherwise, renders the edge prompt and spawns the agent for the selected role
 5. Extract pipeline parses agent output → new step node → append to CAS chain
 `;
 }
