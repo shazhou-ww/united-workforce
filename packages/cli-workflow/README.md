@@ -77,6 +77,7 @@ uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 |---------|-------------|
 | `uwf step list <thread-id>` | List all steps in a thread chronologically |
 | `uwf step show <step-hash>` | Show step metadata and frontmatter |
+| `uwf step read <step-hash> [--quota <chars>]` | Read a step's turns as human-readable markdown |
 | `uwf step fork <step-hash>` | Fork a thread from a specific step |
 
 Examples:
@@ -84,6 +85,7 @@ Examples:
 ```bash
 uwf step list 01ARZ3NDEKTSV4RRFFQ69G5FAV
 uwf step show 32GCDE899RRQ3
+uwf step read 32GCDE899RRQ3 --quota 2000
 uwf step fork 32GCDE899RRQ3
 ```
 

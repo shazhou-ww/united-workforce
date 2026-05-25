@@ -80,7 +80,7 @@ Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 | Group | Commands |
 |-------|----------|
 | **thread** | `start`, `exec`, `show`, `list`, `stop`, `cancel`, `read` |
-| **step** | `list`, `show`, `fork` |
+| **step** | `list`, `show`, `read`, `fork` |
 | **workflow** | `add`, `show`, `list` |
 | **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
 | **setup** | Interactive or `--provider`, `--base-url`, `--api-key`, `--model`, `--agent` |
