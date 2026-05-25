@@ -15,7 +15,8 @@
     }
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "test:ci": "bun test"
   },
   "dependencies": {
     "@uncaged/json-cas": "^0.5.2",

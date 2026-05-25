@@ -11,6 +11,7 @@
     "typecheck": "bunx tsc --build",
     "format": "biome format --write .",
     "test": "bun run --filter './packages/*' test",
+    "test:ci": "bun run --filter './packages/*' test:ci",
     "changeset": "bunx changeset",
     "version": "bunx changeset version",
     "release": "bun run build && bun test && node scripts/publish-all.mjs"
