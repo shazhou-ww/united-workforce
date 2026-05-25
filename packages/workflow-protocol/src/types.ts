@@ -27,23 +27,16 @@ export type RoleDefinition = {
   frontmatter: CasRef;
 };
 
-export type Transition = {
+export type Target = {
   role: string;
-  condition: string | null;
   prompt: string;
-};
-
-export type ConditionDefinition = {
-  description: string;
-  expression: string;
 };
 
 export type WorkflowPayload = {
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;
-  conditions: Record<string, ConditionDefinition>;
-  graph: Record<string, Transition[]>;
+  graph: Record<string, Record<string, Target>>;
 };
 
 // ── 4.3 Thread 节点 ─────────────────────────────────────────────────

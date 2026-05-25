@@ -1,312 +1,95 @@
 import { describe, expect, test } from "bun:test";
-import type { ModeratorContext, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { Target, WorkflowPayload } from "@uncaged/workflow-protocol";
 
 import { evaluate } from "../src/evaluate.js";
 
-const solveIssueWorkflow: WorkflowPayload = {
-  name: "solve-issue",
-  description: "End-to-end issue resolution",
-  roles: {
-    planner: {
-      description: "Creates implementation plan",
-      goal: "You are a planning agent.",
-      capabilities: ["planning"],
-      procedure: "Create a step-by-step plan.",
-      output: "Output the plan and steps.",
-      frontmatter: "5GWKR8TN1V3JA",
-    },
-    developer: {
-      description: "Implements code changes",
-      goal: "You are a developer agent.",
-      capabilities: ["coding"],
-      procedure: "Implement the plan.",
-      output: "List files changed and summary.",
-      frontmatter: "8CNWT4KR6D1HV",
-    },
-    reviewer: {
-      description: "Reviews code changes",
-      goal: "You are a code reviewer.",
-      capabilities: ["code-review"],
-      procedure: "Review the implementation.",
-      output: "Approve or reject with comments.",
-      frontmatter: "1VPBG9SM5E7WK",
-    },
+const solveIssueGraph: WorkflowPayload["graph"] = {
+  $START: {
+    _: { role: "planner", prompt: "Start planning from the issue in the task." },
   },
-  conditions: {
-    needsClarification: {
-      description: "Planner requests clarification from user",
-      expression: "$exists($last('planner').needsClarification)",
-    },
-    rejected: {
-      description: "Reviewer rejected the implementation",
-      expression: "$last('reviewer').approved = false",
-    },
+  planner: {
+    _: { role: "developer", prompt: "Implement the plan: {{plan}}" },
   },
-  graph: {
-    $START: [
-      {
-        role: "planner",
-        condition: null,
-        prompt: "Start planning from the issue in the task.",
-      },
-    ],
-    planner: [
-      {
-        role: "developer",
-        condition: "needsClarification",
-        prompt: "Clarification is needed; hand off to developer.",
-      },
-      { role: "$END", condition: null, prompt: "Planning complete; end workflow." },
-    ],
-    developer: [
-      {
-        role: "reviewer",
-        condition: null,
-        prompt: "Implementation done; send to reviewer.",
-      },
-    ],
-    reviewer: [
-      {
-        role: "developer",
-        condition: "rejected",
-        prompt: "Reviewer rejected; return to developer.",
-      },
-      { role: "$END", condition: null, prompt: "Review passed; end workflow." },
-    ],
+  developer: {
+    _: { role: "reviewer", prompt: "Review the changes: {{summary}}" },
+  },
+  reviewer: {
+    approved: { role: "$END", prompt: "Done." },
+    rejected: { role: "developer", prompt: "Fix: {{comments}}" },
   },
 };
 
-function makeContext(steps: ModeratorContext["steps"]): ModeratorContext {
-  return {
-    start: {
-      workflow: "4KNM2PXR3B1QW",
-      prompt: "Fix the login bug",
-    },
-    steps,
-  };
-}
-
 describe("evaluate", () => {
-  test("$START → first role (fallback)", async () => {
-    const result = await evaluate(solveIssueWorkflow, makeContext([]));
+  test("$START → first role (unit status _)", () => {
+    const result = evaluate(solveIssueGraph, "$START", { status: "_" });
     expect(result).toEqual({
       ok: true,
       value: { role: "planner", prompt: "Start planning from the issue in the task." },
     });
   });
 
-  test("condition match (rejected → developer)", async () => {
-    const context = makeContext([
-      {
-        role: "reviewer",
-        output: { approved: false },
-        detail: "2MXBG6PN4A8JR",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(solveIssueWorkflow, context);
+  test("status-based routing (reviewer rejected → developer)", () => {
+    const result = evaluate(solveIssueGraph, "reviewer", {
+      status: "rejected",
+      comments: "missing tests",
+    });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Reviewer rejected; return to developer." },
+      value: { role: "developer", prompt: "Fix: missing tests" },
     });
   });
 
-  test("fallback when condition does not match → $END", async () => {
-    const context = makeContext([
-      {
-        role: "reviewer",
-        output: { approved: true },
-        detail: "2MXBG6PN4A8JR",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(solveIssueWorkflow, context);
+  test("status-based routing (reviewer approved → $END)", () => {
+    const result = evaluate(solveIssueGraph, "reviewer", { status: "approved" });
     expect(result).toEqual({
       ok: true,
-      value: { role: "$END", prompt: "Review passed; end workflow." },
+      value: { role: "$END", prompt: "Done." },
     });
   });
 
-  test("missing role in graph → error", async () => {
-    const context = makeContext([
-      {
-        role: "unknown-role",
-        output: {},
-        detail: "2MXBG6PN4A8JR",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(solveIssueWorkflow, context);
+  test("missing role in graph → error", () => {
+    const result = evaluate(solveIssueGraph, "unknown-role", { status: "_" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe('no transitions defined for role "unknown-role"');
     }
   });
 
-  test("output expansion in context works with JSONata", async () => {
-    const context = makeContext([
-      {
-        role: "planner",
-        output: { needsClarification: true },
-        detail: "7BQST3VW9F2MA",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(solveIssueWorkflow, context);
+  test("missing status in graph → error", () => {
+    const result = evaluate(solveIssueGraph, "reviewer", { status: "pending" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe('no transition for role "reviewer" with status "pending"');
+    }
+  });
+
+  test("mustache template rendering with simple fields", () => {
+    const result = evaluate(solveIssueGraph, "planner", {
+      status: "_",
+      plan: "Add auth middleware",
+    });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Clarification is needed; hand off to developer." },
+      value: { role: "developer", prompt: "Implement the plan: Add auth middleware" },
     });
   });
 
-  test("$last returns most recent matching role's frontmatter", async () => {
-    const workflow: WorkflowPayload = {
-      ...solveIssueWorkflow,
-      conditions: {
-        devFailed: {
-          description: "Developer failed",
-          expression: "$last('developer').status = 'failed'",
+  test("mustache template with nested object paths", () => {
+    const graph: Record<string, Record<string, Target>> = {
+      reviewer: {
+        _: {
+          role: "developer",
+          prompt: "Address: {{review.comments}}",
         },
       },
-      graph: {
-        $START: [
-          {
-            role: "developer",
-            condition: null,
-            prompt: "Begin development.",
-          },
-        ],
-        developer: [
-          { role: "$END", condition: "devFailed", prompt: "Development failed; end." },
-          {
-            role: "reviewer",
-            condition: null,
-            prompt: "Development succeeded; review.",
-          },
-        ],
-      },
     };
-    const context = makeContext([
-      {
-        role: "developer",
-        output: { status: "done" },
-        detail: "1VPBG9SM5E7WK",
-        agent: "uwf-hermes",
-      },
-      {
-        role: "reviewer",
-        output: { approved: false },
-        detail: "2MXBG6PN4A8JR",
-        agent: "uwf-hermes",
-      },
-      {
-        role: "developer",
-        output: { status: "failed" },
-        detail: "3QNTH7WK8D2PA",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(workflow, context);
-    expect(result).toEqual({
-      ok: true,
-      value: { role: "$END", prompt: "Development failed; end." },
+    const result = evaluate(graph, "reviewer", {
+      status: "_",
+      review: { comments: "refactor the handler" },
     });
-  });
-
-  test("$first returns earliest matching role's frontmatter", async () => {
-    const workflow: WorkflowPayload = {
-      ...solveIssueWorkflow,
-      conditions: {
-        firstPlanReady: {
-          description: "First planner run was ready",
-          expression: "$first('planner').status = 'ready'",
-        },
-      },
-      graph: {
-        $START: [
-          {
-            role: "planner",
-            condition: null,
-            prompt: "Begin planning.",
-          },
-        ],
-        planner: [
-          { role: "$END", condition: "firstPlanReady", prompt: "First plan was ready; end." },
-          {
-            role: "developer",
-            condition: null,
-            prompt: "Plan not ready on first pass; implement.",
-          },
-        ],
-      },
-    };
-    const context = makeContext([
-      {
-        role: "planner",
-        output: { status: "ready", plan: "ABC123" },
-        detail: "7BQST3VW9F2MA",
-        agent: "uwf-hermes",
-      },
-      {
-        role: "developer",
-        output: { status: "done" },
-        detail: "1VPBG9SM5E7WK",
-        agent: "uwf-hermes",
-      },
-      {
-        role: "planner",
-        output: { status: "revised", plan: "DEF456" },
-        detail: "4RNMK6PX8B3WQ",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(workflow, context);
     expect(result).toEqual({
       ok: true,
-      value: { role: "$END", prompt: "First plan was ready; end." },
-    });
-  });
-
-  test("$last returns undefined for unmatched role", async () => {
-    const workflow: WorkflowPayload = {
-      ...solveIssueWorkflow,
-      conditions: {
-        hasReviewer: {
-          description: "Reviewer has run",
-          expression: "$exists($last('reviewer'))",
-        },
-      },
-      graph: {
-        $START: [
-          {
-            role: "planner",
-            condition: null,
-            prompt: "Begin planning.",
-          },
-        ],
-        planner: [
-          { role: "$END", condition: "hasReviewer", prompt: "Reviewer already ran; end." },
-          {
-            role: "developer",
-            condition: null,
-            prompt: "No reviewer yet; implement.",
-          },
-        ],
-      },
-    };
-    const context = makeContext([
-      {
-        role: "planner",
-        output: { status: "ready" },
-        detail: "7BQST3VW9F2MA",
-        agent: "uwf-hermes",
-      },
-    ]);
-    const result = await evaluate(workflow, context);
-    // no reviewer step → $exists returns false → fallback to developer
-    expect(result).toEqual({
-      ok: true,
-      value: { role: "developer", prompt: "No reviewer yet; implement." },
+      value: { role: "developer", prompt: "Address: refactor the handler" },
     });
   });
 });

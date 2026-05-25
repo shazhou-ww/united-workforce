@@ -25,7 +25,6 @@ async function storeWorkflow(uwf: UwfStore, name: string): Promise<CasRef> {
     name,
     description: "Test workflow",
     roles: {},
-    conditions: {},
     graph: {},
   };
   return await uwf.store.put(uwf.schemas.workflow, payload);
@@ -36,7 +35,6 @@ async function createWorkflowYaml(name: string, version: string | null = null): 
     name,
     description: version !== null ? `Test workflow (${version})` : "Test workflow",
     roles: {},
-    conditions: {},
     graph: {},
   };
   const yaml = stringify(payload);
@@ -145,7 +143,7 @@ describe("Strategy 2: File Path Resolution", () => {
   test("should fail on valid YAML with invalid WorkflowPayload shape", async () => {
     await makeUwfStore(storageRoot);
     const yamlPath = join(tmpDir, "invalid-workflow.yaml");
-    await writeFile(yamlPath, "name: test\n# missing roles, conditions, and graph");
+    await writeFile(yamlPath, "name: test\n# missing roles and graph");
 
     await expect(cmdThreadStart(storageRoot, yamlPath, "prompt", projectRoot)).rejects.toThrow();
   });

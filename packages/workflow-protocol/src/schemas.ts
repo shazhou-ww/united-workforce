@@ -14,22 +14,11 @@ const ROLE_DEFINITION: JSONSchema = {
   additionalProperties: false,
 };
 
-const CONDITION_DEFINITION: JSONSchema = {
+const TARGET: JSONSchema = {
   type: "object",
-  required: ["description", "expression"],
-  properties: {
-    description: { type: "string" },
-    expression: { type: "string" },
-  },
-  additionalProperties: false,
-};
-
-const TRANSITION: JSONSchema = {
-  type: "object",
-  required: ["role", "condition", "prompt"],
+  required: ["role", "prompt"],
   properties: {
     role: { type: "string" },
-    condition: { anyOf: [{ type: "string" }, { type: "null" }] },
     prompt: { type: "string" },
   },
   additionalProperties: false,
@@ -38,7 +27,7 @@ const TRANSITION: JSONSchema = {
 export const WORKFLOW_SCHEMA: JSONSchema = {
   title: "Workflow",
   type: "object",
-  required: ["name", "description", "roles", "conditions", "graph"],
+  required: ["name", "description", "roles", "graph"],
   properties: {
     name: { type: "string" },
     description: { type: "string" },
@@ -46,15 +35,11 @@ export const WORKFLOW_SCHEMA: JSONSchema = {
       type: "object",
       additionalProperties: ROLE_DEFINITION,
     },
-    conditions: {
-      type: "object",
-      additionalProperties: CONDITION_DEFINITION,
-    },
     graph: {
       type: "object",
       additionalProperties: {
-        type: "array",
-        items: TRANSITION,
+        type: "object",
+        additionalProperties: TARGET,
       },
     },
   },

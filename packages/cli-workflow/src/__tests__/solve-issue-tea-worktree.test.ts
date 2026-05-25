@@ -70,7 +70,6 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     // Basic structure validation
     expect(workflow.name).toBe("solve-issue");
     expect(workflow.roles).toBeDefined();
-    expect(workflow.conditions).toBeDefined();
     expect(workflow.graph).toBeDefined();
 
     // Verify committer role exists with required fields

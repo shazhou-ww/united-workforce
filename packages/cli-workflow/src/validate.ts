@@ -30,23 +30,12 @@ function isRoleDefinition(value: unknown): boolean {
   );
 }
 
-function isConditionDefinition(value: unknown): boolean {
+function isTarget(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  return typeof value.description === "string" && typeof value.expression === "string";
-}
-
-function isTransition(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const condition = value.condition;
   return (
-    typeof value.role === "string" &&
-    typeof value.prompt === "string" &&
-    value.prompt.trim() !== "" &&
-    (condition === null || condition === undefined || typeof condition === "string")
+    typeof value.role === "string" && typeof value.prompt === "string" && value.prompt.trim() !== ""
   );
 }
 
@@ -62,7 +51,7 @@ function isGraph(value: unknown): boolean {
     return false;
   }
   return Object.values(value).every(
-    (transitions) => Array.isArray(transitions) && transitions.every((t) => isTransition(t)),
+    (statusMap) => isRecord(statusMap) && Object.values(statusMap).every((t) => isTarget(t)),
   );
 }
 
@@ -101,11 +90,7 @@ export function parseWorkflowPayload(raw: unknown): WorkflowPayload | null {
   if (typeof raw.name !== "string" || typeof raw.description !== "string") {
     return null;
   }
-  if (
-    !isStringRecord(raw.roles, isRoleDefinition) ||
-    !isStringRecord(raw.conditions, isConditionDefinition) ||
-    !isGraph(raw.graph)
-  ) {
+  if (!isStringRecord(raw.roles, isRoleDefinition) || !isGraph(raw.graph)) {
     return null;
   }
   return raw as WorkflowPayload;

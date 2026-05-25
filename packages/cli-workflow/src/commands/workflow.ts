@@ -2,12 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import type { JSONSchema } from "@uncaged/json-cas";
 import { putSchema, validate } from "@uncaged/json-cas";
-import type {
-  CasRef,
-  RoleDefinition,
-  Transition,
-  WorkflowPayload,
-} from "@uncaged/workflow-protocol";
+import type { CasRef, RoleDefinition, Target, WorkflowPayload } from "@uncaged/workflow-protocol";
 import { parse } from "yaml";
 
 import {
@@ -51,20 +46,23 @@ function isJsonSchema(value: unknown): value is JSONSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Normalize graph transitions: ensure condition is null (not undefined) for fallback entries. */
-function normalizeGraph(graph: Record<string, Transition[]>): Record<string, Transition[]> {
-  const result: Record<string, Transition[]> = {};
-  for (const [node, transitions] of Object.entries(graph)) {
-    result[node] = transitions.map((t) => {
-      if (typeof t.prompt !== "string" || t.prompt.trim() === "") {
-        fail(`graph[${node}] transition to "${t.role}": prompt is required (non-empty string)`);
+/** Normalize graph: validate each status → target mapping. */
+function normalizeGraph(
+  graph: Record<string, Record<string, Target>>,
+): Record<string, Record<string, Target>> {
+  const result: Record<string, Record<string, Target>> = {};
+  for (const [node, statusMap] of Object.entries(graph)) {
+    const normalized: Record<string, Target> = {};
+    for (const [status, target] of Object.entries(statusMap)) {
+      if (typeof target.prompt !== "string" || target.prompt.trim() === "") {
+        fail(`graph[${node}][${status}] → "${target.role}": prompt is required (non-empty string)`);
       }
-      return {
-        role: t.role,
-        condition: t.condition ?? null,
-        prompt: t.prompt,
+      normalized[status] = {
+        role: target.role,
+        prompt: target.prompt,
       };
-    });
+    }
+    result[node] = normalized;
   }
   return result;
 }
@@ -106,7 +104,6 @@ export async function materializeWorkflowPayload(
     name: raw.name,
     description: raw.description,
     roles,
-    conditions: raw.conditions,
     graph: normalizeGraph(raw.graph),
   };
 }

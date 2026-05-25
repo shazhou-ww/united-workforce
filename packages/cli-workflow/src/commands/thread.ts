@@ -8,10 +8,8 @@ import type {
   AgentAlias,
   AgentConfig,
   CasRef,
-  ModeratorContext,
   StartNodePayload,
   StartOutput,
-  StepContext,
   StepNodePayload,
   StepOutput,
   ThreadId,
@@ -53,6 +51,7 @@ import {
 import { materializeWorkflowPayload } from "./workflow.js";
 
 const END_ROLE = "$END";
+const START_ROLE = "$START";
 export const THREAD_READ_DEFAULT_QUOTA = 4000;
 
 const PL_THREAD_START = "7HNQ4B2X";
@@ -670,17 +669,32 @@ function formatThreadReadMarkdown(options: {
   return parts.join("\n\n---\n\n");
 }
 
-function buildModeratorContext(uwf: UwfStore, chain: ChainState): ModeratorContext {
-  const chronological = [...chain.stepsNewestFirst].reverse();
-  const steps: StepContext[] = chronological.map((step) => ({
-    role: step.role,
-    output: expandOutput(uwf, step.output),
-    detail: step.detail,
-    agent: step.agent,
-    edgePrompt: step.edgePrompt ?? "",
-    content: null, // Moderator doesn't need content
-  }));
-  return { start: chain.start, steps };
+type EvaluateLastOutput = Record<string, unknown> & { status: string };
+
+function resolveEvaluateArgs(
+  uwf: UwfStore,
+  chain: ChainState,
+): { lastRole: string; lastOutput: EvaluateLastOutput } {
+  if (chain.headIsStart) {
+    return { lastRole: START_ROLE, lastOutput: { status: "_" } };
+  }
+
+  const lastStep = chain.stepsNewestFirst[0];
+  if (lastStep === undefined) {
+    fail("empty step chain");
+  }
+
+  const raw = expandOutput(uwf, lastStep.output);
+  const base =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const status = typeof base.status === "string" ? base.status : "_";
+
+  return {
+    lastRole: lastStep.role,
+    lastOutput: { ...base, status },
+  };
 }
 
 function loadWorkflowPayload(uwf: UwfStore, workflowRef: CasRef): WorkflowPayload {
@@ -924,9 +938,9 @@ async function cmdThreadStepOnce(
   const chain = walkChain(uwf, headHash);
   const workflowHash = chain.start.workflow;
   const workflow = loadWorkflowPayload(uwf, workflowHash);
-  const context = buildModeratorContext(uwf, chain);
+  const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
 
-  const nextResult = await evaluate(workflow, context);
+  const nextResult = evaluate(workflow.graph, lastRole, lastOutput);
   if (!nextResult.ok) {
     failStep(plog, `moderator evaluate failed: ${nextResult.error.message}`);
   }
@@ -976,8 +990,11 @@ async function cmdThreadStepOnce(
   await saveThreadsIndex(storageRoot, freshIndex);
 
   const chainAfter = walkChain(uwfAfter, newHead);
-  const contextAfter = buildModeratorContext(uwfAfter, chainAfter);
-  const afterResult = await evaluate(workflow, contextAfter);
+  const { lastRole: lastRoleAfter, lastOutput: lastOutputAfter } = resolveEvaluateArgs(
+    uwfAfter,
+    chainAfter,
+  );
+  const afterResult = evaluate(workflow.graph, lastRoleAfter, lastOutputAfter);
   if (!afterResult.ok) {
     failStep(plog, `post-step moderator evaluate failed: ${afterResult.error.message}`);
   }
