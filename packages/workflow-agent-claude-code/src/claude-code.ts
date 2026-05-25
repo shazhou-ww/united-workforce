@@ -3,6 +3,7 @@ import type { Store } from "@uncaged/json-cas";
 import {
   type AgentContext,
   type AgentRunResult,
+  buildContinuationPrompt,
   buildRolePrompt,
   createAgent,
   getCachedSessionId,
@@ -18,25 +19,6 @@ const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? null;
 
-function buildHistorySummary(steps: AgentContext["steps"]): string {
-  if (steps.length === 0) {
-    return "";
-  }
-
-  const lines: string[] = ["## Previous Steps"];
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    if (step === undefined) {
-      continue;
-    }
-    lines.push("");
-    lines.push(`### Step ${i + 1}: ${step.role}`);
-    lines.push(`Output: ${JSON.stringify(step.output)}`);
-    lines.push(`Agent: ${step.agent}`);
-  }
-  return lines.join("\n");
-}
-
 /** Assemble system prompt, task, and prior step outputs for Claude Code. */
 export function buildClaudeCodePrompt(ctx: AgentContext): string {
   const roleDef = ctx.workflow.roles[ctx.role];
@@ -46,11 +28,23 @@ export function buildClaudeCodePrompt(ctx: AgentContext): string {
     parts.push(ctx.outputFormatInstruction, "");
   }
   parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
-  const historyBlock = buildHistorySummary(ctx.steps);
-  if (historyBlock !== "") {
-    parts.push("", historyBlock);
+
+  if (!ctx.isFirstVisit) {
+    // Re-entry (session will be resumed): show only steps since last visit, meta only
+    parts.push("", buildContinuationPrompt(ctx.steps, ctx.role, ctx.edgePrompt));
+  } else if (ctx.steps.length > 0) {
+    // First visit: show all steps with content for recent ones
+    parts.push(
+      "",
+      buildContinuationPrompt(ctx.steps, ctx.role, ctx.edgePrompt, {
+        includeContent: true,
+        quota: 32000,
+      }),
+    );
+  } else {
+    parts.push("", "## Current Instruction", "", ctx.edgePrompt);
   }
-  parts.push("", "## Current Instruction", "", ctx.edgePrompt);
+
   return parts.join("\n");
 }
 

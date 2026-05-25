@@ -39,7 +39,7 @@ describe("buildClaudeCodePrompt", () => {
     expect(result).toContain("## Task\nFix the bug");
   });
 
-  test("includes previous steps as history summary", () => {
+  test("includes previous steps with content on first visit", () => {
     const ctx = makeCtx({
       steps: [
         {
@@ -48,18 +48,50 @@ describe("buildClaudeCodePrompt", () => {
           agent: "hermes",
           detail: "detail-1",
           edgePrompt: "Create a plan.",
+          content: "Here is my detailed plan for doing X.",
         },
       ],
     });
     const result = buildClaudeCodePrompt(ctx);
-    expect(result).toContain("## Previous Steps");
+    expect(result).toContain("## What Happened Since Your Last Turn");
     expect(result).toContain("Step 1: planner");
     expect(result).toContain("do X");
+    // First visit should include step content
+    expect(result).toContain("Here is my detailed plan for doing X.");
+  });
+
+  test("re-entry shows steps since last visit without content", () => {
+    const ctx = makeCtx({
+      isFirstVisit: false,
+      steps: [
+        {
+          role: "developer",
+          output: '{"status":"done"}',
+          agent: "claude-code",
+          detail: "detail-1",
+          edgePrompt: "Implement.",
+          content: "I implemented everything.",
+        },
+        {
+          role: "reviewer",
+          output: '{"approved":false}',
+          agent: "claude-code",
+          detail: "detail-2",
+          edgePrompt: "Review.",
+          content: "Rejected: complexity too high, refactor cmdStepRead.",
+        },
+      ],
+    });
+    const result = buildClaudeCodePrompt(ctx);
+    expect(result).toContain("## What Happened Since Your Last Turn");
+    expect(result).toContain("reviewer");
+    expect(result).toContain("approved");
   });
 
   test("omits history section when steps array is empty", () => {
     const result = buildClaudeCodePrompt(makeCtx({ steps: [] }));
-    expect(result).not.toContain("## Previous Steps");
+    expect(result).not.toContain("## What Happened Since Your Last Turn");
+    expect(result).toContain("## Current Instruction");
   });
 
   test("works without outputFormatInstruction", () => {
