@@ -285,6 +285,11 @@ moderator → agent → extract      — one step per invocation, repeat until $
 2. **Register** — `uwf workflow put <file.yaml>` parses YAML, registers output schemas, stores `WorkflowPayload` in CAS
 3. **Run** — `uwf thread start` creates a thread, `uwf thread step` executes one cycle per invocation
 
+## Project Rules
+
+- [docs/sync-readme.md](docs/sync-readme.md) — README sync conventions
+- [docs/no-dynamic-import.md](docs/no-dynamic-import.md) — no dynamic import in production code
+
 ## Commit Convention
 
 ```
