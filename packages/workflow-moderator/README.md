@@ -1,12 +1,12 @@
 # @uncaged/workflow-moderator
 
-JSONata-based graph evaluator — determines the next role or `$END` with zero LLM cost.
+Status-based graph evaluator — determines the next role or `$END` with zero LLM cost.
 
 ## Overview
 
-The moderator (Layer 1) walks the workflow graph from the current role. For each outgoing transition it evaluates an optional JSONata condition against `ModeratorContext` (start prompt + prior step outputs). The first truthy transition wins; its target role and edge prompt are returned. When no transition matches, the workflow ends (`$END`).
+The moderator (Layer 1) performs a status-based map lookup on the workflow graph. Given the last role and its output, it looks up `graph[lastRole][lastOutput.status]` to find the next `Target` (role + prompt template). The prompt is rendered via Mustache with `lastOutput` as the template context. For `$START`, the unit status `_` is used.
 
-**Dependencies:** `@uncaged/workflow-protocol`, `jsonata`
+**Dependencies:** `@uncaged/workflow-protocol`, `mustache`
 
 ## Installation
 
@@ -20,12 +20,13 @@ bun add @uncaged/workflow-moderator
 
 ```typescript
 function evaluate(
-  workflow: WorkflowPayload,
-  context: ModeratorContext,
-): Promise<Result<EvaluateResult, Error>>
+  graph: Record<string, Record<string, Target>>,
+  lastRole: string,
+  lastOutput: Record<string, unknown> & { status: string },
+): Result<EvaluateResult, Error>
 ```
 
-Returns `{ ok: true, value: { role, prompt } }` where `role` is the next role name or `"$END"`, and `prompt` is the edge instruction for the agent.
+Returns `{ ok: true, value: { role, prompt } }` where `role` is the next role name or `"$END"`, and `prompt` is the rendered edge instruction for the agent.
 
 ### Types
 
@@ -42,9 +43,9 @@ The `Result<T, E>` type is local to this package (`{ ok: true; value: T } | { ok
 
 ```typescript
 import { evaluate } from "@uncaged/workflow-moderator";
-import type { ModeratorContext, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { Target } from "@uncaged/workflow-protocol";
 
-const result = await evaluate(workflow, context);
+const result = evaluate(graph, lastRole, lastOutput);
 if (result.ok && result.value.role !== "$END") {
   console.log(`Next role: ${result.value.role}, prompt: ${result.value.prompt}`);
 }
@@ -55,6 +56,6 @@ if (result.ok && result.value.role !== "$END") {
 ```
 src/
 ├── index.ts      Public exports
-├── evaluate.ts   Graph walk + JSONata condition evaluation
+├── evaluate.ts   Status-based map lookup + Mustache prompt rendering
 └── types.ts      EvaluateResult, Result
 ```

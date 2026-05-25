@@ -16,7 +16,7 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 |-------|---------|---------------|
 | Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@uncaged/json-cas-fs`. |
 | Shared infra | `@uncaged/workflow-util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
-| Moderator | `@uncaged/workflow-moderator` → `workflow-moderator` | JSONata-based graph evaluator: given a `WorkflowPayload` and `ModeratorContext`, returns the next role or `$END`. |
+| Moderator | `@uncaged/workflow-moderator` → `workflow-moderator` | Status-based graph evaluator: given a routing graph, last role, and last output, returns the next role or `$END`. |
 | Agent framework | `@uncaged/workflow-agent-kit` → `workflow-agent-kit` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
 | Agent: Hermes | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
 | CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. |
@@ -27,7 +27,7 @@ The implementation lives in **6** active packages under `packages/`, plus two ex
 |---------|------|
 | `@uncaged/json-cas` | Content-addressed store API, XXH64 hashing, JSON Schema registration and validation. |
 | `@uncaged/json-cas-fs` | Filesystem backend for `json-cas`. |
-| `jsonata` | JSONata expression evaluator (used by `workflow-moderator`). |
+| `mustache` | Template renderer for edge prompts (used by `workflow-moderator`). |
 | `commander` | CLI argument parsing (used by `cli-workflow`). |
 | `dotenv` | Loads `.env` files for API keys. |
 | `yaml` | YAML parse/stringify. |
@@ -148,8 +148,7 @@ graph:
 Key properties:
 
 - **`roles`** — inline role definitions; each `meta` is a JSON Schema (stored as its own CAS node on registration)
-- **`conditions`** — named JSONata expressions evaluated against the `ModeratorContext`
-- **`graph`** — `Record<Role | "$START", Transition[]>` — first matching transition wins; `condition: null` = fallback
+- **`graph`** — `Record<Role | "$START", Record<Status, Target>>` — status-based routing; each role maps statuses to targets
 - **No agent binding** — agent selection is a deployment concern, configured in `config.yaml`
 - **No Zod** — all schemas are JSON Schema, validated through `@uncaged/json-cas`
 
@@ -159,8 +158,8 @@ Each `uwf thread step` runs exactly one cycle: moderator → agent → extract. 
 
 ```
 ┌─→ Phase 1: MODERATOR
-│   Input:  WorkflowPayload + ModeratorContext { start, steps[] }
-│   Engine: JSONata conditions evaluated against the graph
+│   Input:  graph + lastRole + lastOutput
+│   Engine: Status-based map lookup against lastOutput.status
 │   Output: next role name | $END
 │
 │   Phase 2: AGENT
@@ -207,7 +206,7 @@ type AgentContext = ModeratorContext & {
 
 ### Key properties
 
-- **Moderator** — pure JSONata evaluation; no LLM call, no I/O beyond CAS reads. Evaluates `workflow.graph[currentRole]` transitions in order, returns first match.
+- **Moderator** — pure status-based map lookup; no LLM call, no I/O beyond CAS reads. Looks up `graph[lastRole][lastOutput.status]` to get the next target.
 - **Agent** — receives `AgentContext` with thread history + role system prompt + output format instruction. Raw output is frontmatter markdown.
 - **Extractor** — two-layer: tries frontmatter fast-path first (zero LLM cost), falls back to LLM extract if frontmatter is absent or invalid.
 - **Stateless** — each `uwf thread step` is an atomic, self-contained operation. No in-memory state between steps.
@@ -485,7 +484,7 @@ Binary: `uwf`
 | **YAML workflow definitions** | Human-readable, versionable, no build step required. JSON Schema inline in YAML, registered as CAS nodes on `workflow put`. |
 | **Stateless single-step CLI** | Each `uwf thread step` is atomic — no in-memory state, no daemon, no long-running process. OS handles lifecycle. |
 | **CAS-backed thread state** | Immutable linked nodes enable fork, replay, and GC without copying data. Content-addressed deduplication across threads. |
-| **JSONata moderator** | Declarative condition expressions evaluated against thread history. No LLM cost for routing decisions. |
+| **Status-based moderator** | Status-based map routing — `graph[role][status]` lookup against last output. No LLM cost for routing decisions. |
 | **Frontmatter markdown output** | Agents produce structured meta (YAML frontmatter) alongside free-form content (markdown body). Enables zero-cost extraction when frontmatter is well-formed. |
 | **Two-layer extract** | Fast path avoids LLM calls when agents follow the format; LLM fallback handles messy output gracefully. |
 | **Prompt injection for format** | Output format instruction prepended to system prompt ensures agents produce parseable output without per-agent configuration. |

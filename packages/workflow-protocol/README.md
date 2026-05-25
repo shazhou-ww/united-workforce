@@ -47,23 +47,16 @@ type RoleDefinition = {
   frontmatter: CasRef;
 };
 
-type Transition = {
+type Target = {
   role: string;
-  condition: string | null;
   prompt: string;
-};
-
-type ConditionDefinition = {
-  description: string;
-  expression: string;
 };
 
 type WorkflowPayload = {
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;
-  conditions: Record<string, ConditionDefinition>;
-  graph: Record<string, Transition[]>;
+  graph: Record<string, Record<string, Target>>;
 };
 ```
 

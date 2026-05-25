@@ -123,7 +123,7 @@ type RoleNodeData = {
 
 **边类型**：
 - `default`（GradientEdge）→ 渐变色边（绿→蓝），节点仅有一条出边时使用
-- `conditional`（ConditionalEdge）→ 带条件标签的渐变色边，节点有多条出边时使用
+- `status`（StatusEdge）→ 带 status 标签的渐变色边，节点有多条出边时使用
 
 **边渲染特性**：
 - 渐变色：SVG linearGradient，从 source 端绿色（#10b981）到 target 端蓝色（#3b82f6）
@@ -234,7 +234,7 @@ Model 提供事务机制：
 ```
 ReactFlow
   ├─ nodeTypes: { start: NodeStart, end: NodeEnd, role: NodeRole }
-  └─ edgeTypes: { default: GradientEdge, conditional: ConditionalEdge }
+  └─ edgeTypes: { default: GradientEdge, status: StatusEdge }
 ```
 
 `NodeRole` 显示角色名（data.name），使用 teal 色系图标和标签。Handle 分蓝色（in）和绿色（out）两种颜色。
@@ -324,12 +324,11 @@ type WorkflowPayload = {
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;       // 角色定义（4 段式：identity/prepare/execute/report）
-  conditions: Record<string, ConditionDefinition>; // JSONata 条件表达式
-  graph: Record<string, Transition[]>;          // 角色间的转移图
+  graph: Record<string, Record<string, Target>>;   // status-based 路由图
 };
 ```
 
-workflow-dashboard 使用 `WorkFlowSteps` 格式作为交换数据，其中 `WorkFlowRole` 的字段与 `RoleDefinition` 对齐（description/identity/prepare/execute/report），`WorkFlowTransition` 对应 graph 中的 `Transition`。外部（CLI/server）负责 `WorkflowPayload` ↔ `WorkFlowSteps` 的转换。
+workflow-dashboard 使用 `WorkFlowSteps` 格式作为交换数据，其中 `WorkFlowRole` 的字段与 `RoleDefinition` 对齐（description/identity/prepare/execute/report），`WorkFlowTransition` 对应 graph 中的 `Target`。外部（CLI/server）负责 `WorkflowPayload` ↔ `WorkFlowSteps` 的转换。
 
 ## 11. 当前状态与待完善项
 

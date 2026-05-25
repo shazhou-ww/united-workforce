@@ -75,7 +75,7 @@ uwf thread step 01J7K9M2XNPQR5VWBCDF8G3H4T --agent "bunx uwf-cursor"
 **做的事：**
 1. 读链头 → 当前 StepNode（或 StartNode）
 2. 收集 thread 历史（遍历链）
-3. 调 moderator：评估 JSONata conditions → 得到下一个 role（或 END）
+3. 调 moderator：status-based map lookup → 得到下一个 role（或 END）
 4. 若 END → 归档 thread，输出最后链头，退出
 5. 确定 agent command（`--agent` override > config.yaml per-workflow/role > config.yaml defaultAgent）
 6. 调用：`<agent-cmd> <thread-id> <role>`，捕获 stdout 得到新 StepNode hash
@@ -199,29 +199,21 @@ payload:
 ```
 
 - `roles` — 内联定义，每个 role 的 `meta` 是独立的 cas_ref（指向 json-cas 内置 JSON Schema 节点）
-- `conditions` — `Record<Name, JSONata>`，命名条件，方便画图描述
-- `graph` — `Record<Role | "$START", Transition[]>`，每个 Transition = `{ role, condition }`
-- `condition` 引用 conditions 中的 key，`null` = fallback
-- 按数组顺序求值，第一个匹配的 transition 胜出
+- `graph` — `Record<Role | "$START", Record<Status, Target>>`，每个 Target = `{ role, prompt }`
+- Status 来自上一个 role 输出的 `status` 字段，`$START` 用 `_` 作为初始 status
+- Prompt 模板使用 Mustache 渲染，变量来自 lastOutput
 - 不含 agent binding — agent 配置在 `~/.uncaged/workflow/config.yaml` 中管理
 
-JSONata 表达式的求值上下文：
+Moderator 的求值逻辑：
 
-```jsonc
-{
-  "start": {                          // StartNode 信息
-    "workflow": "4KNM2PXR3B1QW",
-    "prompt": "Fix the login bug..."
-  },
-  "steps": [                          // 所有已完成 steps，从旧到新
-    { "role": "planner", "output": { "phases": [...] }, "detail": "7BQST3VW9F2MA", "agent": "uwf-hermes" },
-    { "role": "developer", "output": { "filesChanged": ["src/auth.ts"], "summary": "Fixed redirect" }, "detail": "9KRVW3TN5F1QA", "agent": "uwf-cursor" },
-    { "role": "reviewer", "output": { "approved": false }, "detail": "2MXBG6PN4A8JR", "agent": "uwf-hermes" }
-  ]
-}
+```typescript
+evaluate(graph, lastRole, lastOutput) → { role, prompt }
+// 1. status = lastRole === "$START" ? "_" : lastOutput.status
+// 2. target = graph[lastRole][status]
+// 3. prompt = mustache.render(target.prompt, lastOutput)
 ```
 
-注：`output` 在上下文中会被自动展开为实际的 CAS 节点内容（而非 hash），方便 JSONata 表达式直接访问字段。
+注：routing 基于 `lastOutput.status` 字段的值，直接在 graph map 中查找对应的 Target。
 
 #### `StartNode`（Thread 起点）
 
@@ -350,7 +342,7 @@ OPENROUTER_API_KEY=sk-or-...
 ```
 packages/
 ├── cli-workflow/              # @uncaged/cli-workflow — uwf CLI（thread/workflow 命令）
-├── workflow-moderator/        # @uncaged/workflow-moderator — JSONata moderator 引擎
+├── workflow-moderator/        # @uncaged/workflow-moderator — Status-based moderator 引擎
 ├── workflow-agent-kit/        # @uncaged/workflow-agent-kit — Agent CLI 框架（含 extractor）
 ├── workflow-agent-hermes/     # @uncaged/workflow-agent-hermes — uwf-hermes CLI
 ├── workflow-agent-cursor/ # @uncaged/workflow-agent-cursor — uwf-cursor CLI
@@ -367,7 +359,7 @@ packages/
 
 ## 4. 关键数据类型
 
-JSONata 求值上下文本质上是 thread 链表的线性化表达。StepNode payload 和上下文中的 step 共享大量字段，提取为公共类型。
+Moderator 通过 status-based map lookup 进行路由。StepNode payload 和上下文中的 step 共享大量字段，提取为公共类型。
 
 ### 4.1 公共类型
 
@@ -378,7 +370,7 @@ type CasRef = string;
 /** Thread ID — ULID, 26-char Crockford Base32 */
 type ThreadId = string;
 
-/** 一个 step 的核心数据，被 StepNode payload 和 JSONata 上下文共享 */
+/** 一个 step 的核心数据，被 StepNode payload 和 moderator 上下文共享 */
 type StepRecord = {
   role: string;
   output: CasRef;                    // cas_ref → 结构化输出节点（符合 role meta schema）
@@ -399,22 +391,16 @@ type RoleDefinition = {
   meta: CasRef;                      // cas_ref → json-cas 内置 JSON Schema 节点
 };
 
-type Transition = {
+type Target = {
   role: string;                      // 目标 role 名 或 "$END"
-  condition: string | null;          // 引用 conditions 中的 key，null = fallback
-};
-
-type ConditionDefinition = {
-  description: string;
-  expression: string;                           // JSONata expression
+  prompt: string;                    // Mustache 模板，渲染时注入 lastOutput
 };
 
 type WorkflowPayload = {
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;
-  conditions: Record<string, ConditionDefinition>;
-  graph: Record<string, Transition[]>;          // Record<Role | "$START", Transition[]>
+  graph: Record<string, Record<string, Target>>;  // Record<Role | "$START", Record<Status, Target>>
 };
 ```
 
@@ -432,20 +418,14 @@ type StepNodePayload = StepRecord & {
 };
 ```
 
-### 4.4 JSONata 求值上下文
+### 4.4 Moderator 求值
 
-Thread 链表的线性化。`steps[n]` 的字段和 `StepRecord` 一致，但 `output` 被展开为实际内容。
+Moderator 使用 `evaluate(graph, lastRole, lastOutput)` 进行同步 status-based routing：
 
 ```typescript
-/** JSONata 上下文中的 step — output 被展开 */
-type StepContext = Omit<StepRecord, "output"> & {
-  output: unknown;                   // 展开后的 CAS 节点内容，非 hash
-};
-
-type ModeratorContext = {
-  start: StartNodePayload;
-  steps: StepContext[];              // 从旧到新
-};
+// graph[lastRole][lastOutput.status] → Target { role, prompt }
+// $START 角色使用 "_" 作为初始 status
+// prompt 通过 Mustache 模板渲染，变量来自 lastOutput
 ```
 
 ### 4.5 CLI 输出
@@ -534,6 +514,5 @@ StepNodePayload ──extends──→ StepRecord ←──maps to──→ Step
     │
     └── start.workflow → WorkflowPayload
                              ├── roles: Record<name, RoleDefinition>
-                             ├── conditions: Record<name, JSONata>
-                             └── graph: Record<role, Transition[]>
+                             └── graph: Record<role, Record<status, Target>>
 ```

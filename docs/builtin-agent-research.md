@@ -288,7 +288,7 @@ export type BuildContextMeta = {
 
 1. 从 `threads.yaml[threadId]` 取 `headHash`
 2. `walkChain`：若 head 是 `StartNode`，`stepsNewestFirst=[]`；否则沿 `prev` 收集所有 `StepNode`， newest-first
-3. `buildHistory`：反转为时间序，`expandOutput` 把每步 `output` CasRef 展开为 JSON payload（供 prompt / JSONata 使用）
+3. `buildHistory`：反转为时间序，`expandOutput` 把每步 `output` CasRef 展开为 JSON payload（供 prompt / moderator 使用）
 4. `loadWorkflow`：从 `start.workflow` CasRef 加载 `WorkflowPayload`
 
 #### Role definition 来源
@@ -572,7 +572,7 @@ Hermes 自带完整 agent runtime（`--yolo`、max-turns），tool 集由 Hermes
 | P1 | `grep` | 搜索符号/引用 |
 | P2 | `fetch_url` | 查文档（planner 偶尔需要） |
 
-**不需要**在 builtin 里实现 moderator / workflow 路由工具——仍由 `uwf thread step` + JSONata 负责。
+**不需要**在 builtin 里实现 moderator / workflow 路由工具——仍由 `uwf thread step` + status-based moderator 负责。
 
 #### Agent loop 必须能力
 

@@ -1,10 +1,10 @@
 # @uncaged/workflow
 
-A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, JSONata routing conditions, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
+A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, status-based routing, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
 ## Overview
 
-This monorepo implements **uwf**, a workflow engine with no long-running daemon. You register YAML workflow definitions in a content-addressed store (CAS), start a thread with an initial prompt, then invoke `uwf thread step` repeatedly until the moderator routes to `$END`. Each step is a complete process: the moderator evaluates JSONata conditions to pick the next role, an external agent CLI produces frontmatter markdown output, and an extract pipeline validates or structures that output against the role's JSON Schema.
+This monorepo implements **uwf**, a workflow engine with no long-running daemon. You register YAML workflow definitions in a content-addressed store (CAS), start a thread with an initial prompt, then invoke `uwf thread step` repeatedly until the moderator routes to `$END`. Each step is a complete process: the moderator evaluates status-based routing to pick the next role, an external agent CLI produces frontmatter markdown output, and an extract pipeline validates or structures that output against the role's JSON Schema.
 
 Workflow state lives entirely on disk under `~/.uncaged/workflow/`: CAS nodes for definitions and step payloads, `registry.yaml` for workflow name→hash mappings, and `threads.yaml` for active thread head pointers. Completed threads are archived to `history.jsonl`. Because there is no server process, workflows are easy to debug, fork, and inspect with ordinary CLI tools.
 
@@ -20,7 +20,7 @@ Layer 0 — Contract
 
 Layer 1 — Shared infra
   workflow-util              Encoding, IDs, logging, frontmatter, paths
-  workflow-moderator         JSONata graph evaluator
+  workflow-moderator         Status-based graph evaluator
 
 Layer 2 — Agent framework
   workflow-agent-kit         createAgent factory, context builder, extract pipeline
@@ -47,7 +47,7 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 |---------|-----|-------------|------|--------|
 | `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
 | `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
-| `workflow-moderator` | `@uncaged/workflow-moderator` | JSONata graph evaluator — next role or `$END` | lib | [README](packages/workflow-moderator/README.md) |
+| `workflow-moderator` | `@uncaged/workflow-moderator` | Status-based graph evaluator — next role or `$END` | lib | [README](packages/workflow-moderator/README.md) |
 | `workflow-agent-kit` | `@uncaged/workflow-agent-kit` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-agent-kit/README.md) |
 | `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
 | `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |

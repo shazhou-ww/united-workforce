@@ -8,10 +8,10 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 
 | Concept | What it is |
 |---------|-----------|
-| **Workflow** | A YAML definition (`WorkflowPayload`) with roles, conditions, and a routing graph. Stored as a CAS node, identified by its XXH64 hash. |
+| **Workflow** | A YAML definition (`WorkflowPayload`) with roles, status-based routing, and a directed graph. Stored as a CAS node, identified by its XXH64 hash. |
 | **Thread** | A single execution of a workflow, identified by a ULID. State is an immutable CAS chain; active threads indexed in `threads.yaml`; completed threads in `history.jsonl`. |
 | **Role** | A named actor within a workflow. Each role has a system prompt and a JSON Schema `outputSchema`. |
-| **Moderator** | JSONata-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
+| **Moderator** | Status-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
 | **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
 | **CAS** | Content-Addressed Storage via `@uncaged/json-cas` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
 | **Registry** | `~/.uncaged/workflow/registry.yaml` — maps workflow names to current CAS hashes. |
@@ -23,7 +23,7 @@ workflow/
   packages/
     workflow-protocol/    # @uncaged/workflow-protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
     workflow-util/        # @uncaged/workflow-util — Crockford Base32, ULID, logger, frontmatter parsing/validation
-    workflow-moderator/   # @uncaged/workflow-moderator — JSONata graph evaluator
+    workflow-moderator/   # @uncaged/workflow-moderator — Status-based graph evaluator
     workflow-agent-kit/   # @uncaged/workflow-agent-kit — createAgent factory, context builder, extract pipeline
     workflow-agent-hermes/ # @uncaged/workflow-agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
     cli-workflow/         # @uncaged/cli-workflow — uwf CLI binary
