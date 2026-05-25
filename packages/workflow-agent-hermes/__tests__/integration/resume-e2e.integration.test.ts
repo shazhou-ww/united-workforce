@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
-import { HermesAcpClient } from "../src/acp-client.js";
+import { HermesAcpClient } from "../../src/acp-client.js";
 
 /**
  * E2E test for cross-process session resume.
