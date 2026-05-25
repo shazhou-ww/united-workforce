@@ -27,7 +27,7 @@ import {
   type ProcessLogger,
 } from "@uncaged/workflow-util";
 import { config as loadDotenv } from "dotenv";
-import { parse, stringify } from "yaml";
+import { parse } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
 import {
   appendThreadHistory,
@@ -461,25 +461,6 @@ export async function cmdThreadList(
   return applyPagination(items, skip, take);
 }
 
-function formatYaml(value: unknown): string {
-  return stringify(value, { aliasDuplicateObjects: false }).trimEnd();
-}
-
-function formatCompactStep(index: number, item: OrderedStepItem, outputYaml: string): string {
-  return [
-    `## Step ${index}: ${item.payload.role}`,
-    "",
-    `- **Hash:** \`${item.hash}\``,
-    `- **Agent:** ${item.payload.agent}`,
-    "",
-    "### Output",
-    "",
-    "```yaml",
-    outputYaml,
-    "```",
-  ].join("\n");
-}
-
 export function extractLastAssistantContent(uwf: UwfStore, detailRef: CasRef): string | null {
   const detailNode = uwf.store.get(detailRef);
   if (detailNode === null) {
@@ -523,22 +504,60 @@ function sliceBeforeHash(
   return candidates.slice(0, idx);
 }
 
+function calculateFormattedStepLength(
+  stepNum: number,
+  item: OrderedStepItem,
+  uwf: UwfStore,
+  workflow: WorkflowPayload,
+): number {
+  // Calculate using the same format as formatStepHeader, formatStepPrompt, formatStepContent
+  // Use a temporary set to avoid mutating the actual shownPromptRoles during calculation
+  const tempShownRoles = new Set<string>();
+  const header = formatStepHeader(stepNum, item);
+  const roleDef = workflow.roles[item.payload.role];
+  const prompt = formatStepPrompt(roleDef, item.payload.role, tempShownRoles);
+  const content = formatStepContent(uwf, item);
+
+  const stepBlock = [header, prompt, content].filter((s) => s !== "").join("");
+
+  // Don't add separator here - it will be counted when we know the final structure
+  return stepBlock.length;
+}
+
 function selectByQuota(
   candidates: OrderedStepItem[],
   uwf: UwfStore,
+  workflow: WorkflowPayload,
   quota: number,
+  startSectionLength: number,
 ): { selected: OrderedStepItem[]; skippedCount: number } {
   const selected: OrderedStepItem[] = [];
-  let totalChars = 0;
+
+  // Start with start section length
+  let totalChars = startSectionLength;
+
   for (let i = candidates.length - 1; i >= 0; i--) {
     const item = candidates[i];
     if (item === undefined) continue;
-    const outputYaml = formatYaml(expandOutput(uwf, item.payload.output));
-    const blockLen = formatCompactStep(i + 1, item, outputYaml).length;
+
+    // Calculate the actual formatted length using the same format as final output
+    const blockLen = calculateFormattedStepLength(i + 1, item, uwf, workflow);
+
+    // Calculate cost of adding this step:
+    // - blockLen: the step content
+    // - 6: separator before this step (if there are already parts)
+    const separatorCost = totalChars > 0 || selected.length > 0 ? 6 : 0;
+    const addCost = blockLen + separatorCost;
+
+    // Check quota BEFORE adding - but always include at least one step
+    if (totalChars + addCost > quota && selected.length > 0) {
+      break;
+    }
+
     selected.unshift(item);
-    totalChars += blockLen;
-    if (totalChars > quota) break;
+    totalChars += addCost;
   }
+
   return { selected, skippedCount: candidates.length - selected.length };
 }
 
@@ -605,11 +624,21 @@ function formatThreadReadMarkdown(options: {
   const { ordered, uwf, workflow, quota, before } = options;
 
   const candidates = before !== null ? sliceBeforeHash(ordered, before, options.threadId) : ordered;
-  const { selected, skippedCount } = selectByQuota(candidates, uwf, quota);
+
+  // Calculate start section length for quota accounting
+  const startSection = formatStartSection(options);
+  const startSectionLength = startSection !== "" ? startSection.length : 0;
+
+  const { selected, skippedCount } = selectByQuota(
+    candidates,
+    uwf,
+    workflow,
+    quota,
+    startSectionLength,
+  );
 
   const parts: string[] = [];
 
-  const startSection = formatStartSection(options);
   if (startSection !== "") parts.push(startSection);
 
   if (skippedCount > 0 && selected.length > 0) {
