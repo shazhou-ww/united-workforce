@@ -22,7 +22,7 @@ roles:
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           enum: ["_"]
         thesis:
           type: string
@@ -32,7 +32,7 @@ roles:
             type: string
         caveats:
           type: string
-      required: [status, thesis, keyPoints]
+      required: [$status, thesis, keyPoints]
 graph:
   $START:
     _: { role: "analyst", prompt: "Analyze the topic in the task and produce a structured summary with key points." }

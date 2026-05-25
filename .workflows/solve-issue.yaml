@@ -22,16 +22,16 @@ roles:
       After producing the test spec:
       1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
       2. Put the hash in frontmatter.plan (required when status=ready)
-    output: "Output a brief summary of the test spec. Frontmatter must include: status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
+    output: "Output a brief summary of the test spec. Frontmatter must include: $status (ready or insufficient_info) and plan (CAS hash of the test spec, required when status=ready)."
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           type: string
           enum: [ready, insufficient_info]
         plan:
           type: string
-      required: [status]
+      required: [$status]
   developer:
     description: "TDD implementation per test spec"
     goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
@@ -58,14 +58,14 @@ roles:
       8. Implement the code to make tests pass
       9. Ensure `bun run build` passes with no errors
       10. Run `bun test` to verify all tests pass
-    output: "List all files changed and provide a summary. Frontmatter must include: status (done or failed)."
+    output: "List all files changed and provide a summary. Frontmatter must include: $status (done or failed)."
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           type: string
           enum: [done, failed]
-      required: [status]
+      required: [$status]
   reviewer:
     description: "Code standards compliance check"
     goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
@@ -95,14 +95,14 @@ roles:
 
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
-    output: "Explain your decision with specific file/line references. Frontmatter must include: status (approved or rejected)."
+    output: "Explain your decision with specific file/line references. Frontmatter must include: $status (approved or rejected)."
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           type: string
           enum: [approved, rejected]
-      required: [status]
+      required: [$status]
   tester:
     description: "Functional correctness verification"
     goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
@@ -118,14 +118,14 @@ roles:
          - passed: all scenarios verified, tests pass
          - fix_code: tests fail or implementation doesn't match spec → send back to developer
          - fix_spec: the spec itself is wrong or incomplete → send back to planner
-    output: "Report test results per scenario. Frontmatter must include: status (passed, fix_code, or fix_spec)."
+    output: "Report test results per scenario. Frontmatter must include: $status (passed, fix_code, or fix_spec)."
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           type: string
           enum: [passed, fix_code, fix_spec]
-      required: [status]
+      required: [$status]
   committer:
     description: "Commits and creates PR"
     goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
@@ -146,14 +146,14 @@ roles:
       5. After PR creation, clean up the worktree:
          - `cd ~/repos/workflow`
          - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
-    output: "Include PR URL on success or error log on failure. Frontmatter must include: status (committed or hook_failed)."
+    output: "Include PR URL on success or error log on failure. Frontmatter must include: $status (committed or hook_failed)."
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           type: string
           enum: [committed, hook_failed]
-      required: [status]
+      required: [$status]
 graph:
   $START:
     _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }

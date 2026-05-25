@@ -669,14 +669,16 @@ function formatThreadReadMarkdown(options: {
   return parts.join("\n\n---\n\n");
 }
 
-type EvaluateLastOutput = Record<string, unknown> & { status: string };
+type EvaluateLastOutput = Record<string, unknown>;
+
+const STATUS_KEY = "$status";
 
 function resolveEvaluateArgs(
   uwf: UwfStore,
   chain: ChainState,
 ): { lastRole: string; lastOutput: EvaluateLastOutput } {
   if (chain.headIsStart) {
-    return { lastRole: START_ROLE, lastOutput: { status: "_" } };
+    return { lastRole: START_ROLE, lastOutput: { [STATUS_KEY]: "_" } };
   }
 
   const lastStep = chain.stepsNewestFirst[0];
@@ -689,11 +691,10 @@ function resolveEvaluateArgs(
     typeof raw === "object" && raw !== null && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
       : {};
-  const status = typeof base.status === "string" ? base.status : "_";
 
   return {
     lastRole: lastStep.role,
-    lastOutput: { ...base, status },
+    lastOutput: base,
   };
 }
 

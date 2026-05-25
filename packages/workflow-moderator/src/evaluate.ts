@@ -9,14 +9,21 @@ mustache.escape = (text: string) => text;
 const START_ROLE = "$START";
 const UNIT_STATUS = "_";
 
-type LastOutput = Record<string, unknown> & { status: string };
+type LastOutput = Record<string, unknown>;
+
+const STATUS_KEY = "$status";
 
 export function evaluate(
   graph: Record<string, Record<string, Target>>,
   lastRole: string,
   lastOutput: LastOutput,
 ): Result<EvaluateResult, Error> {
-  const status = lastRole === START_ROLE ? UNIT_STATUS : lastOutput.status;
+  const status =
+    lastRole === START_ROLE
+      ? UNIT_STATUS
+      : typeof lastOutput[STATUS_KEY] === "string"
+        ? (lastOutput[STATUS_KEY] as string)
+        : UNIT_STATUS;
 
   const roleTargets = graph[lastRole];
   if (roleTargets === undefined) {

@@ -21,11 +21,11 @@ roles:
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           enum: ["continue", "conceded"]
         argument:
           type: string
-      required: [status, argument]
+      required: [$status, argument]
   for:
     description: "Argues for the proposition"
     goal: |
@@ -46,11 +46,11 @@ roles:
     frontmatter:
       type: object
       properties:
-        status:
+        $status:
           enum: ["continue", "conceded"]
         argument:
           type: string
-      required: [status, argument]
+      required: [$status, argument]
 graph:
   $START:
     _: { role: "against", prompt: "Present your opening argument against the proposition." }

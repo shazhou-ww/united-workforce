@@ -21,7 +21,7 @@ const solveIssueGraph: WorkflowPayload["graph"] = {
 
 describe("evaluate", () => {
   test("$START → first role (unit status _)", () => {
-    const result = evaluate(solveIssueGraph, "$START", { status: "_" });
+    const result = evaluate(solveIssueGraph, "$START", { $status: "_" });
     expect(result).toEqual({
       ok: true,
       value: { role: "planner", prompt: "Start planning from the issue in the task." },
@@ -30,7 +30,7 @@ describe("evaluate", () => {
 
   test("status-based routing (reviewer rejected → developer)", () => {
     const result = evaluate(solveIssueGraph, "reviewer", {
-      status: "rejected",
+      $status: "rejected",
       comments: "missing tests",
     });
     expect(result).toEqual({
@@ -40,7 +40,7 @@ describe("evaluate", () => {
   });
 
   test("status-based routing (reviewer approved → $END)", () => {
-    const result = evaluate(solveIssueGraph, "reviewer", { status: "approved" });
+    const result = evaluate(solveIssueGraph, "reviewer", { $status: "approved" });
     expect(result).toEqual({
       ok: true,
       value: { role: "$END", prompt: "Done." },
@@ -48,7 +48,7 @@ describe("evaluate", () => {
   });
 
   test("missing role in graph → error", () => {
-    const result = evaluate(solveIssueGraph, "unknown-role", { status: "_" });
+    const result = evaluate(solveIssueGraph, "unknown-role", { $status: "_" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe('no transitions defined for role "unknown-role"');
@@ -56,7 +56,7 @@ describe("evaluate", () => {
   });
 
   test("missing status in graph → error", () => {
-    const result = evaluate(solveIssueGraph, "reviewer", { status: "pending" });
+    const result = evaluate(solveIssueGraph, "reviewer", { $status: "pending" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe('no transition for role "reviewer" with status "pending"');
@@ -65,7 +65,7 @@ describe("evaluate", () => {
 
   test("mustache template rendering with simple fields", () => {
     const result = evaluate(solveIssueGraph, "planner", {
-      status: "_",
+      $status: "_",
       plan: "Add auth middleware",
     });
     expect(result).toEqual({
@@ -76,7 +76,7 @@ describe("evaluate", () => {
 
   test("mustache does not HTML-escape prompt content", () => {
     const result = evaluate(solveIssueGraph, "reviewer", {
-      status: "rejected",
+      $status: "rejected",
       comments: 'use <T> & "Result<T, E>" types',
     });
     expect(result).toEqual({
@@ -92,12 +92,22 @@ describe("evaluate", () => {
       },
     };
     const result = evaluate(graph, "reviewer", {
-      status: "_",
+      $status: "_",
       comments: "<script>alert(1)</script>",
     });
     expect(result).toEqual({
       ok: true,
       value: { role: "developer", prompt: "Fix: <script>alert(1)</script>" },
+    });
+  });
+
+  test("missing $status defaults to _ (unit routing)", () => {
+    const result = evaluate(solveIssueGraph, "planner", {
+      plan: "Add auth middleware",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { role: "developer", prompt: "Implement the plan: Add auth middleware" },
     });
   });
 
@@ -111,7 +121,7 @@ describe("evaluate", () => {
       },
     };
     const result = evaluate(graph, "reviewer", {
-      status: "_",
+      $status: "_",
       review: { comments: "refactor the handler" },
     });
     expect(result).toEqual({
