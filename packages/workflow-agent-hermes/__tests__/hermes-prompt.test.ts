@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentContext } from "@uncaged/workflow-util-agent";
 import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { AgentContext } from "@uncaged/workflow-util-agent";
 import { buildHermesPrompt } from "../src/hermes.js";
 
 function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {

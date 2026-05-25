@@ -19,7 +19,7 @@
   },
   "scripts": {
     "test": "bun test",
-"test:ci": "bun test __tests__/*.test.ts"
+    "test:ci": "bun test __tests__/*.test.ts"
   },
   "dependencies": {
     "@uncaged/json-cas": "^0.5.2",

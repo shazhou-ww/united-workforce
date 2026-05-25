@@ -2,8 +2,6 @@ import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 import { validate } from "@uncaged/json-cas";
-import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
-import { evaluate } from "../moderator/index.js";
 import type {
   AgentAlias,
   AgentConfig,
@@ -24,9 +22,11 @@ import {
   generateUlid,
   type ProcessLogger,
 } from "@uncaged/workflow-util";
+import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
+import { evaluate } from "../moderator/index.js";
 import {
   appendThreadHistory,
   createUwfStore,

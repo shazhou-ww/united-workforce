@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
 import type { Target, WorkflowPayload } from "@uncaged/workflow-protocol";
+import { describe, expect, test } from "vitest";
 
 import { evaluate } from "../moderator/evaluate.js";
 

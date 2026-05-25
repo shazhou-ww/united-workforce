@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentContext } from "@uncaged/workflow-util-agent";
 import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { AgentContext } from "@uncaged/workflow-util-agent";
 import { buildClaudeCodePrompt } from "../src/claude-code.js";
 
 function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {

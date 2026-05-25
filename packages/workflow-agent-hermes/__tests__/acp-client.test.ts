@@ -91,5 +91,3 @@ describe("handleSessionUpdate — helper extraction", () => {
     expect((client as any).messageChunks).toHaveLength(0);
   });
 });
-
-
