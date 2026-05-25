@@ -18,8 +18,7 @@ const dryRun = args.includes("--dry-run");
 const publishOrder = [
   "workflow-protocol",
   "workflow-util",
-  "workflow-moderator",
-  "workflow-agent-kit",
+  "workflow-util-agent",
   "workflow-agent-hermes",
   "workflow-agent-builtin",
   "cli-workflow",

@@ -183,4 +183,4 @@ src/
 
 ## Configuration
 
-This package defines `WorkflowConfig` types only. Runtime config loading lives in `@uncaged/workflow-agent-kit` (`loadWorkflowConfig`).
+This package defines `WorkflowConfig` types only. Runtime config loading lives in `@uncaged/workflow-util-agent` (`loadWorkflowConfig`).

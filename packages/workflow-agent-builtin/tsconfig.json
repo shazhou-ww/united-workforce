@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [{ "path": "../workflow-agent-kit" }, { "path": "../workflow-util" }]
+  "references": [{ "path": "../workflow-util-agent" }, { "path": "../workflow-util" }]
 }

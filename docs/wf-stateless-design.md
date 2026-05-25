@@ -341,9 +341,8 @@ OPENROUTER_API_KEY=sk-or-...
 
 ```
 packages/
-├── cli-workflow/              # @uncaged/cli-workflow — uwf CLI（thread/workflow 命令）
-├── workflow-moderator/        # @uncaged/workflow-moderator — Status-based moderator 引擎
-├── workflow-agent-kit/        # @uncaged/workflow-agent-kit — Agent CLI 框架（含 extractor）
+├── cli-workflow/              # @uncaged/cli-workflow — uwf CLI（thread/workflow 命令，含 src/moderator/）
+├── workflow-util-agent/       # @uncaged/workflow-util-agent — Agent CLI 框架（含 extractor）
 ├── workflow-agent-hermes/     # @uncaged/workflow-agent-hermes — uwf-hermes CLI
 ├── workflow-agent-cursor/ # @uncaged/workflow-agent-cursor — uwf-cursor CLI
 └── workflow-protocol/         # @uncaged/workflow-protocol — 共享类型定义

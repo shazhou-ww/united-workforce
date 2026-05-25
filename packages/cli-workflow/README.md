@@ -20,7 +20,7 @@ workflow → thread → step → turn
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/json-cas-fs`, `@uncaged/workflow-agent-kit`, `@uncaged/workflow-moderator`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `commander`, `dotenv`, `yaml`
+**Dependencies:** `@uncaged/json-cas`, `@uncaged/json-cas-fs`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `commander`, `dotenv`, `mustache`, `yaml`
 
 ## Installation
 
@@ -190,6 +190,7 @@ src/
 ├── store.ts            CAS store + registry initialization
 ├── validate.ts         Workflow YAML validation
 ├── schemas.ts          CLI-local schema registration
+├── moderator/          Status-based graph evaluator (next role or $END)
 └── commands/
     ├── thread.ts       Thread lifecycle and exec
     ├── step.ts         Step operations (list/show/read/fork)

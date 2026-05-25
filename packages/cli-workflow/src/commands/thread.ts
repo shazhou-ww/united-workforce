@@ -2,8 +2,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 import { validate } from "@uncaged/json-cas";
-import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-agent-kit";
-import { evaluate } from "@uncaged/workflow-moderator";
+import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
+import { evaluate } from "../moderator/index.js";
 import type {
   AgentAlias,
   AgentConfig,

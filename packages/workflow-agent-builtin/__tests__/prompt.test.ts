@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { AgentContext } from "@uncaged/workflow-agent-kit";
+import type { AgentContext } from "@uncaged/workflow-util-agent";
 
 import { buildBuiltinMessages } from "../src/prompt.js";
 

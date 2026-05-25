@@ -3,7 +3,7 @@
 [![CI](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@uncaged/cli-workflow?label=%40uncaged%2Fcli-workflow)](https://www.npmjs.com/package/@uncaged/cli-workflow)
 [![npm](https://img.shields.io/npm/v/@uncaged/workflow-protocol?label=%40uncaged%2Fworkflow-protocol)](https://www.npmjs.com/package/@uncaged/workflow-protocol)
-[![npm](https://img.shields.io/npm/v/@uncaged/workflow-agent-kit?label=%40uncaged%2Fworkflow-agent-kit)](https://www.npmjs.com/package/@uncaged/workflow-agent-kit)
+[![npm](https://img.shields.io/npm/v/@uncaged/workflow-util-agent?label=%40uncaged%2Fworkflow-util-agent)](https://www.npmjs.com/package/@uncaged/workflow-util-agent)
 
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, status-based routing, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
@@ -51,10 +51,9 @@ Layer 0 — Contract
 
 Layer 1 — Shared infra
   workflow-util              Encoding, IDs, logging, frontmatter, paths
-  workflow-moderator         Status-based graph evaluator
 
 Layer 2 — Agent framework
-  workflow-agent-kit         createAgent factory, context builder, extract pipeline
+  workflow-util-agent         createAgent factory, context builder, extract pipeline
 
 Layer 3 — Agent implementations
   workflow-agent-hermes      Hermes ACP agent (uwf-hermes)
@@ -62,7 +61,7 @@ Layer 3 — Agent implementations
   workflow-agent-claude-code Claude Code agent (uwf-claude-code)
 
 Layer 4 — CLI
-  cli-workflow               uwf binary — thread lifecycle, registry, CAS, setup
+  cli-workflow               uwf binary — thread lifecycle, registry, CAS, setup (includes status-based moderator)
 
 App (uses protocol; not in the runtime engine stack)
   workflow-dashboard         Web UI for visual workflow editing
@@ -78,8 +77,7 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 |---------|-----|-------------|------|--------|
 | `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
 | `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
-| `workflow-moderator` | `@uncaged/workflow-moderator` | Status-based graph evaluator — next role or `$END` | lib | [README](packages/workflow-moderator/README.md) |
-| `workflow-agent-kit` | `@uncaged/workflow-agent-kit` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-agent-kit/README.md) |
+| `workflow-util-agent` | `@uncaged/workflow-util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-util-agent/README.md) |
 | `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
 | `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |
 | `workflow-agent-builtin` | `@uncaged/workflow-agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |

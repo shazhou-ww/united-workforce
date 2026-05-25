@@ -20,8 +20,7 @@
   "references": [
     { "path": "packages/workflow-util" },
     { "path": "packages/workflow-protocol" },
-    { "path": "packages/workflow-moderator" },
-    { "path": "packages/workflow-agent-kit" },
+    { "path": "packages/workflow-util-agent" },
     { "path": "packages/workflow-agent-hermes" },
     { "path": "packages/workflow-agent-builtin" },
     { "path": "packages/cli-workflow" }

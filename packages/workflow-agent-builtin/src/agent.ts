@@ -6,7 +6,7 @@ import {
   loadWorkflowConfig,
   resolveModel,
   resolveStorageRoot,
-} from "@uncaged/workflow-agent-kit";
+} from "@uncaged/workflow-util-agent";
 import { createLogger, generateUlid } from "@uncaged/workflow-util";
 
 import { storeBuiltinDetail } from "./detail.js";

@@ -23,10 +23,9 @@ workflow/
   packages/
     workflow-protocol/    # @uncaged/workflow-protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
     workflow-util/        # @uncaged/workflow-util — Crockford Base32, ULID, logger, frontmatter parsing/validation
-    workflow-moderator/   # @uncaged/workflow-moderator — Status-based graph evaluator
-    workflow-agent-kit/   # @uncaged/workflow-agent-kit — createAgent factory, context builder, extract pipeline
+    workflow-util-agent/  # @uncaged/workflow-util-agent — createAgent factory, context builder, extract pipeline
     workflow-agent-hermes/ # @uncaged/workflow-agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
-    cli-workflow/         # @uncaged/cli-workflow — uwf CLI binary
+    cli-workflow/         # @uncaged/cli-workflow — uwf CLI binary (includes status-based moderator in src/moderator/)
   legacy-packages/       # Archived packages (preserved for reference, not active)
   examples/              # Workflow YAML examples (solve-issue.yaml)
   docs/                  # Architecture docs
@@ -34,7 +33,7 @@ workflow/
   tsconfig.json          # root TypeScript config
 ```
 
-- Dependency layers: `workflow-protocol` → (`workflow-util`, `workflow-moderator`) → `workflow-agent-kit` → `workflow-agent-hermes` / `cli-workflow`
+- Dependency layers: `workflow-protocol` → `workflow-util` → `workflow-util-agent` → `workflow-agent-hermes` / `cli-workflow`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
 - External CAS: `@uncaged/json-cas` (store API, hashing, schema validation) + `@uncaged/json-cas-fs` (filesystem backend)
 

@@ -7,7 +7,6 @@
   "include": ["src"],
   "references": [
     { "path": "../workflow-protocol" },
-    { "path": "../workflow-moderator" },
-    { "path": "../workflow-agent-kit" }
+    { "path": "../workflow-util-agent" }
   ]
 }

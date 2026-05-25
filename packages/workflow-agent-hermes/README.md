@@ -6,7 +6,7 @@
 
 Layer 3 agent implementation. Wraps the Hermes CLI using the Agent Client Protocol (ACP). On first visit to a role it sends a composed prompt (role definition, task, history, edge prompt); on continuation it resumes the cached session. Session transcripts and raw output are stored as CAS detail nodes.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-agent-kit`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`
+**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`
 
 ## Installation
 

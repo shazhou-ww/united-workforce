@@ -94,8 +94,7 @@ This creates a markdown file in `.changeset/` describing the change. It will be 
 packages/
   workflow-protocol/      # Shared types and JSON Schema
   workflow-util/          # Encoding, IDs, logging, frontmatter
-  workflow-moderator/     # Status-based graph evaluator
-  workflow-agent-kit/     # createAgent factory, extract pipeline
+  workflow-util-agent/    # createAgent factory, extract pipeline
   workflow-agent-hermes/  # Hermes ACP agent
   workflow-agent-builtin/ # Built-in LLM agent
   workflow-agent-claude-code/ # Claude Code agent

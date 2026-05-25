@@ -1,4 +1,4 @@
-import type { ResolvedLlmProvider } from "@uncaged/workflow-agent-kit";
+import type { ResolvedLlmProvider } from "@uncaged/workflow-util-agent";
 
 import type {
   ChatMessage,

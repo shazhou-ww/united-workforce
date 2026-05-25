@@ -13,12 +13,12 @@
   "dependencies": {
     "@uncaged/json-cas": "^0.5.2",
     "@uncaged/json-cas-fs": "^0.5.2",
-    "@uncaged/workflow-agent-kit": "workspace:^",
-    "@uncaged/workflow-moderator": "workspace:^",
     "@uncaged/workflow-protocol": "workspace:^",
     "@uncaged/workflow-util": "workspace:^",
+    "@uncaged/workflow-util-agent": "workspace:^",
     "commander": "^14.0.3",
     "dotenv": "^16.6.1",
+    "mustache": "^4.2.0",
     "yaml": "^2.8.4"
   },
   "scripts": {
@@ -29,6 +29,7 @@
     "access": "public"
   },
   "devDependencies": {
+    "@types/mustache": "^4.2.6",
     "vitest": "^4.1.6"
   },
   "repository": {

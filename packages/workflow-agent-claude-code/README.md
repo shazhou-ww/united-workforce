@@ -6,7 +6,7 @@
 
 Layer 3 agent implementation. Spawns the `claude` CLI with a composed system prompt (role definition, task, prior steps, edge prompt). Parses stream or JSON stdout, caches session IDs for multi-turn continuation, and stores raw output plus structured detail in CAS.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-agent-kit`
+**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-util-agent`
 
 ## Installation
 
@@ -86,6 +86,6 @@ src/
 
 ## Configuration
 
-Uses session caching from `@uncaged/workflow-agent-kit` (`getCachedSessionId` / `setCachedSessionId`). No separate config file — relies on the Claude Code CLI's own authentication.
+Uses session caching from `@uncaged/workflow-util-agent` (`getCachedSessionId` / `setCachedSessionId`). No separate config file — relies on the Claude Code CLI's own authentication.
 
 Maximum turns per invocation: 90 (constant in `claude-code.ts`).
