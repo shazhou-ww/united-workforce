@@ -19,9 +19,16 @@ import {
   walkChain,
 } from "./shared.js";
 
+type TurnToolCall = {
+  name: string;
+  args: string;
+};
+
 type TurnData = {
   index: number;
+  role: string;
   content: string;
+  toolCalls: TurnToolCall[] | null;
 };
 
 /**
@@ -128,8 +135,74 @@ function loadStepDetail(store: BootstrapCapableStore, detailRef: CasRef): Record
   return detailNode.payload as Record<string, unknown>;
 }
 
+function parseTurnToolCalls(raw: unknown): TurnToolCall[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return null;
+  }
+  const calls: TurnToolCall[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    const name = record.name;
+    const args = record.args;
+    if (typeof name === "string") {
+      calls.push({ name, args: typeof args === "string" ? args : "" });
+    }
+  }
+  return calls.length > 0 ? calls : null;
+}
+
+function formatTurnBody(turn: TurnData): string {
+  const parts: string[] = [];
+  parts.push(`**Turn role:** ${turn.role}`);
+
+  if (turn.toolCalls !== null) {
+    for (const call of turn.toolCalls) {
+      const argsSuffix = call.args !== "" ? ` — \`${call.args}\`` : "";
+      parts.push(`- **${call.name}**${argsSuffix}`);
+    }
+  }
+
+  if (turn.content !== "") {
+    if (parts.length > 0) {
+      parts.push("");
+    }
+    parts.push(turn.content);
+  }
+
+  return parts.join("\n");
+}
+
+function parseSingleTurn(
+  store: BootstrapCapableStore,
+  turnRef: unknown,
+  fallbackIndex: number,
+): TurnData | null {
+  if (typeof turnRef !== "string") {
+    return null;
+  }
+  const turnNode = store.get(turnRef as CasRef);
+  if (turnNode === null) {
+    return null;
+  }
+  const turn = turnNode.payload as Record<string, unknown>;
+  const content = typeof turn.content === "string" ? turn.content : "";
+  const toolCalls = parseTurnToolCalls(turn.toolCalls);
+  if (content === "" && toolCalls === null) {
+    return null;
+  }
+  return {
+    index: typeof turn.index === "number" ? turn.index : fallbackIndex,
+    role: typeof turn.role === "string" ? turn.role : "assistant",
+    content,
+    toolCalls,
+  };
+}
+
 /**
- * Load all turn nodes from CAS store and extract content
+ * Load all turn nodes from CAS store and extract display fields
  */
 function loadTurnData(store: BootstrapCapableStore, turns: unknown): TurnData[] {
   if (!Array.isArray(turns) || turns.length === 0) {
@@ -138,19 +211,9 @@ function loadTurnData(store: BootstrapCapableStore, turns: unknown): TurnData[] 
 
   const turnData: TurnData[] = [];
   for (const turnRef of turns) {
-    if (typeof turnRef !== "string") {
-      continue;
-    }
-    const turnNode = store.get(turnRef as CasRef);
-    if (turnNode === null) {
-      continue;
-    }
-    const turn = turnNode.payload as Record<string, unknown>;
-    if (typeof turn.content === "string") {
-      turnData.push({
-        index: typeof turn.index === "number" ? turn.index : turnData.length,
-        content: turn.content,
-      });
+    const parsed = parseSingleTurn(store, turnRef, turnData.length);
+    if (parsed !== null) {
+      turnData.push(parsed);
     }
   }
   return turnData;
@@ -168,7 +231,7 @@ function selectTurnsForQuota(turnData: TurnData[], availableQuota: number): Turn
     if (turn === undefined) continue;
 
     const turnHeader = `## Turn ${turn.index + 1}\n\n`;
-    const turnBlock = turnHeader + turn.content;
+    const turnBlock = turnHeader + formatTurnBody(turn);
     const separatorCost = selectedTurns.length > 0 ? 2 : 0;
     const addCost = turnBlock.length + separatorCost;
 
@@ -213,7 +276,7 @@ function formatStepMarkdown(
     parts.push("");
     parts.push(`## Turn ${turn.index + 1}`);
     parts.push("");
-    parts.push(turn.content);
+    parts.push(formatTurnBody(turn));
   }
 
   return parts.join("\n");

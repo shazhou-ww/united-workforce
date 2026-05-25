@@ -10,7 +10,7 @@ import {
 
 import { HermesAcpClient } from "./acp-client.js";
 import { getCachedSessionId, isResumeDisabled, setCachedSessionId } from "./session-cache.js";
-import { storeHermesSessionDetail } from "./session-detail.js";
+import { loadHermesSession, storeHermesSessionDetail } from "./session-detail.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
@@ -49,17 +49,11 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   return parts.join("\n");
 }
 
-async function storePromptResult(
-  store: Store,
-  sessionId: string,
-  messages: Awaited<ReturnType<HermesAcpClient["prompt"]>>["messages"],
-): Promise<{ detailHash: string }> {
-  const session = {
-    session_id: sessionId,
-    model: "",
-    session_start: new Date().toISOString(),
-    messages,
-  };
+async function storePromptResult(store: Store, sessionId: string): Promise<{ detailHash: string }> {
+  const session = await loadHermesSession(sessionId);
+  if (session === null) {
+    throw new Error(`Hermes session file not found: ${sessionId}`);
+  }
   return storeHermesSessionDetail(store, session);
 }
 
@@ -116,8 +110,8 @@ export function createHermesAgent(): () => Promise<void> {
   async function runPrompt(ctx: AgentContext, useContinuation: boolean): Promise<AgentRunResult> {
     const effectiveCtx = useContinuation ? ctx : { ...ctx, isFirstVisit: true };
     const fullPrompt = buildHermesPrompt(effectiveCtx);
-    const { text, sessionId, messages } = await client.prompt(fullPrompt);
-    const { detailHash } = await storePromptResult(ctx.store, sessionId, messages);
+    const { text, sessionId } = await client.prompt(fullPrompt);
+    const { detailHash } = await storePromptResult(ctx.store, sessionId);
 
     if (!isResumeDisabled()) {
       await setCachedSessionId(ctx.threadId, ctx.role, sessionId);
@@ -152,8 +146,8 @@ export function createHermesAgent(): () => Promise<void> {
   ): Promise<AgentRunResult> {
     // Client is already connected from runHermes — same ACP session,
     // so the agent sees the full conversation history (crucial for retries).
-    const { text, sessionId, messages } = await client.prompt(message);
-    const { detailHash } = await storePromptResult(store, sessionId, messages);
+    const { text, sessionId } = await client.prompt(message);
+    const { detailHash } = await storePromptResult(store, sessionId);
     return { output: text, detailHash, sessionId };
   }
 
