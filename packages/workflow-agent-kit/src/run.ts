@@ -59,6 +59,8 @@ async function writeStepNode(options: {
   detailHash: CasRef;
   agentName: string;
   edgePrompt: string;
+  startedAtMs: number;
+  completedAtMs: number;
 }): Promise<CasRef> {
   const payload: StepNodePayload = {
     start: options.startHash,
@@ -68,6 +70,8 @@ async function writeStepNode(options: {
     detail: options.detailHash,
     agent: options.agentName,
     edgePrompt: options.edgePrompt,
+    startedAtMs: options.startedAtMs,
+    completedAtMs: options.completedAtMs,
   };
   const hash = await options.store.put(options.schemas.stepNode, payload);
   const node = options.store.get(hash);
@@ -94,6 +98,8 @@ async function persistStep(options: {
   outputHash: CasRef;
   detailHash: CasRef;
   agentName: string;
+  startedAtMs: number;
+  completedAtMs: number;
 }): Promise<CasRef> {
   const { store, schemas, chain, headHash } = options.ctx.meta;
   return writeStepNode({
@@ -106,6 +112,8 @@ async function persistStep(options: {
     detailHash: options.detailHash,
     agentName: options.agentName,
     edgePrompt: options.ctx.edgePrompt,
+    startedAtMs: options.startedAtMs,
+    completedAtMs: options.completedAtMs,
   });
 }
 
@@ -127,6 +135,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       ctx.outputFormatInstruction = buildOutputFormatInstruction(frontmatterSchema);
     }
 
+    const startedAtMs = Date.now();
     let agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
 
     // Preserve the primary detail from the first run — it contains the full
@@ -156,12 +165,14 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
           `Raw output (first 500 chars): ${agentResult.output.slice(0, 500)}`,
       );
     }
-
+    const completedAtMs = Date.now();
     const stepHash = await persistStep({
       ctx,
       outputHash,
       detailHash: primaryDetailHash,
       agentName: agentLabel(options.name),
+      startedAtMs,
+      completedAtMs,
     });
 
     process.stdout.write(`${stepHash}\n`);

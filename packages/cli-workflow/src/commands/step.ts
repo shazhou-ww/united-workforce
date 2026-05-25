@@ -58,6 +58,7 @@ export async function cmdStepList(
       detail: item.payload.detail ?? null,
       agent: item.payload.agent,
       timestamp: item.timestamp,
+      durationMs: item.payload.completedAtMs - item.payload.startedAtMs,
     });
   }
 

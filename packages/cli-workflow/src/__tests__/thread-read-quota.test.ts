@@ -141,6 +141,8 @@ describe("thread read --quota flag", () => {
         output: outputHash,
         detail: detailHash,
         agent: "uwf-test",
+        startedAtMs: 1000000000000,
+        completedAtMs: 1000000005000,
       });
       steps.push(stepHash);
     }
@@ -221,6 +223,8 @@ describe("thread read --quota flag", () => {
       output: outputHash,
       detail: step1DetailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     const step2Content = generateContent(600, "Second");
@@ -245,6 +249,8 @@ describe("thread read --quota flag", () => {
       output: outputHash,
       detail: step2DetailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ1" as ThreadId;
@@ -328,6 +334,8 @@ describe("thread read --quota flag", () => {
         output: outputHash,
         detail: detailHash,
         agent: "uwf-test",
+        startedAtMs: 1000000000000,
+        completedAtMs: 1000000005000,
       });
       steps.push(stepHash);
     }
@@ -338,8 +346,8 @@ describe("thread read --quota flag", () => {
     // Set tight quota with --start flag
     const markdown = await cmdThreadRead(tmpDir, threadId, 600, null, true);
 
-    // Quota must be reasonably enforced (allow ~210 char tolerance for structure)
-    expect(markdown.length).toBeLessThanOrEqual(810);
+    // Quota must be reasonably enforced (allow ~260 char tolerance for structure)
+    expect(markdown.length).toBeLessThanOrEqual(860);
 
     // Should contain thread header
     expect(markdown).toMatch(/# Thread/);
@@ -405,6 +413,8 @@ describe("thread read --quota flag", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ4" as ThreadId;
@@ -480,6 +490,8 @@ describe("thread read --quota flag", () => {
         output: outputHash,
         detail: detailHash,
         agent: "uwf-test",
+        startedAtMs: 1000000000000,
+        completedAtMs: 1000000005000,
       });
       steps.push(stepHash);
     }
@@ -559,6 +571,8 @@ describe("thread read --quota flag", () => {
         output: outputHash,
         detail: detailHash,
         agent: "uwf-test",
+        startedAtMs: 1000000000000,
+        completedAtMs: 1000000005000,
       });
       steps.push(stepHash);
     }

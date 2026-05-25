@@ -14,6 +14,10 @@ export type StepRecord = {
   agent: string;
   /** Moderator edge prompt that led to this step. Missing in legacy nodes → "". */
   edgePrompt: string;
+  /** Date.now() before agent spawn */
+  startedAtMs: number;
+  /** Date.now() after agent returns */
+  completedAtMs: number;
 };
 
 // ── 4.2 Workflow 定义 ───────────────────────────────────────────────
@@ -89,6 +93,7 @@ export type StepEntry = {
   detail: CasRef;
   agent: string;
   timestamp: number;
+  durationMs: number;
 };
 
 /** uwf thread steps — start entry */

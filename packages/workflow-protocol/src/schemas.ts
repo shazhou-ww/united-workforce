@@ -60,7 +60,7 @@ export const START_NODE_SCHEMA: JSONSchema = {
 export const STEP_NODE_SCHEMA: JSONSchema = {
   title: "StepNode",
   type: "object",
-  required: ["start", "prev", "role", "output", "detail", "agent"],
+  required: ["start", "prev", "role", "output", "detail", "agent", "startedAtMs", "completedAtMs"],
   properties: {
     start: { type: "string", format: "cas_ref" },
     prev: {
@@ -71,6 +71,8 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     detail: { type: "string", format: "cas_ref" },
     agent: { type: "string" },
     edgePrompt: { type: "string" },
+    startedAtMs: { type: "integer" },
+    completedAtMs: { type: "integer" },
   },
   additionalProperties: false,
 };

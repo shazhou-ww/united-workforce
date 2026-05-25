@@ -144,6 +144,8 @@ describe("step read", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step with large quota
@@ -227,6 +229,8 @@ describe("step read", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step with limited quota (700 chars)
@@ -304,6 +308,8 @@ describe("step read", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step with minimal quota (1 char)
@@ -357,6 +363,8 @@ describe("step read", () => {
       output: outputHash,
       detail: null,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step - should return metadata only (no error)
@@ -431,6 +439,8 @@ describe("step read", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step - should return metadata only (no error)
@@ -505,6 +515,8 @@ describe("step read", () => {
       output: outputHash,
       detail: detailHash,
       agent: "uwf-test",
+      startedAtMs: 1000000000000,
+      completedAtMs: 1000000005000,
     });
 
     // Read step

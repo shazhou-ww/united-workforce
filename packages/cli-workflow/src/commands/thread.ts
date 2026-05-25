@@ -566,14 +566,25 @@ function selectByQuota(
   return { selected, skippedCount: candidates.length - selected.length };
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSec = Math.round(seconds % 60);
+  return `${minutes}m${remainingSec}s`;
+}
+
 function formatStepHeader(stepNum: number, item: OrderedStepItem): string {
   const ts = new Date(item.timestamp)
     .toISOString()
     .replace("T", " ")
     .replace(/\.\d+Z$/, "");
+  const durationMs = item.payload.completedAtMs - item.payload.startedAtMs;
+  const duration = formatDuration(durationMs);
   return [
     `## Step ${stepNum}: ${item.payload.role} \`${item.hash}\``,
-    `**Agent:** ${item.payload.agent} | **Time:** ${ts}`,
+    `**Agent:** ${item.payload.agent} | **Time:** ${ts} | **Duration:** ${duration}`,
   ].join("\n");
 }
 

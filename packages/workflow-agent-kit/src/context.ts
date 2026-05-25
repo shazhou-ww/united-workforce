@@ -128,6 +128,8 @@ async function buildHistory(
       detail: step.detail,
       agent: step.agent,
       edgePrompt: step.edgePrompt ?? "",
+      startedAtMs: step.startedAtMs,
+      completedAtMs: step.completedAtMs,
       content,
     });
   }
