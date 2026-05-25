@@ -10,9 +10,9 @@ roles:
     procedure: |
       On first run (no previous steps):
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
-      2. Read CLAUDE.md (or equivalent project conventions file) to understand coding standards
+      2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Assess whether the issue has enough information to produce a test spec
-      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output status=insufficient_info and terminate
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output $status=insufficient_info
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
 
       On subsequent runs (bounced back by tester with fix_spec):
@@ -21,7 +21,8 @@ roles:
 
       After producing the test spec:
       1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
-      2. Put the hash in frontmatter.plan (required when status=ready)
+      2. Put the hash in frontmatter.plan (required when $status=ready)
+      3. Set repoPath to the absolute path of the repository root
     output: "Output a brief summary of the test spec. Set $status to ready (with plan hash and repoPath) or insufficient_info."
     frontmatter:
       oneOf:
@@ -40,32 +41,41 @@ roles:
       - coding
     procedure: |
       IMPORTANT: Always work in a git worktree, NEVER modify the main working directory directly.
+      The repo path and other details are provided in your task prompt.
 
       Before starting any work, set up an isolated worktree:
-      1. `cd ~/repos/workflow && git fetch origin` to get latest refs
-      2. First time (no existing branch):
-         - `git worktree add ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
-         - `cd ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug> && bun install`
-      3. If bounced back from reviewer or tester (branch already exists):
-         - The worktree should already exist at `~/repos/workflow-worktrees/fix/<issue-number>-<short-slug>`
-         - `cd ~/repos/workflow-worktrees/fix/<issue-number>-<short-slug>`
+      1. cd into the repo path provided in your task prompt
+      2. `git fetch origin` to get latest refs
+      3. First time (no existing branch):
+         - `git worktree add .worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
+         - `cd .worktrees/fix/<issue-number>-<short-slug> && bun install`
+      4. If bounced back from reviewer or tester (branch already exists):
+         - cd into the existing worktree under `.worktrees/fix/<issue-number>-<short-slug>`
          - `git fetch origin && git rebase origin/main`
-      4. ALL subsequent work must happen inside the worktree directory.
+      5. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
-      5. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
-      6. If bounced back from reviewer or tester: read the previous role's output to understand what needs fixing
-      7. Write tests first based on the spec
-      8. Implement the code to make tests pass
-      9. Ensure `bun run build` passes with no errors
-      10. Run `bun test` to verify all tests pass
-    output: "List all files changed and provide a summary. Include branch name and worktree path in frontmatter."
+      6. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
+      8. Write tests first based on the spec
+      9. Implement the code to make tests pass
+      10. Ensure `bun run build` passes with no errors
+      11. Run `bun test` to verify all tests pass
+
+      If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
+      or repeated attempts fail), set $status=failed with a reason.
+    output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or failed (with reason)."
     frontmatter:
-      type: object
-      properties:
-        branch: { type: string }
-        worktree: { type: string }
-      required: [branch, worktree]
+      oneOf:
+        - properties:
+            $status: { const: "done" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
   reviewer:
     description: "Code standards compliance check"
     goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
@@ -73,7 +83,7 @@ roles:
       - code-review
       - static-analysis
     procedure: |
-      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+      The worktree path is provided in your task prompt. cd into it first.
 
       Before reviewing, verify the git branch:
       1. Run `git branch --show-current` — confirm the branch name references the issue number being worked on
@@ -85,12 +95,9 @@ roles:
       4. `bunx biome check` — no lint violations
       5. TypeScript strict mode — no type errors
 
-      Soft checks (review against CLAUDE.md conventions):
-      - Functional-first: `function` + `type`, not `class` + `interface`
-      - No optional properties (`?:`) — use `T | null`
-      - Naming conventions (kebab-case files, PascalCase types, camelCase functions)
-      - Module boundary discipline (folder exports via index.ts)
-      - No `console.log` (use structured logger)
+      Soft checks (review against project conventions if CLAUDE.md / .cursor/rules exist):
+      - Naming conventions, module boundaries, code style
+      - No `console.log` in production code
       - No dynamic imports in production code
 
       Only review standards compliance. Do NOT test functionality.
@@ -106,17 +113,18 @@ roles:
         - properties:
             $status: { const: "rejected" }
             comments: { type: string }
-          required: [$status, comments]
+            worktree: { type: string }
+          required: [$status, comments, worktree]
   tester:
     description: "Functional correctness verification"
     goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
     capabilities:
       - testing
     procedure: |
-      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+      The worktree path is provided in your task prompt. cd into it first.
 
       1. Run `bun test` for automated test verification
-      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the latest planner step's frontmatter.plan)
+      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner step in the thread history)
       3. Verify each scenario in the spec is covered and passing
       4. Determine outcome:
          - passed: all scenarios verified, tests pass
@@ -143,21 +151,21 @@ roles:
     goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
     capabilities: []
     procedure: |
-      First, cd into the worktree: `cd ~/repos/workflow-worktrees/fix/<issue-number>-*` (find the exact directory)
+      The worktree path, branch name, and repo info are provided in your task prompt.
+      cd into the worktree first.
 
       Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
       1. Stage all changes: `git add -A`
       2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
       3. Push the branch: `git push -u origin <branch-name>`
          - If push hook fails: capture the error log in your output, mark hook_failed
-      4. On push success: create a PR via `tea pr create --repo uncaged/workflow --title "..." --description "..."`
-         - The `--repo` flag is required to work in worktree directories (fixes #474 "path segment [0] is empty" error)
-         - If working on a different repo, extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
-         - PR description must follow the project template: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
-         - On tea failure: capture stderr/stdout, log the error clearly, include PR details (title, description, branch) for manual creation, and mark success=false
+      4. On push success: create a PR via `tea pr create --repo <owner/repo> --title "..." --description "..."`
+         - Extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
+         - PR description must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+         - On tea failure: capture stderr/stdout, include PR details for manual creation, mark hook_failed
       5. After PR creation, clean up the worktree:
-         - `cd ~/repos/workflow`
-         - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
+         - cd to the repo root (parent of .worktrees)
+         - `git worktree remove <worktree-path>`
     output: "Include PR URL on success or error log on failure. Set $status to committed (with prUrl) or hook_failed (with error)."
     frontmatter:
       oneOf:
@@ -176,9 +184,10 @@ graph:
     insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
   developer:
-    _: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
+    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
+    failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
   reviewer:
-    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues." }
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues in repo {{{worktree}}}." }
     approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}." }
   tester:
     fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit." }

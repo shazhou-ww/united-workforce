@@ -13,8 +13,16 @@ import { parse } from "yaml";
  */
 
 describe("solve-issue workflow: tea pr create worktree fix", () => {
-  // Navigate up from packages/cli-workflow to repo root
-  const workflowPath = join(process.cwd(), "..", "..", ".workflows", "solve-issue.yaml");
+  // Navigate up from packages/cli-workflow/src/__tests__ to repo root
+  const workflowPath = join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    ".workflows",
+    "solve-issue.yaml",
+  );
 
   test("committer procedure should include --repo flag in tea pr create command", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
