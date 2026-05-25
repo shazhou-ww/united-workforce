@@ -20,23 +20,37 @@ async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   return { storageRoot, store, schemas };
 }
 
-async function storeWorkflow(uwf: UwfStore, name: string): Promise<CasRef> {
-  const payload: WorkflowPayload = {
+function makeMinimalPayload(name: string, description: string): WorkflowPayload {
+  return {
     name,
-    description: "Test workflow",
-    roles: {},
-    graph: {},
+    description,
+    roles: {
+      worker: {
+        description: "worker role",
+        goal: "do work",
+        capabilities: [],
+        procedure: "",
+        output: "",
+        frontmatter: { type: "0000000000000" } as unknown as CasRef,
+      },
+    },
+    graph: {
+      $START: { _: { role: "worker", prompt: "start working" } },
+      worker: { _: { role: "$END", prompt: "done" } },
+    },
   };
+}
+
+async function storeWorkflow(uwf: UwfStore, name: string): Promise<CasRef> {
+  const payload = makeMinimalPayload(name, "Test workflow");
   return await uwf.store.put(uwf.schemas.workflow, payload);
 }
 
 async function createWorkflowYaml(name: string, version: string | null = null): Promise<string> {
-  const payload: WorkflowPayload = {
+  const payload = makeMinimalPayload(
     name,
-    description: version !== null ? `Test workflow (${version})` : "Test workflow",
-    roles: {},
-    graph: {},
-  };
+    version !== null ? `Test workflow (${version})` : "Test workflow",
+  );
   const yaml = stringify(payload);
   return yaml;
 }

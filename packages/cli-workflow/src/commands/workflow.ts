@@ -15,6 +15,7 @@ import {
   type UwfStore,
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, parseWorkflowPayload } from "../validate.js";
+import { validateWorkflow } from "../validate-semantic.js";
 
 export type WorkflowOrigin = "local" | "global";
 
@@ -134,6 +135,11 @@ export async function cmdWorkflowAdd(
   const filenameError = checkWorkflowFilenameConsistency(filePath, payload);
   if (filenameError !== null) {
     fail(filenameError);
+  }
+
+  const semanticErrors = validateWorkflow(payload);
+  if (semanticErrors.length > 0) {
+    fail(`workflow validation failed:\n${semanticErrors.map((e) => `  - ${e}`).join("\n")}`);
   }
 
   const uwf = await createUwfStore(storageRoot);
