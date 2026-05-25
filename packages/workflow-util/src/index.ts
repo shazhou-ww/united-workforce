@@ -1,5 +1,8 @@
 export { encodeUint64AsCrockford } from "./base32.js";
+export { generateArchitectureReference } from "./architecture-reference.js";
 export { generateCliReference } from "./cli-reference.js";
+export { generateModeratorReference } from "./moderator-reference.js";
+export { generateYamlReference } from "./yaml-reference.js";
 export { env } from "./env.js";
 export type {
   AgentFrontmatter,
