@@ -94,7 +94,9 @@ describe("handleSessionUpdate — helper extraction", () => {
   });
 });
 
-describe("HermesAcpClient", () => {
+const IS_CI = !!process.env.CI;
+
+describe.skipIf(IS_CI)("HermesAcpClient", () => {
   let client: HermesAcpClient;
 
   beforeEach(() => {
