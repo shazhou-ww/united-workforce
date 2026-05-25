@@ -65,12 +65,12 @@ export const edgesModel = define.model("edges", makeEdges, (set, get, model) => 
     const existingFromSource = currentEdges.filter((e) => e.source === normalized.source);
 
     if (existingFromSource.length > 0) {
-      edge.type = "conditional";
-      edge.data = { condition: "" };
+      edge.type = "status";
+      edge.data = { status: "" };
 
       const promoted = currentEdges.map((e) => {
-        if (e.source === normalized.source && e.type !== "conditional") {
-          return { ...e, type: "conditional" as const, data: { condition: "" } };
+        if (e.source === normalized.source && e.type !== "status") {
+          return { ...e, type: "status" as const, data: { status: "_" } };
         }
         return e;
       });

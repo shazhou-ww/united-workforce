@@ -1,4 +1,4 @@
-import type { AnyWorkEdge, AnyWorkNode, ConditionalEdge } from "../type";
+import type { AnyWorkEdge, AnyWorkNode, StatusEdge } from "../type";
 
 export type ValidationError = {
   nodeId: string | null;
@@ -91,10 +91,10 @@ function validateEndNode(
   }
 }
 
-function hasEmptyConditionOnIfEdge(conditionalEdges: AnyWorkEdge[]): boolean {
-  return conditionalEdges.slice(1).some((edge) => {
-    const cond = (edge as ConditionalEdge).data?.condition?.trim();
-    return !cond;
+function hasEmptyStatusOnEdge(statusEdges: AnyWorkEdge[]): boolean {
+  return statusEdges.some((edge) => {
+    const status = (edge as StatusEdge).data?.status?.trim();
+    return !status;
   });
 }
 
@@ -113,11 +113,11 @@ function validateRoleNodeEdges(
   }
   if (outEdges.length <= 1) return;
 
-  const conditionalEdges = outEdges.filter((e) => e.type === "conditional");
-  if (conditionalEdges.length !== outEdges.length) {
-    errors.push({ nodeId: node.id, message: "多输出节点的所有出边必须附带条件" });
-  } else if (hasEmptyConditionOnIfEdge(conditionalEdges)) {
-    errors.push({ nodeId: node.id, message: "条件边的条件表达式不能为空" });
+  const statusEdges = outEdges.filter((e) => e.type === "status");
+  if (statusEdges.length !== outEdges.length) {
+    errors.push({ nodeId: node.id, message: "多输出节点的所有出边必须附带状态" });
+  } else if (hasEmptyStatusOnEdge(statusEdges)) {
+    errors.push({ nodeId: node.id, message: "状态边的状态值不能为空" });
   }
 }
 

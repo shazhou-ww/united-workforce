@@ -57,7 +57,7 @@ export function createApi() {
             transitions: t.Array(
               t.Object({
                 target: t.String(),
-                condition: t.Union([t.String(), t.Null()]),
+                status: t.String(),
               }),
             ),
           }),

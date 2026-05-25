@@ -34,21 +34,8 @@ export const handlers = define.memoize((use, model) => {
     return node.type === "start" || node.type === "end";
   }
 
-  function isFirstConditionalSibling(
-    edge: { id: string; source: string; type: string | null },
-    allEdges: { id: string; source: string; type: string | null }[],
-  ): boolean {
-    if (edge.type !== "conditional") return false;
-    const siblings = allEdges.filter((e) => e.source === edge.source && e.type === "conditional");
-    return siblings.length >= 2 && siblings[0].id === edge.id;
-  }
-
-  const onBeforeDelete: OnBeforeDelete<AnyWorkNode> = async ({ nodes, edges }) => {
+  const onBeforeDelete: OnBeforeDelete<AnyWorkNode> = async ({ nodes }) => {
     if (nodes.some(isProtectedNode)) return false;
-    if (edges.length > 0) {
-      const allEdges = use(edgesModel)[0];
-      if (edges.some((e) => isFirstConditionalSibling(e, allEdges))) return false;
-    }
     model.startTransaction();
     return true;
   };
@@ -56,16 +43,14 @@ export const handlers = define.memoize((use, model) => {
     if (deletedEdges.length > 0) {
       const currentEdges = use(edgesModel)[0];
       const sourcesToCheck = new Set(
-        deletedEdges.filter((e) => e.type === "conditional").map((e) => e.source),
+        deletedEdges.filter((e) => e.type === "status").map((e) => e.source),
       );
 
       if (sourcesToCheck.size > 0) {
         let needsDowngrade = false;
         const updatedEdges = currentEdges.map((e) => {
-          if (!sourcesToCheck.has(e.source) || e.type !== "conditional") return e;
-          const siblings = currentEdges.filter(
-            (s) => s.source === e.source && s.type === "conditional",
-          );
+          if (!sourcesToCheck.has(e.source) || e.type !== "status") return e;
+          const siblings = currentEdges.filter((s) => s.source === e.source && s.type === "status");
           if (siblings.length === 1) {
             needsDowngrade = true;
             const { data: _, ...rest } = e;

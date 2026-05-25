@@ -95,13 +95,14 @@ roles:
 
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
-    output: "Explain your decision with specific file/line references. Frontmatter must include: approved (true or false)."
+    output: "Explain your decision with specific file/line references. Frontmatter must include: status (approved or rejected)."
     frontmatter:
       type: object
       properties:
-        approved:
-          type: boolean
-      required: [approved]
+        status:
+          type: string
+          enum: [approved, rejected]
+      required: [status]
   tester:
     description: "Functional correctness verification"
     goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
@@ -145,72 +146,30 @@ roles:
       5. After PR creation, clean up the worktree:
          - `cd ~/repos/workflow`
          - `git worktree remove ~/repos/workflow-worktrees/fix/<issue-number>-<slug>`
-    output: "Include PR URL on success or error log on failure. Frontmatter must include: success (true or false)."
+    output: "Include PR URL on success or error log on failure. Frontmatter must include: status (committed or hook_failed)."
     frontmatter:
       type: object
       properties:
-        success:
-          type: boolean
-      required: [success]
-conditions:
-  insufficientInfo:
-    description: "Planner determined there's not enough info to proceed"
-    expression: "$last('planner').status = 'insufficient_info'"
-  devFailed:
-    description: "Developer failed to implement"
-    expression: "$last('developer').status = 'failed'"
-  rejected:
-    description: "Reviewer rejected the implementation"
-    expression: "$last('reviewer').approved = false"
-  fixCode:
-    description: "Tester found code issues"
-    expression: "$last('tester').status = 'fix_code'"
-  fixSpec:
-    description: "Tester found spec issues"
-    expression: "$last('tester').status = 'fix_spec'"
-  hookFailed:
-    description: "Push hook failed"
-    expression: "$last('committer').success = false"
+        status:
+          type: string
+          enum: [committed, hook_failed]
+      required: [status]
 graph:
   $START:
-    - role: "planner"
-      condition: null
-      prompt: "Analyze the issue and produce an implementation plan."
+    _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
   planner:
-    - role: "$END"
-      condition: "insufficientInfo"
-      prompt: "Insufficient information to proceed; end the workflow."
-    - role: "developer"
-      condition: null
-      prompt: "Implement the plan from the planner."
+    insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
+    ready: { role: "developer", prompt: "Implement the plan from the planner." }
   developer:
-    - role: "$END"
-      condition: "devFailed"
-      prompt: "Development failed; end the workflow."
-    - role: "reviewer"
-      condition: null
-      prompt: "Send the implementation to the reviewer."
+    failed: { role: "$END", prompt: "Development failed; end the workflow." }
+    done: { role: "reviewer", prompt: "Send the implementation to the reviewer." }
   reviewer:
-    - role: "developer"
-      condition: "rejected"
-      prompt: "Reviewer rejected the implementation; fix the issues."
-    - role: "tester"
-      condition: null
-      prompt: "Review passed; run tests on the implementation."
+    rejected: { role: "developer", prompt: "Reviewer rejected the implementation; fix the issues." }
+    approved: { role: "tester", prompt: "Review passed; run tests on the implementation." }
   tester:
-    - role: "developer"
-      condition: "fixCode"
-      prompt: "Tests found code issues; return to developer."
-    - role: "planner"
-      condition: "fixSpec"
-      prompt: "Tests found spec issues; return to planner."
-    - role: "committer"
-      condition: null
-      prompt: "Tests passed; commit and push the changes."
+    fix_code: { role: "developer", prompt: "Tests found code issues; return to developer." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues; return to planner." }
+    passed: { role: "committer", prompt: "Tests passed; commit and push the changes." }
   committer:
-    - role: "developer"
-      condition: "hookFailed"
-      prompt: "Push hook failed; return to developer to fix."
-    - role: "$END"
-      condition: null
-      prompt: "Commit succeeded; complete the workflow."
+    hook_failed: { role: "developer", prompt: "Push hook failed; return to developer to fix." }
+    committed: { role: "$END", prompt: "Commit succeeded; complete the workflow." }

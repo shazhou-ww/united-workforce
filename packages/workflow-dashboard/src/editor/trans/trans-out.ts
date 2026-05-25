@@ -1,5 +1,7 @@
-import type { AnyWorkEdge, AnyWorkNode, ConditionalEdge, WorkNode } from "../type";
+import type { AnyWorkEdge, AnyWorkNode, StatusEdge, WorkNode } from "../type";
 import type { WorkFlowStep, WorkFlowTransition } from "./type";
+
+const DEFAULT_STATUS = "_";
 
 export function transOut(nodes: AnyWorkNode[], edges: AnyWorkEdge[]): WorkFlowStep[] {
   const nodeMap = new Map<string, AnyWorkNode>();
@@ -43,7 +45,7 @@ function traverse(
   const roleNode = node as WorkNode<"role">;
   const outEdges = outgoingEdges.get(nodeId) ?? [];
 
-  const transitions: WorkFlowTransition[] = outEdges.map((edge, index) => {
+  const transitions: WorkFlowTransition[] = outEdges.map((edge) => {
     const targetNode = nodeMap.get(edge.target);
     const target =
       edge.target === "end"
@@ -52,13 +54,12 @@ function traverse(
           ? (targetNode as WorkNode<"role">).data.name
           : edge.target;
 
-    let condition: string | null = null;
-    if (edge.type === "conditional") {
-      const isElse = outEdges.length >= 2 && index === 0;
-      condition = isElse ? null : ((edge as ConditionalEdge).data?.condition ?? null);
-    }
+    const status =
+      edge.type === "status"
+        ? ((edge as StatusEdge).data?.status ?? DEFAULT_STATUS)
+        : DEFAULT_STATUS;
 
-    return { target, condition };
+    return { target, status };
   });
 
   const { name, description, identity, prepare, execute, report } = roleNode.data;

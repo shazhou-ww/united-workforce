@@ -36,7 +36,7 @@ describe("transIn", () => {
   });
 
   it("4.3 Single step with END transition → edge to end node exists", () => {
-    const steps = [makeStep("A", [{ condition: null, target: "END" }])];
+    const steps = [makeStep("A", [{ status: "_", target: "END" }])];
     const { edges } = transIn(steps);
     const endEdge = edges.find((e) => e.target === "end");
     expect(endEdge).toBeDefined();
@@ -44,8 +44,8 @@ describe("transIn", () => {
 
   it("4.4 Two steps with default transitions chain", () => {
     const steps = [
-      makeStep("A", [{ condition: null, target: "B" }]),
-      makeStep("B", [{ condition: null, target: "END" }]),
+      makeStep("A", [{ status: "_", target: "B" }]),
+      makeStep("B", [{ status: "_", target: "END" }]),
     ];
     const { edges } = transIn(steps);
     // Should have start→A, A→B, B→end
@@ -53,15 +53,15 @@ describe("transIn", () => {
     const nodeAId = edges.find((e) => e.source === "start")?.target;
     expect(edges.find((e) => e.source === nodeAId && e.target !== "end")).toBeDefined();
     expect(edges.find((e) => e.target === "end")).toBeDefined();
-    // No conditional edges
-    expect(edges.every((e) => e.type !== "conditional")).toBe(true);
+    // No status edges for single default transitions
+    expect(edges.every((e) => e.type !== "status")).toBe(true);
   });
 
-  it("4.5 Step with multiple transitions → conditional edges", () => {
+  it("4.5 Step with multiple transitions → status edges", () => {
     const steps = [
       makeStep("A", [
-        { condition: null, target: "B" },
-        { condition: "x>0", target: "C" },
+        { status: "_", target: "B" },
+        { status: "approved", target: "C" },
       ]),
       makeStep("B", []),
       makeStep("C", []),
@@ -69,23 +69,35 @@ describe("transIn", () => {
     const { edges } = transIn(steps);
     const nodeAId = edges.find((e) => e.source === "start")?.target;
     const outEdges = edges.filter((e) => e.source === nodeAId);
-    expect(outEdges.every((e) => e.type === "conditional")).toBe(true);
-    // else-branch has empty condition
-    const elseEdge = outEdges.find(
-      (e) => (e as { data?: { condition?: string } }).data?.condition === "",
+    expect(outEdges.every((e) => e.type === "status")).toBe(true);
+  });
+
+  it("4.5b Multiple transitions include expected status values", () => {
+    const steps = [
+      makeStep("A", [
+        { status: "_", target: "B" },
+        { status: "approved", target: "C" },
+      ]),
+      makeStep("B", []),
+      makeStep("C", []),
+    ];
+    const { edges } = transIn(steps);
+    const nodeAId = edges.find((e) => e.source === "start")?.target;
+    const outEdges = edges.filter((e) => e.source === nodeAId);
+    const defaultEdge = outEdges.find(
+      (e) => (e as { data?: { status?: string } }).data?.status === "_",
     );
-    expect(elseEdge).toBeDefined();
-    // if-branch has condition
-    const ifEdge = outEdges.find(
-      (e) => (e as { data?: { condition?: string } }).data?.condition === "x>0",
+    expect(defaultEdge).toBeDefined();
+    const approvedEdge = outEdges.find(
+      (e) => (e as { data?: { status?: string } }).data?.status === "approved",
     );
-    expect(ifEdge).toBeDefined();
+    expect(approvedEdge).toBeDefined();
   });
 
   it("4.6 With 1 incoming edge: targetHandle = 'input'; with 2: first gets 'input'", () => {
     const steps = [
-      makeStep("A", [{ condition: null, target: "END" }]),
-      makeStep("B", [{ condition: null, target: "END" }]),
+      makeStep("A", [{ status: "_", target: "END" }]),
+      makeStep("B", [{ status: "_", target: "END" }]),
     ];
     const { edges } = transIn(steps);
     // start→A and start→B; end has 2 incoming edges
@@ -95,8 +107,8 @@ describe("transIn", () => {
 
   it("4.7 Same role name maps to same node id across steps", () => {
     const steps = [
-      makeStep("A", [{ condition: null, target: "B" }]),
-      makeStep("B", [{ condition: null, target: "A" }]),
+      makeStep("A", [{ status: "_", target: "B" }]),
+      makeStep("B", [{ status: "_", target: "A" }]),
     ];
     const { edges } = transIn(steps);
     const aId = edges.find((e) => e.source === "start")?.target;

@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { RoleDefinition, Transition, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { RoleDefinition, Target, WorkflowPayload } from "@uncaged/workflow-protocol";
 import YAML from "yaml";
 import type { WorkFlowSteps, WorkFlowTransition, WorkflowSummary } from "../shared/types.ts";
 
@@ -11,17 +11,12 @@ async function ensureDir() {
 }
 
 function payloadToSteps(payload: WorkflowPayload): WorkFlowSteps {
-  const conditionMap = new Map<string, string>();
-  for (const [name, def] of Object.entries(payload.conditions)) {
-    conditionMap.set(name, def.expression);
-  }
-
   const steps: WorkFlowSteps = [];
   for (const [roleName, roleDef] of Object.entries(payload.roles)) {
-    const graphTransitions = payload.graph[roleName] ?? [];
-    const transitions: WorkFlowTransition[] = graphTransitions.map((t) => ({
-      target: t.role === "$END" ? "END" : t.role,
-      condition: t.condition ? (conditionMap.get(t.condition) ?? t.condition) : null,
+    const statusMap = payload.graph[roleName] ?? {};
+    const transitions: WorkFlowTransition[] = Object.entries(statusMap).map(([status, target]) => ({
+      target: target.role === "$END" ? "END" : target.role,
+      status,
     }));
 
     steps.push({
@@ -42,11 +37,7 @@ function payloadToSteps(payload: WorkflowPayload): WorkFlowSteps {
 
 function stepsToPayload(name: string, description: string, steps: WorkFlowSteps): WorkflowPayload {
   const roles: Record<string, RoleDefinition> = {};
-  const conditions: WorkflowPayload["conditions"] = {};
-  const graph: Record<string, Transition[]> = {};
-
-  const expressionToName = new Map<string, string>();
-  let condIdx = 0;
+  const graph: Record<string, Record<string, Target>> = {};
 
   for (const step of steps) {
     const r = step.role;
@@ -59,43 +50,28 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
       frontmatter: "",
     };
 
-    const transitions: Transition[] = step.transitions.map((t) => {
-      let condName: string | null = null;
-      if (t.condition) {
-        if (expressionToName.has(t.condition)) {
-          condName = expressionToName.get(t.condition) ?? null;
-        } else {
-          condName = `cond${condIdx++}`;
-          expressionToName.set(t.condition, condName);
-          conditions[condName] = {
-            description: "",
-            expression: t.condition,
-          };
-        }
-      }
+    const statusMap: Record<string, Target> = {};
+    for (const t of step.transitions) {
       const targetRole = t.target === "END" ? "$END" : t.target;
-      return {
+      statusMap[t.status] = {
         role: targetRole,
-        condition: condName,
         prompt: `Transition to ${targetRole}.`,
       };
-    });
-
-    graph[r.name] = transitions;
+    }
+    graph[r.name] = statusMap;
   }
 
   if (steps.length > 0) {
     const firstRole = steps[0].role.name;
-    graph.$START = [
-      {
+    graph.$START = {
+      _: {
         role: firstRole,
-        condition: null,
         prompt: `Begin workflow at role ${firstRole}.`,
       },
-    ];
+    };
   }
 
-  return { name, description, roles, conditions, graph };
+  return { name, description, roles, graph };
 }
 
 export async function listWorkflows(): Promise<WorkflowSummary[]> {
@@ -125,7 +101,6 @@ export async function createWorkflow(name: string, description: string): Promise
     name,
     description,
     roles: {},
-    conditions: {},
     graph: {},
   };
   await writeFile(join(WORKFLOW_DIR, `${name}.yaml`), YAML.stringify(payload), "utf-8");

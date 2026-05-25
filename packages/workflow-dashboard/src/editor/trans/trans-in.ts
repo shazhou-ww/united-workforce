@@ -1,4 +1,4 @@
-import type { AnyWorkEdge, AnyWorkNode, ConditionalEdge } from "../type";
+import type { AnyWorkEdge, AnyWorkNode, StatusEdge } from "../type";
 import { uuid } from "../utils";
 import type { WorkFlowStep } from "./type";
 
@@ -9,6 +9,7 @@ type Result = {
 
 const _OUT_HANDLES = ["output-top", "output", "output-bottom"] as const;
 const IN_HANDLES = ["input-top", "input", "input-bottom"] as const;
+const DEFAULT_STATUS = "_";
 
 function assignHandles(
   indices: number[],
@@ -50,8 +51,8 @@ function buildNodeMap(
 function sortTransitions(step: WorkFlowStep): WorkFlowStep["transitions"] {
   if (step.transitions.length <= 1) return step.transitions;
   return [...step.transitions].sort((a, b) => {
-    if (a.condition === null && b.condition !== null) return -1;
-    if (a.condition !== null && b.condition === null) return 1;
+    if (a.status === DEFAULT_STATUS && b.status !== DEFAULT_STATUS) return -1;
+    if (a.status !== DEFAULT_STATUS && b.status === DEFAULT_STATUS) return 1;
     return 0;
   });
 }
@@ -60,32 +61,32 @@ function buildStepEdges(
   sourceId: string,
   step: WorkFlowStep,
   nameToId: Map<string, string>,
-): { elseEdges: AnyWorkEdge[]; ifEdges: AnyWorkEdge[] } {
+): { primaryEdges: AnyWorkEdge[]; statusEdges: AnyWorkEdge[] } {
   const hasMultiple = step.transitions.length > 1;
   const sorted = sortTransitions(step);
-  const elseEdges: AnyWorkEdge[] = [];
-  const ifEdges: AnyWorkEdge[] = [];
+  const primaryEdges: AnyWorkEdge[] = [];
+  const statusEdges: AnyWorkEdge[] = [];
 
   for (let i = 0; i < sorted.length; i++) {
     const t = sorted[i];
     const targetId = nameToId.get(t.target);
     if (!targetId) continue;
     const edgeId = `e-${sourceId}-${targetId}-${i}`;
-    if (hasMultiple || t.condition !== null) {
-      const edge: ConditionalEdge = {
+    if (hasMultiple || t.status !== DEFAULT_STATUS) {
+      const edge: StatusEdge = {
         id: edgeId,
         source: sourceId,
         target: targetId,
         sourceHandle: "output",
         targetHandle: "input",
-        type: "conditional",
-        data: { condition: t.condition ?? "" },
+        type: "status",
+        data: { status: t.status },
         animated: true,
       };
-      if (hasMultiple && i === 0) elseEdges.push(edge);
-      else ifEdges.push(edge);
+      if (hasMultiple && t.status === DEFAULT_STATUS) primaryEdges.push(edge);
+      else statusEdges.push(edge);
     } else {
-      elseEdges.push({
+      primaryEdges.push({
         id: edgeId,
         source: sourceId,
         target: targetId,
@@ -95,23 +96,23 @@ function buildStepEdges(
       });
     }
   }
-  return { elseEdges, ifEdges };
+  return { primaryEdges, statusEdges };
 }
 
 function pushStepEdges(
   edges: AnyWorkEdge[],
-  elseEdges: AnyWorkEdge[],
-  ifEdges: AnyWorkEdge[],
+  primaryEdges: AnyWorkEdge[],
+  statusEdges: AnyWorkEdge[],
   idToOrder: Map<string, number>,
 ): void {
-  for (const e of elseEdges) edges.push({ ...e, sourceHandle: "output" });
-  if (ifEdges.length > 0) {
-    const ifHandles = ["output-top", "output-bottom"] as const;
-    const sorted = [...ifEdges].sort(
+  for (const e of primaryEdges) edges.push({ ...e, sourceHandle: "output" });
+  if (statusEdges.length > 0) {
+    const statusHandles = ["output-top", "output-bottom"] as const;
+    const sorted = [...statusEdges].sort(
       (a, b) => (idToOrder.get(b.target) ?? 0) - (idToOrder.get(a.target) ?? 0),
     );
     for (let i = 0; i < sorted.length; i++) {
-      edges.push({ ...sorted[i], sourceHandle: ifHandles[i % ifHandles.length] });
+      edges.push({ ...sorted[i], sourceHandle: statusHandles[i % statusHandles.length] });
     }
   }
 }
@@ -164,8 +165,8 @@ export function transIn(steps: WorkFlowStep[]): Result {
 
   for (const step of steps) {
     const sourceId = nameToId.get(step.role.name) ?? "";
-    const { elseEdges, ifEdges } = buildStepEdges(sourceId, step, nameToId);
-    pushStepEdges(edges, elseEdges, ifEdges, idToOrder);
+    const { primaryEdges, statusEdges } = buildStepEdges(sourceId, step, nameToId);
+    pushStepEdges(edges, primaryEdges, statusEdges, idToOrder);
   }
 
   assignTargetHandles(edges, idToOrder);

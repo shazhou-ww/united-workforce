@@ -6,10 +6,10 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { Check } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils.ts";
 import { useModel } from "../context.tsx";
-import type { ConditionalEdge as ConditionalEdgeType } from "../type.ts";
+import type { StatusEdge as StatusEdgeType } from "../type.ts";
 
 const SOURCE_COLOR = "#10b981";
 const TARGET_COLOR = "#3b82f6";
@@ -23,7 +23,7 @@ function GradientPath({
   sourceY,
   targetX,
   targetY,
-  hasCondition,
+  hasStatus,
   selected,
 }: {
   id: string;
@@ -32,11 +32,11 @@ function GradientPath({
   sourceY: number;
   targetX: number;
   targetY: number;
-  hasCondition: boolean | null;
+  hasStatus: boolean;
   selected: boolean;
 }) {
   const gradientId = `gradient-${id}`;
-  const showLack = hasCondition === false;
+  const showLack = !hasStatus;
   const strokeStyle = selected
     ? { stroke: "#f59e0b", strokeWidth: 2 }
     : { stroke: `url(#${gradientId})`, strokeWidth: 1.5 };
@@ -68,35 +68,20 @@ function GradientPath({
   );
 }
 
-function ElseBadge({ labelX, labelY }: { labelX: number; labelY: number }): ReactNode {
-  return (
-    <div
-      className="absolute pointer-events-none"
-      style={{
-        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-      }}
-    >
-      <span className="inline-block px-1 bg-white rounded text-[10px] border border-gray-300 text-gray-500">
-        else
-      </span>
-    </div>
-  );
-}
-
-type ConditionLabelProps = {
-  condition: string | undefined;
+type StatusLabelProps = {
+  status: string | undefined;
   labelX: number;
   labelY: number;
   onSave: (value: string) => void;
 };
 
-function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelProps): ReactNode {
+function StatusLabel({ status, labelX, labelY, onSave }: StatusLabelProps): ReactNode {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   function handleBadgeClick() {
-    setInputValue(condition || "");
+    setInputValue(status || "");
     setIsOpen(true);
   }
 
@@ -127,6 +112,8 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
     return () => document.removeEventListener("pointerdown", handleClickOutside, true);
   }, [isOpen]);
 
+  const displayStatus = status?.trim() || null;
+
   return (
     <div
       ref={containerRef}
@@ -142,11 +129,13 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
         <span
           className={cn(
             "inline-block px-1 bg-white rounded text-[10px]",
-            condition ? "border border-gray-300 text-black" : "border border-dashed text-red-500",
+            displayStatus
+              ? "border border-gray-300 text-black"
+              : "border border-dashed text-red-500",
           )}
-          style={condition ? undefined : { borderColor: LACK_COLOR }}
+          style={displayStatus ? undefined : { borderColor: LACK_COLOR }}
         >
-          if
+          {displayStatus ?? "status"}
         </span>
       </div>
       {isOpen && (
@@ -155,7 +144,7 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
             <input
               type="text"
               className="w-32 rounded border border-gray-300 px-1 py-0.5 text-[10px] focus:border-blue-500 focus:outline-none"
-              placeholder="输入条件"
+              placeholder="输入状态"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -174,14 +163,8 @@ function ConditionLabel({ condition, labelX, labelY, onSave }: ConditionLabelPro
   );
 }
 
-export function isElseEdge(edgeId: string, source: string, allEdges: Edge[]): boolean {
-  const siblings = allEdges.filter((e) => e.source === source && e.type === "conditional");
-  return siblings.length >= 2 && siblings[0].id === edgeId;
-}
-
-export function ConditionalEdge({
+export function StatusEdge({
   id,
-  source,
   sourceX,
   sourceY,
   targetX,
@@ -190,7 +173,7 @@ export function ConditionalEdge({
   targetPosition,
   selected,
   data,
-}: EdgeProps<ConditionalEdgeType>): ReactNode {
+}: EdgeProps<StatusEdgeType>): ReactNode {
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -203,13 +186,11 @@ export function ConditionalEdge({
   const flow = useReactFlow();
   const model = useModel();
 
-  const allEdges = flow.getEdges();
-  const isElse = useMemo(() => isElseEdge(id, source, allEdges), [id, source, allEdges]);
+  const status = data?.status;
 
-  const condition = data?.condition;
   function handleSave(value: string) {
     model.startTransaction();
-    flow.updateEdgeData(id, { condition: value });
+    flow.updateEdgeData(id, { status: value });
     requestAnimationFrame(model.endTransaction);
   }
 
@@ -222,20 +203,11 @@ export function ConditionalEdge({
         sourceY={sourceY}
         targetX={targetX}
         targetY={targetY}
-        hasCondition={isElse ? null : !!condition}
+        hasStatus={!!status?.trim()}
         selected={!!selected}
       />
       <EdgeLabelRenderer>
-        {isElse ? (
-          <ElseBadge labelX={labelX} labelY={labelY} />
-        ) : (
-          <ConditionLabel
-            condition={condition}
-            labelX={labelX}
-            labelY={labelY}
-            onSave={handleSave}
-          />
-        )}
+        <StatusLabel status={status} labelX={labelX} labelY={labelY} onSave={handleSave} />
       </EdgeLabelRenderer>
     </>
   );
@@ -269,7 +241,7 @@ export function GradientEdge({
       sourceY={sourceY}
       targetX={targetX}
       targetY={targetY}
-      hasCondition={null}
+      hasStatus={true}
       selected={!!selected}
     />
   );

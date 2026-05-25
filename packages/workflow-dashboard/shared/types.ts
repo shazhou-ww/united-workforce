@@ -9,7 +9,7 @@ export type WorkFlowRole = {
 
 export type WorkFlowTransition = {
   target: string;
-  condition: string | null;
+  status: string;
 };
 
 export type WorkFlowStep = {

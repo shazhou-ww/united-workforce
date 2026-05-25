@@ -1,6 +1,6 @@
-import { ConditionalEdge, GradientEdge } from "./conditional";
+import { GradientEdge, StatusEdge } from "./status";
 
 export const edgeTypes = {
-  conditional: ConditionalEdge,
+  status: StatusEdge,
   default: GradientEdge,
 };

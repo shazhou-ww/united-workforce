@@ -81,7 +81,7 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     expect(workflow.roles.committer?.frontmatter).toBeDefined();
   });
 
-  test("committer frontmatter schema should require success field", async () => {
+  test("committer frontmatter schema should require status field", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     // Parse as any to access the raw YAML structure (frontmatter is inline JSON Schema in YAML)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,8 +90,8 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     const frontmatter = workflow.roles.committer?.frontmatter;
     expect(frontmatter).toBeDefined();
     expect(frontmatter?.type).toBe("object");
-    expect(frontmatter?.properties?.success).toBeDefined();
-    expect(frontmatter?.properties?.success?.type).toBe("boolean");
-    expect(frontmatter?.required).toContain("success");
+    expect(frontmatter?.properties?.status).toBeDefined();
+    expect(frontmatter?.properties?.status?.enum).toContain("committed");
+    expect(frontmatter?.required).toContain("status");
   });
 });

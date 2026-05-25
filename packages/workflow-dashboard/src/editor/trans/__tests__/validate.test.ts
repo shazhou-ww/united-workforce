@@ -33,13 +33,13 @@ function defaultEdge(source: string, target: string): AnyWorkEdge {
   return { id: `${source}-${target}`, source, target, animated: true } as AnyWorkEdge;
 }
 
-function conditionalEdge(source: string, target: string, condition: string): AnyWorkEdge {
+function statusEdge(source: string, target: string, status: string): AnyWorkEdge {
   return {
-    id: `${source}-${target}-cond`,
+    id: `${source}-${target}-status`,
     source,
     target,
-    type: "conditional" as const,
-    data: { condition },
+    type: "status" as const,
+    data: { status },
     animated: true,
   } as AnyWorkEdge;
 }
@@ -76,36 +76,36 @@ describe("validateRoleNodes (via validate)", () => {
     expect(nodeErrors.some((e) => e.message.includes("缺少输出连接"))).toBe(true);
   });
 
-  it("5.3 Empty condition on non-first conditional edge → error", () => {
+  it("5.3 Empty status on status edge → error", () => {
     const n1 = roleNode("n1");
     const n2 = roleNode("n2");
     const n3 = roleNode("n3");
     const nodes = baseNodes(n1, n2, n3);
     const edges = [
       defaultEdge("start", "n1"),
-      conditionalEdge("n1", "n2", ""), // else-branch (index 0) - exempt
-      conditionalEdge("n1", "n3", ""), // if-branch (index 1) - empty condition → error
+      statusEdge("n1", "n2", "_"),
+      statusEdge("n1", "n3", ""), // empty status → error
       defaultEdge("n2", "end"),
       defaultEdge("n3", "end"),
     ];
     const result = validate(nodes, edges);
-    expect(result.errors.some((e) => e.message.includes("条件表达式不能为空"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("状态值不能为空"))).toBe(true);
   });
 
-  it("5.4 Mix of conditional and non-conditional outgoing → error", () => {
+  it("5.4 Mix of status and non-status outgoing → error", () => {
     const n1 = roleNode("n1");
     const n2 = roleNode("n2");
     const n3 = roleNode("n3");
     const nodes = baseNodes(n1, n2, n3);
     const edges = [
       defaultEdge("start", "n1"),
-      conditionalEdge("n1", "n2", "x>0"),
+      statusEdge("n1", "n2", "approved"),
       defaultEdge("n1", "n3"), // mix → error
       defaultEdge("n2", "end"),
       defaultEdge("n3", "end"),
     ];
     const result = validate(nodes, edges);
-    expect(result.errors.some((e) => e.message.includes("所有出边必须附带条件"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("所有出边必须附带状态"))).toBe(true);
   });
 
   it("5.5 Valid role node (1 in, 1 out default) → no errors for that node", () => {
@@ -118,15 +118,15 @@ describe("validateRoleNodes (via validate)", () => {
     expect(roleErrors).toHaveLength(0);
   });
 
-  it("5.6 Valid role node (1 in, 2 conditional out with conditions) → no errors", () => {
+  it("5.6 Valid role node (1 in, 2 status out with statuses) → no errors", () => {
     const n1 = roleNode("n1");
     const n2 = roleNode("n2");
     const n3 = roleNode("n3");
     const nodes = baseNodes(n1, n2, n3);
     const edges = [
       defaultEdge("start", "n1"),
-      conditionalEdge("n1", "n2", ""), // else-branch
-      conditionalEdge("n1", "n3", "x>0"), // if-branch
+      statusEdge("n1", "n2", "_"),
+      statusEdge("n1", "n3", "approved"),
       defaultEdge("n2", "end"),
       defaultEdge("n3", "end"),
     ];

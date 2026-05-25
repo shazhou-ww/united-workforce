@@ -11,7 +11,7 @@ const DEFAULT_STEPS: WorkFlowSteps = [
       execute: "制定详细的实施计划和步骤分解",
       report: "输出结构化的计划文档，包含步骤列表和预期产出",
     },
-    transitions: [{ target: "developer", condition: null }],
+    transitions: [{ target: "developer", status: "_" }],
   },
   {
     role: {
@@ -22,7 +22,7 @@ const DEFAULT_STEPS: WorkFlowSteps = [
       execute: "编写高质量的代码实现",
       report: "输出变更文件列表和实现摘要",
     },
-    transitions: [{ target: "reviewer", condition: null }],
+    transitions: [{ target: "reviewer", status: "_" }],
   },
   {
     role: {
@@ -34,8 +34,8 @@ const DEFAULT_STEPS: WorkFlowSteps = [
       report: "输出审查结果，包含 approved 状态和评审意见",
     },
     transitions: [
-      { target: "END", condition: null },
-      { target: "developer", condition: "steps[-1].output.approved = false" },
+      { target: "END", status: "approved" },
+      { target: "developer", status: "rejected" },
     ],
   },
 ];
