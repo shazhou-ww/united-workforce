@@ -29,5 +29,15 @@
   },
   "devDependencies": {
     "vitest": "^4.1.6"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shazhou-ww/uncaged-workflow.git",
+    "directory": "packages/cli-workflow"
+  },
+  "homepage": "https://github.com/shazhou-ww/uncaged-workflow#readme",
+  "bugs": {
+    "url": "https://github.com/shazhou-ww/uncaged-workflow/issues"
+  },
+  "license": "MIT"
 }
