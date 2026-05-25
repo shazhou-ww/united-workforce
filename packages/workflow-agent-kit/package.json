@@ -30,5 +30,15 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shazhou-ww/uncaged-workflow.git",
+    "directory": "packages/workflow-agent-kit"
+  },
+  "homepage": "https://github.com/shazhou-ww/uncaged-workflow#readme",
+  "bugs": {
+    "url": "https://github.com/shazhou-ww/uncaged-workflow/issues"
+  },
+  "license": "MIT"
 }

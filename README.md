@@ -15,6 +15,32 @@ Workflow state lives entirely on disk under `~/.uncaged/workflow/`: CAS nodes fo
 
 Agents are pluggable CLI binaries (`uwf-hermes`, `uwf-builtin`, `uwf-claude-code`, or custom commands). The engine spawns the configured agent with `<thread-id>` and `<role>`, sets `UWF_EDGE_PROMPT` from the graph transition, and captures both the agent's markdown output and a detail CAS node for session replay.
 
+## Install
+
+```bash
+npm install -g @uncaged/cli-workflow
+```
+
+Requires [Bun](https://bun.sh/) runtime (used internally for TypeScript execution).
+
+## Quick Start
+
+```bash
+# 1. Configure provider, model, and default agent
+uwf setup
+
+# 2. Register a workflow from YAML
+uwf workflow add examples/solve-issue.yaml
+
+# 3. Start a thread (creates head pointer; does not execute)
+uwf thread start solve-issue -p "Fix the login redirect bug"
+
+# 4. Execute steps (one at a time, until done)
+uwf thread exec <thread-id>
+```
+
+Use `-c, --count <number>` on `thread exec` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
+
 ## Architecture
 
 Dependency layers (lower layers have no dependency on higher layers):
@@ -59,24 +85,6 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 | `workflow-agent-builtin` | `@uncaged/workflow-agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |
 | `workflow-agent-claude-code` | `@uncaged/workflow-agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/workflow-agent-claude-code/README.md) |
 | `workflow-dashboard` | `@uncaged/workflow-dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/workflow-dashboard/README.md) |
-
-## Quick Start
-
-```bash
-# 1. Configure provider, model, and default agent
-uwf setup
-
-# 2. Register a workflow from YAML
-uwf workflow add examples/solve-issue.yaml
-
-# 3. Start a thread (creates head pointer; does not execute)
-uwf thread start solve-issue -p "Fix the login redirect bug"
-
-# 4. Execute steps (one at a time, until done)
-uwf thread exec <thread-id>
-```
-
-Use `-c, --count <number>` on `thread exec` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
 
 ## CLI Reference
 
