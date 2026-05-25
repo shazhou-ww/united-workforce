@@ -15,7 +15,13 @@ import {
 } from "./commands/cas.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
-import { cmdSkillCli } from "./commands/skill.js";
+import {
+  cmdSkillArchitecture,
+  cmdSkillCli,
+  cmdSkillList,
+  cmdSkillModerator,
+  cmdSkillYaml,
+} from "./commands/skill.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
@@ -473,12 +479,41 @@ For more information, see: uwf help thread list
   });
 
 const skill = program.command("skill").description("Built-in skill references for agents");
+skill.addHelpCommand(false);
 
 skill
   .command("cli")
   .description("Print a markdown reference of all uwf commands")
   .action(() => {
     console.log(cmdSkillCli());
+  });
+
+skill
+  .command("architecture")
+  .description("Print the architecture reference")
+  .action(() => {
+    console.log(cmdSkillArchitecture());
+  });
+
+skill
+  .command("yaml")
+  .description("Print the workflow YAML schema reference")
+  .action(() => {
+    console.log(cmdSkillYaml());
+  });
+
+skill
+  .command("moderator")
+  .description("Print the moderator reference")
+  .action(() => {
+    console.log(cmdSkillModerator());
+  });
+
+skill
+  .command("list")
+  .description("List all available skill names")
+  .action(() => {
+    console.log(cmdSkillList().join("\n"));
   });
 
 program
