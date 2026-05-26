@@ -84,11 +84,11 @@ function normalizeProviders(raw: unknown): Record<ProviderAlias, ProviderConfig>
       throw new Error(`config.providers.${name} must be a mapping`);
     }
     const baseUrl = entry.baseUrl;
-    const apiKeyEnv = entry.apiKeyEnv;
-    if (typeof baseUrl !== "string" || typeof apiKeyEnv !== "string") {
-      throw new Error(`config.providers.${name} requires baseUrl and apiKeyEnv`);
+    const apiKey = entry.apiKey;
+    if (typeof baseUrl !== "string" || typeof apiKey !== "string") {
+      throw new Error(`config.providers.${name} requires baseUrl and apiKey`);
     }
-    providers[name] = { baseUrl, apiKeyEnv };
+    providers[name] = { baseUrl, apiKey };
   }
   return providers;
 }

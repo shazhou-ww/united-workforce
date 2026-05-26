@@ -119,7 +119,7 @@ uwf setup --provider openai --base-url https://api.openai.com/v1 \
   --api-key sk-... --model gpt-4o --agent hermes
 ```
 
-Config: `~/.uncaged/workflow/config.yaml`. API keys: `~/.uncaged/workflow/.env`.
+Config: `~/.uncaged/workflow/config.yaml` (includes API keys).
 
 ### Skill
 

@@ -100,7 +100,7 @@ type ProviderAlias = string;
 type ModelAlias = string;
 type AgentAlias = string;
 
-type ProviderConfig = { baseUrl: string; apiKeyEnv: string };
+type ProviderConfig = { baseUrl: string; apiKey: string };
 type ModelConfig = {
   provider: ProviderAlias;
   name: string;

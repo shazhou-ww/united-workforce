@@ -85,10 +85,6 @@ function getConfigPath(root: string): string {
   return join(root, "config.yaml");
 }
 
-function getEnvPath(root: string): string {
-  return join(root, ".env");
-}
-
 /**
  * Load existing config.yaml or return empty structure.
  */
@@ -104,37 +100,6 @@ function loadExistingConfig(configPath: string): Record<string, unknown> {
     // ignore parse errors, start fresh
   }
   return {};
-}
-
-/**
- * Load existing .env as key=value map.
- */
-function loadEnvFile(envPath: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  try {
-    if (existsSync(envPath)) {
-      for (const line of readFileSync(envPath, "utf8").split("\n")) {
-        const trimmed = line.trim();
-        if (trimmed === "" || trimmed.startsWith("#")) continue;
-        const eq = trimmed.indexOf("=");
-        if (eq > 0) {
-          env[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return env;
-}
-
-function saveEnvFile(envPath: string, env: Record<string, string>): void {
-  const lines = Object.entries(env).map(([k, v]) => `${k}=${v}`);
-  writeFileSync(envPath, `${lines.join("\n")}\n`, "utf8");
-}
-
-function apiKeyEnvName(providerName: string): string {
-  return `${providerName.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -397,8 +362,7 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
       : {}
   ) as Record<string, unknown>;
 
-  const envName = apiKeyEnvName(args.provider);
-  providers[args.provider] = { baseUrl: args.baseUrl, apiKeyEnv: envName };
+  providers[args.provider] = { baseUrl: args.baseUrl, apiKey: args.apiKey };
 
   const models = (
     typeof existing.models === "object" && existing.models !== null
@@ -437,25 +401,17 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
   mkdirSync(storageRoot, { recursive: true });
 
   const configPath = getConfigPath(storageRoot);
-  const envPath = getEnvPath(storageRoot);
 
   const existing = loadExistingConfig(configPath);
   const merged = mergeConfig(existing, args);
 
   writeFileSync(configPath, stringify(merged, { indent: 2 }), "utf8");
 
-  // Write API key to .env
-  const envName = apiKeyEnvName(args.provider);
-  const envData = loadEnvFile(envPath);
-  envData[envName] = args.apiKey;
-  saveEnvFile(envPath, envData);
-
   // Validate model connectivity
   const validation = await validateModel(args.baseUrl, args.apiKey, args.model);
 
   return {
     configPath,
-    envPath,
     provider: args.provider,
     model: args.model,
     defaultAgent: merged.defaultAgent,

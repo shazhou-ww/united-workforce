@@ -1,8 +1,7 @@
 import { getSchema, validate } from "@uncaged/json-cas";
 
 import type { CasRef, ModelAlias, WorkflowConfig } from "@uncaged/workflow-protocol";
-import { config as loadDotenv } from "dotenv";
-import { createAgentStore, getEnvPath, resolveStorageRoot } from "./storage.js";
+import { createAgentStore, resolveStorageRoot } from "./storage.js";
 
 export type ResolvedLlmProvider = {
   baseUrl: string;
@@ -38,9 +37,9 @@ export function resolveModel(config: WorkflowConfig, alias: ModelAlias): Resolve
   if (providerEntry === undefined) {
     throw new Error(`unknown provider "${modelEntry.provider}" for model "${alias}"`);
   }
-  const apiKey = process.env[providerEntry.apiKeyEnv];
+  const apiKey = providerEntry.apiKey;
   if (apiKey === undefined || apiKey === "") {
-    throw new Error(`missing API key env var: ${providerEntry.apiKeyEnv}`);
+    throw new Error(`missing API key for provider: ${modelEntry.provider}`);
   }
   return {
     baseUrl: providerEntry.baseUrl,
@@ -130,7 +129,7 @@ export type ExtractResult = {
 
 /**
  * Call an OpenAI-compatible LLM to extract structured output matching outputSchema.
- * Loads config.yaml and .env from the workflow storage root.
+ * Loads config.yaml from the workflow storage root.
  */
 export async function extract(
   rawOutput: string,
@@ -138,7 +137,6 @@ export async function extract(
   config: WorkflowConfig,
 ): Promise<ExtractResult> {
   const storageRoot = resolveStorageRoot();
-  loadDotenv({ path: getEnvPath(storageRoot) });
 
   const { store } = await createAgentStore(storageRoot);
   const schema = getSchema(store, outputSchema);
