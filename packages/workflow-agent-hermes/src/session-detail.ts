@@ -150,46 +150,42 @@ function dbMessageToSessionMessage(row: DbMessageRow): HermesSessionMessage {
 export function loadHermesSessionFromDb(
   sessionId: string,
   dbPath: string | null = null,
-): Promise<HermesSessionJson | null> {
+): HermesSessionJson | null {
   const resolvedPath = dbPath ?? getHermesDbPath();
+  let db: InstanceType<typeof Database> | null = null;
   try {
-    const db = new Database(resolvedPath, { readonly: true });
-    try {
-      const session = db
-        .query("SELECT id, model, started_at FROM sessions WHERE id = ?")
-        .get(sessionId) as DbSessionRow | null;
-      if (session === null) {
-        db.close();
-        return Promise.resolve(null);
-      }
-      const rows = db
-        .query(
-          "SELECT role, content, reasoning, tool_calls FROM messages WHERE session_id = ? ORDER BY id",
-        )
-        .all(sessionId) as DbMessageRow[];
-      db.close();
-
-      const messages: HermesSessionMessage[] = [];
-      for (const row of rows) {
-        const role = row.role;
-        if (role !== "user" && role !== "assistant" && role !== "tool") {
-          continue;
-        }
-        messages.push(dbMessageToSessionMessage(row));
-      }
-
-      return Promise.resolve({
-        session_id: session.id,
-        model: session.model,
-        session_start: new Date(session.started_at * 1000).toISOString(),
-        messages,
-      });
-    } catch {
-      db.close();
-      return Promise.resolve(null);
+    db = new Database(resolvedPath, { readonly: true });
+    const session = db
+      .query("SELECT id, model, started_at FROM sessions WHERE id = ?")
+      .get(sessionId) as DbSessionRow | null;
+    if (session === null) {
+      return null;
     }
+    const rows = db
+      .query(
+        "SELECT role, content, reasoning, tool_calls FROM messages WHERE session_id = ? ORDER BY id",
+      )
+      .all(sessionId) as DbMessageRow[];
+
+    const messages: HermesSessionMessage[] = [];
+    for (const row of rows) {
+      const role = row.role;
+      if (role !== "user" && role !== "assistant" && role !== "tool") {
+        continue;
+      }
+      messages.push(dbMessageToSessionMessage(row));
+    }
+
+    return {
+      session_id: session.id,
+      model: session.model,
+      session_start: new Date(session.started_at * 1000).toISOString(),
+      messages,
+    };
   } catch {
-    return Promise.resolve(null);
+    return null;
+  } finally {
+    db?.close();
   }
 }
 
