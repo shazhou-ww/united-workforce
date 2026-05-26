@@ -28,4 +28,5 @@ export { err, ok } from "./result.js";
 export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
 export type { LogFn, Result } from "./types.js";
 export { extractUlidTimestamp, generateUlid } from "./ulid.js";
+export { generateUserReference } from "./user-reference.js";
 export { generateYamlReference } from "./yaml-reference.js";

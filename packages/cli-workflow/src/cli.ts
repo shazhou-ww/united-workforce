@@ -22,6 +22,7 @@ import {
   cmdSkillCli,
   cmdSkillList,
   cmdSkillModerator,
+  cmdSkillUser,
   cmdSkillYaml,
 } from "./commands/skill.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
@@ -516,6 +517,13 @@ skill
   .description("Print the moderator reference")
   .action(() => {
     console.log(cmdSkillModerator());
+  });
+
+skill
+  .command("user")
+  .description("Print the user reference (CLI guide + typical workflows)")
+  .action(() => {
+    console.log(cmdSkillUser());
   });
 
 skill

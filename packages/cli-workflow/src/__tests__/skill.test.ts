@@ -11,6 +11,7 @@ import {
   cmdSkillCli,
   cmdSkillList,
   cmdSkillModerator,
+  cmdSkillUser,
   cmdSkillYaml,
 } from "../commands/skill.js";
 
@@ -23,6 +24,7 @@ describe("skill commands", () => {
     expect(result).toContain("yaml");
     expect(result).toContain("moderator");
     expect(result).toContain("actor");
+    expect(result).toContain("user");
     for (const name of result) {
       expect(name).toMatch(/^\S+$/);
     }
@@ -72,6 +74,16 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(200);
   });
 
+  test("skill user returns non-empty markdown string", () => {
+    const result = cmdSkillUser();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("uwf");
+    expect(result).toContain("thread");
+    expect(result).toContain("workflow");
+    expect(result).toContain("Quick Start");
+    expect(result.length).toBeGreaterThan(500);
+  });
+
   test("skill help subcommand is suppressed", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
       cwd: join(__dirname, "..", ".."),
@@ -84,6 +96,7 @@ describe("skill commands", () => {
     expect(output).toContain("yaml");
     expect(output).toContain("moderator");
     expect(output).toContain("actor");
+    expect(output).toContain("user");
     expect(output).toContain("list");
   });
 });
