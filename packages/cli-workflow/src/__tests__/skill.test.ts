@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import {
+  cmdSkillActor,
   cmdSkillArchitecture,
   cmdSkillCli,
   cmdSkillList,
@@ -21,8 +22,8 @@ describe("skill commands", () => {
     expect(result).toContain("architecture");
     expect(result).toContain("yaml");
     expect(result).toContain("moderator");
+    expect(result).toContain("actor");
     for (const name of result) {
-      expect(typeof name).toBe("string");
       expect(name).toMatch(/^\S+$/);
     }
   });
@@ -62,6 +63,15 @@ describe("skill commands", () => {
     expect(result).toContain("uwf");
   });
 
+  test("skill actor returns non-empty markdown string", () => {
+    const result = cmdSkillActor();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("frontmatter");
+    expect(result).toContain("CAS");
+    expect(result).toContain("status");
+    expect(result.length).toBeGreaterThan(200);
+  });
+
   test("skill help subcommand is suppressed", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
       cwd: join(__dirname, "..", ".."),
@@ -73,6 +83,7 @@ describe("skill commands", () => {
     expect(output).toContain("architecture");
     expect(output).toContain("yaml");
     expect(output).toContain("moderator");
+    expect(output).toContain("actor");
     expect(output).toContain("list");
   });
 });
