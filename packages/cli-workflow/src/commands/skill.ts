@@ -1,5 +1,6 @@
 export {
   generateActorReference as cmdSkillActor,
+  generateAdapterReference as cmdSkillAdapter,
   generateArchitectureReference as cmdSkillArchitecture,
   generateAuthorReference as cmdSkillAuthor,
   generateCliReference as cmdSkillCli,
@@ -18,6 +19,7 @@ const SKILL_NAMES = [
   "user",
   "author",
   "developer",
+  "adapter",
 ] as const;
 
 export function cmdSkillList(): ReadonlyArray<string> {

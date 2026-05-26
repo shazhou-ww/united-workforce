@@ -18,6 +18,7 @@ import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
   cmdSkillActor,
+  cmdSkillAdapter,
   cmdSkillArchitecture,
   cmdSkillAuthor,
   cmdSkillCli,
@@ -512,6 +513,13 @@ skill
   .description("Print the actor reference (frontmatter protocol + CAS)")
   .action(() => {
     console.log(cmdSkillActor());
+  });
+
+skill
+  .command("adapter")
+  .description("Print the adapter reference (building agent adapters)")
+  .action(() => {
+    console.log(cmdSkillAdapter());
   });
 
 skill

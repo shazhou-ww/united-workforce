@@ -134,7 +134,7 @@ All data is CAS-addressed via \`@uncaged/json-cas\`:
 <type>(<scope>): <description>
 
 type: feat | fix | refactor | docs | chore | test
-scope: workflow | cli | moderator | agent-kit | hermes | util | protocol
+scope: workflow | cli | moderator | util-agent | hermes | util | protocol
 \`\`\`
 `;
 }
