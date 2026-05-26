@@ -1,0 +1,194 @@
+name: "e2e-walkthrough"
+description: "End-to-end walkthrough of uwf CLI. Dogfooding: uwf tests uwf. Each role validates a phase of the CLI surface inside an isolated Docker container."
+roles:
+  bootstrap:
+    description: "Start Docker container with isolated storage, verify uwf is runnable"
+    goal: "You are an E2E test runner. Set up an isolated Docker environment and verify basic uwf functionality."
+    capabilities:
+      - docker
+      - shell
+    procedure: |
+      1. Create a temp dir for this E2E run: `E2E_DIR=$(mktemp -d /tmp/uwf-e2e-XXXXXX)`
+      2. Start a Docker container with isolated storage:
+         ```
+         docker run -d --name uwf-e2e-$$ \
+           -v $HOME:$HOME \
+           -e HOME=$HOME \
+           -e UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage \
+           -w ~/repos/workflow \
+           node:22-bookworm \
+           sleep infinity
+         ```
+      3. Inside the container, set up PATH and install deps:
+         ```
+         docker exec uwf-e2e-$$ bash -c '
+           export PATH="$HOME/.bun/bin:$PATH"
+           mkdir -p $UNCAGED_WORKFLOW_STORAGE_ROOT
+           cd ~/repos/workflow && bun install --frozen-lockfile
+         '
+         ```
+      4. Define UWF command: `bun ~/repos/workflow/packages/cli-workflow/src/cli.ts`
+      5. Verify: `docker exec ... $UWF --version`
+      6. Copy host config if it exists:
+         ```
+         docker exec uwf-e2e-$$ bash -c '
+           if [ -f $HOME/.uncaged/workflow/config.yaml ]; then
+             cp $HOME/.uncaged/workflow/config.yaml $UNCAGED_WORKFLOW_STORAGE_ROOT/config.yaml
+           fi
+         '
+         ```
+
+      Report the container name and confirm uwf is working.
+      Set containerName to the Docker container name for subsequent roles.
+    output: "Report uwf version and container readiness. Set $status to pass with containerName, or fail with error."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "pass" }
+            containerName: { type: string }
+          required: [$status, containerName]
+        - properties:
+            $status: { const: "fail" }
+            error: { type: string }
+          required: [$status, error]
+
+  setup-and-registry:
+    description: "Validate uwf setup, config commands, and workflow registration"
+    goal: "You are an E2E test runner. Validate uwf config operations and workflow registration inside the Docker container."
+    capabilities:
+      - docker
+      - shell
+    procedure: |
+      Use the container from the previous step (containerName is in your prompt).
+      All commands run via: `docker exec <containerName> bash -c '...'`
+      UWF is: `bun ~/repos/workflow/packages/cli-workflow/src/cli.ts`
+      Remember to set env vars in each exec:
+        export PATH="$HOME/.bun/bin:$PATH"
+        export UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage
+
+      Phase 2 — Config:
+      1. `uwf config list` — verify it returns valid JSON
+      2. `uwf config set models.test.name test-model` — set a test key
+      3. `uwf config get models.test.name` — verify it returns "test-model"
+
+      Phase 3 — Workflow registration:
+      4. `uwf workflow add ~/repos/workflow/examples/solve-issue.yaml` — register workflow
+      5. Verify the output contains a hash
+      6. `uwf workflow list` — verify non-empty array
+      7. Capture the workflow name from the list
+      8. `uwf workflow show <name>` — verify it returns roles
+
+      Report all test results with pass/fail counts.
+    output: "Report test results. Set $status to pass (with workflowName and containerName) or fail (with error and partial results)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "pass" }
+            workflowName: { type: string }
+            containerName: { type: string }
+            testsPassed: { type: number }
+          required: [$status, workflowName, containerName]
+        - properties:
+            $status: { const: "fail" }
+            error: { type: string }
+          required: [$status, error]
+
+  thread-lifecycle:
+    description: "Test thread start, exec, read, step list/show, and CAS operations"
+    goal: "You are an E2E test runner. Validate the full thread lifecycle and CAS operations."
+    capabilities:
+      - docker
+      - shell
+    procedure: |
+      Use the container (containerName) and workflow (workflowName) from your prompt.
+      All commands via: `docker exec <containerName> bash -c '...'`
+      Set env: PATH, UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage
+
+      Phase 4 — Thread lifecycle:
+      1. `uwf thread start <workflowName> -p 'E2E test: what is 2+2?'` — capture thread ID
+      2. `uwf thread list` — verify thread appears
+      3. `uwf thread show <threadId>` — verify head pointer exists
+      4. `uwf thread exec <threadId> --agent uwf-builtin` — execute one step
+      5. Verify exec returns step info with head
+
+      Phase 5 — Read & Inspect:
+      6. `uwf step list <threadId>` — verify steps exist (length > 1)
+      7. Capture last step hash
+      8. `uwf step show <lastStepHash>` — verify it returns role
+      9. `uwf thread read <threadId>` — verify non-empty output
+      10. `uwf cas get <lastStepHash>` — verify returns type
+      11. `uwf cas has <lastStepHash>` — verify exists
+      12. `uwf cas refs <lastStepHash>` — list refs
+      13. `uwf cas walk <lastStepHash>` — verify returns nodes
+
+      Report all results. Pass the threadId and lastStepHash forward.
+    output: "Report test results. Set $status to pass (with threadId, lastStepHash, containerName) or fail."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "pass" }
+            threadId: { type: string }
+            lastStepHash: { type: string }
+            containerName: { type: string }
+            testsPassed: { type: number }
+          required: [$status, threadId, lastStepHash, containerName]
+        - properties:
+            $status: { const: "fail" }
+            error: { type: string }
+          required: [$status, error]
+
+  cancel-fork-and-logs:
+    description: "Test thread cancel, step fork, and log inspection"
+    goal: "You are an E2E test runner. Validate cancel, fork, and log operations."
+    capabilities:
+      - docker
+      - shell
+    procedure: |
+      Use containerName, threadId (first thread), lastStepHash, and workflowName from your prompt.
+      All commands via: `docker exec <containerName> bash -c '...'`
+      Set env: PATH, UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage
+
+      Phase 6 — Cancel & Fork:
+      1. Start a second thread: `uwf thread start <workflowName> -p 'E2E cancel test'`
+      2. Cancel it: `uwf thread cancel <secondThreadId>`
+      3. Verify it appears in completed list: `uwf thread list --status completed`
+      4. Fork from the first thread's last step: `uwf step fork <lastStepHash>`
+      5. Verify fork creates a new thread with different ID
+
+      Phase 7 — Logs:
+      6. `uwf log list` — check log files exist
+      7. `uwf log show --thread <threadId>` — verify log output (may be empty, that's ok)
+
+      Phase 8 — Cleanup:
+      8. Stop and remove the Docker container: `docker rm -f <containerName>`
+
+      Report final results with full summary of all phases.
+    output: "Report final test results with pass/fail counts. Set $status to pass or fail."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "pass" }
+            totalPassed: { type: number }
+            summary: { type: string }
+          required: [$status, totalPassed, summary]
+        - properties:
+            $status: { const: "fail" }
+            error: { type: string }
+            totalPassed: { type: number }
+          required: [$status, error]
+
+graph:
+  $START:
+    _: { role: "bootstrap", prompt: "Set up the Docker container and verify uwf is runnable." }
+  bootstrap:
+    pass: { role: "setup-and-registry", prompt: "Container {{{containerName}}} is ready. Validate config and workflow registration." }
+    fail: { role: "$END", prompt: "Bootstrap failed: {{{error}}}" }
+  setup-and-registry:
+    pass: { role: "thread-lifecycle", prompt: "Config and registry OK. Workflow '{{{workflowName}}}' registered. Container: {{{containerName}}}. Now test thread lifecycle." }
+    fail: { role: "$END", prompt: "Setup/registry failed: {{{error}}}" }
+  thread-lifecycle:
+    pass: { role: "cancel-fork-and-logs", prompt: "Thread lifecycle OK. threadId={{{threadId}}}, lastStepHash={{{lastStepHash}}}, containerName={{{containerName}}}. Now test cancel, fork, logs, and cleanup." }
+    fail: { role: "$END", prompt: "Thread lifecycle failed: {{{error}}}" }
+  cancel-fork-and-logs:
+    pass: { role: "$END", prompt: "All E2E tests passed! {{{summary}}}" }
+    fail: { role: "$END", prompt: "Cancel/fork/logs phase failed: {{{error}}}. Passed: {{{totalPassed}}}" }
