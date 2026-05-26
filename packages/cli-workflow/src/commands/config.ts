@@ -3,6 +3,66 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 
 /**
+ * Valid configuration key schema
+ */
+const VALID_CONFIG_KEYS: Record<string, { nested: boolean; knownFields?: string[] }> = {
+  providers: {
+    nested: true,
+    knownFields: ["baseUrl", "apiKey"],
+  },
+  models: {
+    nested: true,
+    knownFields: ["provider", "name"],
+  },
+  agents: {
+    nested: true,
+    knownFields: ["command", "args"],
+  },
+  defaultAgent: { nested: false },
+  defaultModel: { nested: false },
+};
+
+/**
+ * Validate a config key path against the known schema
+ */
+function validateConfigKey(path: string[]): void {
+  if (path.length === 0) {
+    throw new Error("Path cannot be empty");
+  }
+
+  const topLevel = path[0];
+  const schema = VALID_CONFIG_KEYS[topLevel];
+
+  if (!schema) {
+    const validKeys = Object.keys(VALID_CONFIG_KEYS).join(", ");
+    throw new Error(`Unknown config key: ${topLevel}. Valid top-level keys are: ${validKeys}`);
+  }
+
+  // Scalar keys cannot have nested paths
+  if (!schema.nested && path.length > 1) {
+    throw new Error(`${topLevel} is a scalar key and cannot have nested properties`);
+  }
+
+  // Nested keys must have at least 3 segments (e.g., providers.myProvider.baseUrl)
+  if (schema.nested && path.length < 3) {
+    const fields = schema.knownFields?.join(", ") ?? "";
+    throw new Error(
+      `Incomplete path for ${topLevel}. Must specify a field (e.g., ${topLevel}.<name>.<field>). Valid fields: ${fields}`,
+    );
+  }
+
+  // Validate the field name for nested keys
+  if (schema.nested && path.length >= 3 && schema.knownFields) {
+    const field = path[path.length - 1];
+    if (!schema.knownFields.includes(field)) {
+      throw new Error(
+        `Unknown field '${field}' in ${topLevel}. Valid fields are: ${schema.knownFields.join(", ")}`,
+      );
+    }
+  }
+}
+
+/**
  * Returns the path to the config.yaml file
  */
 export function getConfigPath(storageRoot: string): string {
@@ -100,21 +160,21 @@ export function setNestedValue(obj: Record<string, unknown>, path: string[], val
 }
 
 /**
- * Deep clone and mask all apiKeyEnv values in providers section
+ * Deep clone and mask all apiKey values in providers section
  */
 export function maskApiKeys(config: Record<string, unknown>): Record<string, unknown> {
   // Deep clone
   const cloned = JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
 
-  // Mask apiKeyEnv values in providers
+  // Mask apiKey values in providers
   if (cloned.providers && typeof cloned.providers === "object") {
     const providers = cloned.providers as Record<string, unknown>;
     for (const providerName of Object.keys(providers)) {
       const provider = providers[providerName];
       if (provider && typeof provider === "object") {
         const providerObj = provider as Record<string, unknown>;
-        if ("apiKeyEnv" in providerObj) {
-          providerObj.apiKeyEnv = "***MASKED***";
+        if ("apiKey" in providerObj) {
+          providerObj.apiKey = "***MASKED***";
         }
       }
     }
@@ -207,6 +267,10 @@ export async function cmdConfigSet(
   }
 
   const path = parseDotPath(key);
+
+  // Validate the key path
+  validateConfigKey(path);
+
   const lastSegment = path[path.length - 1];
 
   // Parse value if it's for an array key (args)
