@@ -280,13 +280,13 @@ threads.yaml: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
 providers:
   openai:
     baseUrl: "https://api.openai.com/v1"
-    apiKeyEnv: "OPENAI_API_KEY"
+    apiKey: "sk-..."
   anthropic:
     baseUrl: "https://api.anthropic.com/v1"
-    apiKeyEnv: "ANTHROPIC_API_KEY"
+    apiKey: "sk-ant-..."
   openrouter:
     baseUrl: "https://openrouter.ai/api/v1"
-    apiKeyEnv: "OPENROUTER_API_KEY"
+    apiKey: "sk-or-..."
 
 models:
   sonnet:
@@ -465,7 +465,7 @@ type Scenario = string;              // e.g. "extract"
 
 type ProviderConfig = {
   baseUrl: string;
-  apiKeyEnv: string;                 // env var name to read API key from
+  apiKey: string;                    // API key stored directly
 };
 
 type ModelConfig = {

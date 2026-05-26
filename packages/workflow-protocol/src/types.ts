@@ -151,7 +151,7 @@ export type Scenario = string;
 
 export type ProviderConfig = {
   baseUrl: string;
-  apiKeyEnv: string;
+  apiKey: string;
 };
 
 export type ModelConfig = {

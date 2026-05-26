@@ -129,9 +129,8 @@ describe("cmdSetup with validation", () => {
     const result = await cmdSetup(setupArgs());
 
     expect(result.validation).toEqual({ ok: true, value: undefined });
-    // Config files should still be written
+    // Config file should still be written
     expect(result.configPath).toBeTruthy();
-    expect(result.envPath).toBeTruthy();
   });
 
   test("includes validation failure — config still saved", async () => {
@@ -143,8 +142,7 @@ describe("cmdSetup with validation", () => {
 
     expect(result.validation).toBeDefined();
     expect((result.validation as { ok: boolean }).ok).toBe(false);
-    // Config files should still be written despite validation failure
+    // Config file should still be written despite validation failure
     expect(result.configPath).toBeTruthy();
-    expect(result.envPath).toBeTruthy();
   });
 });
