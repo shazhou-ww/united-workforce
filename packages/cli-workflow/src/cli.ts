@@ -19,6 +19,7 @@ import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
   cmdSkillActor,
   cmdSkillArchitecture,
+  cmdSkillAuthor,
   cmdSkillCli,
   cmdSkillList,
   cmdSkillModerator,
@@ -510,6 +511,13 @@ skill
   .description("Print the actor reference (frontmatter protocol + CAS)")
   .action(() => {
     console.log(cmdSkillActor());
+  });
+
+skill
+  .command("author")
+  .description("Print the author reference (workflow YAML design guide)")
+  .action(() => {
+    console.log(cmdSkillAuthor());
   });
 
 skill
