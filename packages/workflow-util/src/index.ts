@@ -1,4 +1,5 @@
 export { generateActorReference } from "./actor-reference.js";
+export { generateAdapterReference } from "./adapter-reference.js";
 export { generateArchitectureReference } from "./architecture-reference.js";
 export { generateAuthorReference } from "./author-reference.js";
 export { encodeUint64AsCrockford } from "./base32.js";
