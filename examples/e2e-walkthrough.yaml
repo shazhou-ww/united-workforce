@@ -19,17 +19,33 @@ roles:
            node:22-bookworm \
            sleep infinity
          ```
-      3. Inside the container, set up PATH and install deps:
+      3. Inside the container, install bun, install deps, then `bun link` all packages
+         so that `uwf`, `uwf-hermes`, `uwf-builtin` are on PATH (from source):
          ```
          docker exec uwf-e2e-$$ bash -c '
+           # Install bun
+           curl -fsSL https://bun.sh/install | bash
            export PATH="$HOME/.bun/bin:$PATH"
+
+           # Isolated storage
            mkdir -p $UNCAGED_WORKFLOW_STORAGE_ROOT
+
+           # Install workspace deps
            cd ~/repos/workflow && bun install --frozen-lockfile
+
+           # bun link each package that has a bin entry
+           cd packages/cli-workflow && bun link && cd ../..
+           cd packages/workflow-agent-hermes && bun link && cd ../..
+           cd packages/workflow-agent-builtin && bun link && cd ../..
          '
          ```
-      4. Define UWF command: `bun ~/repos/workflow/packages/cli-workflow/src/cli.ts`
-      5. Verify: `docker exec ... $UWF --version`
-      6. Copy host config if it exists:
+      4. Verify all three commands are available inside the container:
+         ```
+         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf --version'
+         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-hermes --help'
+         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-builtin --help'
+         ```
+      5. Copy host config if it exists:
          ```
          docker exec uwf-e2e-$$ bash -c '
            if [ -f $HOME/.uncaged/workflow/config.yaml ]; then
@@ -38,7 +54,7 @@ roles:
          '
          ```
 
-      Report the container name and confirm uwf is working.
+      Report the container name and confirm uwf + agents are working.
       Set containerName to the Docker container name for subsequent roles.
     output: "Report uwf version and container readiness. Set $status to pass with containerName, or fail with error."
     frontmatter:
@@ -61,7 +77,7 @@ roles:
     procedure: |
       Use the container from the previous step (containerName is in your prompt).
       All commands run via: `docker exec <containerName> bash -c '...'`
-      UWF is: `bun ~/repos/workflow/packages/cli-workflow/src/cli.ts`
+      All commands use `uwf` (installed via `bun link` inside the container).
       Remember to set env vars in each exec:
         export PATH="$HOME/.bun/bin:$PATH"
         export UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage
