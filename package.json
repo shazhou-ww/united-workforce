@@ -14,7 +14,7 @@
     "test:ci": "bun run --filter './packages/*' test:ci",
     "changeset": "bunx changeset",
     "version": "bunx changeset version",
-    "release": "bun run build && bun test && node scripts/publish-all.mjs"
+    "release": "bun run build && bun run test && node scripts/publish-all.mjs"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.22.1",
