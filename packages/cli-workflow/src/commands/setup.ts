@@ -377,7 +377,7 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
       : {}
   ) as Record<string, unknown>;
 
-  const agentName = args.agent ?? "hermes";
+  const agentName = _agentNameFromBinary(args.agent ?? "hermes");
   // Ensure the selected agent has an entry
   if (!agents[agentName]) {
     agents[agentName] = { command: `uwf-${agentName}`, args: [] };

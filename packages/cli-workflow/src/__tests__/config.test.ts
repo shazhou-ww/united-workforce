@@ -25,10 +25,10 @@ describe("config command", () => {
   const sampleConfig = `providers:
   dashscope:
     baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
-    apiKeyEnv: DASHSCOPE_API_KEY
+    apiKey: sk-test-dashscope-key
   openai:
     baseUrl: https://api.openai.com/v1
-    apiKeyEnv: OPENAI_API_KEY
+    apiKey: sk-test-openai-key
 models:
   default:
     provider: dashscope
@@ -102,16 +102,16 @@ defaultModel: default
     });
 
     describe("maskApiKeys", () => {
-      test("deep clones and masks all apiKeyEnv values in providers", () => {
+      test("deep clones and masks all apiKey values in providers", () => {
         const config = {
           providers: {
             dashscope: {
               baseUrl: "https://example.com",
-              apiKeyEnv: "DASHSCOPE_API_KEY",
+              apiKey: "sk-test-key-12345",
             },
             openai: {
               baseUrl: "https://api.openai.com",
-              apiKeyEnv: "OPENAI_API_KEY",
+              apiKey: "sk-another-secret",
             },
           },
           models: {
@@ -123,11 +123,11 @@ defaultModel: default
           providers: {
             dashscope: {
               baseUrl: "https://example.com",
-              apiKeyEnv: "***MASKED***",
+              apiKey: "***MASKED***",
             },
             openai: {
               baseUrl: "https://api.openai.com",
-              apiKeyEnv: "***MASKED***",
+              apiKey: "***MASKED***",
             },
           },
           models: {
@@ -164,7 +164,7 @@ defaultModel: default
       }
     });
 
-    test("masks all apiKeyEnv values in providers section", async () => {
+    test("masks all apiKey values in providers section", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
@@ -172,8 +172,8 @@ defaultModel: default
         const providers = result.providers as Record<string, unknown>;
         const dashscope = providers.dashscope as Record<string, unknown>;
         const openai = providers.openai as Record<string, unknown>;
-        expect(dashscope.apiKeyEnv).toBe("***MASKED***");
-        expect(openai.apiKeyEnv).toBe("***MASKED***");
+        expect(dashscope.apiKey).toBe("***MASKED***");
+        expect(openai.apiKey).toBe("***MASKED***");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
@@ -240,7 +240,7 @@ defaultModel: default
         const result = await cmdConfigGet(tempDir, "providers.dashscope");
         expect(result).toEqual({
           baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-          apiKeyEnv: "DASHSCOPE_API_KEY",
+          apiKey: "sk-test-dashscope-key",
         });
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
@@ -459,6 +459,161 @@ defaultModel: default
         // Verify it was written
         const updated = await cmdConfigGet(tempDir, "agents.claude-code.command");
         expect(updated).toBe("new-command");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("cmdConfigSet validation", () => {
+    test("rejects unknown top-level key", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "unknownKey", "value")).rejects.toThrow(
+          /Unknown config key.*unknownKey/,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects unknown nested key in providers", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(
+          cmdConfigSet(tempDir, "providers.myProvider.unknownField", "value"),
+        ).rejects.toThrow(/Unknown field.*unknownField.*providers/);
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects unknown nested key in models", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "models.default.invalidField", "value")).rejects.toThrow(
+          /Unknown field.*invalidField.*models/,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects unknown nested key in agents", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "agents.hermes.badField", "value")).rejects.toThrow(
+          /Unknown field.*badField.*agents/,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects nested path on scalar key (defaultAgent)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "defaultAgent.foo", "value")).rejects.toThrow(
+          /defaultAgent.*scalar|Cannot set property/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects nested path on scalar key (defaultModel)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "defaultModel.bar", "value")).rejects.toThrow(
+          /defaultModel.*scalar|Cannot set property/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects incomplete nested path (providers without field)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "providers.myProvider", "value")).rejects.toThrow(
+          /incomplete path|must specify a field/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects incomplete nested path (models without field)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "models.myModel", "value")).rejects.toThrow(
+          /incomplete path|must specify a field/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects incomplete nested path (agents without field)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "agents.myAgent", "value")).rejects.toThrow(
+          /incomplete path|must specify a field/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("allows valid nested keys in providers", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await cmdConfigSet(tempDir, "providers.newprovider.baseUrl", "https://example.com");
+        await cmdConfigSet(tempDir, "providers.newprovider.apiKey", "sk-test");
+        const baseUrl = await cmdConfigGet(tempDir, "providers.newprovider.baseUrl");
+        const apiKey = await cmdConfigGet(tempDir, "providers.newprovider.apiKey");
+        expect(baseUrl).toBe("https://example.com");
+        expect(apiKey).toBe("sk-test");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("allows valid nested keys in models", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await cmdConfigSet(tempDir, "models.gpt4.provider", "openai");
+        await cmdConfigSet(tempDir, "models.gpt4.name", "gpt-4o");
+        const provider = await cmdConfigGet(tempDir, "models.gpt4.provider");
+        const name = await cmdConfigGet(tempDir, "models.gpt4.name");
+        expect(provider).toBe("openai");
+        expect(name).toBe("gpt-4o");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("allows valid nested keys in agents", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await cmdConfigSet(tempDir, "agents.hermes.command", "uwf-hermes");
+        await cmdConfigSet(tempDir, "agents.hermes.args", '["--flag"]');
+        const command = await cmdConfigGet(tempDir, "agents.hermes.command");
+        const args = await cmdConfigGet(tempDir, "agents.hermes.args");
+        expect(command).toBe("uwf-hermes");
+        expect(args).toEqual(["--flag"]);
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }

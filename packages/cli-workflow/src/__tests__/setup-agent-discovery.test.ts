@@ -134,4 +134,34 @@ describe("cmdSetup agent configuration", () => {
     const config2 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
     expect(config2.defaultAgent).toBe("builtin");
   });
+
+  test("normalizes agent name with uwf- prefix to bare name", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
+
+    const result = await cmdSetup({ ...baseArgs(), agent: "uwf-hermes" });
+
+    expect(result.defaultAgent).toBe("hermes");
+    const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
+    expect(config.agents.hermes).toEqual({ command: "uwf-hermes", args: [] });
+    expect(config.defaultAgent).toBe("hermes");
+    // Verify no duplicate uwf- prefix
+    expect(config.agents["uwf-hermes"]).toBeUndefined();
+  });
+
+  test("normalizes uwf-claude-code to claude-code", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
+
+    const result = await cmdSetup({ ...baseArgs(), agent: "uwf-claude-code" });
+
+    expect(result.defaultAgent).toBe("claude-code");
+    const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
+    expect(config.agents["claude-code"]).toEqual({ command: "uwf-claude-code", args: [] });
+    expect(config.defaultAgent).toBe("claude-code");
+    // Verify no duplicate uwf- prefix
+    expect(config.agents["uwf-claude-code"]).toBeUndefined();
+  });
 });
