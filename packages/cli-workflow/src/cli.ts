@@ -17,6 +17,7 @@ import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js"
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
+  cmdSkillActor,
   cmdSkillArchitecture,
   cmdSkillCli,
   cmdSkillList,
@@ -501,6 +502,13 @@ skill
   .description("Print the workflow YAML schema reference")
   .action(() => {
     console.log(cmdSkillYaml());
+  });
+
+skill
+  .command("actor")
+  .description("Print the actor reference (frontmatter protocol + CAS)")
+  .action(() => {
+    console.log(cmdSkillActor());
   });
 
 skill
