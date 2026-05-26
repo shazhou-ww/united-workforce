@@ -21,6 +21,7 @@ import {
   cmdSkillArchitecture,
   cmdSkillAuthor,
   cmdSkillCli,
+  cmdSkillDeveloper,
   cmdSkillList,
   cmdSkillModerator,
   cmdSkillUser,
@@ -518,6 +519,13 @@ skill
   .description("Print the author reference (workflow YAML design guide)")
   .action(() => {
     console.log(cmdSkillAuthor());
+  });
+
+skill
+  .command("developer")
+  .description("Print the developer reference (coding conventions + architecture)")
+  .action(() => {
+    console.log(cmdSkillDeveloper());
   });
 
 skill

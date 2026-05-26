@@ -10,6 +10,7 @@ import {
   cmdSkillArchitecture,
   cmdSkillAuthor,
   cmdSkillCli,
+  cmdSkillDeveloper,
   cmdSkillList,
   cmdSkillModerator,
   cmdSkillUser,
@@ -27,6 +28,7 @@ describe("skill commands", () => {
     expect(result).toContain("actor");
     expect(result).toContain("user");
     expect(result).toContain("author");
+    expect(result).toContain("developer");
     for (const name of result) {
       expect(name).toMatch(/^\S+$/);
     }
@@ -97,6 +99,15 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
+  test("skill developer returns non-empty markdown string", () => {
+    const result = cmdSkillDeveloper();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("Monorepo");
+    expect(result).toContain("CAS");
+    expect(result).toContain("Biome");
+    expect(result.length).toBeGreaterThan(500);
+  });
+
   test("skill help subcommand is suppressed", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
       cwd: join(__dirname, "..", ".."),
@@ -111,6 +122,7 @@ describe("skill commands", () => {
     expect(output).toContain("actor");
     expect(output).toContain("user");
     expect(output).toContain("author");
+    expect(output).toContain("developer");
     expect(output).toContain("list");
   });
 });
