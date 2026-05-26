@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -108,15 +109,103 @@ function parseSessionJson(raw: unknown): HermesSessionJson | null {
   return { session_id, model, session_start, messages };
 }
 
+export function getHermesDbPath(): string {
+  return join(homedir(), ".hermes", "state.db");
+}
+
+type DbSessionRow = {
+  id: string;
+  model: string;
+  started_at: number;
+};
+
+type DbMessageRow = {
+  role: string;
+  content: string | null;
+  reasoning: string | null;
+  tool_calls: string | null;
+};
+
+function parseDbToolCalls(raw: string | null): HermesSessionMessage["tool_calls"] {
+  if (raw === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseToolCalls(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function dbMessageToSessionMessage(row: DbMessageRow): HermesSessionMessage {
+  return {
+    role: row.role,
+    content: row.content ?? null,
+    reasoning: row.reasoning ?? null,
+    tool_calls: parseDbToolCalls(row.tool_calls),
+  };
+}
+
+export function loadHermesSessionFromDb(
+  sessionId: string,
+  dbPath: string | null = null,
+): Promise<HermesSessionJson | null> {
+  const resolvedPath = dbPath ?? getHermesDbPath();
+  try {
+    const db = new Database(resolvedPath, { readonly: true });
+    try {
+      const session = db
+        .query("SELECT id, model, started_at FROM sessions WHERE id = ?")
+        .get(sessionId) as DbSessionRow | null;
+      if (session === null) {
+        db.close();
+        return Promise.resolve(null);
+      }
+      const rows = db
+        .query(
+          "SELECT role, content, reasoning, tool_calls FROM messages WHERE session_id = ? ORDER BY id",
+        )
+        .all(sessionId) as DbMessageRow[];
+      db.close();
+
+      const messages: HermesSessionMessage[] = [];
+      for (const row of rows) {
+        const role = row.role;
+        if (role !== "user" && role !== "assistant" && role !== "tool") {
+          continue;
+        }
+        messages.push(dbMessageToSessionMessage(row));
+      }
+
+      return Promise.resolve({
+        session_id: session.id,
+        model: session.model,
+        session_start: new Date(session.started_at * 1000).toISOString(),
+        messages,
+      });
+    } catch {
+      db.close();
+      return Promise.resolve(null);
+    }
+  } catch {
+    return Promise.resolve(null);
+  }
+}
+
 export async function loadHermesSession(sessionId: string): Promise<HermesSessionJson | null> {
   const path = getHermesSessionPath(sessionId);
   try {
     const text = await readFile(path, "utf8");
     const raw = JSON.parse(text) as unknown;
-    return parseSessionJson(raw);
+    const result = parseSessionJson(raw);
+    if (result !== null) {
+      return result;
+    }
   } catch {
-    return null;
+    // JSON file not available, fall through to DB
   }
+  return loadHermesSessionFromDb(sessionId);
 }
 
 export function computeDurationMs(sessionStart: string, nowMs: number = Date.now()): number {
