@@ -1,5 +1,6 @@
 export { generateActorReference } from "./actor-reference.js";
 export { generateArchitectureReference } from "./architecture-reference.js";
+export { generateAuthorReference } from "./author-reference.js";
 export { encodeUint64AsCrockford } from "./base32.js";
 export { generateCliReference } from "./cli-reference.js";
 export { env } from "./env.js";

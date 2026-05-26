@@ -8,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 import {
   cmdSkillActor,
   cmdSkillArchitecture,
+  cmdSkillAuthor,
   cmdSkillCli,
   cmdSkillList,
   cmdSkillModerator,
@@ -25,6 +26,7 @@ describe("skill commands", () => {
     expect(result).toContain("moderator");
     expect(result).toContain("actor");
     expect(result).toContain("user");
+    expect(result).toContain("author");
     for (const name of result) {
       expect(name).toMatch(/^\S+$/);
     }
@@ -84,6 +86,17 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
+  test("skill author returns non-empty markdown string", () => {
+    const result = cmdSkillAuthor();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("frontmatter");
+    expect(result).toContain("graph");
+    expect(result).toContain("$START");
+    expect(result).toContain("$END");
+    expect(result).toContain("$status");
+    expect(result.length).toBeGreaterThan(500);
+  });
+
   test("skill help subcommand is suppressed", () => {
     const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
       cwd: join(__dirname, "..", ".."),
@@ -97,6 +110,7 @@ describe("skill commands", () => {
     expect(output).toContain("moderator");
     expect(output).toContain("actor");
     expect(output).toContain("user");
+    expect(output).toContain("author");
     expect(output).toContain("list");
   });
 });
