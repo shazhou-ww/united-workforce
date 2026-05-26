@@ -13,3 +13,4 @@ packages/workflow-template-develop/develop.esm.js
 *.py
 .claude
 tmp.worktrees/
+.worktrees/
