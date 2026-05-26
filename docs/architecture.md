@@ -391,7 +391,7 @@ Everything else is immutable CAS content.
 providers:
   openrouter:
     baseUrl: "https://openrouter.ai/api/v1"
-    apiKeyEnv: "OPENROUTER_API_KEY"
+    apiKey: "sk-..."
 
 models:
   sonnet:

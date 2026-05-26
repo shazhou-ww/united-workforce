@@ -402,7 +402,7 @@ workflow 怎么配置和使用 model？
 ```136:160:packages/workflow-protocol/src/types.ts
 export type ProviderConfig = {
   baseUrl: string;
-  apiKeyEnv: string;
+  apiKey: string;
 };
 
 export type ModelConfig = {
@@ -429,7 +429,7 @@ export type WorkflowConfig = {
 export function resolveModel(config: WorkflowConfig, alias: ModelAlias): ResolvedLlmProvider {
   const modelEntry = config.models[alias];
   const providerEntry = config.providers[modelEntry.provider];
-  const apiKey = process.env[providerEntry.apiKeyEnv];
+  const apiKey = providerEntry.apiKey;
   return { baseUrl: providerEntry.baseUrl, apiKey, model: modelEntry.name };
 }
 ```
