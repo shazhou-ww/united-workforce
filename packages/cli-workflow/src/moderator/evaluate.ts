@@ -43,7 +43,8 @@ export function evaluate(
 
   try {
     const prompt = mustache.render(target.prompt, lastOutput);
-    return { ok: true, value: { role: target.role, prompt } };
+    const location = target.location !== null ? mustache.render(target.location, lastOutput) : null;
+    return { ok: true, value: { role: target.role, prompt, location } };
   } catch (error) {
     return {
       ok: false,

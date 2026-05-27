@@ -61,6 +61,7 @@ function normalizeGraph(
       normalized[status] = {
         role: target.role,
         prompt: target.prompt,
+        location: target.location ?? null,
       };
     }
     result[node] = normalized;

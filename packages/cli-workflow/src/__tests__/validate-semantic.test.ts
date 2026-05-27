@@ -51,11 +51,11 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
       },
     },
     graph: {
-      $START: { _: { role: "writer", prompt: "Begin writing" } },
-      writer: { _: { role: "reviewer", prompt: "Review this: {{{plan}}}" } },
+      $START: { _: { role: "writer", prompt: "Begin writing", location: null } },
+      writer: { _: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null } },
       reviewer: {
-        approved: { role: "$END", prompt: "Done: {{{summary}}}" },
-        rejected: { role: "writer", prompt: "Fix: {{{reason}}}" },
+        approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
+        rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
       },
     },
   };
@@ -67,7 +67,7 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
 describe("Suite 1: Role Reference Integrity", () => {
   test("1.1 graph references unknown role", () => {
     const wf = makeWorkflow();
-    wf.graph.nonexistent = { _: { role: "$END", prompt: "done" } };
+    wf.graph.nonexistent = { _: { role: "$END", prompt: "done", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('unknown role "nonexistent"'))).toBe(true);
   });
@@ -138,8 +138,8 @@ describe("Suite 2: Graph Structure", () => {
   test("2.2 $START has multiple status keys", () => {
     const wf = makeWorkflow();
     wf.graph.$START = {
-      _: { role: "writer", prompt: "Begin" },
-      other: { role: "reviewer", prompt: "Also" },
+      _: { role: "writer", prompt: "Begin", location: null },
+      other: { role: "reviewer", prompt: "Also", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
@@ -149,7 +149,7 @@ describe("Suite 2: Graph Structure", () => {
 
   test("2.3 $START edge uses non-_ status", () => {
     const wf = makeWorkflow();
-    wf.graph.$START = { ready: { role: "writer", prompt: "Begin" } };
+    wf.graph.$START = { ready: { role: "writer", prompt: "Begin", location: null } };
     const errors = validateWorkflow(wf);
     expect(
       errors.some((e) => e.includes('$START must have exactly one edge with status "_"')),
@@ -158,7 +158,7 @@ describe("Suite 2: Graph Structure", () => {
 
   test("2.4 $END has outgoing edges", () => {
     const wf = makeWorkflow();
-    wf.graph.$END = { _: { role: "writer", prompt: "Loop" } };
+    wf.graph.$END = { _: { role: "writer", prompt: "Loop", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("$END must not have outgoing edges"))).toBe(true);
   });
@@ -177,7 +177,7 @@ describe("Suite 2: Graph Structure", () => {
         required: ["$status"],
       } as unknown as string,
     };
-    wf.graph.isolated = { _: { role: "$END", prompt: "done" } };
+    wf.graph.isolated = { _: { role: "$END", prompt: "done", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('role "isolated" is not reachable from $START'))).toBe(
       true,
@@ -186,7 +186,7 @@ describe("Suite 2: Graph Structure", () => {
 
   test("2.6 edge target references invalid role", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "ghost", prompt: "Go to ghost" } };
+    wf.graph.writer = { _: { role: "ghost", prompt: "Go to ghost", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('unknown target role "ghost"'))).toBe(true);
   });
@@ -196,8 +196,8 @@ describe("Suite 3: Status-Edge Consistency", () => {
   test("3.1 single-exit role with multiple graph keys", () => {
     const wf = makeWorkflow();
     wf.graph.writer = {
-      _: { role: "reviewer", prompt: "Review" },
-      extra: { role: "$END", prompt: "Done" },
+      _: { role: "reviewer", prompt: "Review", location: null },
+      extra: { role: "$END", prompt: "Done", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
@@ -209,7 +209,7 @@ describe("Suite 3: Status-Edge Consistency", () => {
 
   test("3.2 single-exit role missing _ key", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { done: { role: "reviewer", prompt: "Review" } };
+    wf.graph.writer = { done: { role: "reviewer", prompt: "Review", location: null } };
     const errors = validateWorkflow(wf);
     expect(
       errors.some((e) => e.includes('role "writer" is single-exit but graph has no "_" key')),
@@ -219,9 +219,9 @@ describe("Suite 3: Status-Edge Consistency", () => {
   test("3.3 multi-exit role with extra statuses", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done" },
-      rejected: { role: "writer", prompt: "Fix" },
-      timeout: { role: "$END", prompt: "Timed out" },
+      approved: { role: "$END", prompt: "Done", location: null },
+      rejected: { role: "writer", prompt: "Fix", location: null },
+      timeout: { role: "$END", prompt: "Timed out", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
@@ -232,7 +232,7 @@ describe("Suite 3: Status-Edge Consistency", () => {
   test("3.4 multi-exit role missing a status", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done" },
+      approved: { role: "$END", prompt: "Done", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
@@ -242,7 +242,7 @@ describe("Suite 3: Status-Edge Consistency", () => {
 
   test("3.5 multi-exit role with _ key", () => {
     const wf = makeWorkflow();
-    wf.graph.reviewer = { _: { role: "$END", prompt: "Done" } };
+    wf.graph.reviewer = { _: { role: "$END", prompt: "Done", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('role "reviewer" is multi-exit but graph uses "_"'))).toBe(
       true,
@@ -265,8 +265,8 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
       } as unknown as string,
     };
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done" },
-      rejected: { role: "writer", prompt: "Fix: {{{comments}}}" },
+      approved: { role: "$END", prompt: "Done", location: null },
+      rejected: { role: "writer", prompt: "Fix: {{{comments}}}", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
@@ -286,9 +286,9 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
       } as unknown as string,
     };
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done" },
-      rejected: { role: "writer", prompt: "Fix" },
-      timeout: { role: "$END", prompt: "Timed out" },
+      approved: { role: "$END", prompt: "Done", location: null },
+      rejected: { role: "writer", prompt: "Fix", location: null },
+      timeout: { role: "$END", prompt: "Timed out", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("extra status keys: timeout"))).toBe(true);
@@ -308,7 +308,7 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
       } as unknown as string,
     };
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done" },
+      approved: { role: "$END", prompt: "Done", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("missing status keys: rejected"))).toBe(true);
@@ -327,7 +327,7 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
         required: ["$status", "plan"],
       } as unknown as string,
     };
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{plan}}}" } };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
   });
@@ -346,8 +346,8 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
       } as unknown as string,
     };
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done: {{{nonexistent}}}" },
-      rejected: { role: "writer", prompt: "Fix: {{{comments}}}" },
+      approved: { role: "$END", prompt: "Done: {{{nonexistent}}}", location: null },
+      rejected: { role: "writer", prompt: "Fix: {{{comments}}}", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("nonexistent") && e.includes("not found"))).toBe(true);
@@ -357,7 +357,7 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
 describe("Suite 4: Mustache Template Variable Existence", () => {
   test("4.1 prompt references nonexistent variable (single-exit)", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{branch}}}" } };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{branch}}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(
       errors.some((e) =>
@@ -369,8 +369,8 @@ describe("Suite 4: Mustache Template Variable Existence", () => {
   test("4.2 prompt references nonexistent variable (multi-exit)", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done: {{{branch}}}" },
-      rejected: { role: "writer", prompt: "Fix: {{{reason}}}" },
+      approved: { role: "$END", prompt: "Done: {{{branch}}}", location: null },
+      rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
@@ -388,7 +388,7 @@ describe("Suite 4: Mustache Template Variable Existence", () => {
 
   test("4.4 $status variable is always valid", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Status: {{$status}}" } };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "Status: {{$status}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
   });
@@ -461,9 +461,9 @@ describe("Suite 6: Multiple Errors Collection", () => {
       } as unknown as string,
     };
     // unknown graph reference
-    wf.graph.nonexistent = { _: { role: "$END", prompt: "done" } };
+    wf.graph.nonexistent = { _: { role: "$END", prompt: "done", location: null } };
     // bad mustache var
-    wf.graph.writer = { _: { role: "reviewer", prompt: "{{{badvar}}}" } };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "{{{badvar}}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });

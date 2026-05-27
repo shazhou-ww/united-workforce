@@ -18,6 +18,8 @@ export type StepRecord = {
   startedAtMs: number;
   /** Date.now() after agent returns */
   completedAtMs: number;
+  /** Working directory where the agent executed. Missing in legacy nodes → "". */
+  cwd: string;
 };
 
 // ── 4.2 Workflow 定义 ───────────────────────────────────────────────
@@ -34,6 +36,8 @@ export type RoleDefinition = {
 export type Target = {
   role: string;
   prompt: string;
+  /** Optional working directory override via mustache template. */
+  location: string | null;
 };
 
 export type WorkflowPayload = {
@@ -48,6 +52,8 @@ export type WorkflowPayload = {
 export type StartNodePayload = {
   workflow: CasRef;
   prompt: string;
+  /** Working directory where the thread was created. */
+  cwd: string;
 };
 
 export type StepNodePayload = StepRecord & {

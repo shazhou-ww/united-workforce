@@ -5,17 +5,17 @@ import { evaluate } from "../moderator/evaluate.js";
 
 const solveIssueGraph: WorkflowPayload["graph"] = {
   $START: {
-    _: { role: "planner", prompt: "Start planning from the issue in the task." },
+    _: { role: "planner", prompt: "Start planning from the issue in the task.", location: null },
   },
   planner: {
-    _: { role: "developer", prompt: "Implement the plan: {{plan}}" },
+    _: { role: "developer", prompt: "Implement the plan: {{plan}}", location: null },
   },
   developer: {
-    _: { role: "reviewer", prompt: "Review the changes: {{summary}}" },
+    _: { role: "reviewer", prompt: "Review the changes: {{summary}}", location: null },
   },
   reviewer: {
-    approved: { role: "$END", prompt: "Done." },
-    rejected: { role: "developer", prompt: "Fix: {{comments}}" },
+    approved: { role: "$END", prompt: "Done.", location: null },
+    rejected: { role: "developer", prompt: "Fix: {{comments}}", location: null },
   },
 };
 
@@ -24,7 +24,11 @@ describe("evaluate", () => {
     const result = evaluate(solveIssueGraph, "$START", { $status: "_" });
     expect(result).toEqual({
       ok: true,
-      value: { role: "planner", prompt: "Start planning from the issue in the task." },
+      value: {
+        role: "planner",
+        prompt: "Start planning from the issue in the task.",
+        location: null,
+      },
     });
   });
 
@@ -35,7 +39,7 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Fix: missing tests" },
+      value: { role: "developer", prompt: "Fix: missing tests", location: null },
     });
   });
 
@@ -43,7 +47,7 @@ describe("evaluate", () => {
     const result = evaluate(solveIssueGraph, "reviewer", { $status: "approved" });
     expect(result).toEqual({
       ok: true,
-      value: { role: "$END", prompt: "Done." },
+      value: { role: "$END", prompt: "Done.", location: null },
     });
   });
 
@@ -70,7 +74,11 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Implement the plan: Add auth middleware" },
+      value: {
+        role: "developer",
+        prompt: "Implement the plan: Add auth middleware",
+        location: null,
+      },
     });
   });
 
@@ -81,14 +89,14 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: 'Fix: use <T> & "Result<T, E>" types' },
+      value: { role: "developer", prompt: 'Fix: use <T> & "Result<T, E>" types', location: null },
     });
   });
 
   test("triple mustache also works for unescaped output", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {
-        _: { role: "developer", prompt: "Fix: {{{comments}}}" },
+        _: { role: "developer", prompt: "Fix: {{{comments}}}", location: null },
       },
     };
     const result = evaluate(graph, "reviewer", {
@@ -97,7 +105,7 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Fix: <script>alert(1)</script>" },
+      value: { role: "developer", prompt: "Fix: <script>alert(1)</script>", location: null },
     });
   });
 
@@ -107,7 +115,11 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Implement the plan: Add auth middleware" },
+      value: {
+        role: "developer",
+        prompt: "Implement the plan: Add auth middleware",
+        location: null,
+      },
     });
   });
 
@@ -117,6 +129,7 @@ describe("evaluate", () => {
         _: {
           role: "developer",
           prompt: "Address: {{review.comments}}",
+          location: null,
         },
       },
     };
@@ -126,7 +139,7 @@ describe("evaluate", () => {
     });
     expect(result).toEqual({
       ok: true,
-      value: { role: "developer", prompt: "Address: refactor the handler" },
+      value: { role: "developer", prompt: "Address: refactor the handler", location: null },
     });
   });
 });

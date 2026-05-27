@@ -20,6 +20,9 @@ const TARGET: JSONSchema = {
   properties: {
     role: { type: "string" },
     prompt: { type: "string" },
+    location: {
+      anyOf: [{ type: "string" }, { type: "null" }],
+    },
   },
   additionalProperties: false,
 };
@@ -49,10 +52,11 @@ export const WORKFLOW_SCHEMA: JSONSchema = {
 export const START_NODE_SCHEMA: JSONSchema = {
   title: "StartNode",
   type: "object",
-  required: ["workflow", "prompt"],
+  required: ["workflow", "prompt", "cwd"],
   properties: {
     workflow: { type: "string", format: "cas_ref" },
     prompt: { type: "string" },
+    cwd: { type: "string" },
   },
   additionalProperties: false,
 };
@@ -60,7 +64,17 @@ export const START_NODE_SCHEMA: JSONSchema = {
 export const STEP_NODE_SCHEMA: JSONSchema = {
   title: "StepNode",
   type: "object",
-  required: ["start", "prev", "role", "output", "detail", "agent", "startedAtMs", "completedAtMs"],
+  required: [
+    "start",
+    "prev",
+    "role",
+    "output",
+    "detail",
+    "agent",
+    "startedAtMs",
+    "completedAtMs",
+    "cwd",
+  ],
   properties: {
     start: { type: "string", format: "cas_ref" },
     prev: {
@@ -73,6 +87,7 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     edgePrompt: { type: "string" },
     startedAtMs: { type: "integer" },
     completedAtMs: { type: "integer" },
+    cwd: { type: "string" },
   },
   additionalProperties: false,
 };

@@ -85,6 +85,7 @@ describe("protocol types", () => {
       edgePrompt: "",
       startedAtMs: 1000,
       completedAtMs: 2000,
+      cwd: "/test/path",
     };
     expect(record.startedAtMs).toBe(1000);
     expect(record.completedAtMs).toBe(2000);
@@ -239,8 +240,8 @@ describe("thread read timing", () => {
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "go" } },
-        worker: { _: { role: "$END", prompt: "" } },
+        $START: { _: { role: "worker", prompt: "go", location: null } },
+        worker: { _: { role: "$END", prompt: "", location: null } },
       },
     });
 
@@ -305,8 +306,8 @@ describe("thread read timing", () => {
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "go" } },
-        worker: { _: { role: "$END", prompt: "" } },
+        $START: { _: { role: "worker", prompt: "go", location: null } },
+        worker: { _: { role: "$END", prompt: "", location: null } },
       },
     });
 

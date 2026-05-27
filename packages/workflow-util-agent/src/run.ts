@@ -72,6 +72,7 @@ async function writeStepNode(options: {
     edgePrompt: options.edgePrompt,
     startedAtMs: options.startedAtMs,
     completedAtMs: options.completedAtMs,
+    cwd: process.cwd(),
   };
   const hash = await options.store.put(options.schemas.stepNode, payload);
   const node = options.store.get(hash);

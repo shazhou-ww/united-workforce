@@ -130,6 +130,7 @@ async function buildHistory(
       edgePrompt: step.edgePrompt ?? "",
       startedAtMs: step.startedAtMs,
       completedAtMs: step.completedAtMs,
+      cwd: step.cwd ?? "",
       content,
     });
   }

@@ -266,7 +266,13 @@ export async function cmdThreadStart(
   workflowId: string,
   prompt: string,
   projectRoot: string,
+  cwd: string = process.cwd(),
 ): Promise<StartOutput> {
+  // Validate cwd is an absolute path
+  if (!isAbsolute(cwd)) {
+    fail("cwd must be an absolute path");
+  }
+
   const uwf = await createUwfStore(storageRoot);
   const workflowHash = await resolveWorkflowCasRef(uwf, storageRoot, workflowId, projectRoot);
 
@@ -278,6 +284,7 @@ export async function cmdThreadStart(
   const startPayload: StartNodePayload = {
     workflow: workflowHash,
     prompt,
+    cwd,
   };
 
   const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
@@ -772,6 +779,7 @@ function spawnAgent(
   threadId: ThreadId,
   role: string,
   edgePrompt: string,
+  cwd: string,
 ): CasRef {
   const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
   let stdout: string;
@@ -780,6 +788,7 @@ function spawnAgent(
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
+      cwd,
     });
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string | null };
@@ -987,6 +996,11 @@ async function cmdThreadStepOnce(
 
   const role = nextResult.value.role;
   const edgePrompt = nextResult.value.prompt;
+
+  // Resolve cwd: use edge location if provided, otherwise inherit thread.cwd
+  const threadCwd = chain.start.cwd;
+  const effectiveCwd = nextResult.value.location !== null ? nextResult.value.location : threadCwd;
+
   const config = await loadWorkflowConfig(storageRoot);
   const agent = resolveAgentConfig(config, workflow, role, agentOverride);
 
@@ -995,7 +1009,7 @@ async function cmdThreadStepOnce(
   });
 
   loadDotenv({ path: getEnvPath(storageRoot) });
-  const newHead = spawnAgent(plog, agent, threadId, role, edgePrompt);
+  const newHead = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
 
   plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
 

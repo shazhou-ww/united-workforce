@@ -4,4 +4,6 @@ export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 export type EvaluateResult = {
   role: string;
   prompt: string;
+  /** Resolved working directory from edge location field (null = inherit thread cwd). */
+  location: string | null;
 };
