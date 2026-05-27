@@ -564,7 +564,7 @@ program
   .option("--base-url <url>", "OpenAI-compatible API base URL")
   .option("--api-key <key>", "API key")
   .option("--model <name>", "Default model name")
-  .option("--agent <name>", "Default agent alias")
+  .option("--agent <name>", "Default agent adapter (e.g. hermes → uwf-hermes)")
   .action(
     (opts: {
       provider?: string;

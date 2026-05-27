@@ -1,10 +1,12 @@
 # @uncaged/workflow-agent-hermes
 
-`uwf-hermes` agent — spawns Hermes chat via ACP and captures session detail.
+`uwf-hermes` — an **agent adapter** that bridges the `uwf` workflow engine and the Hermes CLI.
 
 ## Overview
 
-Layer 3 agent implementation. Wraps the Hermes CLI using the Agent Client Protocol (ACP). On first visit to a role it sends a composed prompt (role definition, task, history, edge prompt); on continuation it resumes the cached session. Session transcripts and raw output are stored as CAS detail nodes.
+`uwf-hermes` is an adapter (not the Hermes CLI itself). The `uwf` engine speaks a generic agent protocol (stdin/stdout frontmatter contract); `uwf-hermes` translates that protocol into Hermes ACP (Agent Client Protocol) calls. Other adapters (e.g. `uwf-claude-code`, `uwf-cursor`) do the same for their respective CLIs.
+
+On first visit to a role it sends a composed prompt (role definition, task, history, edge prompt); on continuation it resumes the cached session. Session transcripts and raw output are stored as CAS detail nodes.
 
 **Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`
 
