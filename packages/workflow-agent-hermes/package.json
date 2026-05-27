@@ -42,5 +42,8 @@
   "bugs": {
     "url": "https://github.com/shazhou-ww/uncaged-workflow/issues"
   },
+  "engines": {
+    "bun": ">= 1.0.0"
+  },
   "license": "MIT"
 }
