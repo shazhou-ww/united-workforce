@@ -618,5 +618,65 @@ defaultModel: default
         rmSync(tempDir, { recursive: true, force: true });
       }
     });
+
+    test("agentOverrides — accepts valid 3-segment path", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await cmdConfigSet(tempDir, "agentOverrides.solve-issue.planner", "claude-code");
+        const value = await cmdConfigGet(tempDir, "agentOverrides.solve-issue.planner");
+        expect(value).toBe("claude-code");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("agentOverrides — rejects incomplete path (2 segments)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "agentOverrides.solve-issue", "hermes")).rejects.toThrow(
+          /incomplete path|must specify a field/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("modelOverrides — accepts valid 2-segment path", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await cmdConfigSet(tempDir, "modelOverrides.extract", "gpt4");
+        const value = await cmdConfigGet(tempDir, "modelOverrides.extract");
+        expect(value).toBe("gpt4");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("modelOverrides — rejects incomplete path (1 segment only)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "modelOverrides", "gpt4")).rejects.toThrow(
+          /incomplete path|must specify a field/i,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("rejects unknown top-level key (regression)", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
+      try {
+        createTestConfig(tempDir, sampleConfig);
+        await expect(cmdConfigSet(tempDir, "randomKey", "value")).rejects.toThrow(
+          /Unknown config key/,
+        );
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
   });
 });
