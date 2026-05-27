@@ -29,6 +29,7 @@ export type {
   ThreadForkOutput,
   ThreadId,
   ThreadListItem,
+  ThreadStatus,
   ThreadStepsOutput,
   ThreadsIndex,
   WorkflowConfig,

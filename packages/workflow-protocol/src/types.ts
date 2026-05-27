@@ -76,17 +76,27 @@ export type ModeratorContext = {
 
 // ── 4.5 CLI 输出 ────────────────────────────────────────────────────
 
+/** Thread status — unified status representation */
+export type ThreadStatus = "idle" | "running" | "completed" | "cancelled";
+
 /** uwf thread start */
 export type StartOutput = {
   workflow: CasRef;
   thread: ThreadId;
 };
 
-/** uwf thread step / uwf thread show */
+/**
+ * Output from thread show and thread exec commands.
+ *
+ * @property status - Current thread status (idle/running/completed/cancelled)
+ * @property done - @deprecated Use status field instead. True if thread is completed or cancelled.
+ * @property background - @deprecated Use status field instead. Always null in current implementation.
+ */
 export type StepOutput = {
   workflow: CasRef;
   thread: ThreadId;
   head: CasRef;
+  status: ThreadStatus;
   done: boolean;
   background: boolean | null;
 };

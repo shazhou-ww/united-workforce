@@ -12,6 +12,7 @@ import type {
   StepOutput,
   ThreadId,
   ThreadListItem,
+  ThreadStatus,
   ThreadsIndex,
   WorkflowConfig,
   WorkflowPayload,
@@ -315,10 +316,16 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
     if (workflow === null) {
       fail(`failed to resolve workflow from head: ${activeHead}`);
     }
+
+    // Check if thread is running
+    const runningMarker = await isThreadRunning(storageRoot, threadId);
+    const status: ThreadStatus = runningMarker !== null ? "running" : "idle";
+
     return {
       workflow,
       thread: threadId,
       head: activeHead,
+      status,
       done: false,
       background: null,
     };
@@ -326,10 +333,13 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
 
   const hist = await findThreadInHistory(storageRoot, threadId);
   if (hist !== null) {
+    const status: ThreadStatus = hist.reason === "cancelled" ? "cancelled" : "completed";
+
     return {
       workflow: hist.workflow,
       thread: threadId,
       head: hist.head,
+      status,
       done: true,
       background: null,
     };
@@ -337,8 +347,6 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
 
   fail(`thread not found: ${threadId}`);
 }
-
-export type ThreadStatus = "idle" | "running" | "completed" | "cancelled";
 
 export type ThreadListItemWithStatus = ThreadListItem & {
   status: ThreadStatus;
@@ -947,6 +955,7 @@ async function cmdThreadStepBackground(
       workflow: workflowHash,
       thread: threadId,
       head: headHash,
+      status: "running",
       done: false,
       background: true,
     },
@@ -989,6 +998,7 @@ async function cmdThreadStepOnce(
       workflow: workflowHash,
       thread: threadId,
       head: headHash,
+      status: "completed",
       done: true,
       background: null,
     };
@@ -1041,10 +1051,14 @@ async function cmdThreadStepOnce(
     await archiveThread(storageRoot, threadId, workflowHash, newHead);
   }
 
+  // Determine status based on whether thread is done and running state
+  const status: ThreadStatus = done ? "completed" : "idle";
+
   return {
     workflow: workflowHash,
     thread: threadId,
     head: newHead,
+    status,
     done,
     background: null,
   };

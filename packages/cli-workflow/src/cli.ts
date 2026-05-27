@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId, ThreadStatus } from "@uncaged/workflow-protocol";
 import { Command } from "commander";
 import {
   cmdCasGet,
@@ -38,7 +38,6 @@ import {
   cmdThreadStart,
   cmdThreadStop,
   THREAD_READ_DEFAULT_QUOTA,
-  type ThreadStatus,
 } from "./commands/thread.js";
 import { parseTimeInput } from "./commands/thread-time-parser.js";
 import { cmdWorkflowAdd, cmdWorkflowList, cmdWorkflowShow } from "./commands/workflow.js";
