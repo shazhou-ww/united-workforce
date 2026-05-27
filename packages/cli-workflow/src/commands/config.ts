@@ -5,7 +5,10 @@ import { parse, stringify } from "yaml";
 /**
  * Valid configuration key schema
  */
-const VALID_CONFIG_KEYS: Record<string, { nested: boolean; knownFields?: string[] }> = {
+const VALID_CONFIG_KEYS: Record<
+  string,
+  { nested: boolean; knownFields?: string[]; minDepth?: number }
+> = {
   providers: {
     nested: true,
     knownFields: ["baseUrl", "apiKey"],
@@ -17,6 +20,17 @@ const VALID_CONFIG_KEYS: Record<string, { nested: boolean; knownFields?: string[
   agents: {
     nested: true,
     knownFields: ["command", "args"],
+  },
+  agentOverrides: {
+    nested: true,
+    // agentOverrides.<workflowName>.<roleName> = agentAlias (string value)
+    // No knownFields — workflow/role names are user-defined
+  },
+  modelOverrides: {
+    nested: true,
+    minDepth: 2,
+    // modelOverrides.<scenario> = modelAlias (string value)
+    // No knownFields — scenarios are user-defined
   },
   defaultAgent: { nested: false },
   defaultModel: { nested: false },
@@ -43,8 +57,9 @@ function validateConfigKey(path: string[]): void {
     throw new Error(`${topLevel} is a scalar key and cannot have nested properties`);
   }
 
-  // Nested keys must have at least 3 segments (e.g., providers.myProvider.baseUrl)
-  if (schema.nested && path.length < 3) {
+  // Nested keys must have at least minDepth segments (default 3)
+  const minDepth = schema.minDepth ?? 3;
+  if (schema.nested && path.length < minDepth) {
     const fields = schema.knownFields?.join(", ") ?? "";
     throw new Error(
       `Incomplete path for ${topLevel}. Must specify a field (e.g., ${topLevel}.<name>.<field>). Valid fields: ${fields}`,
