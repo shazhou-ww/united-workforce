@@ -36,8 +36,13 @@ function isTarget(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
+  const hasValidLocation =
+    value.location === undefined || value.location === null || typeof value.location === "string";
   return (
-    typeof value.role === "string" && typeof value.prompt === "string" && value.prompt.trim() !== ""
+    typeof value.role === "string" &&
+    typeof value.prompt === "string" &&
+    value.prompt.trim() !== "" &&
+    hasValidLocation
   );
 }
 
@@ -95,5 +100,22 @@ export function parseWorkflowPayload(raw: unknown): WorkflowPayload | null {
   if (!isStringRecord(raw.roles, isRoleDefinition) || !isGraph(raw.graph)) {
     return null;
   }
-  return raw as WorkflowPayload;
+
+  // Normalize location field: undefined → null
+  const normalized = { ...raw } as WorkflowPayload;
+  for (const roleName of Object.keys(normalized.graph)) {
+    const statusMap = normalized.graph[roleName];
+    if (statusMap !== undefined) {
+      for (const status of Object.keys(statusMap)) {
+        const target = statusMap[status];
+        if (target !== undefined) {
+          if (target.location === undefined) {
+            target.location = null;
+          }
+        }
+      }
+    }
+  }
+
+  return normalized;
 }
