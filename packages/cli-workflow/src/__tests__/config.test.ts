@@ -143,6 +143,44 @@ defaultModel: default
         const masked = maskApiKeys(config);
         expect(masked).toEqual(config);
       });
+
+      test("does not mask non-provider apiKey fields", () => {
+        const config = {
+          apiKey: "root-level-key",
+          providers: {
+            dashscope: { apiKey: "sk-secret" },
+          },
+          models: {
+            default: { provider: "dashscope" },
+          },
+        };
+        const masked = maskApiKeys(config);
+        // Root-level apiKey should NOT be masked
+        expect(masked.apiKey).toBe("root-level-key");
+        // Provider apiKey SHOULD be masked
+        const providers = masked.providers as Record<string, Record<string, unknown>>;
+        expect(providers.dashscope.apiKey).toBe("***MASKED***");
+      });
+
+      test("handles empty provider object", () => {
+        const config = {
+          providers: { dashscope: {} },
+        };
+        const masked = maskApiKeys(config);
+        expect(masked).toEqual({ providers: { dashscope: {} } });
+      });
+
+      test("handles provider with null apiKey", () => {
+        const config = {
+          providers: {
+            dashscope: { apiKey: null, baseUrl: "https://example.com" },
+          },
+        };
+        const masked = maskApiKeys(config);
+        const providers = masked.providers as Record<string, Record<string, unknown>>;
+        expect(providers.dashscope.apiKey).toBe("***MASKED***");
+        expect(providers.dashscope.baseUrl).toBe("https://example.com");
+      });
     });
   });
 
@@ -617,6 +655,26 @@ defaultModel: default
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe("no legacy apiKeyEnv references", () => {
+    test("config.ts has no references to apiKeyEnv", () => {
+      const configSource = readFileSync(
+        join(__dirname, "..", "commands", "config.ts"),
+        "utf8",
+      );
+      expect(configSource).not.toContain("apiKeyEnv");
+    });
+
+    test("config.test.ts has no references to apiKeyEnv (except this test)", () => {
+      const testSource = readFileSync(__filename, "utf8");
+      // Remove this test block's own mentions before checking
+      const withoutThisTest = testSource.replace(
+        /describe\("no legacy apiKeyEnv references"[\s\S]*$/,
+        "",
+      );
+      expect(withoutThisTest).not.toContain("apiKeyEnv");
     });
   });
 });
