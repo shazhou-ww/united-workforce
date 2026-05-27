@@ -43,6 +43,14 @@ export function evaluate(
 
   try {
     const prompt = mustache.render(target.prompt, lastOutput);
+    if (prompt.trim() === "") {
+      return {
+        ok: false,
+        error: new Error(
+          `edge prompt resolved to empty string for role "${target.role}" (template: "${target.prompt}"). Check that upstream output includes required variables.`,
+        ),
+      };
+    }
     const location = target.location !== null ? mustache.render(target.location, lastOutput) : null;
     return { ok: true, value: { role: target.role, prompt, location } };
   } catch (error) {
