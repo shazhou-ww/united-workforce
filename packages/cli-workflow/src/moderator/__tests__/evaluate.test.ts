@@ -1,6 +1,97 @@
 import { describe, expect, test } from "vitest";
 import { evaluate } from "../evaluate.js";
 
+describe("Edge prompt template variable resolution", () => {
+  test("returns error when rendered prompt is empty string", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "{{{userPrompt}}}", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("prompt");
+      expect(result.error.message).toContain("empty");
+    }
+  });
+
+  test("returns error when rendered prompt is whitespace-only", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "  {{{userPrompt}}}  ", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("prompt");
+      expect(result.error.message).toContain("empty");
+    }
+  });
+
+  test("succeeds when all template variables resolve to non-empty values", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "{{{userPrompt}}}", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", { userPrompt: "Fix the bug" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt).toBe("Fix the bug");
+    }
+  });
+
+  test("succeeds with static (no-variable) prompt", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "Classify this input", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {});
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt).toBe("Classify this input");
+    }
+  });
+
+  test("succeeds when prompt has mix of static text and unresolved variables", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "Please handle: {{{userPrompt}}}", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {});
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt).toBe("Please handle: ");
+    }
+  });
+
+  test("returns error when ALL variables missing and no static text remains", () => {
+    const graph = {
+      $START: {
+        _: { role: "classifier", prompt: "{{{a}}}{{{b}}}", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {});
+
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("Moderator location resolution", () => {
   test("returns null location when edge has no location field", () => {
     const graph = {

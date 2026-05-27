@@ -32,13 +32,16 @@ function getNamedArg(argv: string[], name: string): string {
   return argv[idx + 1];
 }
 
-function parseArgv(argv: string[]): { threadId: ThreadId; role: string; prompt: string } {
+export function parseArgv(argv: string[]): { threadId: ThreadId; role: string; prompt: string } {
   const threadId = getNamedArg(argv, "--thread");
   const role = getNamedArg(argv, "--role");
   const prompt = getNamedArg(argv, "--prompt");
   if (threadId === "") fail(USAGE);
   if (role === "") fail(USAGE);
-  if (prompt === "") fail(USAGE);
+  if (prompt === "")
+    fail(
+      `--prompt is empty. If this agent was spawned by uwf, the edge prompt template may have unresolved variables. ${USAGE}`,
+    );
   return { threadId: threadId as ThreadId, role, prompt };
 }
 
