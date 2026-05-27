@@ -118,10 +118,17 @@ thread
   .description("Create a thread without executing")
   .argument("<workflow>", "Workflow name or hash")
   .requiredOption("-p, --prompt <text>", "User prompt")
-  .action((workflow: string, opts: { prompt: string }) => {
+  .option("--cwd <path>", "Working directory for thread execution (default: process.cwd())")
+  .action((workflow: string, opts: { prompt: string; cwd: string | undefined }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdThreadStart(storageRoot, workflow, opts.prompt, process.cwd());
+      const result = await cmdThreadStart(
+        storageRoot,
+        workflow,
+        opts.prompt,
+        process.cwd(),
+        opts.cwd ?? process.cwd(),
+      );
       writeOutput(result);
     });
   });
