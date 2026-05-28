@@ -1,25 +1,27 @@
 # UWF Bootstrap Guide
 
-This guide helps any AI agent set up `uwf` (Uncaged Workflow) from scratch.
+This guide helps any AI agent set up `uwf` (Uncaged Workflow) from scratch — or self-check and upgrade an existing installation.
 
 ## Prerequisites
 
 - **bun** — `uwf` is built with bun. Install: `curl -fsSL https://bun.sh/install | bash`
 - **Network access** — to install npm packages
 
-## 1. Install uwf CLI
+> **Already have uwf?** Jump to [Self-Check & Upgrade](#self-check--upgrade).
+
+---
+
+## Fresh Install
+
+### 1. Install uwf CLI
 
 ```bash
 bun install -g @uncaged/cli-workflow
 ```
 
-Verify:
+✅ **Check:** `uwf --version` prints a version number (e.g. `0.5.1`).
 
-```bash
-uwf --version
-```
-
-## 2. Install Agent Adapter
+### 2. Install Agent Adapter
 
 Install the adapter that matches your agent runtime. Pick **one**:
 
@@ -32,7 +34,9 @@ Install the adapter that matches your agent runtime. Pick **one**:
 bun install -g @uncaged/workflow-agent-hermes
 ```
 
-## 3. Setup
+✅ **Check:** `uwf-hermes --version` prints a version number.
+
+### 3. Setup
 
 Run the interactive wizard:
 
@@ -53,7 +57,7 @@ uwf setup \
 
 This creates `~/.uncaged/workflow/config.yaml` with your provider, model, and default agent.
 
-### Config Structure
+#### Config Structure
 
 ```yaml
 providers:
@@ -72,18 +76,19 @@ defaultAgent: hermes
 defaultModel: default
 ```
 
-## 4. Verify Installation
+✅ **Check:** `cat ~/.uncaged/workflow/config.yaml` shows valid provider, model, and agent config.
+
+### 4. Verify Installation
 
 ```bash
-# List workflows (should return empty or existing ones)
-uwf workflow list
-
-# Check built-in help
-uwf skill user     # usage guide
-uwf skill author   # workflow authoring guide
+uwf workflow list    # should return empty array or existing workflows
+uwf skill user       # prints usage guide
+uwf skill author     # prints workflow authoring guide
 ```
 
-## 5. Add the uwf Skill
+✅ **Check:** All three commands run without errors.
+
+### 5. Add the uwf Skill
 
 Copy the skill file from this repo into your agent's skill library:
 
@@ -93,9 +98,9 @@ mkdir -p ~/.hermes/skills/devops/uwf
 cp skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
 ```
 
-The skill teaches the agent to use `uwf skill user` and `uwf skill author` for detailed reference, keeping the skill itself minimal.
+✅ **Check:** `cat ~/.hermes/skills/devops/uwf/SKILL.md` shows the skill content with triggers `uwf`, `workflow`, `工作流`.
 
-## 6. Quick Smoke Test
+### 6. Smoke Test
 
 ```bash
 # Register an example workflow
@@ -104,10 +109,76 @@ uwf workflow add examples/analyze-topic.yaml
 # Start a thread
 uwf thread start analyze-topic -p "Analyze the concept of technical debt"
 
-# Execute it (runs one moderator → agent → extract cycle)
+# Execute it (one moderator → agent → extract cycle)
 uwf thread exec <thread-id>
 ```
 
-## Done
+✅ **Check:** Thread reaches `completed` status. Verify with `uwf thread list`.
 
-The agent now has `uwf` + agent adapter installed, configured, and a skill to guide future usage. For workflow authoring details, run `uwf skill author`.
+---
+
+## Self-Check & Upgrade
+
+Already have uwf installed? Run through this checklist to verify and upgrade.
+
+### Version Check
+
+```bash
+uwf --version
+uwf-hermes --version   # or your agent adapter
+```
+
+Compare with latest published versions:
+
+```bash
+bun pm ls -g | grep -E "cli-workflow|workflow-agent"
+npm info @uncaged/cli-workflow version
+npm info @uncaged/workflow-agent-hermes version
+```
+
+If local version < published version, upgrade:
+
+```bash
+bun install -g @uncaged/cli-workflow@latest
+bun install -g @uncaged/workflow-agent-hermes@latest
+```
+
+✅ **Check:** `uwf --version` matches `npm info @uncaged/cli-workflow version`.
+
+### Config Check
+
+```bash
+cat ~/.uncaged/workflow/config.yaml
+```
+
+Verify:
+- [ ] `providers` has at least one entry with valid `baseUrl` and `apiKey`
+- [ ] `models.default` references an existing provider
+- [ ] `agents` has your adapter configured
+- [ ] `defaultAgent` and `defaultModel` are set
+
+### Skill Check
+
+```bash
+cat ~/.hermes/skills/devops/uwf/SKILL.md
+```
+
+Verify:
+- [ ] File exists and has `triggers: [uwf, workflow, 工作流]`
+- [ ] Content matches the latest `skills/uwf-skill.md` from this repo
+
+If outdated, re-copy:
+
+```bash
+cp skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
+```
+
+### Functional Check
+
+```bash
+uwf workflow list      # should not error
+uwf skill user         # should print usage guide
+uwf skill author       # should print authoring guide
+```
+
+✅ All green? You're good to go.
