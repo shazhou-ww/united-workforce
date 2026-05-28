@@ -163,11 +163,13 @@ Verify:
 cat ~/.hermes/skills/devops/uwf/SKILL.md
 ```
 
-Verify:
-- [ ] File exists and has `triggers: [uwf, workflow, 工作流]`
-- [ ] Content matches the latest `skills/uwf-skill.md` from this repo
+Verify the skill is up to date:
 
-If outdated, re-copy:
+```bash
+diff skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
+```
+
+If `diff` produces any output, the local skill is outdated. Re-copy:
 
 ```bash
 cp skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
