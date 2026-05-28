@@ -23,6 +23,7 @@ import {
   generateUlid,
   type ProcessLogger,
 } from "@uncaged/workflow-util";
+import type { AdapterOutput } from "@uncaged/workflow-util-agent";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
@@ -788,7 +789,7 @@ function spawnAgent(
   role: string,
   edgePrompt: string,
   cwd: string,
-): CasRef {
+): AdapterOutput {
   const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
   let stdout: string;
   try {
@@ -811,10 +812,22 @@ function spawnAgent(
   }
 
   const line = stdout.trim().split("\n").pop()?.trim() ?? "";
-  if (!isCasRef(line)) {
-    failStep(plog, `agent stdout is not a valid CAS hash: ${line || "(empty)"}`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    failStep(plog, `agent stdout last line is not valid JSON: ${line || "(empty)"}`);
   }
-  return line;
+  const obj = parsed as Record<string, unknown>;
+  if (
+    typeof obj !== "object" ||
+    obj === null ||
+    typeof obj.stepHash !== "string" ||
+    !isCasRef(obj.stepHash as string)
+  ) {
+    failStep(plog, `agent stdout JSON missing valid stepHash: ${line}`);
+  }
+  return obj as unknown as AdapterOutput;
 }
 
 async function archiveThread(
@@ -1019,7 +1032,8 @@ async function cmdThreadStepOnce(
   });
 
   loadDotenv({ path: getEnvPath(storageRoot) });
-  const newHead = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
+  const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
+  const newHead = agentResult.stepHash as CasRef;
 
   plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
 

@@ -37,6 +37,16 @@ export type AgentContinueFn = (
 
 export type AgentRunFn = (ctx: AgentContext) => Promise<AgentRunResult>;
 
+export type AdapterOutput = {
+  stepHash: string;
+  detailHash: string;
+  role: string;
+  frontmatter: Record<string, unknown>;
+  body: string;
+  startedAtMs: number;
+  completedAtMs: number;
+};
+
 export type AgentOptions = {
   name: string;
   run: AgentRunFn;

@@ -20,6 +20,7 @@ type StandardKey = (typeof STANDARD_KEYS)[number];
 export type FrontmatterFastPathResult = {
   body: string;
   outputHash: CasRef;
+  frontmatter: Record<string, unknown>;
 };
 
 function extractYamlBlock(raw: string): string | null {
@@ -176,5 +177,5 @@ export async function tryFrontmatterFastPath(
     return null;
   }
 
-  return { body, outputHash };
+  return { body, outputHash, frontmatter: candidate };
 }

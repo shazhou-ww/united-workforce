@@ -6,7 +6,7 @@ import { buildContextWithMeta } from "./context.js";
 import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
 import { getEnvPath, resolveStorageRoot } from "./storage.js";
-import type { AgentOptions } from "./types.js";
+import type { AdapterOutput, AgentOptions } from "./types.js";
 
 const MAX_FRONTMATTER_RETRIES = 2;
 
@@ -85,14 +85,24 @@ async function writeStepNode(options: {
   return hash;
 }
 
+type ExtractedOutput = {
+  outputHash: CasRef;
+  frontmatter: Record<string, unknown>;
+  body: string;
+};
+
 async function tryExtractOutput(
   rawOutput: string,
   outputSchema: CasRef,
   ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
-): Promise<CasRef | null> {
+): Promise<ExtractedOutput | null> {
   const fastPath = await tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store);
   if (fastPath !== null) {
-    return fastPath.outputHash;
+    return {
+      outputHash: fastPath.outputHash,
+      frontmatter: fastPath.frontmatter,
+      body: fastPath.body,
+    };
   }
   return null;
 }
@@ -148,9 +158,9 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     const primaryDetailHash = agentResult.detailHash;
 
     // Try to extract frontmatter; retry via continue if it fails
-    let outputHash = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
+    let extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
 
-    for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && outputHash === null; retry++) {
+    for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
       const correctionMessage =
         "Your previous response did not contain valid YAML frontmatter matching the role schema.\n" +
         "You MUST begin your response with a YAML frontmatter block (--- delimited).\n" +
@@ -159,10 +169,10 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       agentResult = await runWithMessage("agent continue failed", () =>
         options.continue(agentResult.sessionId, correctionMessage, ctx.meta.store),
       );
-      outputHash = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
+      extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
     }
 
-    if (outputHash === null) {
+    if (extracted === null) {
       fail(
         "Agent output does not contain valid YAML frontmatter matching the role schema " +
           `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
@@ -172,13 +182,22 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     const completedAtMs = Date.now();
     const stepHash = await persistStep({
       ctx,
-      outputHash,
+      outputHash: extracted.outputHash,
       detailHash: primaryDetailHash,
       agentName: agentLabel(options.name),
       startedAtMs,
       completedAtMs,
     });
 
-    process.stdout.write(`${stepHash}\n`);
+    const adapterOutput: AdapterOutput = {
+      stepHash,
+      detailHash: primaryDetailHash,
+      role,
+      frontmatter: extracted.frontmatter,
+      body: extracted.body,
+      startedAtMs,
+      completedAtMs,
+    };
+    process.stdout.write(`${JSON.stringify(adapterOutput)}\n`);
   };
 }
