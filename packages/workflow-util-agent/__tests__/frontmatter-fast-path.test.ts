@@ -5,17 +5,13 @@ import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** JSON Schema that exactly matches the AgentFrontmatter fields. */
-const FRONTMATTER_SCHEMA = {
+/** JSON Schema that matches the new status-only AgentFrontmatter. */
+const STATUS_ONLY_SCHEMA = {
   type: "object",
   properties: {
     status: { anyOf: [{ type: "string" }, { type: "null" }] },
-    next: { anyOf: [{ type: "string" }, { type: "null" }] },
-    confidence: { anyOf: [{ type: "number" }, { type: "null" }] },
-    artifacts: { type: "array", items: { type: "string" } },
-    scope: { type: "string" },
   },
-  required: ["status", "next", "confidence", "artifacts", "scope"],
+  required: ["status"],
   additionalProperties: false,
 };
 
@@ -56,24 +52,41 @@ async function makeStoreWithSchema(schema: Record<string, unknown>) {
   return { store, schemaHash };
 }
 
+// ── STANDARD_KEYS ────────────────────────────────────────────────────────────
+
+describe("STANDARD_KEYS contains only status", () => {
+  test("STANDARD_KEYS is ['status']", async () => {
+    // We verify indirectly: defaultCandidate (no schema fields) returns only { status }
+    const { store, schemaHash } = await makeStoreWithSchema({
+      type: "object",
+      properties: {
+        status: { anyOf: [{ type: "string" }, { type: "null" }] },
+      },
+    });
+
+    const raw = "---\nstatus: done\n---\n\nBody.";
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).not.toBeNull();
+
+    const node = store.get(result!.outputHash);
+    expect(node).not.toBeNull();
+    const payload = node!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("done");
+    // Legacy fields must NOT be present
+    expect(payload.next).toBeUndefined();
+    expect(payload.confidence).toBeUndefined();
+    expect(payload.artifacts).toBeUndefined();
+    expect(payload.scope).toBeUndefined();
+  });
+});
+
 // ── Happy path ─────────────────────────────────────────────────────────────────
 
 describe("tryFrontmatterFastPath — happy path", () => {
   test("parses valid frontmatter and returns outputHash + stripped body", async () => {
-    const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
+    const { store, schemaHash } = await makeStoreWithSchema(STATUS_ONLY_SCHEMA);
 
-    const raw = [
-      "---",
-      "status: done",
-      "next: reviewer",
-      "confidence: 0.9",
-      "artifacts: [src/foo.ts]",
-      "scope: role",
-      "---",
-      "",
-      "## Summary",
-      "Work is complete.",
-    ].join("\n");
+    const raw = ["---", "status: done", "---", "", "## Summary", "Work is complete."].join("\n");
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
 
@@ -85,11 +98,10 @@ describe("tryFrontmatterFastPath — happy path", () => {
     expect((result?.outputHash ?? "").length).toBeGreaterThan(0);
   });
 
-  test("stored CAS node payload matches frontmatter fields", async () => {
-    const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
+  test("stored CAS node payload has only status", async () => {
+    const { store, schemaHash } = await makeStoreWithSchema(STATUS_ONLY_SCHEMA);
 
-    const raw =
-      "---\nstatus: done\nnext: null\nconfidence: null\nartifacts: []\nscope: role\n---\n\nBody.";
+    const raw = "---\nstatus: done\n---\n\nBody.";
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
@@ -98,10 +110,29 @@ describe("tryFrontmatterFastPath — happy path", () => {
     expect(node).not.toBeNull();
     const payload = node!.payload as Record<string, unknown>;
     expect(payload.status).toBe("done");
-    expect(payload.next).toBeNull();
-    expect(payload.confidence).toBeNull();
-    expect(payload.artifacts).toEqual([]);
-    expect(payload.scope).toBe("role");
+    expect(Object.keys(payload)).toEqual(["status"]);
+  });
+});
+
+// ── Legacy fields in input are ignored ──────────────────────────────────────
+
+describe("tryFrontmatterFastPath — legacy fields ignored", () => {
+  test("legacy fields in input do not appear in CAS output", async () => {
+    const { store, schemaHash } = await makeStoreWithSchema(STATUS_ONLY_SCHEMA);
+
+    const raw =
+      "---\nstatus: done\nnext: reviewer\nconfidence: 0.9\nartifacts: [a.ts]\nscope: thread\n---\n\nBody.";
+
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).not.toBeNull();
+
+    const node = store.get(result!.outputHash);
+    const payload = node!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("done");
+    expect(payload.next).toBeUndefined();
+    expect(payload.confidence).toBeUndefined();
+    expect(payload.artifacts).toBeUndefined();
+    expect(payload.scope).toBeUndefined();
   });
 });
 
@@ -109,7 +140,7 @@ describe("tryFrontmatterFastPath — happy path", () => {
 
 describe("tryFrontmatterFastPath — fallback: no frontmatter", () => {
   test("returns null for plain markdown without frontmatter block", async () => {
-    const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
+    const { store, schemaHash } = await makeStoreWithSchema(STATUS_ONLY_SCHEMA);
 
     const result = await tryFrontmatterFastPath(
       "This is plain markdown without any frontmatter.",
@@ -121,35 +152,13 @@ describe("tryFrontmatterFastPath — fallback: no frontmatter", () => {
   });
 });
 
-// ── Fallback: invalid frontmatter ─────────────────────────────────────────────
-
-describe("tryFrontmatterFastPath — fallback: invalid frontmatter", () => {
-  test("returns null when confidence is out of range [0, 1]", async () => {
-    const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
-
-    const raw = "---\nstatus: done\nconfidence: 1.5\nscope: role\n---\n\nBody.";
-
-    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
-    expect(result).toBeNull();
-  });
-
-  test("returns null when next contains whitespace", async () => {
-    const { store, schemaHash } = await makeStoreWithSchema(FRONTMATTER_SCHEMA);
-
-    const raw = "---\nstatus: done\nnext: some role\nscope: role\n---\n\nBody.";
-
-    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
-    expect(result).toBeNull();
-  });
-});
-
 // ── Fallback: schema mismatch ─────────────────────────────────────────────────
 
 describe("tryFrontmatterFastPath — fallback: schema mismatch", () => {
   test("returns null when outputSchema requires fields not in frontmatter", async () => {
     const { store, schemaHash } = await makeStoreWithSchema(STRICT_SCHEMA);
 
-    const raw = "---\nstatus: done\nscope: role\n---\n\nBody.";
+    const raw = "---\nstatus: done\n---\n\nBody.";
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).toBeNull();
@@ -194,7 +203,7 @@ describe("tryFrontmatterFastPath — role-specific fields", () => {
   test("returns null when required role-specific field is missing", async () => {
     const { store, schemaHash } = await makeStoreWithSchema(REVIEWER_SCHEMA);
 
-    const raw = "---\nstatus: done\nscope: role\n---\n\nBody.";
+    const raw = "---\nstatus: done\n---\n\nBody.";
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).toBeNull();

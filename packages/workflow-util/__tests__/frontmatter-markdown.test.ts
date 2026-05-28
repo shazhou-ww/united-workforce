@@ -41,31 +41,13 @@ describe("parseFrontmatterMarkdown", () => {
     });
   });
 
-  describe("full frontmatter document", () => {
-    it("parses all fields from a well-formed document", () => {
-      const raw = `---
-status: done
-next: reviewer
-confidence: 0.9
-artifacts:
-  - src/foo.ts
-  - src/bar.ts
-scope: thread
----
-
-## Summary
-
-Everything looks good.`;
-
+  describe("status-only frontmatter", () => {
+    it("parses status-only frontmatter", () => {
+      const raw = "---\nstatus: done\n---\nbody";
       const result = parseFrontmatterMarkdown(raw);
       expect(result.frontmatter).not.toBeNull();
-      const fm = result.frontmatter!;
-      expect(fm.status).toBe("done");
-      expect(fm.next).toBe("reviewer");
-      expect(fm.confidence).toBe(0.9);
-      expect(fm.artifacts).toEqual(["src/foo.ts", "src/bar.ts"]);
-      expect(fm.scope).toBe("thread");
-      expect(result.body).toBe("## Summary\n\nEverything looks good.");
+      expect(result.frontmatter).toEqual({ status: "done" });
+      expect(result.body).toBe("body");
     });
 
     it("strips leading newline from body", () => {
@@ -84,6 +66,22 @@ Everything looks good.`;
       const raw = "---\nstatus: done\n---";
       const result = parseFrontmatterMarkdown(raw);
       expect(result.body).toBe("");
+    });
+  });
+
+  describe("ignores legacy fields", () => {
+    it("legacy fields next/confidence/artifacts/scope are NOT present on result", () => {
+      const raw =
+        "---\nstatus: done\nnext: reviewer\nconfidence: 0.9\nartifacts:\n  - src/foo.ts\nscope: thread\n---\n\nBody.";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      const fm = result.frontmatter!;
+      expect(fm.status).toBe("done");
+      // Legacy fields must not exist on the object at all
+      expect("next" in fm).toBe(false);
+      expect("confidence" in fm).toBe(false);
+      expect("artifacts" in fm).toBe(false);
+      expect("scope" in fm).toBe(false);
     });
   });
 
@@ -106,101 +104,9 @@ Everything looks good.`;
     });
 
     it("returns null status when omitted", () => {
-      const raw = "---\nconfidence: 0.5\n---\nbody";
+      const raw = "---\nfoo: bar\n---\nbody";
       const result = parseFrontmatterMarkdown(raw);
       expect(result.frontmatter?.status).toBeNull();
-    });
-  });
-
-  describe("confidence field", () => {
-    it("parses integer as number", () => {
-      const raw = "---\nconfidence: 1\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.confidence).toBe(1);
-    });
-
-    it("parses decimal", () => {
-      const raw = "---\nconfidence: 0.75\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.confidence).toBe(0.75);
-    });
-
-    it("returns null when omitted", () => {
-      const raw = "---\nstatus: done\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.confidence).toBeNull();
-    });
-
-    it("returns null for non-numeric value", () => {
-      const raw = "---\nconfidence: high\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.confidence).toBeNull();
-    });
-  });
-
-  describe("artifacts field", () => {
-    it("parses block sequence", () => {
-      const raw = "---\nartifacts:\n  - a.ts\n  - b.ts\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.artifacts).toEqual(["a.ts", "b.ts"]);
-    });
-
-    it("parses inline sequence", () => {
-      const raw = "---\nartifacts: [a.ts, b.ts]\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.artifacts).toEqual(["a.ts", "b.ts"]);
-    });
-
-    it("returns empty array when omitted", () => {
-      const raw = "---\nstatus: done\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.artifacts).toEqual([]);
-    });
-
-    it("wraps single scalar in array", () => {
-      const raw = "---\nartifacts: only-one.ts\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.artifacts).toEqual(["only-one.ts"]);
-    });
-  });
-
-  describe("scope field", () => {
-    it('parses scope "role"', () => {
-      const raw = "---\nscope: role\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.scope).toBe("role");
-    });
-
-    it('parses scope "thread"', () => {
-      const raw = "---\nscope: thread\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.scope).toBe("thread");
-    });
-
-    it('defaults to "role" when omitted', () => {
-      const raw = "---\nstatus: done\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.scope).toBe("role");
-    });
-
-    it('defaults to "role" for unknown scope value', () => {
-      const raw = "---\nscope: global\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.scope).toBe("role");
-    });
-  });
-
-  describe("next field", () => {
-    it("parses a role name", () => {
-      const raw = "---\nnext: planner\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.next).toBe("planner");
-    });
-
-    it("returns null when omitted", () => {
-      const raw = "---\nstatus: done\n---\nbody";
-      const result = parseFrontmatterMarkdown(raw);
-      expect(result.frontmatter?.next).toBeNull();
     });
   });
 
@@ -209,6 +115,7 @@ Everything looks good.`;
       const raw = "---\nunknown_field: some_value\nstatus: done\n---\nbody";
       const result = parseFrontmatterMarkdown(raw);
       expect(result.frontmatter?.status).toBe("done");
+      expect(Object.keys(result.frontmatter!)).toEqual(["status"]);
     });
   });
 
@@ -221,123 +128,58 @@ Everything looks good.`;
   });
 
   describe("empty frontmatter block", () => {
-    it("parses empty frontmatter and uses all defaults", () => {
+    it("parses empty frontmatter with status null", () => {
       const raw = "---\n---\nbody";
       const result = parseFrontmatterMarkdown(raw);
       expect(result.frontmatter).not.toBeNull();
       const fm = result.frontmatter!;
       expect(fm.status).toBeNull();
-      expect(fm.next).toBeNull();
-      expect(fm.confidence).toBeNull();
-      expect(fm.artifacts).toEqual([]);
-      expect(fm.scope).toBe("role");
+      expect(Object.keys(fm)).toEqual(["status"]);
       expect(result.body).toBe("body");
+    });
+  });
+
+  describe("AgentFrontmatter has exactly one field", () => {
+    it("has only status key", () => {
+      const fm: AgentFrontmatter = { status: null };
+      expect(Object.keys(fm)).toEqual(["status"]);
+    });
+  });
+
+  describe("FrontmatterValidationError only has status variant", () => {
+    it("status variant is valid", () => {
+      const err: import("../src/index.js").FrontmatterValidationError = {
+        field: "status",
+        message: "test",
+      };
+      expect(err.field).toBe("status");
     });
   });
 });
 
 // ── validateFrontmatter ──────────────────────────────────────────────────────
 
-function validFm(overrides: Partial<AgentFrontmatter> = {}): AgentFrontmatter {
-  return {
-    status: "done",
-    next: null,
-    confidence: null,
-    artifacts: [],
-    scope: "role",
-    ...overrides,
-  };
-}
-
 describe("validateFrontmatter", () => {
-  it("returns no errors for a fully valid frontmatter", () => {
-    const errors = validateFrontmatter(validFm());
+  it("returns no errors for a valid status", () => {
+    const errors = validateFrontmatter({ status: "done" });
     expect(errors).toHaveLength(0);
   });
 
-  it("returns no errors when all nullable fields are null", () => {
-    const fm: AgentFrontmatter = {
-      status: null,
-      next: null,
-      confidence: null,
-      artifacts: [],
-      scope: "role",
-    };
+  it("returns no errors when status is null", () => {
+    const errors = validateFrontmatter({ status: null });
+    expect(errors).toHaveLength(0);
+  });
+
+  it("returns error for invalid status", () => {
+    const errors = validateFrontmatter({ status: "bogus" as never });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.field).toBe("status");
+  });
+
+  it("no validation for next/confidence/artifacts/scope — fields do not exist", () => {
+    // AgentFrontmatter only has status — verify at runtime
+    const fm: AgentFrontmatter = { status: "done" };
+    expect(Object.keys(fm)).toEqual(["status"]);
     expect(validateFrontmatter(fm)).toHaveLength(0);
-  });
-
-  describe("confidence validation", () => {
-    it("accepts 0.0", () => {
-      expect(validateFrontmatter(validFm({ confidence: 0 }))).toHaveLength(0);
-    });
-
-    it("accepts 1.0", () => {
-      expect(validateFrontmatter(validFm({ confidence: 1 }))).toHaveLength(0);
-    });
-
-    it("rejects value below 0", () => {
-      const errors = validateFrontmatter(validFm({ confidence: -0.1 }));
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe("confidence");
-    });
-
-    it("rejects value above 1", () => {
-      const errors = validateFrontmatter(validFm({ confidence: 1.01 }));
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe("confidence");
-    });
-  });
-
-  describe("next validation", () => {
-    it("accepts a simple role name", () => {
-      expect(validateFrontmatter(validFm({ next: "reviewer" }))).toHaveLength(0);
-    });
-
-    it("accepts kebab-case role name", () => {
-      expect(validateFrontmatter(validFm({ next: "code-reviewer" }))).toHaveLength(0);
-    });
-
-    it("rejects role name with whitespace", () => {
-      const errors = validateFrontmatter(validFm({ next: "role name" }));
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe("next");
-    });
-  });
-
-  describe("artifacts validation", () => {
-    it("accepts non-empty path strings", () => {
-      expect(
-        validateFrontmatter(validFm({ artifacts: ["src/foo.ts", "src/bar.ts"] })),
-      ).toHaveLength(0);
-    });
-
-    it("rejects empty string artifact entries", () => {
-      const errors = validateFrontmatter(validFm({ artifacts: [""] }));
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe("artifacts");
-    });
-
-    it("rejects whitespace-only artifact entries", () => {
-      const errors = validateFrontmatter(validFm({ artifacts: ["   "] }));
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe("artifacts");
-    });
-  });
-
-  describe("multiple errors", () => {
-    it("reports multiple violations at once", () => {
-      const fm: AgentFrontmatter = {
-        status: "done",
-        next: "bad role",
-        confidence: 2,
-        artifacts: [""],
-        scope: "role",
-      };
-      const errors = validateFrontmatter(fm);
-      const fields = errors.map((e) => e.field);
-      expect(fields).toContain("next");
-      expect(fields).toContain("confidence");
-      expect(fields).toContain("artifacts");
-    });
   });
 });

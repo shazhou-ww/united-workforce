@@ -8,7 +8,6 @@ export { generateDeveloperReference } from "./developer-reference.js";
 export { env } from "./env.js";
 export type {
   AgentFrontmatter,
-  FrontmatterScope,
   FrontmatterStatus,
   FrontmatterValidationError,
   ParsedFrontmatterMarkdown,

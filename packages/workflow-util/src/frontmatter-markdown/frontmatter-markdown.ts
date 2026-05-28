@@ -1,6 +1,5 @@
 import type {
   AgentFrontmatter,
-  FrontmatterScope,
   FrontmatterStatus,
   FrontmatterValidationError,
   ParsedFrontmatterMarkdown,
@@ -159,38 +158,10 @@ function parseMinimalYaml(yaml: string): Record<string, YamlValue> {
 
 const VALID_STATUS: readonly FrontmatterStatus[] = ["done", "needs_input", "in_progress", "failed"];
 
-const VALID_SCOPE: readonly FrontmatterScope[] = ["role", "thread"];
-
 function coerceStatus(raw: YamlValue): FrontmatterStatus | null {
   if (raw === null || raw === undefined) return null;
   const s = String(raw).trim().toLowerCase();
   return VALID_STATUS.includes(s as FrontmatterStatus) ? (s as FrontmatterStatus) : null;
-}
-
-function coerceNext(raw: YamlValue): string | null {
-  if (raw === null || raw === undefined) return null;
-  const s = String(raw).trim();
-  return s === "" ? null : s;
-}
-
-function coerceConfidence(raw: YamlValue): number | null {
-  if (raw === null || raw === undefined) return null;
-  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
-  if (Number.isNaN(n)) return null;
-  return n;
-}
-
-function coerceArtifacts(raw: YamlValue): readonly string[] {
-  if (raw === null || raw === undefined) return [];
-  if (Array.isArray(raw)) return raw.map(String).filter((s) => s !== "");
-  const s = String(raw).trim();
-  return s === "" ? [] : [s];
-}
-
-function coerceScope(raw: YamlValue): FrontmatterScope {
-  if (raw === null || raw === undefined) return "role";
-  const s = String(raw).trim().toLowerCase();
-  return VALID_SCOPE.includes(s as FrontmatterScope) ? (s as FrontmatterScope) : "role";
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -220,10 +191,6 @@ export function parseFrontmatterMarkdown(raw: string): ParsedFrontmatterMarkdown
 
   const frontmatter: AgentFrontmatter = {
     status: coerceStatus(fields.status ?? null),
-    next: coerceNext(fields.next ?? null),
-    confidence: coerceConfidence(fields.confidence ?? null),
-    artifacts: coerceArtifacts(fields.artifacts ?? null),
-    scope: coerceScope(fields.scope ?? null),
   };
 
   return { frontmatter, body };
@@ -235,11 +202,7 @@ export function parseFrontmatterMarkdown(raw: string): ParsedFrontmatterMarkdown
  * An empty array means the frontmatter is valid.
  *
  * Validated constraints:
- * - `status`     — must be one of the FrontmatterStatus literals (if non-null)
- * - `confidence` — must be in [0.0, 1.0] (if non-null)
- * - `next`       — must be a non-empty string with no whitespace (if non-null)
- * - `artifacts`  — each entry must be a non-empty string
- * - `scope`      — must be one of the FrontmatterScope literals
+ * - `status` — must be one of the FrontmatterStatus literals (if non-null)
  */
 export function validateFrontmatter(
   frontmatter: AgentFrontmatter,
@@ -250,40 +213,6 @@ export function validateFrontmatter(
     errors.push({
       field: "status",
       message: `invalid status "${frontmatter.status}"; must be one of: ${VALID_STATUS.join(", ")}`,
-    });
-  }
-
-  if (frontmatter.confidence !== null) {
-    if (frontmatter.confidence < 0 || frontmatter.confidence > 1) {
-      errors.push({
-        field: "confidence",
-        message: `confidence ${frontmatter.confidence} is out of range; must be between 0.0 and 1.0 inclusive`,
-      });
-    }
-  }
-
-  if (frontmatter.next !== null) {
-    if (frontmatter.next.trim() === "") {
-      errors.push({ field: "next", message: "next must be a non-empty string when present" });
-    } else if (/\s/.test(frontmatter.next)) {
-      errors.push({
-        field: "next",
-        message: `next "${frontmatter.next}" must not contain whitespace`,
-      });
-    }
-  }
-
-  for (const artifact of frontmatter.artifacts) {
-    if (artifact.trim() === "") {
-      errors.push({ field: "artifacts", message: "artifact entries must be non-empty strings" });
-      break;
-    }
-  }
-
-  if (!VALID_SCOPE.includes(frontmatter.scope)) {
-    errors.push({
-      field: "scope",
-      message: `invalid scope "${frontmatter.scope}"; must be one of: ${VALID_SCOPE.join(", ")}`,
     });
   }
 

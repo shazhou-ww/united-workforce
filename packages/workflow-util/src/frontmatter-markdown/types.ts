@@ -1,5 +1,5 @@
 /**
- * Frontmatter Markdown — agent output format (RFC #351 Phase 1).
+ * Frontmatter Markdown — agent output format.
  *
  * An agent response is a Markdown document with an optional YAML frontmatter
  * block at the top.  The frontmatter carries structured signals that the
@@ -9,17 +9,12 @@
  *
  *   ---
  *   status: done
- *   next: reviewer
- *   confidence: 0.9
- *   artifacts:
- *     - src/foo.ts
- *   scope: role
  *   ---
  *
  *   ... free-form markdown body ...
  *
- * All frontmatter fields are optional at the parse level.  `validateFrontmatter`
- * enforces the constraints documented on each field below.
+ * Only `status` is a standard frontmatter field.  All other fields are
+ * role-specific and defined by the output schema.
  */
 
 // ── Vocabulary types ─────────────────────────────────────────────────────────
@@ -34,20 +29,12 @@
  */
 export type FrontmatterStatus = "done" | "needs_input" | "in_progress" | "failed";
 
-/**
- * Scope of frontmatter signals.
- *
- * - `role`   — signals apply to the current role execution only (default)
- * - `thread` — signals are suggestions for the entire thread moderator
- */
-export type FrontmatterScope = "role" | "thread";
-
 // ── Core frontmatter schema ──────────────────────────────────────────────────
 
 /**
  * Parsed and validated frontmatter from an agent response.
  *
- * All fields use explicit `T | null` (no optional `?:` per convention).
+ * Only `status` is a standard field.  All other fields are role-specific.
  */
 export type AgentFrontmatter = {
   /**
@@ -55,32 +42,6 @@ export type AgentFrontmatter = {
    * Null when omitted — engine treats it as "done" for backward compatibility.
    */
   status: FrontmatterStatus | null;
-
-  /**
-   * Suggested next role name for the moderator.
-   * The moderator is NOT obligated to follow this — it is advisory only.
-   * Null when the agent has no preference.
-   */
-  next: string | null;
-
-  /**
-   * Agent's self-assessed confidence in its output (0.0 – 1.0 inclusive).
-   * Null when omitted.
-   */
-  confidence: number | null;
-
-  /**
-   * Relative file paths or CAS hashes the agent considers its primary outputs.
-   * Used for GC ref-tracing and human-readable summaries.
-   * Empty array when omitted (never null — an absent list is an empty list).
-   */
-  artifacts: readonly string[];
-
-  /**
-   * Scope of the frontmatter signals.
-   * Defaults to "role" when omitted.
-   */
-  scope: FrontmatterScope;
 };
 
 // ── Parse output ─────────────────────────────────────────────────────────────
@@ -103,9 +64,4 @@ export type ParsedFrontmatterMarkdown = {
 
 // ── Validation error ─────────────────────────────────────────────────────────
 
-export type FrontmatterValidationError =
-  | { field: "status"; message: string }
-  | { field: "next"; message: string }
-  | { field: "confidence"; message: string }
-  | { field: "artifacts"; message: string }
-  | { field: "scope"; message: string };
+export type FrontmatterValidationError = { field: "status"; message: string };

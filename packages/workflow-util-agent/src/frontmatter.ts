@@ -13,7 +13,7 @@ import { extractSchemaFields } from "./build-output-format-instruction.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
-const STANDARD_KEYS = ["status", "next", "confidence", "artifacts", "scope"] as const;
+const STANDARD_KEYS = ["status"] as const;
 
 type StandardKey = (typeof STANDARD_KEYS)[number];
 
@@ -62,10 +62,6 @@ function parseRawFrontmatterFields(raw: string): Record<string, unknown> {
 function defaultCandidate(frontmatter: AgentFrontmatter): Record<string, unknown> {
   return {
     status: frontmatter.status,
-    next: frontmatter.next,
-    confidence: frontmatter.confidence,
-    artifacts: [...frontmatter.artifacts],
-    scope: frontmatter.scope,
   };
 }
 
@@ -73,14 +69,6 @@ function pickStandardField(frontmatter: AgentFrontmatter, key: StandardKey): unk
   switch (key) {
     case "status":
       return frontmatter.status;
-    case "next":
-      return frontmatter.next;
-    case "confidence":
-      return frontmatter.confidence;
-    case "artifacts":
-      return [...frontmatter.artifacts];
-    case "scope":
-      return frontmatter.scope;
   }
 }
 
@@ -98,9 +86,6 @@ function pickFieldValue(
   }
 
   const coerced = pickStandardField(frontmatter, field);
-  if (field === "artifacts" || field === "scope") {
-    return coerced;
-  }
   if (coerced !== null) {
     return coerced;
   }
@@ -110,8 +95,8 @@ function pickFieldValue(
 /**
  * Build a CAS candidate object from schema property keys and parsed frontmatter.
  *
- * When the schema has no inspectable properties, falls back to the five standard
- * agent frontmatter fields for backward compatibility.
+ * When the schema has no inspectable properties, falls back to the standard
+ * agent frontmatter field (status only).
  */
 function buildCandidate(
   frontmatter: AgentFrontmatter,
