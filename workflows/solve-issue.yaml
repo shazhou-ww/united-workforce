@@ -1,0 +1,202 @@
+name: "solve-issue"
+description: "TDD-driven issue resolution adapted for the workflow monorepo with bun + vitest"
+roles:
+  planner:
+    description: "Analyzes issue and outputs a TDD test spec"
+    goal: "You are a planning agent. You analyze Gitea issues and produce a TDD test specification that downstream roles will implement and verify."
+    capabilities:
+      - issue-analysis
+      - planning
+    procedure: |
+      On first run (no previous steps):
+      1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
+      2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md) in the repo
+      3. Assess whether the issue has enough information to produce a test spec
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output $status=insufficient_info
+      5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
+
+      On subsequent runs (bounced back by tester with fix_spec):
+      1. Read the tester's output from the previous step to understand what's wrong with the spec
+      2. Revise the test spec accordingly
+
+      After producing the test spec:
+      1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      2. Put the hash in frontmatter.plan (required when $status=ready)
+      3. Set repoPath to the absolute path of the repository root
+    output: "Output a brief summary of the test spec. Set $status to ready (with plan hash and repoPath) or insufficient_info."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+            plan: { type: string }
+            repoPath: { type: string }
+          required: [$status, plan, repoPath]
+        - properties:
+            $status: { const: "insufficient_info" }
+          required: [$status]
+  developer:
+    description: "TDD implementation per test spec"
+    goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
+    capabilities:
+      - coding
+    procedure: |
+      IMPORTANT: Always work in a git worktree, NEVER modify the main working directory directly.
+      The repo path and other details are provided in your task prompt.
+
+      Before starting any work, set up an isolated worktree:
+      1. cd into the repo path provided in your task prompt
+      2. `git fetch origin` to get latest refs
+      3. First time (no existing branch):
+         - `git worktree add .worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
+         - `cd .worktrees/fix/<issue-number>-<short-slug> && bun install`
+      4. If bounced back from reviewer or tester (branch already exists):
+         - cd into the existing worktree under `.worktrees/fix/<issue-number>-<short-slug>`
+         - `git fetch origin && git rebase origin/main`
+      5. ALL subsequent work must happen inside the worktree directory.
+
+      Then implement TDD:
+      6. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
+      8. Write tests first based on the spec (use vitest)
+      9. Implement the code to make tests pass
+      10. Ensure `bun run build` passes with no errors
+      11. Run `bun test` to verify all tests pass
+
+      If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
+      or repeated attempts fail), set $status=failed with a reason.
+    output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or failed (with reason)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "done" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
+  reviewer:
+    description: "Code standards compliance check"
+    goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
+    capabilities:
+      - code-review
+      - static-analysis
+    procedure: |
+      The worktree path is provided in your task prompt. cd into it first.
+
+      Before reviewing, verify the git branch:
+      1. Run `git branch --show-current` — confirm the branch name references the issue number being worked on
+      2. If the branch doesn't correspond to the issue, flag it in your output and reject
+
+      Then perform code review:
+      Hard checks (must all pass):
+      3. `bun run build` — no build errors
+      4. `bunx biome check` — no lint violations
+      5. TypeScript strict mode — no type errors
+
+      Soft checks (review against project conventions from CLAUDE.md):
+      - Functional-first: functions + types, no classes (except for errors or third-party requirements)
+      - Named exports only, no default exports
+      - No optional properties (use `T | null` instead of `?:`)
+      - Folder module discipline: index.ts only re-exports, types in types.ts
+      - Crockford Base32 log tags (8-char, unique per call site)
+      - No `console.log` in production code (use createLogger from @uncaged/workflow-util)
+      - No dynamic imports in production code
+
+      Only review standards compliance. Do NOT test functionality.
+      If rejecting, you MUST explain the specific reason in your output.
+    output: "Explain your decision with specific file/line references. Set $status to approved (with branch/worktree) or rejected (with comments)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "approved" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "rejected" }
+            comments: { type: string }
+            worktree: { type: string }
+          required: [$status, comments, worktree]
+  tester:
+    description: "Functional correctness verification"
+    goal: "You are a tester agent. You verify that the implementation correctly satisfies every scenario in the test spec."
+    capabilities:
+      - testing
+    procedure: |
+      The worktree path is provided in your task prompt. cd into it first.
+
+      1. Run `bun test` for automated test verification
+      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner step in the thread history)
+      3. Verify each scenario in the spec is covered and passing
+      4. Determine outcome:
+         - passed: all scenarios verified, tests pass
+         - fix_code: tests fail or implementation doesn't match spec → send back to developer
+         - fix_spec: the spec itself is wrong or incomplete → send back to planner
+    output: "Report test results per scenario. Set $status to passed (with branch/worktree), fix_code (with report), or fix_spec (with report)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "passed" }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, branch, worktree]
+        - properties:
+            $status: { const: "fix_code" }
+            report: { type: string }
+          required: [$status, report]
+        - properties:
+            $status: { const: "fix_spec" }
+            report: { type: string }
+          required: [$status, report]
+  committer:
+    description: "Commits and creates PR"
+    goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
+    capabilities: []
+    procedure: |
+      The worktree path, branch name, and repo info are provided in your task prompt.
+      cd into the worktree first.
+
+      Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
+      1. Stage all changes: `git add -A`
+      2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
+      3. Push the branch: `git push -u origin <branch-name>`
+         - If push hook fails: capture the error log in your output, mark hook_failed
+      4. On push success: create a PR via `tea pr create --repo <owner/repo> --title "..." --description "..."`
+         - Extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
+         - PR description must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+         - On tea failure: capture stderr/stdout, include PR details for manual creation, mark hook_failed
+      5. After PR creation, clean up the worktree:
+         - cd to the repo root (parent of .worktrees)
+         - `git worktree remove <worktree-path>`
+    output: "Include PR URL on success or error log on failure. Set $status to committed (with prUrl) or hook_failed (with error)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "committed" }
+            prUrl: { type: string }
+          required: [$status, prUrl]
+        - properties:
+            $status: { const: "hook_failed" }
+            error: { type: string }
+          required: [$status, error]
+graph:
+  $START:
+    _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
+  planner:
+    insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
+    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
+  developer:
+    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
+    failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
+  reviewer:
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues in repo {{{worktree}}}." }
+    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}." }
+  tester:
+    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the test spec." }
+    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{{branch}}} from {{{worktree}}}." }
+  committer:
+    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit." }
+    committed: { role: "$END", prompt: "PR created: {{{prUrl}}}. Workflow complete." }

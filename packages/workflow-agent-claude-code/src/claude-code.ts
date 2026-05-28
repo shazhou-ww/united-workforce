@@ -152,9 +152,7 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
       } catch (err) {
         log(
           "5VKR8N3Q",
-          "resume failed for session %s, falling back to fresh run: %s",
-          cachedSessionId,
-          err,
+          `resume failed for session ${cachedSessionId}, falling back to fresh run: ${err}`,
         );
       }
     }

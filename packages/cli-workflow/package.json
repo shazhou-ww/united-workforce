@@ -22,6 +22,7 @@
     "yaml": "^2.8.4"
   },
   "scripts": {
+    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
     "test": "vitest run",
     "test:ci": "vitest run"
   },
@@ -34,12 +35,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shazhou-ww/uncaged-workflow.git",
+    "url": "https://git.shazhou.work/uncaged/workflow.git",
     "directory": "packages/cli-workflow"
   },
-  "homepage": "https://github.com/shazhou-ww/uncaged-workflow#readme",
+  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
   "bugs": {
-    "url": "https://github.com/shazhou-ww/uncaged-workflow/issues"
+    "url": "https://git.shazhou.work/uncaged/workflow/issues"
   },
   "license": "MIT"
 }

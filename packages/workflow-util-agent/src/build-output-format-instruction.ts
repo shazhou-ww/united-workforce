@@ -214,7 +214,7 @@ function getConstValue(propSchema: JSONSchema): string {
 function buildVariantBlock(variant: JSONSchema, discriminant: string): string {
   const props = extractSchemaProperties(variant);
   const value = getConstValue(
-    ((variant.properties as Record<string, JSONSchema>) ?? {})[discriminant] ?? {},
+    (variant.properties as Record<string, JSONSchema>)?.[discriminant] ?? {},
   );
   const yamlExample = buildYamlExampleBlock(props);
   const fieldList = buildFieldList(props);

@@ -21,6 +21,7 @@ const publishOrder = [
   "workflow-util-agent",
   "workflow-agent-hermes",
   "workflow-agent-builtin",
+  "workflow-agent-claude-code",
   "cli-workflow",
 ];
 
@@ -59,7 +60,7 @@ let failed = false;
 for (const name of publishOrder) {
   const pkgDir = join(root, "packages", name);
   const tagFlag = tag ? `--tag ${tag}` : "";
-  const cmd = `npm publish --access public ${tagFlag}`;
+  const cmd = `npm publish --access public --ignore-scripts ${tagFlag}`;
 
   console.log(`📦 ${name}...`);
 

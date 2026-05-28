@@ -18,8 +18,9 @@
     }
   },
   "scripts": {
-    "test": "bun test",
-    "test:ci": "bun test __tests__/*.test.ts"
+    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
+    "test": "vitest run",
+    "test:ci": "vitest run"
   },
   "dependencies": {
     "@uncaged/json-cas": "^0.5.3",
@@ -35,12 +36,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shazhou-ww/uncaged-workflow.git",
+    "url": "https://git.shazhou.work/uncaged/workflow.git",
     "directory": "packages/workflow-agent-hermes"
   },
-  "homepage": "https://github.com/shazhou-ww/uncaged-workflow#readme",
+  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
   "bugs": {
-    "url": "https://github.com/shazhou-ww/uncaged-workflow/issues"
+    "url": "https://git.shazhou.work/uncaged/workflow/issues"
   },
   "engines": {
     "bun": ">= 1.0.0"

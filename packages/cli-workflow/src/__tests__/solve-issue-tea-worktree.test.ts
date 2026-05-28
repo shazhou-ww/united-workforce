@@ -98,7 +98,7 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     expect(frontmatter).toBeDefined();
     expect(frontmatter?.oneOf).toBeDefined();
     const committedVariant = frontmatter.oneOf.find(
-      (v: any) => v.properties?.["$status"]?.const === "committed",
+      (v: any) => v.properties?.$status?.const === "committed",
     );
     expect(committedVariant).toBeDefined();
     expect(committedVariant.required).toContain("$status");

@@ -56,7 +56,7 @@ const VALID_OUTPUT: AdapterOutput = {
 
 describe("spawnAgent JSON parsing", () => {
   test("B1. parses valid JSON from agent stdout", () => {
-    const stdout = JSON.stringify(VALID_OUTPUT) + "\n";
+    const stdout = `${JSON.stringify(VALID_OUTPUT)}\n`;
     const result = parseAgentStdout(stdout);
     expect(result.stepHash).toBe("0123456789ABC");
     expect(result.detailHash).toBe("DEFGH12345678");
@@ -68,7 +68,7 @@ describe("spawnAgent JSON parsing", () => {
   });
 
   test("B2. extracts stepHash for head pointer", () => {
-    const stdout = JSON.stringify(VALID_OUTPUT) + "\n";
+    const stdout = `${JSON.stringify(VALID_OUTPUT)}\n`;
     const result = parseAgentStdout(stdout);
     expect(result.stepHash).toBe("0123456789ABC");
     expect(isCasRef(result.stepHash)).toBe(true);
@@ -76,7 +76,7 @@ describe("spawnAgent JSON parsing", () => {
 
   test("B3. handles debug lines before JSON", () => {
     const debugLines = "[debug] loading context...\n[debug] running agent...\n";
-    const stdout = debugLines + JSON.stringify(VALID_OUTPUT) + "\n";
+    const stdout = `${debugLines + JSON.stringify(VALID_OUTPUT)}\n`;
     const result = parseAgentStdout(stdout);
     expect(result.stepHash).toBe("0123456789ABC");
   });
@@ -88,13 +88,13 @@ describe("spawnAgent JSON parsing", () => {
 
   test("B5. rejects JSON missing stepHash", () => {
     const incomplete = { detailHash: "DEFGH12345678", role: "planner" };
-    const stdout = JSON.stringify(incomplete) + "\n";
+    const stdout = `${JSON.stringify(incomplete)}\n`;
     expect(() => parseAgentStdout(stdout)).toThrow("missing valid stepHash");
   });
 
   test("B6. rejects JSON with invalid stepHash", () => {
     const bad = { ...VALID_OUTPUT, stepHash: "not-a-hash" };
-    const stdout = JSON.stringify(bad) + "\n";
+    const stdout = `${JSON.stringify(bad)}\n`;
     expect(() => parseAgentStdout(stdout)).toThrow("missing valid stepHash");
   });
 });
