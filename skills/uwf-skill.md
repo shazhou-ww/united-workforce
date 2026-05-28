@@ -10,7 +10,7 @@ triggers:
 
 # uwf (Uncaged Workflow)
 
-YAML 状态机工作流引擎。
+YAML 状态机工作流引擎。当用户提到「workflow」「工作流」时，指的是 **uwf workflow**（YAML 定义的状态机），不是 Hermes skill。用 `uwf` CLI 操作，不要混淆。
 
 ## 首次使用
 
