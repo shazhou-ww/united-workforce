@@ -151,6 +151,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
 
     const startedAtMs = Date.now();
     let agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
+    agentResult.output = agentResult.output.trimStart();
 
     // Preserve the primary detail from the first run — it contains the full
     // tool-call turn history.  Continuation retries only fix frontmatter
@@ -169,6 +170,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       agentResult = await runWithMessage("agent continue failed", () =>
         options.continue(agentResult.sessionId, correctionMessage, ctx.meta.store),
       );
+      agentResult.output = agentResult.output.trimStart();
       extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
     }
 
