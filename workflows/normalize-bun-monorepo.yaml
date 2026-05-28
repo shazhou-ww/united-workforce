@@ -73,7 +73,7 @@ graph:
   solve-issue-workflow:
     done:
       role: guardrails
-      prompt: Solve-issue workflow registered. Install guardrails for repo at {{{repoPath}}}.
+      prompt: Solve-issue workflow placed in .workflows/. Install guardrails for repo at {{{repoPath}}}.
     failed:
       role: guardrails
       prompt: Solve-issue workflow failed ({{{reason}}}), but continue. Install guardrails for repo at {{{repoPath}}}.
@@ -648,34 +648,35 @@ roles:
     capabilities:
       - package-config
   solve-issue-workflow:
-    goal: You set up the solve-issue workflow YAML so the project can use `uwf` for issue resolution.
+    goal: You place a solve-issue workflow YAML in .workflows/ so the project can use uwf thread start .workflows/solve-issue.yaml for issue resolution.
     output: Describe the workflow registered. Set $status to done or failed.
-    procedure: |
+    procedure: |-
       cd into the repo path from your task prompt.
 
       1. Check if `uwf` CLI is available: `which uwf`
          - If not available: set $status=failed, reason="uwf CLI not installed"
-      2. Create `workflows/solve-issue.yaml` adapted for this project:
-         - Copy the standard solve-issue workflow structure (planner → developer → reviewer → tester → committer)
+      2. Check if `.workflows/solve-issue.yaml` already exists:
+         - If it exists and looks correct (has planner/developer/reviewer/tester/committer roles), skip. Set $status=done.
+      3. Create `.workflows/solve-issue.yaml` adapted for this project:
+         - Copy the standard solve-issue workflow structure (planner -> developer -> reviewer -> tester -> committer)
          - Adjust the developer role procedure to use this project's test runner and build commands
          - The workflow should reference the correct repo path and build toolchain (bun)
-      3. Register with uwf: `uwf workflow add workflows/solve-issue.yaml`
+         NOTE: Place the file in `.workflows/` (dot-prefix), NOT `workflows/`. Do NOT run `uwf workflow add`. The file is used directly via `uwf thread start .workflows/solve-issue.yaml`.
 
       ## Verification
       ```bash
-      # 1. workflow file exists
-      test -f workflows/solve-issue.yaml
-      # 2. registered in uwf
-      uwf workflow list --format json | node -e "
-        let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{
-          const wfs = JSON.parse(d);
-          if (wfs.some(w => w.name === 'solve-issue')) console.log('✅ solve-issue registered');
-          else { console.error('❌ solve-issue not found'); process.exit(1); }
-        })
+      test -f .workflows/solve-issue.yaml
+      node -e "
+        const fs = require('fs');
+        const content = fs.readFileSync('.workflows/solve-issue.yaml', 'utf8');
+        const required = ['planner', 'developer', 'reviewer', 'tester', 'committer'];
+        const missing = required.filter(r => !content.includes(r + ':'));
+        if (missing.length) { console.error('Missing roles:', missing.join(', ')); process.exit(1); }
+        console.log('All roles present');
       "
       ```
 
-      Post-condition: `uwf workflow list` includes solve-issue.
+      Post-condition: `.workflows/solve-issue.yaml` exists with all 5 roles.
     description: Register solve-issue workflow for the project
     frontmatter:
       oneOf:
