@@ -17,16 +17,11 @@ import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js"
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
-  cmdSkillActor,
   cmdSkillAdapter,
-  cmdSkillArchitecture,
   cmdSkillAuthor,
-  cmdSkillCli,
   cmdSkillDeveloper,
   cmdSkillList,
-  cmdSkillModerator,
   cmdSkillUser,
-  cmdSkillYaml,
 } from "./commands/skill.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
@@ -494,34 +489,6 @@ const skill = program.command("skill").description("Built-in skill references fo
 skill.addHelpCommand(false);
 
 skill
-  .command("cli")
-  .description("Print a markdown reference of all uwf commands")
-  .action(() => {
-    console.log(cmdSkillCli());
-  });
-
-skill
-  .command("architecture")
-  .description("Print the architecture reference")
-  .action(() => {
-    console.log(cmdSkillArchitecture());
-  });
-
-skill
-  .command("yaml")
-  .description("Print the workflow YAML schema reference")
-  .action(() => {
-    console.log(cmdSkillYaml());
-  });
-
-skill
-  .command("actor")
-  .description("Print the actor reference (frontmatter protocol + CAS)")
-  .action(() => {
-    console.log(cmdSkillActor());
-  });
-
-skill
   .command("adapter")
   .description("Print the adapter reference (building agent adapters)")
   .action(() => {
@@ -540,13 +507,6 @@ skill
   .description("Print the developer reference (coding conventions + architecture)")
   .action(() => {
     console.log(cmdSkillDeveloper());
-  });
-
-skill
-  .command("moderator")
-  .description("Print the moderator reference")
-  .action(() => {
-    console.log(cmdSkillModerator());
   });
 
 skill

@@ -121,5 +121,15 @@ uwf log clean --before <date>      # delete old logs
 uwf --format <json|yaml>           # output format (default: json)
 uwf -V, --version                  # print version
 \`\`\`
+
+## Other Skill References
+
+For specific scenarios, run the corresponding \`uwf skill\` command:
+
+| Scenario | Command | When to use |
+|----------|---------|-------------|
+| Writing workflow YAML | \`uwf skill author\` | Designing roles, conditions, graphs, and edge prompts |
+| Contributing to the engine | \`uwf skill developer\` | Modifying the workflow engine codebase itself |
+| Building a new agent adapter | \`uwf skill adapter\` | Creating a new \`uwf-<name>\` CLI adapter |
 `;
 }
