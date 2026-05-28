@@ -90,12 +90,9 @@ uwf skill author     # prints workflow authoring guide
 
 ### 5. Add the uwf Skill
 
-Copy the skill file from this repo into your agent's skill library:
-
 ```bash
-# For Hermes agents with skills at ~/.hermes/skills/
 mkdir -p ~/.hermes/skills/devops/uwf
-cp skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
+uwf skill bootstrap > ~/.hermes/skills/devops/uwf/SKILL.md
 ```
 
 ✅ **Check:** `cat ~/.hermes/skills/devops/uwf/SKILL.md` shows the skill content with triggers `uwf`, `workflow`, `工作流`.
@@ -166,13 +163,13 @@ cat ~/.hermes/skills/devops/uwf/SKILL.md
 Verify the skill is up to date:
 
 ```bash
-diff skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
+uwf skill bootstrap | diff - ~/.hermes/skills/devops/uwf/SKILL.md
 ```
 
-If `diff` produces any output, the local skill is outdated. Re-copy:
+If `diff` produces any output, the local skill is outdated. Update:
 
 ```bash
-cp skills/uwf-skill.md ~/.hermes/skills/devops/uwf/SKILL.md
+uwf skill bootstrap > ~/.hermes/skills/devops/uwf/SKILL.md
 ```
 
 ### Functional Check

@@ -19,6 +19,7 @@ import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
   cmdSkillAdapter,
   cmdSkillAuthor,
+  cmdSkillBootstrap,
   cmdSkillDeveloper,
   cmdSkillList,
   cmdSkillUser,
@@ -514,6 +515,13 @@ skill
   .description("Print the user reference (CLI guide + typical workflows)")
   .action(() => {
     console.log(cmdSkillUser());
+  });
+
+skill
+  .command("bootstrap")
+  .description("Print the bootstrap skill YAML for Hermes agents")
+  .action(() => {
+    console.log(cmdSkillBootstrap());
   });
 
 skill
