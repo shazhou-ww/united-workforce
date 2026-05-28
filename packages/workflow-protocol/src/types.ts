@@ -97,6 +97,8 @@ export type StepOutput = {
   thread: ThreadId;
   head: CasRef;
   status: ThreadStatus;
+  /** The current or next role. Null when completed, cancelled, or next is $END. */
+  currentRole: string | null;
   done: boolean;
   background: boolean | null;
 };

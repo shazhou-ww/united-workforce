@@ -57,6 +57,21 @@ const END_ROLE = "$END";
 const START_ROLE = "$START";
 export const THREAD_READ_DEFAULT_QUOTA = 4000;
 
+/**
+ * Derive the current/next role from the workflow graph and chain state.
+ * Returns null when the next role is $END or evaluation fails.
+ */
+function resolveCurrentRole(uwf: UwfStore, head: CasRef, workflowRef: CasRef): string | null {
+  const chain = walkChain(uwf, head);
+  const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
+  const workflow = loadWorkflowPayload(uwf, workflowRef);
+  const result = evaluate(workflow.graph, lastRole, lastOutput);
+  if (!result.ok) {
+    return null;
+  }
+  return result.value.role === END_ROLE ? null : result.value.role;
+}
+
 const PL_THREAD_START = "7HNQ4B2X";
 const PL_MODERATOR = "M3K8V9T1";
 const PL_AGENT_SPAWN = "R5J2W8N4";
@@ -321,12 +336,14 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
     // Check if thread is running
     const runningMarker = await isThreadRunning(storageRoot, threadId);
     const status: ThreadStatus = runningMarker !== null ? "running" : "idle";
+    const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
 
     return {
       workflow,
       thread: threadId,
       head: activeHead,
       status,
+      currentRole,
       done: false,
       background: null,
     };
@@ -341,6 +358,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       thread: threadId,
       head: hist.head,
       status,
+      currentRole: null,
       done: true,
       background: null,
     };
@@ -351,6 +369,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
 
 export type ThreadListItemWithStatus = ThreadListItem & {
   status: ThreadStatus;
+  currentRole: string | null;
 };
 
 async function threadListItemFromActive(
@@ -368,7 +387,13 @@ async function threadListItemFromActive(
   const runningMarker = await isThreadRunning(storageRoot, threadId);
   const status: ThreadStatus = runningMarker !== null ? "running" : "idle";
 
-  return { thread: threadId, workflow, head, status };
+  return {
+    thread: threadId,
+    workflow,
+    head,
+    status,
+    currentRole: resolveCurrentRole(uwf, head, workflow),
+  };
 }
 
 async function collectActiveThreads(
@@ -406,6 +431,7 @@ async function collectCompletedThreads(
         workflow: entry.workflow,
         head: entry.head,
         status: entry.reason === "cancelled" ? "cancelled" : "completed",
+        currentRole: null,
       });
     }
   }
@@ -938,6 +964,8 @@ async function cmdThreadStepBackground(
     failStep(plog, `thread not active: ${threadId}`);
   }
 
+  const uwf = await createUwfStore(storageRoot);
+
   // Spawn detached background process
   const scriptPath = process.argv[1];
   if (scriptPath === undefined) {
@@ -969,6 +997,7 @@ async function cmdThreadStepBackground(
       thread: threadId,
       head: headHash,
       status: "running",
+      currentRole: resolveCurrentRole(uwf, headHash, workflowHash),
       done: false,
       background: true,
     },
@@ -1012,6 +1041,7 @@ async function cmdThreadStepOnce(
       thread: threadId,
       head: headHash,
       status: "completed",
+      currentRole: null,
       done: true,
       background: null,
     };
@@ -1067,12 +1097,14 @@ async function cmdThreadStepOnce(
 
   // Determine status based on whether thread is done and running state
   const status: ThreadStatus = done ? "completed" : "idle";
+  const currentRole = done ? null : afterResult.value.role;
 
   return {
     workflow: workflowHash,
     thread: threadId,
     head: newHead,
     status,
+    currentRole,
     done,
     background: null,
   };
