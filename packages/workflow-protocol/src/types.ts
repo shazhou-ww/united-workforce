@@ -20,6 +20,8 @@ export type StepRecord = {
   completedAtMs: number;
   /** Working directory where the agent executed. Missing in legacy nodes → "". */
   cwd: string;
+  /** CAS ref to the fully assembled prompt sent to the agent. null for legacy steps. */
+  assembledPrompt: CasRef | null;
 };
 
 // ── 4.2 Workflow 定义 ───────────────────────────────────────────────

@@ -143,6 +143,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
+      assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -225,6 +226,7 @@ describe("thread read --quota flag", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const step2Content = generateContent(600, "Second");
@@ -251,6 +253,7 @@ describe("thread read --quota flag", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ1" as ThreadId;
@@ -336,6 +339,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
+      assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -415,6 +419,7 @@ describe("thread read --quota flag", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ4" as ThreadId;
@@ -492,6 +497,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
+      assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -573,6 +579,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
+      assembledPrompt: null,
       });
       steps.push(stepHash);
     }

@@ -146,10 +146,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step with large quota
-    const markdown = await cmdStepRead(tmpDir, stepHash, 10000);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 10000, false);
 
     // Assert structure
     expect(markdown).toContain(`# Step ${stepHash}`);
@@ -231,10 +232,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step with limited quota (700 chars)
-    const markdown = await cmdStepRead(tmpDir, stepHash, 700);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 700, false);
 
     // Assert only most recent turns fit
     expect(markdown).toContain(`# Step ${stepHash}`);
@@ -310,10 +312,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step with minimal quota (1 char)
-    const markdown = await cmdStepRead(tmpDir, stepHash, 1);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 1, false);
 
     // Assert at least one turn is always shown
     expect(markdown).toContain("LongTurn");
@@ -365,10 +368,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step - should return metadata only (no error)
-    const markdown = await cmdStepRead(tmpDir, stepHash, 4000);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 4000, false);
 
     // Assert metadata is present
     expect(markdown).toContain(`# Step ${stepHash}`);
@@ -441,10 +445,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step - should return metadata only (no error)
-    const markdown = await cmdStepRead(tmpDir, stepHash, 4000);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 4000, false);
 
     // Assert metadata is present
     expect(markdown).toContain(`# Step ${stepHash}`);
@@ -515,9 +520,10 @@ describe("step read", () => {
       agent: "uwf-hermes",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
-    const markdown = await cmdStepRead(tmpDir, stepHash, 4000);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 4000, false);
 
     expect(markdown).toContain("**Turn role:** assistant");
     expect(markdown).toContain("**terminal**");
@@ -588,10 +594,11 @@ describe("step read", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     // Read step
-    const markdown = await cmdStepRead(tmpDir, stepHash, 4000);
+    const markdown = await cmdStepRead(tmpDir, stepHash, 4000, false);
 
     // Assert content is rendered correctly without corruption
     expect(markdown).toContain("`backticks`");

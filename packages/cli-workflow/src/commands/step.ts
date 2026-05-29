@@ -289,6 +289,7 @@ export async function cmdStepRead(
   storageRoot: string,
   stepHash: CasRef,
   quota: number,
+  showPrompt: boolean,
 ): Promise<string> {
   const uwf = await createUwfStore(storageRoot);
   const node = uwf.store.get(stepHash);
@@ -299,6 +300,20 @@ export async function cmdStepRead(
     fail(`node ${stepHash} is not a StepNode`);
   }
   const payload = node.payload as StepNodePayload;
+
+  // --prompt mode: show the assembled prompt that was sent to the agent
+  if (showPrompt) {
+    const promptRef = (payload as Record<string, unknown>).assembledPrompt;
+    if (typeof promptRef !== "string") {
+      return `# Step ${stepHash}\n\n_Prompt not recorded (legacy step)._`;
+    }
+    const promptNode = uwf.store.get(promptRef as CasRef);
+    if (promptNode === null) {
+      return `# Step ${stepHash}\n\n_Prompt CAS node not found: ${promptRef}_`;
+    }
+    const promptText = typeof promptNode.payload === "string" ? promptNode.payload : JSON.stringify(promptNode.payload);
+    return `# Step ${stepHash}\n\n**Role:** ${payload.role}\n**Agent:** ${payload.agent}\n\n## Prompt\n\n${promptText}`;
+  }
 
   if (payload.detail === null) {
     return formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);

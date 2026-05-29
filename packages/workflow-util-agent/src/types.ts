@@ -27,6 +27,8 @@ export type AgentRunResult = {
   output: string;
   detailHash: string;
   sessionId: string;
+  /** The fully assembled prompt that was sent to the agent. */
+  assembledPrompt: string;
 };
 
 export type AgentContinueFn = (

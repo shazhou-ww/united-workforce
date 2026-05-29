@@ -6,17 +6,21 @@ export type UwfAgentSchemaHashes = {
   workflow: Hash;
   startNode: Hash;
   stepNode: Hash;
+  text: Hash;
 };
+
+const TEXT_SCHEMA = { type: "string" as const };
 
 /**
  * Register Workflow, StartNode, and StepNode JSON Schemas in the CAS store.
  * Idempotent: safe to call on every agent invocation.
  */
 export async function registerAgentSchemas(store: Store): Promise<UwfAgentSchemaHashes> {
-  const [workflow, startNode, stepNode] = await Promise.all([
+  const [workflow, startNode, stepNode, text] = await Promise.all([
     putSchema(store, WORKFLOW_SCHEMA),
     putSchema(store, START_NODE_SCHEMA),
     putSchema(store, STEP_NODE_SCHEMA),
+    putSchema(store, TEXT_SCHEMA),
   ]);
-  return { workflow, startNode, stepNode };
+  return { workflow, startNode, stepNode, text };
 }

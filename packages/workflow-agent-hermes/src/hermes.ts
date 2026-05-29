@@ -117,7 +117,7 @@ export function createHermesAgent(): () => Promise<void> {
       await setCachedSessionId(ctx.threadId, ctx.role, sessionId);
     }
 
-    return { output: text, detailHash, sessionId };
+    return { output: text, detailHash, sessionId, assembledPrompt: fullPrompt };
   }
 
   async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
@@ -148,7 +148,7 @@ export function createHermesAgent(): () => Promise<void> {
     // so the agent sees the full conversation history (crucial for retries).
     const { text, sessionId } = await client.prompt(message);
     const { detailHash } = await storePromptResult(store, sessionId);
-    return { output: text, detailHash, sessionId };
+    return { output: text, detailHash, sessionId, assembledPrompt: "" };
   }
 
   const agentMain = createAgent({

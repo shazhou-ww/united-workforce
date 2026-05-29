@@ -82,7 +82,7 @@ async function runBuiltinWithMessages(
 
   if (loopResult.turnCount === 0) {
     log("5RWTK9NB", "no turns produced, returning empty output");
-    return { output: "", detailHash: "", sessionId: session.sessionId };
+    return { output: "", detailHash: "", sessionId: session.sessionId, assembledPrompt: "" };
   }
 
   // Read jsonl → persist turns to CAS → store detail
@@ -94,7 +94,7 @@ async function runBuiltinWithMessages(
     session.startedAtMs,
   );
 
-  return { output: stripPreamble(loopResult.finalText), detailHash, sessionId: session.sessionId };
+  return { output: stripPreamble(loopResult.finalText), detailHash, sessionId: session.sessionId, assembledPrompt: "" };
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {

@@ -44,6 +44,7 @@ describe("adapter-stdout: A4 retry loop survives JSON output", () => {
       body: secondAttempt!.body,
       startedAtMs: 1000,
       completedAtMs: 2000,
+      assembledPrompt: null,
     };
 
     const json = JSON.stringify(adapterOutput);

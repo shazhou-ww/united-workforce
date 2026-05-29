@@ -85,6 +85,7 @@ describe("protocol types", () => {
       edgePrompt: "",
       startedAtMs: 1000,
       completedAtMs: 2000,
+      assembledPrompt: null,
       cwd: "/test/path",
     };
     expect(record.startedAtMs).toBe(1000);
@@ -153,6 +154,7 @@ describe("StepNode JSON schema", () => {
       edgePrompt: "",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
     expect(hash).toBeTruthy();
   });

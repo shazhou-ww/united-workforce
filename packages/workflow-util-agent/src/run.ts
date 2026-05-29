@@ -64,6 +64,7 @@ async function writeStepNode(options: {
   edgePrompt: string;
   startedAtMs: number;
   completedAtMs: number;
+  assembledPromptHash: CasRef | null;
 }): Promise<CasRef> {
   const payload: StepNodePayload = {
     start: options.startHash,
@@ -76,6 +77,7 @@ async function writeStepNode(options: {
     startedAtMs: options.startedAtMs,
     completedAtMs: options.completedAtMs,
     cwd: process.cwd(),
+    assembledPrompt: options.assembledPromptHash,
   };
   const hash = await options.store.put(options.schemas.stepNode, payload);
   const node = options.store.get(hash);
@@ -114,6 +116,7 @@ async function persistStep(options: {
   agentName: string;
   startedAtMs: number;
   completedAtMs: number;
+  assembledPromptHash: CasRef | null;
 }): Promise<CasRef> {
   const { store, schemas, chain, headHash } = options.ctx.meta;
   return writeStepNode({
@@ -128,6 +131,7 @@ async function persistStep(options: {
     edgePrompt: options.ctx.edgePrompt,
     startedAtMs: options.startedAtMs,
     completedAtMs: options.completedAtMs,
+    assembledPromptHash: options.assembledPromptHash,
   });
 }
 
@@ -182,6 +186,14 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       );
     }
     const completedAtMs = Date.now();
+
+    // Store the assembled prompt in CAS for later inspection via `step read --prompt`
+    const promptText = agentResult.assembledPrompt;
+    const assembledPromptHash =
+      promptText !== ""
+        ? await ctx.meta.store.put(ctx.meta.schemas.text, promptText).catch(() => null)
+        : null;
+
     const stepHash = await persistStep({
       ctx,
       outputHash: extracted.outputHash,
@@ -189,6 +201,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       agentName: agentLabel(options.name),
       startedAtMs,
       completedAtMs,
+      assembledPromptHash,
     });
 
     const adapterOutput: AdapterOutput = {

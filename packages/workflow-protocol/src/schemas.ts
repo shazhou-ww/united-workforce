@@ -88,6 +88,9 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     startedAtMs: { type: "integer" },
     completedAtMs: { type: "integer" },
     cwd: { type: "string" },
+    assembledPrompt: {
+      anyOf: [{ type: "string", format: "cas_ref" }, { type: "null" }],
+    },
   },
   additionalProperties: false,
 };

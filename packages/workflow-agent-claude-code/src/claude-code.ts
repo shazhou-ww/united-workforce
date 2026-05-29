@@ -120,12 +120,12 @@ function spawnClaudeResume(
   return spawnClaude(args);
 }
 
-async function processClaudeOutput(stdout: string, store: Store): Promise<AgentRunResult> {
+async function processClaudeOutput(stdout: string, store: Store, assembledPrompt: string): Promise<AgentRunResult> {
   const parsed = parseClaudeCodeStreamOutput(stdout);
 
   if (parsed !== null) {
     const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, parsed);
-    return { output, detailHash, sessionId };
+    return { output, detailHash, sessionId, assembledPrompt };
   }
 
   throw new Error(
@@ -144,7 +144,7 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
     if (cachedSessionId !== null) {
       try {
         const { stdout } = await spawnClaudeResume(cachedSessionId, fullPrompt);
-        const result = await processClaudeOutput(stdout, ctx.store);
+        const result = await processClaudeOutput(stdout, ctx.store, fullPrompt);
         if (result.sessionId !== undefined && result.sessionId !== "") {
           await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
         }
@@ -159,7 +159,7 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
   }
 
   const { stdout } = await spawnClaudeRun(fullPrompt);
-  const result = await processClaudeOutput(stdout, ctx.store);
+  const result = await processClaudeOutput(stdout, ctx.store, fullPrompt);
   if (result.sessionId !== undefined && result.sessionId !== "") {
     await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
   }
@@ -172,7 +172,7 @@ async function continueClaudeCode(
   store: Store,
 ): Promise<AgentRunResult> {
   const { stdout } = await spawnClaudeResume(sessionId, message);
-  return processClaudeOutput(stdout, store);
+  return processClaudeOutput(stdout, store, "");
 }
 
 /** Agent CLI factory: parses argv, runs Claude Code, extracts output, writes StepNode. */

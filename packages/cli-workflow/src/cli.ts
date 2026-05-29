@@ -364,7 +364,8 @@ step
   .description("Read a step's turns as human-readable markdown")
   .argument("<step-hash>", "CAS hash of the StepNode")
   .option("--quota <chars>", "Max output characters", "4000")
-  .action((stepHash: string, opts: { quota: string }) => {
+  .option("--prompt", "Show the assembled prompt sent to the agent instead of turns")
+  .action((stepHash: string, opts: { quota: string; prompt: boolean }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const quota = Number.parseInt(opts.quota, 10);
@@ -372,7 +373,7 @@ step
         process.stderr.write("invalid --quota: must be a positive integer\n");
         process.exit(1);
       }
-      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, quota);
+      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, quota, opts.prompt === true);
       process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
     });
   });

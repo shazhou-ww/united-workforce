@@ -141,6 +141,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-claude-code",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000001" as ThreadId;
@@ -218,6 +219,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-claude-code",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000002" as ThreadId;
@@ -280,6 +282,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const step2 = await uwf.store.put(uwf.schemas.stepNode, {
@@ -291,6 +294,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000003" as ThreadId;
@@ -345,6 +349,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000004" as ThreadId;
@@ -399,6 +404,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000005" as ThreadId;
@@ -453,6 +459,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000006" as ThreadId;
@@ -527,6 +534,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const step2 = await uwf.store.put(uwf.schemas.stepNode, {
@@ -538,6 +546,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const step3 = await uwf.store.put(uwf.schemas.stepNode, {
@@ -549,6 +558,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000007" as ThreadId;
@@ -629,6 +639,7 @@ describe("thread read XML tag isolation", () => {
       agent: "uwf-test",
       startedAtMs: 1000000000000,
       completedAtMs: 1000000005000,
+      assembledPrompt: null,
     });
 
     const threadId = "01JTEST0000000000000008" as ThreadId;
@@ -685,6 +696,7 @@ describe("thread read XML tag isolation", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
+      assembledPrompt: null,
       })) as CasRef;
       steps.push(step);
       prev = step;

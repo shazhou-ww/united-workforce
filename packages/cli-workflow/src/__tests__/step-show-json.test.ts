@@ -116,6 +116,7 @@ async function createTestStep(
     edgePrompt: "",
     startedAtMs: Date.now(),
     completedAtMs: Date.now() + 1000,
+    assembledPrompt: null,
     cwd: "/tmp",
   };
   return store.put(schemas.stepNode, stepPayload);
