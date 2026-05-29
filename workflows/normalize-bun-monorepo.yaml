@@ -4,6 +4,9 @@ graph:
     done:
       role: solve-issue-workflow
       prompt: CI configured. Register solve-issue workflow for repo at {{{repoPath}}}.
+    skipped:
+      role: solve-issue-workflow
+      prompt: "ci already configured, skipped."
     failed:
       role: solve-issue-workflow
       prompt: CI setup failed ({{{reason}}}), but continue. Register solve-issue workflow for repo at {{{repoPath}}}.
@@ -11,6 +14,9 @@ graph:
     done:
       role: package-metadata
       prompt: Biome configured. Standardize package metadata for repo at {{{repoPath}}}.
+    skipped:
+      role: package-metadata
+      prompt: "biome already configured, skipped."
     failed:
       role: package-metadata
       prompt: Biome setup failed ({{{reason}}}), but continue. Standardize package metadata for repo at {{{repoPath}}}.
@@ -22,6 +28,9 @@ graph:
     done:
       role: testing
       prompt: Release pipeline configured. Set up vitest for repo at {{{repoPath}}}.
+    skipped:
+      role: testing
+      prompt: "release already configured, skipped."
     failed:
       role: testing
       prompt: Release pipeline failed ({{{reason}}}), but continue. Set up vitest for repo at {{{repoPath}}}.
@@ -29,6 +38,9 @@ graph:
     done:
       role: ci
       prompt: Testing configured. Set up Gitea CI for repo at {{{repoPath}}}.
+    skipped:
+      role: ci
+      prompt: "testing already configured, skipped."
     failed:
       role: ci
       prompt: Testing setup failed ({{{reason}}}), but continue. Set up Gitea CI for repo at {{{repoPath}}}.
@@ -46,6 +58,9 @@ graph:
     done:
       role: typescript
       prompt: Workspace ready. Configure TypeScript for repo at {{{repoPath}}}.
+    skipped:
+      role: typescript
+      prompt: "workspace already configured, skipped."
     failed:
       role: typescript
       prompt: Workspace setup failed ({{{reason}}}), but continue. Configure TypeScript for repo at {{{repoPath}}}.
@@ -53,6 +68,9 @@ graph:
     done:
       role: committer
       prompt: All normalization complete. Commit changes in repo at {{{repoPath}}}.
+    skipped:
+      role: committer
+      prompt: "guardrails already configured, skipped."
     failed:
       role: committer
       prompt: Guardrails failed ({{{reason}}}), but commit whatever was done in repo at {{{repoPath}}}.
@@ -60,6 +78,9 @@ graph:
     done:
       role: biome
       prompt: TypeScript configured. Set up Biome for repo at {{{repoPath}}}.
+    skipped:
+      role: biome
+      prompt: "typescript already configured, skipped."
     failed:
       role: biome
       prompt: TypeScript setup failed ({{{reason}}}), but continue. Set up Biome for repo at {{{repoPath}}}.
@@ -67,6 +88,9 @@ graph:
     done:
       role: release
       prompt: Package metadata standardized. Configure release pipeline for repo at {{{repoPath}}}.
+    skipped:
+      role: release
+      prompt: "package-metadata already configured, skipped."
     failed:
       role: release
       prompt: Package metadata failed ({{{reason}}}), but continue. Configure release pipeline for repo at {{{repoPath}}}.
@@ -74,6 +98,9 @@ graph:
     done:
       role: guardrails
       prompt: Solve-issue workflow placed in .workflows/. Install guardrails for repo at {{{repoPath}}}.
+    skipped:
+      role: guardrails
+      prompt: "solve-issue-workflow already configured, skipped."
     failed:
       role: guardrails
       prompt: Solve-issue workflow failed ({{{reason}}}), but continue. Install guardrails for repo at {{{repoPath}}}.
@@ -82,9 +109,15 @@ roles:
     goal: You configure Gitea Actions CI for build, lint, and test on push/PR.
     output: Describe the CI pipeline configured. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: If `.gitea/workflows/ci.yml` already exists, review it for completeness but don't overwrite unless it's missing key steps.
+      If `.gitea/workflows/ci.yml` already exists, review it for completeness but don't overwrite unless it's missing key steps.
       If `.github/workflows/` exists (GitHub Actions), keep it — add `.gitea/workflows/` alongside it.
 
       Create `.gitea/workflows/ci.yml` (if not present):
@@ -118,6 +151,7 @@ roles:
       ```
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. CI file exists
       test -f .gitea/workflows/ci.yml
@@ -150,6 +184,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -161,9 +200,15 @@ roles:
     goal: You configure Biome for consistent code quality across the monorepo.
     output: List what was configured and any remaining lint issues. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — if biome.json already exists, merge missing settings rather than overwriting.
+      Be idempotent — if biome.json already exists, merge missing settings rather than overwriting.
 
       Check and fix:
       1. Install biome: add `@biomejs/biome` to root devDependencies (skip if already present)
@@ -180,6 +225,7 @@ roles:
       5. Remaining unfixable issues: list them but don't block
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. biome.json exists
       test -f biome.json
@@ -200,6 +246,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -211,9 +262,15 @@ roles:
     goal: "You set up the complete release pipeline: changesets for version management, publish script for npm release."
     output: Describe what was configured. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — skip steps that are already done.
+      Be idempotent — skip steps that are already done.
 
       ## Part 1: Changesets
       1. Install: add `@changesets/cli` to root devDependencies (skip if present), run `bun install`
@@ -242,6 +299,7 @@ roles:
          - `"release": "bun run build && bun run test && node scripts/publish-all.mjs"`
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. changeset config exists and is valid
       test -f .changeset/config.json
@@ -266,6 +324,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -278,9 +341,15 @@ roles:
     goal: You set up vitest test infrastructure across the monorepo.
     output: List what was configured per package. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — do NOT overwrite existing vitest.config.ts or test files.
+      Be idempotent — do NOT overwrite existing vitest.config.ts or test files.
 
       Check and fix:
       1. Add `vitest` to root devDependencies (skip if present), run `bun install`
@@ -301,6 +370,7 @@ roles:
          - `"test:ci": "bun run --filter './packages/*' test:ci"`
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. vitest is installed
       bunx vitest --version
@@ -323,6 +393,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -334,6 +409,12 @@ roles:
     goal: You commit all the changes made by previous roles in a single clean commit.
     output: List files changed and commit hash. Set $status to committed or no_changes.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
       1. Review all changes: `git diff --stat` and `git status`
@@ -357,10 +438,24 @@ roles:
          List any missing items as warnings but still commit what exists.
       3. If no changes: set $status=no_changes
       4. Stage all: `git add -A`
-      5. Commit: `git commit -m "chore: normalize to bun monorepo conventions"`
-      6. Push: `git push`
+      5. **Before committing, check for build artifacts that should NOT be committed:**
+         ```bash
+         # Detect compiled output accidentally staged
+         git diff --cached --name-only | grep -E '\.(d\.ts|\.js\.map)$' | grep -v node_modules | head -20
+         # Also check for .js files next to .ts sources (build output in src/)
+         for f in $(git diff --cached --name-only | grep -E '\.js$' | grep -v node_modules | grep -v scripts/); do
+           ts_file="${f%.js}.ts"
+           if [ -f "$ts_file" ]; then echo "BUILD ARTIFACT: $f (has matching $ts_file)"; fi
+         done
+         ```
+         If build artifacts are found:
+         - Unstage them: `git reset HEAD <files>`
+         - Add patterns to `.gitignore` if missing (e.g. `*.d.ts`, `*.js.map`, or specific output dirs)
+         - Re-run `git add -A` after updating `.gitignore`
+      6. Commit: `git commit -m "chore: normalize to bun monorepo conventions"`
+      7. Push: `git push`
 
-      Post-condition: Clean commit pushed, `git status` shows clean working tree.
+      Post-condition: Clean commit pushed, `git status` shows clean working tree. No build artifacts in the commit.
     description: Commits all normalization changes
     frontmatter:
       oneOf:
@@ -388,9 +483,15 @@ roles:
     goal: You set up the foundational bun workspace configuration for a monorepo.
     output: List what was changed. Set $status to done (workspace working) or failed (with reason).
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path provided in your task prompt.
 
-      IMPORTANT: Be idempotent — check before modifying. If something is already correct, skip it.
+      Be idempotent — check before modifying. If something is already correct, skip it.
 
       Check and fix:
       1. Root `package.json` must have `"workspaces": ["packages/*"]`
@@ -408,6 +509,7 @@ roles:
       7. Run `bun install` to verify workspace resolution works
 
       ## Verification (must all pass)
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. bun install works
       bun install
@@ -431,6 +533,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -442,9 +549,15 @@ roles:
     goal: You configure enforcement mechanisms that block npm/pnpm/yarn usage and direct npm publish.
     output: List what guardrails were installed. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — check before adding.
+      Be idempotent — check before adding.
 
       ## 1. Block wrong package manager
       Add to root `package.json` (if not already present):
@@ -476,6 +589,7 @@ roles:
       Configure git to use hooks dir: `git config core.hooksPath .githooks`
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # 1. packageManager field exists
       node -e "const p = require('./package.json'); if (!p.packageManager) { console.error('❌ missing packageManager'); process.exit(1); } console.log('✅ packageManager:', p.packageManager)"
@@ -502,6 +616,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -513,9 +632,15 @@ roles:
     goal: You configure TypeScript for a bun monorepo with composite project references.
     output: List what was configured. Set $status to done or failed.
     procedure: |-
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — if tsconfig.json already exists with correct settings, don't overwrite.
+      Be idempotent — if tsconfig.json already exists with correct settings, don't overwrite.
 
       ## Step 0: Detect if project needs TypeScript compilation
 
@@ -548,6 +673,7 @@ roles:
       4. `devDependencies` at root: `typescript`, `bun-types`, `@types/node`
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       if [ ! -f tsconfig.json ]; then
         echo "JS/MJS project — no tsconfig needed"
@@ -571,6 +697,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -582,9 +713,15 @@ roles:
     goal: You ensure every package has consistent metadata for publishing and discoverability.
     output: List what was standardized per package. Set $status to done or failed.
     procedure: |
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
-      IMPORTANT: Be idempotent — skip fields that are already correctly set.
+      Be idempotent — skip fields that are already correctly set.
 
       For each package under `packages/`:
       1. `"type": "module"` — must be set
@@ -608,6 +745,7 @@ roles:
          - Check: `grep -r '"@uncaged/' packages/*/package.json | grep -v 'workspace:'`
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       # Check every non-private package has required fields
       for d in packages/*/; do
@@ -640,6 +778,11 @@ roles:
               type: string
         - properties:
             $status:
+              const: skipped
+            repoPath:
+              type: string
+        - properties:
+            $status:
               const: failed
             reason:
               type: string
@@ -651,6 +794,12 @@ roles:
     goal: You place a solve-issue workflow YAML in .workflows/ so the project can use uwf thread start .workflows/solve-issue.yaml for issue resolution.
     output: Describe the workflow registered. Set $status to done or failed.
     procedure: |-
+      ## GROUND RULES (read before doing anything)
+      - Only report actions you ACTUALLY performed and files you ACTUALLY created or modified.
+      - If everything is already correctly configured, set $status=skipped.
+      - NEVER fabricate command output. Run every verification command for real and paste the actual stdout/stderr.
+      - After writing a file, run `test -f <path> && echo EXISTS || echo MISSING` to confirm it was actually written.
+
       cd into the repo path from your task prompt.
 
       1. Check if `uwf` CLI is available: `which uwf`
@@ -664,6 +813,7 @@ roles:
          NOTE: Place the file in `.workflows/` (dot-prefix), NOT `workflows/`. Do NOT run `uwf workflow add`. The file is used directly via `uwf thread start .workflows/solve-issue.yaml`.
 
       ## Verification
+      You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
       ```bash
       test -f .workflows/solve-issue.yaml
       node -e "
@@ -683,6 +833,11 @@ roles:
         - properties:
             $status:
               const: done
+            repoPath:
+              type: string
+        - properties:
+            $status:
+              const: skipped
             repoPath:
               type: string
         - properties:
