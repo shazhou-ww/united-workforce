@@ -25,7 +25,7 @@ describe("Protocol types for thread/edge location", () => {
         edgePrompt: "Plan the implementation",
         startedAtMs: Date.now(),
         completedAtMs: Date.now() + 1000,
-    assembledPrompt: null,
+        assembledPrompt: null,
         cwd: "/home/user/project",
       };
 

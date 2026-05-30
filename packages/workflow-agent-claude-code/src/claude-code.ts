@@ -120,7 +120,11 @@ function spawnClaudeResume(
   return spawnClaude(args);
 }
 
-async function processClaudeOutput(stdout: string, store: Store, assembledPrompt: string): Promise<AgentRunResult> {
+async function processClaudeOutput(
+  stdout: string,
+  store: Store,
+  assembledPrompt: string,
+): Promise<AgentRunResult> {
   const parsed = parseClaudeCodeStreamOutput(stdout);
 
   if (parsed !== null) {

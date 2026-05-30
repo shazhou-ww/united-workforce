@@ -311,7 +311,10 @@ export async function cmdStepRead(
     if (promptNode === null) {
       return `# Step ${stepHash}\n\n_Prompt CAS node not found: ${promptRef}_`;
     }
-    const promptText = typeof promptNode.payload === "string" ? promptNode.payload : JSON.stringify(promptNode.payload);
+    const promptText =
+      typeof promptNode.payload === "string"
+        ? promptNode.payload
+        : JSON.stringify(promptNode.payload);
     return `# Step ${stepHash}\n\n**Role:** ${payload.role}\n**Agent:** ${payload.agent}\n\n## Prompt\n\n${promptText}`;
   }
 

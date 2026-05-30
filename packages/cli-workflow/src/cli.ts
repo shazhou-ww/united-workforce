@@ -373,7 +373,12 @@ step
         process.stderr.write("invalid --quota: must be a positive integer\n");
         process.exit(1);
       }
-      const markdown = await cmdStepRead(storageRoot, stepHash as CasRef, quota, opts.prompt === true);
+      const markdown = await cmdStepRead(
+        storageRoot,
+        stepHash as CasRef,
+        quota,
+        opts.prompt === true,
+      );
       process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
     });
   });
