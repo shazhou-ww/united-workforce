@@ -14,7 +14,7 @@ export const editNodeViewModel = define.view("editNodeView", editNodeView, (set,
   function start(nodeId: string) {
     const [nodes] = model.use(nodesModel);
     const node = nodes.find((n) => n.id === nodeId);
-    if (!node || node.type !== "role") return;
+    if (node?.type !== "role") return;
     set({ node: node as WorkNode<"role"> });
   }
 

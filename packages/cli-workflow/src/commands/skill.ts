@@ -1,7 +1,7 @@
 export {
-  generateBootstrapReference as cmdSkillBootstrap,
   generateAdapterReference as cmdSkillAdapter,
   generateAuthorReference as cmdSkillAuthor,
+  generateBootstrapReference as cmdSkillBootstrap,
   generateDeveloperReference as cmdSkillDeveloper,
   generateUserReference as cmdSkillUser,
 } from "@uncaged/workflow-util";

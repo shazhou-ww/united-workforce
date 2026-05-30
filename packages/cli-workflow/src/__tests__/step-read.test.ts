@@ -66,13 +66,21 @@ function generateContent(size: number, prefix = "Content"): string {
 // ── fixture ───────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let originalEnv: string | undefined;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-step-read-test-"));
+  originalEnv = process.env.UNCAGED_CAS_DIR;
 });
 
 afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
+  // Restore original environment
+  if (originalEnv === undefined) {
+    delete process.env.UNCAGED_CAS_DIR;
+  } else {
+    process.env.UNCAGED_CAS_DIR = originalEnv;
+  }
 });
 
 // ── step read tests ───────────────────────────────────────────────────────────
@@ -80,7 +88,10 @@ afterEach(async () => {
 describe("step read", () => {
   test("test 1: basic single-step read with 3 turns", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
@@ -166,7 +177,9 @@ describe("step read", () => {
 
   test("test 2: quota enforcement - multiple turns", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
@@ -250,7 +263,9 @@ describe("step read", () => {
 
   test("test 3: minimal quota edge case - always show at least one turn", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
@@ -325,7 +340,9 @@ describe("step read", () => {
 
   test("test 4: step with no detail field", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
 
@@ -384,7 +401,9 @@ describe("step read", () => {
 
   test("test 5: step with detail but no turns array", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     await registerDetailSchemas(store);
@@ -460,7 +479,9 @@ describe("step read", () => {
 
   test("test 6: displays role and tool calls in turn body", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
@@ -532,7 +553,9 @@ describe("step read", () => {
 
   test("test 7: turn content with special characters", async () => {
     const casDir = join(tmpDir, "cas");
+    process.env.UNCAGED_CAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
+    process.env.UNCAGED_CAS_DIR = casDir;
     const store = createFsStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);

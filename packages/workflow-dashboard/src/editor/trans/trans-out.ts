@@ -40,7 +40,7 @@ function traverse(
   visited.add(nodeId);
 
   const node = nodeMap.get(nodeId);
-  if (!node || node.type !== "role") return;
+  if (node?.type !== "role") return;
 
   const roleNode = node as WorkNode<"role">;
   const outEdges = outgoingEdges.get(nodeId) ?? [];

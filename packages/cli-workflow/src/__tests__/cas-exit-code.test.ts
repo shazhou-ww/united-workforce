@@ -6,14 +6,22 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdCasPutText } from "../commands/cas.js";
 
 let storageRoot: string;
+let casDir: string;
 let uwfPath: string;
+let originalEnv: string | undefined;
 
 beforeEach(async () => {
   storageRoot = join(
     tmpdir(),
     `uwf-cas-exit-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
+  casDir = join(storageRoot, "cas");
   await mkdir(storageRoot, { recursive: true });
+  await mkdir(casDir, { recursive: true });
+
+  // Set UNCAGED_CAS_DIR for this test
+  originalEnv = process.env.UNCAGED_CAS_DIR;
+  process.env.UNCAGED_CAS_DIR = casDir;
 
   // Find the uwf CLI path
   uwfPath = join(__dirname, "../../src/cli.ts");
@@ -21,6 +29,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(storageRoot, { recursive: true, force: true });
+
+  // Restore original environment
+  if (originalEnv === undefined) {
+    delete process.env.UNCAGED_CAS_DIR;
+  } else {
+    process.env.UNCAGED_CAS_DIR = originalEnv;
+  }
 });
 
 type ExecResult = {
@@ -32,7 +47,11 @@ type ExecResult = {
 function execUwf(args: string[]): ExecResult {
   try {
     const stdout = execSync(`bun ${uwfPath} ${args.join(" ")}`, {
-      env: { ...process.env, WORKFLOW_STORAGE_ROOT: storageRoot },
+      env: {
+        ...process.env,
+        WORKFLOW_STORAGE_ROOT: storageRoot,
+        UNCAGED_CAS_DIR: casDir,
+      },
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });

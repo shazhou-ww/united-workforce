@@ -10,16 +10,30 @@ import { createUwfStore, loadThreadsIndex } from "../store.js";
 describe("thread start --cwd CLI option", () => {
   let tmpDir: string;
   let storageRoot: string;
+  let casDir: string;
+  let originalEnv: string | undefined;
 
   async function setupTestEnv() {
     tmpDir = join(tmpdir(), `uwf-test-cwd-cli-${Date.now()}`);
     storageRoot = join(tmpDir, "storage");
+    casDir = join(tmpDir, "cas");
     await mkdir(storageRoot, { recursive: true });
+    await mkdir(casDir, { recursive: true });
+
+    // Set UNCAGED_CAS_DIR for this test
+    originalEnv = process.env.UNCAGED_CAS_DIR;
+    process.env.UNCAGED_CAS_DIR = casDir;
   }
 
   async function teardown() {
     if (tmpDir) {
       await rm(tmpDir, { recursive: true, force: true });
+    }
+    // Restore original environment
+    if (originalEnv === undefined) {
+      delete process.env.UNCAGED_CAS_DIR;
+    } else {
+      process.env.UNCAGED_CAS_DIR = originalEnv;
     }
   }
 
@@ -123,7 +137,7 @@ graph:
 
     // Register the workflow
     execFileSync("node", [uwfBin, "workflow", "add", workflowPath], {
-      env: { ...process.env, UWF_STORAGE_ROOT: storageRoot },
+      env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },
       encoding: "utf8",
     });
 
@@ -132,7 +146,7 @@ graph:
       "node",
       [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
       {
-        env: { ...process.env, UWF_STORAGE_ROOT: storageRoot },
+        env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },
         encoding: "utf8",
       },
     );

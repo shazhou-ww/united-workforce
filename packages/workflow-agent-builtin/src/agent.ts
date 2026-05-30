@@ -94,7 +94,12 @@ async function runBuiltinWithMessages(
     session.startedAtMs,
   );
 
-  return { output: stripPreamble(loopResult.finalText), detailHash, sessionId: session.sessionId, assembledPrompt: "" };
+  return {
+    output: stripPreamble(loopResult.finalText),
+    detailHash,
+    sessionId: session.sessionId,
+    assembledPrompt: "",
+  };
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {

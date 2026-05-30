@@ -209,4 +209,13 @@ src/
 | `~/.uncaged/workflow/.env` | API keys (referenced by `apiKeyEnv` in config) |
 | `~/.uncaged/workflow/registry.yaml` | Workflow name → CAS hash |
 | `~/.uncaged/workflow/threads.yaml` | Active thread head pointers |
-| `~/.uncaged/workflow/cas/` | Content-addressed node storage |
+| `~/.uncaged/json-cas/` | Content-addressed node storage (unified CAS store, shared with `json-cas` CLI) |
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `UNCAGED_CAS_DIR` | Override the global CAS directory location | `~/.uncaged/json-cas` |
+| `UNCAGED_WORKFLOW_STORAGE_ROOT` | Internal override for workflow metadata storage | `~/.uncaged/workflow` |
+| `WORKFLOW_STORAGE_ROOT` | User override for workflow metadata storage | `~/.uncaged/workflow` |
+
