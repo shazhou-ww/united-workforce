@@ -8,11 +8,11 @@ import { parse } from "yaml";
  * Test: Issue #474 - tea pr create fails in git worktree directories
  *
  * This test verifies that the solve-issue workflow's committer role
- * includes the --repo flag when running tea pr create, which fixes
- * the "path segment [0] is empty" error in worktree directories.
+ * uses direct Gitea API calls via curl instead of tea pr create,
+ * which fixes the "path segment [0] is empty" error in worktree directories.
  */
 
-describe("solve-issue workflow: tea pr create worktree fix", () => {
+describe("solve-issue workflow: Gitea API PR creation", () => {
   // Navigate up from packages/cli-workflow/src/__tests__ to repo root
   const workflowPath = join(
     import.meta.dirname,
@@ -24,7 +24,7 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     "solve-issue.yaml",
   );
 
-  test("committer procedure should include --repo flag in tea pr create command", async () => {
+  test("committer procedure should use curl API instead of tea pr create", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
@@ -32,43 +32,38 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     const committerProcedure = workflow.roles.committer?.procedure;
     expect(committerProcedure).toBeDefined();
 
-    // Verify the procedure includes tea pr create with --repo flag
-    expect(committerProcedure).toContain("tea pr create");
-    expect(committerProcedure).toContain("--repo");
+    // Verify the procedure uses curl API, not tea pr create
+    expect(committerProcedure).toContain("curl");
+    expect(committerProcedure).toContain("api/v1/repos");
+    expect(committerProcedure).toContain("/pulls");
 
-    // Verify the --repo flag appears before or together with tea pr create
-    // This ensures the command is: tea pr create --repo <owner/repo> ...
-    const teaPrCreateMatch = committerProcedure?.match(/tea pr create[^\n]*/);
-    expect(teaPrCreateMatch).not.toBeNull();
-
-    if (teaPrCreateMatch) {
-      const teaCommandLine = teaPrCreateMatch[0];
-      expect(teaCommandLine).toContain("--repo");
-    }
+    // Verify it explicitly warns against tea pr create
+    expect(committerProcedure).toMatch(/do NOT use.*tea pr create/i);
   });
 
-  test("committer procedure should mention repo extraction from git remote", async () => {
+  test("committer procedure should reference repoRemote from task prompt", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const committerProcedure = workflow.roles.committer?.procedure;
     expect(committerProcedure).toBeDefined();
 
-    // Verify the procedure mentions extracting repo info from git remote
-    // This ensures fallback logic is documented
-    expect(committerProcedure).toMatch(/git remote/i);
+    // Verify the procedure mentions repoRemote is provided in task prompt
+    expect(committerProcedure).toMatch(/repo remote.*provided.*task prompt/i);
+    expect(committerProcedure).toMatch(/owner\/repo/i);
   });
 
-  test("committer procedure should include error handling for tea failures", async () => {
+  test("committer procedure should include error handling for curl failures", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const committerProcedure = workflow.roles.committer?.procedure;
     expect(committerProcedure).toBeDefined();
 
-    // Verify the procedure includes error handling guidance
+    // Verify the procedure includes error handling guidance for curl
     // This ensures we capture failures and provide actionable output
     expect(committerProcedure).toMatch(/error|fail/i);
+    expect(committerProcedure).toContain("hook_failed");
   });
 
   test("workflow should be parseable as valid WorkflowPayload", async () => {

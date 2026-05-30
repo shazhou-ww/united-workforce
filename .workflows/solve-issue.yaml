@@ -23,6 +23,12 @@ roles:
       1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
       2. Put the hash in frontmatter.plan (required when $status=ready)
       3. Set repoPath to the absolute path of the repository root
+
+      IMPORTANT: Extract the repo remote (owner/repo) from git:
+      ```bash
+      git remote get-url origin | sed 's|.*[:/]\([^/]*/[^.]*\).*|\1|'
+      ```
+      Store the result as repoRemote in your frontmatter output so downstream roles can use it for tea/API calls.
     output: "Output a brief summary of the test spec. Set $status to ready (with plan hash and repoPath) or insufficient_info."
     frontmatter:
       oneOf:
@@ -30,7 +36,8 @@ roles:
             $status: { const: "ready" }
             plan: { type: string }
             repoPath: { type: string }
-          required: [$status, plan, repoPath]
+            repoRemote: { type: string }
+          required: [$status, plan, repoPath, repoRemote]
         - properties:
             $status: { const: "insufficient_info" }
           required: [$status]
@@ -82,6 +89,7 @@ roles:
             $status: { const: "done" }
             branch: { type: string }
             worktree: { type: string }
+            repoRemote: { type: string }
           required: [$status, branch, worktree]
         - properties:
             $status: { const: "failed" }
@@ -125,11 +133,13 @@ roles:
             $status: { const: "approved" }
             branch: { type: string }
             worktree: { type: string }
+            repoRemote: { type: string }
           required: [$status, branch, worktree]
         - properties:
             $status: { const: "rejected" }
             comments: { type: string }
             worktree: { type: string }
+            repoRemote: { type: string }
           required: [$status, comments, worktree]
   tester:
     description: "Functional correctness verification"
@@ -153,33 +163,48 @@ roles:
             $status: { const: "passed" }
             branch: { type: string }
             worktree: { type: string }
+            repoRemote: { type: string }
           required: [$status, branch, worktree]
         - properties:
             $status: { const: "fix_code" }
             report: { type: string }
+            repoRemote: { type: string }
+            worktree: { type: string }
+            branch: { type: string }
           required: [$status, report]
         - properties:
             $status: { const: "fix_spec" }
             report: { type: string }
+            repoRemote: { type: string }
+            worktree: { type: string }
+            branch: { type: string }
           required: [$status, report]
   committer:
     description: "Commits and creates PR"
     goal: "You are a committer agent. You create a clean commit and push a PR linking the original issue."
     capabilities: []
     procedure: |
-      The worktree path, branch name, and repo info are provided in your task prompt.
+      The worktree path, branch name, and repo remote (owner/repo) are provided in your task prompt.
       cd into the worktree first.
 
       Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
-      1. Stage all changes: `git add -A`
-      2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
+      1. Check `git status` — if working tree is clean and branch is ahead of origin, skip to step 3 (push).
+      2. If there are unstaged/uncommitted changes: `git add -A` then `git commit -m "type: description\n\nFixes #N"`
       3. Push the branch: `git push -u origin <branch-name>`
-         - If push hook fails: capture the error log in your output, mark hook_failed
-      4. On push success: create a PR via `tea pr create --repo <owner/repo> --title "..." --description "..."`
-         - Extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
-         - PR description must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
-         - On tea failure: capture stderr/stdout, include PR details for manual creation, mark hook_failed
-      5. After PR creation, clean up the worktree:
+      4. **Verify push succeeded** — run `git ls-remote origin <branch-name>` and confirm it prints a commit hash.
+         - If no output or push failed: capture the error, mark hook_failed
+      5. Create a PR using the Gitea API (do NOT use `tea pr create` — it fails in worktrees):
+         ```bash
+         GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+         curl -s -X POST -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+           "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/pulls" \
+           -d '{"title":"...","body":"...","head":"<branch>","base":"main"}'
+         ```
+         - The repo remote (owner/repo format, e.g. "uncaged/workflow") is given in your task prompt — use it directly.
+         - PR body must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
+      6. **Verify PR was created** — parse the curl response JSON: it must contain a `"number"` field. Print the PR URL.
+         - If curl returns an error or no number field: capture the response, mark hook_failed
+      7. After PR creation, clean up the worktree:
          - cd to the repo root (parent of .worktrees)
          - `git worktree remove <worktree-path>`
     output: "Include PR URL on success or error log on failure. Set $status to committed (with prUrl) or hook_failed (with error)."
@@ -188,27 +213,33 @@ roles:
         - properties:
             $status: { const: "committed" }
             prUrl: { type: string }
+            repoRemote: { type: string }
+            worktree: { type: string }
+            branch: { type: string }
           required: [$status, prUrl]
         - properties:
             $status: { const: "hook_failed" }
             error: { type: string }
+            repoRemote: { type: string }
+            worktree: { type: string }
+            branch: { type: string }
           required: [$status, error]
 graph:
   $START:
     _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
   planner:
     insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
-    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
+    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Repo remote: {{{repoRemote}}}." }
   developer:
-    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
+    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance. Repo remote: {{{repoRemote}}}." }
     failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
   reviewer:
-    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues in repo {{{worktree}}}." }
-    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}." }
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues in repo {{{worktree}}}. Repo remote: {{{repoRemote}}}." }
+    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}. Repo remote: {{{repoRemote}}}." }
   tester:
-    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit." }
-    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the test spec." }
-    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{{branch}}} from {{{worktree}}}." }
+    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit. Worktree: {{{worktree}}}. Repo remote: {{{repoRemote}}}." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the test spec. Repo remote: {{{repoRemote}}}." }
+    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{{branch}}} from {{{worktree}}}. Repo remote (owner/repo): {{{repoRemote}}}." }
   committer:
-    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit." }
+    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit. Worktree: {{{worktree}}}. Repo remote: {{{repoRemote}}}." }
     committed: { role: "$END", prompt: "PR created: {{{prUrl}}}. Workflow complete." }
