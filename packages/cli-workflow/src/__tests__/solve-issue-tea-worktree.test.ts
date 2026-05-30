@@ -103,4 +103,46 @@ describe("solve-issue workflow: tea pr create worktree fix", () => {
     expect(committedVariant).toBeDefined();
     expect(committedVariant.required).toContain("$status");
   });
+
+  test("developer procedure should include mandatory verification step", async () => {
+    const yamlContent = await readFile(workflowPath, "utf-8");
+    const workflow = parse(yamlContent) as WorkflowPayload;
+
+    const developerProcedure = workflow.roles.developer?.procedure;
+    expect(developerProcedure).toBeDefined();
+
+    // Verify the procedure includes mandatory verification step
+    expect(developerProcedure).toContain("MANDATORY VERIFICATION");
+    expect(developerProcedure).toContain("git branch --show-current");
+    expect(developerProcedure).toContain("git status");
+    expect(developerProcedure).toMatch(/ls -la|verify.*exist/i);
+  });
+
+  test("reviewer procedure should enforce worktree path verification", async () => {
+    const yamlContent = await readFile(workflowPath, "utf-8");
+    const workflow = parse(yamlContent) as WorkflowPayload;
+
+    const reviewerProcedure = workflow.roles.reviewer?.procedure;
+    expect(reviewerProcedure).toBeDefined();
+
+    // Verify the procedure includes critical enforcement
+    expect(reviewerProcedure).toContain("CRITICAL");
+    expect(reviewerProcedure).toMatch(/cd.*pwd/);
+    expect(reviewerProcedure).toContain(
+      "Do NOT report results without running the actual commands",
+    );
+  });
+
+  test("developer procedure should include test debugging escalation", async () => {
+    const yamlContent = await readFile(workflowPath, "utf-8");
+    const workflow = parse(yamlContent) as WorkflowPayload;
+
+    const developerProcedure = workflow.roles.developer?.procedure;
+    expect(developerProcedure).toBeDefined();
+
+    // Verify the procedure includes test failure guidance
+    expect(developerProcedure).toMatch(/tests fail.*first run/i);
+    expect(developerProcedure).toMatch(/3 test cycles|after 3 attempts/i);
+    expect(developerProcedure).toContain("$status=failed");
+  });
 });
