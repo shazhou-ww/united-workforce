@@ -155,12 +155,14 @@ roles:
       cd into the worktree first.
 
       Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
-      1. Stage all changes: `git add -A`
-      2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
+      1. Check `git status` — if working tree is clean and branch is ahead of origin, skip to step 3 (push).
+      2. If there are unstaged/uncommitted changes: `git add -A` then `git commit -m "type: description\n\nFixes #N"`
       3. Push the branch: `git push -u origin <branch-name>`
          - If push hook fails: capture the error log in your output, mark hook_failed
-      4. On push success: create a PR via `tea pr create --repo <owner/repo> --title "..." --description "..."`
-         - Extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
+      4. On push success: create a PR.
+         - IMPORTANT: `tea pr create --repo` does NOT work inside git worktrees. You must cd to the main repo root first (the parent directory that contains `.worktrees/`).
+         - From the main repo root, run: `tea pr create --title "..." --description "..."`
+         - Do NOT use the `--repo` flag — let tea infer the repo from the git remote in CWD.
          - PR description must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
          - On tea failure: capture stderr/stdout, include PR details for manual creation, mark hook_failed
       5. After PR creation, clean up the worktree:
