@@ -61,6 +61,17 @@ roles:
       9. Implement the code to make tests pass
       10. Ensure `bun run build` passes with no errors
       11. Run `bun test` to verify all tests pass
+          - If tests fail on first run:
+            * Read the test output carefully for missing imports or setup issues
+            * Check if you're running tests from the correct working directory (package root vs workspace root)
+            * Fix the immediate issue and rerun ONCE
+            * If tests still fail after 2 attempts: check the test spec for ambiguities
+            * If stuck after 3 test cycles: set $status=failed with detailed error report rather than continuing blind retries
+      12. MANDATORY VERIFICATION before reporting done:
+          - Run `git branch --show-current` and confirm branch name matches expected
+          - Run `git status` and verify changed files exist
+          - Run `ls -la <key-implementation-files>` to verify they exist on disk
+          - If ANY verification fails: retry the implementation, do NOT report done
 
       If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
       or repeated attempts fail), set $status=failed with a reason.
@@ -85,7 +96,12 @@ roles:
     procedure: |
       The worktree path is provided in your task prompt. cd into it first.
 
-      Before reviewing, verify the git branch:
+      CRITICAL: You MUST execute every verification command below. Do NOT report results without running the actual commands. Do NOT rely on prior context or assumptions.
+
+      Before reviewing, verify the worktree and branch exist:
+      0. Run `cd <worktree-path> && pwd` to confirm the path is accessible
+         - If the cd fails: the worktree truly doesn't exist, reject with that reason
+         - If the cd succeeds: proceed with step 1 below
       1. Run `git branch --show-current` — confirm the branch name references the issue number being worked on
       2. If the branch doesn't correspond to the issue, flag it in your output and reject
 
