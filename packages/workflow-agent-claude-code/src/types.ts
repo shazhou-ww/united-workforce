@@ -1,4 +1,4 @@
-export type ClaudeCodeResultSubtype = "success" | "error_max_turns" | "error_budget";
+export type ClaudeCodeResultSubtype = "success" | "error_max_turns" | "error_budget" | "incomplete";
 
 /** A single tool call within an assistant turn. */
 export type ClaudeCodeToolCall = {

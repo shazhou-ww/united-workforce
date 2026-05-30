@@ -71,12 +71,16 @@ type ParseState = {
   turns: ClaudeCodeTurnPayload[];
   resultLine: Record<string, unknown> | null;
   model: string;
+  sessionId: string;
   turnIndex: number;
 };
 
 function processSystemLine(parsed: Record<string, unknown>, state: ParseState): void {
   if (typeof parsed.model === "string") {
     state.model = parsed.model;
+  }
+  if (typeof parsed.session_id === "string") {
+    state.sessionId = parsed.session_id;
   }
 }
 
@@ -124,8 +128,52 @@ function processLine(line: string, state: ParseState): void {
   else if (type === "result") state.resultLine = parsed;
 }
 
+/**
+ * Extract output text from the last assistant turn.
+ * Used for best-effort extraction when no result line is present.
+ */
+function extractLastAssistantContent(turns: ClaudeCodeTurnPayload[]): string {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const turn = turns[i];
+    if (turn !== undefined && turn.role === "assistant" && turn.content !== "") {
+      return turn.content;
+    }
+  }
+  return "";
+}
+
 function assembleResult(state: ParseState): ClaudeCodeParsedResult | null {
-  if (state.resultLine === null) return null;
+  // Handle incomplete result (no result line)
+  if (state.resultLine === null) {
+    // Need at least a session_id from system line to be parseable
+    if (state.sessionId === "") {
+      return null;
+    }
+
+    // Best-effort extraction: get output from last assistant turn
+    const result = extractLastAssistantContent(state.turns);
+
+    return {
+      type: "result",
+      subtype: "incomplete",
+      result,
+      sessionId: state.sessionId,
+      numTurns: state.turns.length,
+      totalCostUsd: 0,
+      durationMs: 0,
+      model: state.model,
+      stopReason: "incomplete_no_result_line",
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+      },
+      turns: state.turns,
+    };
+  }
+
+  // Handle complete result (has result line)
   const sessionId = state.resultLine.session_id;
   const result = state.resultLine.result;
   const subtype = state.resultLine.subtype;
@@ -159,7 +207,13 @@ function assembleResult(state: ParseState): ClaudeCodeParsedResult | null {
  */
 export function parseClaudeCodeStreamOutput(stdout: string): ClaudeCodeParsedResult | null {
   const lines = stdout.trim().split("\n");
-  const state: ParseState = { turns: [], resultLine: null, model: "", turnIndex: 0 };
+  const state: ParseState = {
+    turns: [],
+    resultLine: null,
+    model: "",
+    sessionId: "",
+    turnIndex: 0,
+  };
   for (const line of lines) {
     processLine(line, state);
   }
