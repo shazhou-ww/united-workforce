@@ -48,7 +48,9 @@ export function buildClaudeCodePrompt(ctx: AgentContext): string {
   return parts.join("\n");
 }
 
-function spawnClaude(args: string[]): Promise<{ stdout: string; stderr: string }> {
+function spawnClaude(
+  args: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn(CLAUDE_COMMAND, args, {
       env: process.env,
@@ -72,7 +74,7 @@ function spawnClaude(args: string[]): Promise<{ stdout: string; stderr: string }
 
     child.on("close", (code) => {
       if (code === 0) {
-        resolve({ stdout, stderr });
+        resolve({ stdout, stderr, exitCode: code });
         return;
       }
       const detail = stderr.trim() !== "" ? ` stderr=${stderr.trim()}` : "";
@@ -81,7 +83,9 @@ function spawnClaude(args: string[]): Promise<{ stdout: string; stderr: string }
   });
 }
 
-function spawnClaudeRun(prompt: string): Promise<{ stdout: string; stderr: string }> {
+function spawnClaudeRun(
+  prompt: string,
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
     prompt,
@@ -101,7 +105,7 @@ function spawnClaudeRun(prompt: string): Promise<{ stdout: string; stderr: strin
 function spawnClaudeResume(
   sessionId: string,
   message: string,
-): Promise<{ stdout: string; stderr: string }> {
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
     message,
@@ -122,6 +126,8 @@ function spawnClaudeResume(
 
 async function processClaudeOutput(
   stdout: string,
+  stderr: string,
+  exitCode: number | null,
   store: Store,
   assembledPrompt: string,
 ): Promise<AgentRunResult> {
@@ -129,11 +135,25 @@ async function processClaudeOutput(
 
   if (parsed !== null) {
     const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, parsed);
+
+    // Log incomplete results for visibility
+    if (parsed.subtype === "incomplete") {
+      log(
+        "7NQW8R4P",
+        `Claude Code exited with incomplete output (no result line). Exit code: ${exitCode ?? "null"}, stderr: ${stderr.slice(0, 200)}`,
+      );
+    }
+
     return { output, detailHash, sessionId, assembledPrompt };
   }
 
+  // Truly unparseable output - provide enhanced error message
+  const exitInfo = exitCode !== null && exitCode !== 0 ? `Exit code: ${exitCode}\n` : "";
+  const stderrInfo = stderr.trim() !== "" ? `Stderr: ${stderr.slice(0, 200)}\n` : "";
+  const stdoutSnippet = stdout.slice(0, 200);
+
   throw new Error(
-    `Claude Code returned unparseable output (first 200 chars): ${stdout.slice(0, 200)}`,
+    `Claude Code exited without producing parseable output.\n${exitInfo}${stderrInfo}Stdout (first 200 chars): ${stdoutSnippet}`,
   );
 }
 
@@ -147,8 +167,8 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
     const cachedSessionId = await getCachedSessionId("claude-code", ctx.threadId, ctx.role);
     if (cachedSessionId !== null) {
       try {
-        const { stdout } = await spawnClaudeResume(cachedSessionId, fullPrompt);
-        const result = await processClaudeOutput(stdout, ctx.store, fullPrompt);
+        const { stdout, stderr, exitCode } = await spawnClaudeResume(cachedSessionId, fullPrompt);
+        const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
         if (result.sessionId !== undefined && result.sessionId !== "") {
           await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
         }
@@ -162,8 +182,8 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
     }
   }
 
-  const { stdout } = await spawnClaudeRun(fullPrompt);
-  const result = await processClaudeOutput(stdout, ctx.store, fullPrompt);
+  const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt);
+  const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
   if (result.sessionId !== undefined && result.sessionId !== "") {
     await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
   }
@@ -175,8 +195,8 @@ async function continueClaudeCode(
   message: string,
   store: Store,
 ): Promise<AgentRunResult> {
-  const { stdout } = await spawnClaudeResume(sessionId, message);
-  return processClaudeOutput(stdout, store, "");
+  const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message);
+  return processClaudeOutput(stdout, stderr, exitCode, store, "");
 }
 
 /** Agent CLI factory: parses argv, runs Claude Code, extracts output, writes StepNode. */

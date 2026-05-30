@@ -301,6 +301,179 @@ describe("storeClaudeCodeDetail", () => {
   });
 });
 
+describe("parseClaudeCodeStreamOutput — incomplete output (no result line)", () => {
+  test("Test 1.1: parses stream with turns but no result line", () => {
+    const lines = [
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: "sess-incomplete-1",
+        model: "claude-sonnet-4.5",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Starting work..." }],
+        },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "This is the last assistant message." }],
+        },
+      }),
+    ];
+    const stdout = lines.join("\n");
+    const parsed = parseClaudeCodeStreamOutput(stdout);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed!.subtype).toBe("incomplete");
+    expect(parsed!.result).toBe("This is the last assistant message.");
+    expect(parsed!.sessionId).toBe("sess-incomplete-1");
+    expect(parsed!.model).toBe("claude-sonnet-4.5");
+    expect(parsed!.turns).toHaveLength(2);
+    expect(parsed!.stopReason).toBe("incomplete_no_result_line");
+    expect(parsed!.numTurns).toBe(2);
+    expect(parsed!.durationMs).toBe(0);
+    expect(parsed!.totalCostUsd).toBe(0);
+  });
+
+  test("Test 1.2: parses stream with no turns and no result line", () => {
+    const lines = [
+      JSON.stringify({
+        type: "system",
+        session_id: "sess-no-turns",
+        model: "claude-opus-4",
+      }),
+    ];
+    const stdout = lines.join("\n");
+    const parsed = parseClaudeCodeStreamOutput(stdout);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed!.subtype).toBe("incomplete");
+    expect(parsed!.result).toBe("");
+    expect(parsed!.sessionId).toBe("sess-no-turns");
+    expect(parsed!.model).toBe("claude-opus-4");
+    expect(parsed!.turns).toHaveLength(0);
+    expect(parsed!.stopReason).toBe("incomplete_no_result_line");
+  });
+
+  test("Test 1.3: returns null for completely empty output", () => {
+    const parsed1 = parseClaudeCodeStreamOutput("");
+    expect(parsed1).toBeNull();
+
+    const parsed2 = parseClaudeCodeStreamOutput("   \n  \n  ");
+    expect(parsed2).toBeNull();
+  });
+
+  test("Test 1.4: returns null for malformed JSON lines only", () => {
+    const stdout = "not json\n{broken json\n[invalid";
+    const parsed = parseClaudeCodeStreamOutput(stdout);
+    expect(parsed).toBeNull();
+  });
+
+  test("Test 6.1: extracts from last assistant text-only turn", () => {
+    const lines = [
+      JSON.stringify({ type: "system", session_id: "s1", model: "test" }),
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "First message" }] },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "Last message" }] },
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.result).toBe("Last message");
+  });
+
+  test("Test 6.2: extracts from last assistant turn with tool calls", () => {
+    const lines = [
+      JSON.stringify({ type: "system", session_id: "s1", model: "test" }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Text with tools" },
+            { type: "tool_use", name: "Bash", input: { command: "ls" } },
+          ],
+        },
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.result).toBe("Text with tools");
+  });
+
+  test("Test 6.3: returns empty string when no assistant turns", () => {
+    const lines = [JSON.stringify({ type: "system", session_id: "s1", model: "test" })];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.result).toBe("");
+  });
+
+  test("Test 6.4: extracts from most recent assistant turn before tool_result", () => {
+    const lines = [
+      JSON.stringify({ type: "system", session_id: "s1", model: "test" }),
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "Before tool call" }] },
+      }),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: [{ type: "tool_result", content: "tool output" }] },
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.result).toBe("Before tool call");
+  });
+});
+
+describe("storeClaudeCodeDetail — incomplete results", () => {
+  test("Test 4.1: stores incomplete result as detail", async () => {
+    const store = createMemoryStore();
+    const incompleteParsed: ClaudeCodeParsedResult = {
+      type: "result",
+      subtype: "incomplete",
+      result: "Partial output",
+      sessionId: "sess-incomplete",
+      numTurns: 2,
+      totalCostUsd: 0,
+      durationMs: 0,
+      model: "claude-sonnet-4.5",
+      stopReason: "incomplete_no_result_line",
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+      },
+      turns: [
+        { index: 0, role: "assistant", content: "Turn 1", toolCalls: null },
+        { index: 1, role: "assistant", content: "Partial output", toolCalls: null },
+      ],
+    };
+
+    const { detailHash, output, sessionId } = await storeClaudeCodeDetail(store, incompleteParsed);
+
+    expect(detailHash).toHaveLength(13);
+    expect(output).toBe("Partial output");
+    expect(sessionId).toBe("sess-incomplete");
+
+    const node = await store.get(detailHash);
+    expect(node).not.toBeNull();
+    expect(node!.payload.subtype).toBe("incomplete");
+    expect(node!.payload.stopReason).toBe("incomplete_no_result_line");
+    expect(node!.payload.turns).toHaveLength(2);
+  });
+});
+
 describe("storeClaudeCodeRawOutput", () => {
   test("stores raw text when JSON parsing fails", async () => {
     const store = createMemoryStore();
