@@ -37,7 +37,7 @@ roles:
             plan: { type: string }
             repoPath: { type: string }
             repoRemote: { type: string }
-          required: [$status, plan, repoPath]
+          required: [$status, plan, repoPath, repoRemote]
         - properties:
             $status: { const: "insufficient_info" }
           required: [$status]

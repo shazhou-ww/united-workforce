@@ -8,22 +8,46 @@ roles:
       - issue-analysis
       - planning
     procedure: |
-      On first run (no previous steps):
+      CRITICAL: First, determine which mode you are in by scanning the task prompt.
+      Choose EXACTLY ONE mode — do NOT default to Mode A if Mode B applies.
+
+      **How to choose:**
+      - If the prompt contains ANY of these keywords: "PR #", "PR#", "pulls/", "继续修复", "continue", "review feedback", "existing branch", "fix/", or mentions a branch name → **Mode B**
+      - If the prompt was forwarded from tester with fix_spec → **Mode C**
+      - Otherwise → **Mode A**
+
+      **Mode A — Fresh issue (first time, no existing PR):**
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Assess whether the issue has enough information to produce a test spec
       4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output $status=insufficient_info
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
+      6. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      7. Output **$status=ready** with plan hash and repoPath
 
-      On subsequent runs (bounced back by tester with fix_spec):
+      **Mode B — Continue on existing PR (prompt mentions PR, branch, or review feedback):**
+      YOU MUST output $status=continue (NOT ready) when in this mode.
+      1. Extract the PR number and branch name from the prompt
+      2. Read the PR and its review comments from Gitea: `tea pr <number> --comments -r <owner/repo>`
+      3. Read the existing issue for full context: `tea issues <number> -r <owner/repo>`
+      4. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
+      5. Produce a TDD test spec that ONLY covers the changes requested in the review — do NOT re-spec already-implemented features
+      6. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      7. Find the existing worktree: `git worktree list` and locate the branch
+      8. Output **$status=continue** with plan hash, repoPath, branch name, and worktree path
+
+      **Mode C — Bounced back by tester (fix_spec):**
       1. Read the tester's output from the previous step to understand what's wrong with the spec
       2. Revise the test spec accordingly
+      3. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      4. Output **$status=ready** with plan hash and repoPath
 
-      After producing the test spec:
-      1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
-      2. Put the hash in frontmatter.plan (required when $status=ready)
-      3. Set repoPath to the absolute path of the repository root
-    output: "Output a brief summary of the test spec. Set $status to ready (with plan hash and repoPath) or insufficient_info."
+      IMPORTANT: Extract the repo remote (owner/repo) from git:
+      ```bash
+      git remote get-url origin | sed 's|.*[:/]\([^/]*/[^.]*\).*|\1|'
+      ```
+      Store the result as repoRemote in your frontmatter output so downstream roles can use it.
+    output: "Output a brief summary of the test spec. Set $status to ready (fresh), continue (existing PR), or insufficient_info."
     frontmatter:
       oneOf:
         - properties:
@@ -31,6 +55,13 @@ roles:
             plan: { type: string }
             repoPath: { type: string }
           required: [$status, plan, repoPath]
+        - properties:
+            $status: { const: "continue" }
+            plan: { type: string }
+            repoPath: { type: string }
+            branch: { type: string }
+            worktree: { type: string }
+          required: [$status, plan, repoPath, branch, worktree]
         - properties:
             $status: { const: "insufficient_info" }
           required: [$status]
@@ -49,10 +80,14 @@ roles:
       3. First time (no existing branch):
          - `git worktree add .worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
          - `cd .worktrees/fix/<issue-number>-<short-slug> && bun install`
-      4. If bounced back from reviewer or tester (branch already exists):
+      4. If continuing on existing branch (prompt says "Continue work on existing branch" or provides a worktree path):
+         - cd directly into the worktree path provided in the prompt
+         - `git fetch origin && git rebase origin/main`
+         - Do NOT create a new branch or worktree
+      5. If bounced back from reviewer or tester (branch already exists but no explicit worktree path):
          - cd into the existing worktree under `.worktrees/fix/<issue-number>-<short-slug>`
          - `git fetch origin && git rebase origin/main`
-      5. ALL subsequent work must happen inside the worktree directory.
+      6. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
       6. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner's output in your task prompt)
@@ -183,6 +218,7 @@ graph:
   planner:
     insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
+    continue: { role: "developer", prompt: "Continue work on existing branch {{{branch}}} at worktree {{{worktree}}}. Implement the revised TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:
     done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
     failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
