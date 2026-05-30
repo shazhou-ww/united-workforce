@@ -129,7 +129,11 @@ describe("C1: adapter JSON round-trip integration", () => {
         {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
-          env: { ...process.env, WORKFLOW_STORAGE_ROOT: tmpDir },
+          env: {
+            ...process.env,
+            WORKFLOW_STORAGE_ROOT: tmpDir,
+            UNCAGED_CAS_DIR: casDir,
+          },
           cwd: tmpDir,
           timeout: 30000,
         },

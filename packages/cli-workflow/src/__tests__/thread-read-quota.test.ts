@@ -67,13 +67,22 @@ function generateContent(size: number, prefix = "Content"): string {
 // ── fixture ───────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let originalEnv: string | undefined;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-quota-test-"));
+  originalEnv = process.env.UNCAGED_CAS_DIR;
+  process.env.UNCAGED_CAS_DIR = join(tmpDir, "cas");
+  await mkdir(process.env.UNCAGED_CAS_DIR, { recursive: true });
 });
 
 afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
+  if (originalEnv === undefined) {
+    delete process.env.UNCAGED_CAS_DIR;
+  } else {
+    process.env.UNCAGED_CAS_DIR = originalEnv;
+  }
 });
 
 // ── thread read quota enforcement ─────────────────────────────────────────────
@@ -143,7 +152,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
-      assembledPrompt: null,
+        assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -339,7 +348,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
-      assembledPrompt: null,
+        assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -497,7 +506,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
-      assembledPrompt: null,
+        assembledPrompt: null,
       });
       steps.push(stepHash);
     }
@@ -579,7 +588,7 @@ describe("thread read --quota flag", () => {
         agent: "uwf-test",
         startedAtMs: 1000000000000,
         completedAtMs: 1000000005000,
-      assembledPrompt: null,
+        assembledPrompt: null,
       });
       steps.push(stepHash);
     }

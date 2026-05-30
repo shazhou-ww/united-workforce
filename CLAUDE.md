@@ -270,7 +270,7 @@ node scripts/publish-all.mjs --dry-run    # preview without publishing
 examples/solve-issue.yaml       — write a workflow YAML definition
   │  uwf workflow put
   ▼
-~/.uncaged/workflow/cas/        — Workflow stored as CAS node
+~/.uncaged/json-cas/            — Workflow stored as CAS node (unified CAS store)
 ~/.uncaged/workflow/registry.yaml — name → hash mapping updated
   │  uwf thread start <name> -p "..."
   ▼

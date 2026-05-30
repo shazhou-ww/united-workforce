@@ -125,15 +125,23 @@ async function createTestStep(
 describe("cmdStepShow JSON serialization", () => {
   let testDir: string;
   let casDir: string;
+  let originalEnv: string | undefined;
 
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), "uwf-test-"));
     casDir = join(testDir, "cas");
     await mkdir(casDir, { recursive: true });
+    originalEnv = process.env.UNCAGED_CAS_DIR;
+    process.env.UNCAGED_CAS_DIR = casDir;
   });
 
   afterEach(async () => {
     await rm(testDir, { recursive: true, force: true });
+    if (originalEnv === undefined) {
+      delete process.env.UNCAGED_CAS_DIR;
+    } else {
+      process.env.UNCAGED_CAS_DIR = originalEnv;
+    }
   });
 
   test("escapes newlines in tool call args", async () => {

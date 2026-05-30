@@ -1,0 +1,224 @@
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { createUwfStore, getCasDir, getGlobalCasDir } from "../store.js";
+
+describe("Global CAS directory", () => {
+  let tmpDir: string;
+  let originalEnv: string | undefined;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `uwf-test-global-cas-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    originalEnv = process.env.UNCAGED_CAS_DIR;
+  });
+
+  afterEach(async () => {
+    if (tmpDir) {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+    if (originalEnv === undefined) {
+      delete process.env.UNCAGED_CAS_DIR;
+    } else {
+      process.env.UNCAGED_CAS_DIR = originalEnv;
+    }
+  });
+
+  test("getGlobalCasDir returns default path when no env var set", () => {
+    delete process.env.UNCAGED_CAS_DIR;
+    const casDir = getGlobalCasDir();
+    // Should return ~/.uncaged/json-cas
+    expect(casDir).toContain(".uncaged");
+    expect(casDir).toContain("json-cas");
+  });
+
+  test("getGlobalCasDir respects UNCAGED_CAS_DIR environment variable", () => {
+    const customPath = join(tmpDir, "custom-cas");
+    process.env.UNCAGED_CAS_DIR = customPath;
+    const casDir = getGlobalCasDir();
+    expect(casDir).toBe(customPath);
+  });
+
+  test("getGlobalCasDir ignores empty UNCAGED_CAS_DIR", () => {
+    process.env.UNCAGED_CAS_DIR = "";
+    const casDir = getGlobalCasDir();
+    expect(casDir).toContain(".uncaged");
+    expect(casDir).toContain("json-cas");
+  });
+
+  test("getCasDir is deprecated but still works for backward compatibility", () => {
+    const storageRoot = join(tmpDir, "storage");
+    const casDir = getCasDir(storageRoot);
+    expect(casDir).toBe(join(storageRoot, "cas"));
+  });
+
+  test("createUwfStore uses global CAS directory", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    const uwf = await createUwfStore(storageRoot);
+
+    // Verify the store was created in the global CAS directory
+    expect(uwf.storageRoot).toBe(storageRoot);
+    expect(uwf.store).toBeDefined();
+    expect(uwf.schemas).toBeDefined();
+
+    // The global CAS directory should be created
+    const { stat } = await import("node:fs/promises");
+    const stats = await stat(globalCasDir);
+    expect(stats.isDirectory()).toBe(true);
+  });
+
+  test("createUwfStore creates global CAS directory if it does not exist", async () => {
+    const globalCasDir = join(tmpDir, "new-global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    await createUwfStore(storageRoot);
+
+    // Verify the directory was created
+    const { stat } = await import("node:fs/promises");
+    const stats = await stat(globalCasDir);
+    expect(stats.isDirectory()).toBe(true);
+  });
+
+  test("multiple uwfStore instances share the same global CAS filesystem", async () => {
+    const globalCasDir = join(tmpDir, "shared-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot1 = join(tmpDir, "storage1");
+    const storageRoot2 = join(tmpDir, "storage2");
+    await mkdir(storageRoot1, { recursive: true });
+    await mkdir(storageRoot2, { recursive: true });
+
+    const uwf1 = await createUwfStore(storageRoot1);
+    const uwf2 = await createUwfStore(storageRoot2);
+
+    // Both should use the same global CAS directory
+    expect(uwf1.store).toBeDefined();
+    expect(uwf2.store).toBeDefined();
+
+    // Store a node in the first store
+    const testData = { test: "data" };
+    const _hash = uwf1.store.put(uwf1.schemas.text, JSON.stringify(testData));
+
+    // Both stores share the same CAS filesystem directory
+    // Since schemas are registered idempotently, they should have the same hash
+    expect(uwf2.schemas.text).toBe(uwf1.schemas.text);
+
+    // Verify the CAS files are written to the shared directory
+    const { readdir } = await import("node:fs/promises");
+    const files = await readdir(globalCasDir);
+    expect(files.length).toBeGreaterThan(0);
+  });
+
+  test("workflow metadata remains in storageRoot, not global CAS", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    const _uwf = await createUwfStore(storageRoot);
+
+    // Write workflow registry file
+    const { saveWorkflowRegistry } = await import("../store.js");
+    await saveWorkflowRegistry(storageRoot, { "test-workflow": "ABC123" });
+
+    // Verify registry is in storageRoot, not global CAS
+    const { readFile } = await import("node:fs/promises");
+    const registryPath = join(storageRoot, "workflows.yaml");
+    const content = await readFile(registryPath, "utf8");
+    expect(content).toContain("test-workflow");
+    expect(content).toContain("ABC123");
+
+    // Verify registry is NOT in global CAS directory
+    const globalRegistryPath = join(globalCasDir, "workflows.yaml");
+    await expect(readFile(globalRegistryPath, "utf8")).rejects.toThrow();
+  });
+
+  test("thread metadata remains in storageRoot", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    await createUwfStore(storageRoot);
+
+    // Write threads index
+    const { saveThreadsIndex } = await import("../store.js");
+    await saveThreadsIndex(storageRoot, { "thread-123": "hash-456" });
+
+    // Verify threads.yaml is in storageRoot, not global CAS
+    const { readFile } = await import("node:fs/promises");
+    const threadsPath = join(storageRoot, "threads.yaml");
+    const content = await readFile(threadsPath, "utf8");
+    expect(content).toContain("thread-123");
+    expect(content).toContain("hash-456");
+
+    // Verify threads.yaml is NOT in global CAS directory
+    const globalThreadsPath = join(globalCasDir, "threads.yaml");
+    await expect(readFile(globalThreadsPath, "utf8")).rejects.toThrow();
+  });
+
+  test("history remains in storageRoot", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    await createUwfStore(storageRoot);
+
+    // Write history
+    const { appendThreadHistory } = await import("../store.js");
+    await appendThreadHistory(storageRoot, {
+      thread: "thread-123" as any,
+      workflow: "workflow-456",
+      head: "hash-789",
+      completedAt: Date.now(),
+      reason: "completed",
+    });
+
+    // Verify history.jsonl is in storageRoot, not global CAS
+    const { readFile } = await import("node:fs/promises");
+    const historyPath = join(storageRoot, "history.jsonl");
+    const content = await readFile(historyPath, "utf8");
+    expect(content).toContain("thread-123");
+    expect(content).toContain("workflow-456");
+
+    // Verify history.jsonl is NOT in global CAS directory
+    const globalHistoryPath = join(globalCasDir, "history.jsonl");
+    await expect(readFile(globalHistoryPath, "utf8")).rejects.toThrow();
+  });
+
+  test("CAS nodes are stored in global directory", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage");
+    await mkdir(storageRoot, { recursive: true });
+
+    const uwf = await createUwfStore(storageRoot);
+
+    // Store a CAS node
+    const testPayload = JSON.stringify({ test: "node" });
+    const _hash = uwf.store.put(uwf.schemas.text, testPayload);
+
+    // Verify the node is in global CAS directory
+    const { readdir } = await import("node:fs/promises");
+    const files = await readdir(globalCasDir);
+    expect(files.length).toBeGreaterThan(0);
+
+    // Verify the node is NOT in the old storageRoot/cas location
+    const oldCasDir = join(storageRoot, "cas");
+    await expect(readdir(oldCasDir)).rejects.toThrow();
+  });
+});

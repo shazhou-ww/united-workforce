@@ -70,8 +70,24 @@ export function resolveStorageRoot(): string {
   return getDefaultStorageRoot();
 }
 
+/**
+ * Deprecated: Use `getGlobalCasDir()` instead.
+ * Returns the old CAS directory for backward compatibility.
+ */
 export function getCasDir(storageRoot: string): string {
   return join(storageRoot, "cas");
+}
+
+/**
+ * Returns the global CAS directory shared by all uwf and json-cas tools.
+ * Priority: UNCAGED_CAS_DIR environment variable → default ~/.uncaged/json-cas
+ */
+export function getGlobalCasDir(): string {
+  const envPath = process.env.UNCAGED_CAS_DIR;
+  if (envPath !== undefined && envPath !== "") {
+    return envPath;
+  }
+  return join(homedir(), ".uncaged", "json-cas");
 }
 
 export function getRegistryPath(storageRoot: string): string {
@@ -98,7 +114,7 @@ export type UwfStore = {
 };
 
 export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
-  const casDir = getCasDir(storageRoot);
+  const casDir = getGlobalCasDir();
   await mkdir(casDir, { recursive: true });
   const store = createFsStore(casDir);
   const schemas = await registerUwfSchemas(store);

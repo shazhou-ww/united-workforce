@@ -206,6 +206,8 @@ async function insertStepNode(
 describe("currentRole field", () => {
   let tmpDir: string;
   let storageRoot: string;
+  let casDir: string;
+  let originalEnv: string | undefined;
 
   async function setup() {
     tmpDir = join(
@@ -213,12 +215,24 @@ describe("currentRole field", () => {
       `uwf-test-current-role-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     storageRoot = join(tmpDir, "storage");
+    casDir = join(tmpDir, "cas");
     await mkdir(storageRoot, { recursive: true });
+    await mkdir(casDir, { recursive: true });
+
+    // Set UNCAGED_CAS_DIR for this test
+    originalEnv = process.env.UNCAGED_CAS_DIR;
+    process.env.UNCAGED_CAS_DIR = casDir;
   }
 
   async function teardown() {
     if (tmpDir) {
       await rm(tmpDir, { recursive: true, force: true });
+    }
+    // Restore original environment
+    if (originalEnv === undefined) {
+      delete process.env.UNCAGED_CAS_DIR;
+    } else {
+      process.env.UNCAGED_CAS_DIR = originalEnv;
     }
   }
 

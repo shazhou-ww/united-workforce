@@ -15,6 +15,8 @@ import { loadWorkflowRegistry, saveWorkflowRegistry } from "../store.js";
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
+  // Set UNCAGED_CAS_DIR to use the test's CAS directory
+  process.env.UNCAGED_CAS_DIR = casDir;
   const store = createFsStore(casDir);
   const schemas = await registerUwfSchemas(store);
   return { storageRoot, store, schemas };

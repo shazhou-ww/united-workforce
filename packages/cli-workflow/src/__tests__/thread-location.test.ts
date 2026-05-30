@@ -9,16 +9,30 @@ import { createUwfStore } from "../store.js";
 describe("Thread and edge location integration", () => {
   let tmpDir: string;
   let storageRoot: string;
+  let casDir: string;
+  let originalEnv: string | undefined;
 
   async function setupTestEnv() {
     tmpDir = join(tmpdir(), `uwf-test-location-${Date.now()}`);
     storageRoot = join(tmpDir, "storage");
+    casDir = join(tmpDir, "cas");
     await mkdir(storageRoot, { recursive: true });
+    await mkdir(casDir, { recursive: true });
+
+    // Set UNCAGED_CAS_DIR for this test
+    originalEnv = process.env.UNCAGED_CAS_DIR;
+    process.env.UNCAGED_CAS_DIR = casDir;
   }
 
   async function teardown() {
     if (tmpDir) {
       await rm(tmpDir, { recursive: true, force: true });
+    }
+    // Restore original environment
+    if (originalEnv === undefined) {
+      delete process.env.UNCAGED_CAS_DIR;
+    } else {
+      process.env.UNCAGED_CAS_DIR = originalEnv;
     }
   }
 

@@ -63,13 +63,22 @@ async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
 // ── fixture ──────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let originalEnv: string | undefined;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-step-timing-test-"));
+  originalEnv = process.env.UNCAGED_CAS_DIR;
+  process.env.UNCAGED_CAS_DIR = join(tmpDir, "cas");
+  await mkdir(process.env.UNCAGED_CAS_DIR, { recursive: true });
 });
 
 afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
+  if (originalEnv === undefined) {
+    delete process.env.UNCAGED_CAS_DIR;
+  } else {
+    process.env.UNCAGED_CAS_DIR = originalEnv;
+  }
 });
 
 // ── 1. Protocol types (compile-time) ─────────────────────────────────────────
