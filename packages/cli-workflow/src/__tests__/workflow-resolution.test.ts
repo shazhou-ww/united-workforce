@@ -279,11 +279,17 @@ describe("Strategy 3: Local Discovery", () => {
     await makeUwfStore(storageRoot);
     const workflowDir = join(projectRoot, ".workflow");
     await mkdir(workflowDir, { recursive: true });
-    await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue", "flat"));
+    await writeFile(
+      join(workflowDir, "solve-issue.yaml"),
+      await createWorkflowYaml("solve-issue", "flat"),
+    );
 
     const folderDir = join(workflowDir, "solve-issue");
     await mkdir(folderDir, { recursive: true });
-    await writeFile(join(folderDir, "index.yaml"), await createWorkflowYaml("solve-issue", "folder"));
+    await writeFile(
+      join(folderDir, "index.yaml"),
+      await createWorkflowYaml("solve-issue", "folder"),
+    );
 
     const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
 

@@ -20,6 +20,30 @@ export type ProjectWorkflowEntry = {
   filePath: string;
 };
 
+/** Extract workflow name from a YAML filename (strip .yaml/.yml extension). */
+function stemFromYaml(name: string): string {
+  if (name.endsWith(".yaml")) return name.slice(0, -5);
+  if (name.endsWith(".yml")) return name.slice(0, -4);
+  return name;
+}
+
+/** Check if a directory contains an index.yaml or index.yml workflow file. */
+async function findIndexWorkflow(
+  dir: string,
+  dirName: string,
+): Promise<ProjectWorkflowEntry | null> {
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const indexPath = join(dir, dirName, indexName);
+    try {
+      await access(indexPath);
+      return { name: dirName, filePath: indexPath };
+    } catch {
+      // not found, try next
+    }
+  }
+  return null;
+}
+
 /**
  * Scan a single directory for workflow entries (flat YAML files + folder/index.yaml).
  * Returns discovered entries. Returns empty array if directory does not exist.
@@ -39,18 +63,11 @@ async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
   const result: ProjectWorkflowEntry[] = [];
   for (const entry of dirents) {
     if (entry.isFile() && (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml"))) {
-      const stem = entry.name.endsWith(".yaml") ? entry.name.slice(0, -5) : entry.name.slice(0, -4);
-      result.push({ name: stem, filePath: join(dir, entry.name) });
+      result.push({ name: stemFromYaml(entry.name), filePath: join(dir, entry.name) });
     } else if (entry.isDirectory()) {
-      for (const indexName of ["index.yaml", "index.yml"]) {
-        const indexPath = join(dir, entry.name, indexName);
-        try {
-          await access(indexPath);
-          result.push({ name: entry.name, filePath: indexPath });
-          break;
-        } catch {
-          // not found, try next
-        }
+      const found = await findIndexWorkflow(dir, entry.name);
+      if (found !== null) {
+        result.push(found);
       }
     }
   }

@@ -125,7 +125,9 @@ export async function cmdWorkflowAdd(
 
   let raw: unknown;
   try {
-    raw = parse(text, { customTags: [createIncludeTag(dirname(resolvePath(filePath)))] }) as unknown;
+    raw = parse(text, {
+      customTags: [createIncludeTag(dirname(resolvePath(filePath)))],
+    }) as unknown;
   } catch (e) {
     fail(`invalid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
