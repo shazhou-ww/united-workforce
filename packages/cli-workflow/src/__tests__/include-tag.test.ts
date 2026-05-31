@@ -57,4 +57,28 @@ describe("!include tag", () => {
     const result = parse(yaml, { customTags: [createIncludeTag(tmpDir)] });
     expect(result.note).toBe("Hello world");
   });
+
+  test("blocks path traversal with ../", async () => {
+    const yaml = "secret: !include ../../etc/passwd";
+    expect(() => parse(yaml, { customTags: [createIncludeTag(tmpDir)] })).toThrow(
+      /path traversal blocked/,
+    );
+  });
+
+  test("blocks absolute path traversal", async () => {
+    const yaml = "secret: !include /etc/passwd";
+    expect(() => parse(yaml, { customTags: [createIncludeTag(tmpDir)] })).toThrow(
+      /path traversal blocked/,
+    );
+  });
+
+  test("supports nested !include in yaml files", async () => {
+    const subdir = join(tmpDir, "parts");
+    await mkdir(subdir, { recursive: true });
+    await writeFile(join(subdir, "inner.md"), "nested content");
+    await writeFile(join(tmpDir, "outer.yaml"), "value: !include parts/inner.md");
+    const yaml = "config: !include outer.yaml";
+    const result = parse(yaml, { customTags: [createIncludeTag(tmpDir)] });
+    expect(result.config).toEqual({ value: "nested content" });
+  });
 });

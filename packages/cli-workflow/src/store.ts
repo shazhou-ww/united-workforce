@@ -21,13 +21,10 @@ export type ProjectWorkflowEntry = {
 };
 
 /**
- * Scan `<projectRoot>/.workflows/*.yaml` (non-recursive) and return discovered entries.
- * Returns an empty array if the directory does not exist.
+ * Scan a single directory for workflow entries (flat YAML files + folder/index.yaml).
+ * Returns discovered entries. Returns empty array if directory does not exist.
  */
-export async function discoverProjectWorkflows(
-  projectRoot: string,
-): Promise<ProjectWorkflowEntry[]> {
-  const dir = join(projectRoot, ".workflows");
+async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
   let dirents: Dirent[];
   try {
     dirents = await readdir(dir, { withFileTypes: true });
@@ -58,6 +55,26 @@ export async function discoverProjectWorkflows(
     }
   }
   return result;
+}
+
+/**
+ * Scan `<projectRoot>/.workflow/` (preferred) and `.workflows/` (legacy) for workflow entries.
+ * .workflow/ takes priority: if a name is found in both, .workflow/ wins.
+ * Returns an empty array if neither directory exists.
+ */
+export async function discoverProjectWorkflows(
+  projectRoot: string,
+): Promise<ProjectWorkflowEntry[]> {
+  const primary = await scanWorkflowDir(join(projectRoot, ".workflow"));
+  const legacy = await scanWorkflowDir(join(projectRoot, ".workflows"));
+  const seen = new Set(primary.map((e) => e.name));
+  const merged = [...primary];
+  for (const entry of legacy) {
+    if (!seen.has(entry.name)) {
+      merged.push(entry);
+    }
+  }
+  return merged;
 }
 
 /** Default filesystem root for uwf data (`~/.uncaged/workflow`). */
