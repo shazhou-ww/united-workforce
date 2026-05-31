@@ -16,7 +16,7 @@ export function createIncludeTag(baseDir: string) {
     resolve(str: string) {
       const filePath = resolve(resolvedBase, str);
       // Path traversal guard: resolved path must be inside baseDir
-      if (!filePath.startsWith(resolvedBase + "/") && filePath !== resolvedBase) {
+      if (!filePath.startsWith(`${resolvedBase}/`) && filePath !== resolvedBase) {
         throw new Error(
           `!include path traversal blocked: "${str}" resolves outside base directory`,
         );

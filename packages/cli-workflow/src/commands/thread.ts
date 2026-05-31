@@ -27,8 +27,8 @@ import type { AdapterOutput } from "@uncaged/workflow-util-agent";
 import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
-import { createIncludeTag } from "../include.js";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
+import { createIncludeTag } from "../include.js";
 import { evaluate } from "../moderator/index.js";
 import {
   appendThreadHistory,
@@ -121,7 +121,12 @@ async function findWorkflowInDir(dir: string, name: string): Promise<string | nu
   }
   for (const indexName of ["index.yaml", "index.yml"]) {
     const candidate = resolvePath(dir, ".workflow", name, indexName);
-    try { await access(candidate); return candidate; } catch { /* not found */ }
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
   }
 
   // Check .workflows/ directory as fallback (legacy)
@@ -133,7 +138,12 @@ async function findWorkflowInDir(dir: string, name: string): Promise<string | nu
   }
   for (const indexName of ["index.yaml", "index.yml"]) {
     const candidate = resolvePath(dir, ".workflows", name, indexName);
-    try { await access(candidate); return candidate; } catch { /* not found */ }
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
   }
 
   return null;
