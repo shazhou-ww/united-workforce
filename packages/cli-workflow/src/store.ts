@@ -1,4 +1,5 @@
-import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -27,9 +28,9 @@ export async function discoverProjectWorkflows(
   projectRoot: string,
 ): Promise<ProjectWorkflowEntry[]> {
   const dir = join(projectRoot, ".workflows");
-  let entries: string[];
+  let dirents: Dirent[];
   try {
-    entries = await readdir(dir);
+    dirents = await readdir(dir, { withFileTypes: true });
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT" || err.code === "ENOTDIR") {
@@ -39,12 +40,22 @@ export async function discoverProjectWorkflows(
   }
 
   const result: ProjectWorkflowEntry[] = [];
-  for (const entry of entries) {
-    if (!entry.endsWith(".yaml") && !entry.endsWith(".yml")) {
-      continue;
+  for (const entry of dirents) {
+    if (entry.isFile() && (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml"))) {
+      const stem = entry.name.endsWith(".yaml") ? entry.name.slice(0, -5) : entry.name.slice(0, -4);
+      result.push({ name: stem, filePath: join(dir, entry.name) });
+    } else if (entry.isDirectory()) {
+      for (const indexName of ["index.yaml", "index.yml"]) {
+        const indexPath = join(dir, entry.name, indexName);
+        try {
+          await access(indexPath);
+          result.push({ name: entry.name, filePath: indexPath });
+          break;
+        } catch {
+          // not found, try next
+        }
+      }
     }
-    const stem = entry.endsWith(".yaml") ? entry.slice(0, -5) : entry.slice(0, -4);
-    result.push({ name: stem, filePath: join(dir, entry) });
   }
   return result;
 }

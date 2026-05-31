@@ -257,6 +257,43 @@ describe("Strategy 3: Local Discovery", () => {
 
     expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
   });
+
+  test("should find workflow in folder-based layout (name/index.yaml)", async () => {
+    await makeUwfStore(storageRoot);
+    const workflowDir = join(projectRoot, ".workflow", "solve-issue");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(join(workflowDir, "index.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
+
+    expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    const uwf = await makeUwfStore(storageRoot);
+    const node = uwf.store.get(result.workflow);
+    expect(node).not.toBeNull();
+    if (node !== null) {
+      expect((node.payload as WorkflowPayload).name).toBe("solve-issue");
+    }
+  });
+
+  test("should prefer flat file over folder-based layout", async () => {
+    await makeUwfStore(storageRoot);
+    const workflowDir = join(projectRoot, ".workflow");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue", "flat"));
+
+    const folderDir = join(workflowDir, "solve-issue");
+    await mkdir(folderDir, { recursive: true });
+    await writeFile(join(folderDir, "index.yaml"), await createWorkflowYaml("solve-issue", "folder"));
+
+    const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
+
+    const uwf = await makeUwfStore(storageRoot);
+    const node = uwf.store.get(result.workflow);
+    expect(node).not.toBeNull();
+    if (node !== null) {
+      expect((node.payload as WorkflowPayload).description).toBe("Test workflow (flat)");
+    }
+  });
 });
 
 // ── Strategy 4: Global Registry Fallback ──────────────────────────────────────
