@@ -68,7 +68,11 @@ function isGraph(value: unknown): boolean {
  */
 export function workflowNameFromPath(filePath: string): string {
   const base = basename(filePath);
-  const stem = base.endsWith(".yaml") ? base.slice(0, -5) : base.endsWith(".yml") ? base.slice(0, -4) : base;
+  const stem = base.endsWith(".yaml")
+    ? base.slice(0, -5)
+    : base.endsWith(".yml")
+      ? base.slice(0, -4)
+      : base;
   if (stem === "index") {
     return basename(dirname(filePath));
   }
