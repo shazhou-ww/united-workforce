@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { basename, dirname } from "node:path";
 import type { CasRef, WorkflowPayload } from "@uncaged/workflow-protocol";
 
 const CAS_REF_PATTERN = /^[0-9A-HJKMNP-TV-Z]{13}$/;
@@ -68,9 +68,15 @@ function isGraph(value: unknown): boolean {
  */
 export function workflowNameFromPath(filePath: string): string {
   const base = basename(filePath);
-  if (base.endsWith(".yaml")) return base.slice(0, -5);
-  if (base.endsWith(".yml")) return base.slice(0, -4);
-  return base;
+  const stem = base.endsWith(".yaml")
+    ? base.slice(0, -5)
+    : base.endsWith(".yml")
+      ? base.slice(0, -4)
+      : base;
+  if (stem === "index") {
+    return basename(dirname(filePath));
+  }
+  return stem;
 }
 
 /**

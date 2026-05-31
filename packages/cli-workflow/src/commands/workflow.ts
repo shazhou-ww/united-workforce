@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve as resolvePath } from "node:path";
 
 import type { JSONSchema } from "@uncaged/json-cas";
 import { putSchema, validate } from "@uncaged/json-cas";
 import type { CasRef, RoleDefinition, Target, WorkflowPayload } from "@uncaged/workflow-protocol";
 import { parse } from "yaml";
+import { createIncludeTag } from "../include.js";
 
 import {
   createUwfStore,
@@ -123,7 +125,9 @@ export async function cmdWorkflowAdd(
 
   let raw: unknown;
   try {
-    raw = parse(text) as unknown;
+    raw = parse(text, {
+      customTags: [createIncludeTag(dirname(resolvePath(filePath)))],
+    }) as unknown;
   } catch (e) {
     fail(`invalid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }

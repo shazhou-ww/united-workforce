@@ -1,4 +1,5 @@
-import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { access, appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -19,17 +20,38 @@ export type ProjectWorkflowEntry = {
   filePath: string;
 };
 
+/** Extract workflow name from a YAML filename (strip .yaml/.yml extension). */
+function stemFromYaml(name: string): string {
+  if (name.endsWith(".yaml")) return name.slice(0, -5);
+  if (name.endsWith(".yml")) return name.slice(0, -4);
+  return name;
+}
+
+/** Check if a directory contains an index.yaml or index.yml workflow file. */
+async function findIndexWorkflow(
+  dir: string,
+  dirName: string,
+): Promise<ProjectWorkflowEntry | null> {
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const indexPath = join(dir, dirName, indexName);
+    try {
+      await access(indexPath);
+      return { name: dirName, filePath: indexPath };
+    } catch {
+      // not found, try next
+    }
+  }
+  return null;
+}
+
 /**
- * Scan `<projectRoot>/.workflows/*.yaml` (non-recursive) and return discovered entries.
- * Returns an empty array if the directory does not exist.
+ * Scan a single directory for workflow entries (flat YAML files + folder/index.yaml).
+ * Returns discovered entries. Returns empty array if directory does not exist.
  */
-export async function discoverProjectWorkflows(
-  projectRoot: string,
-): Promise<ProjectWorkflowEntry[]> {
-  const dir = join(projectRoot, ".workflows");
-  let entries: string[];
+async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
+  let dirents: Dirent[];
   try {
-    entries = await readdir(dir);
+    dirents = await readdir(dir, { withFileTypes: true });
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT" || err.code === "ENOTDIR") {
@@ -39,14 +61,37 @@ export async function discoverProjectWorkflows(
   }
 
   const result: ProjectWorkflowEntry[] = [];
-  for (const entry of entries) {
-    if (!entry.endsWith(".yaml") && !entry.endsWith(".yml")) {
-      continue;
+  for (const entry of dirents) {
+    if (entry.isFile() && (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml"))) {
+      result.push({ name: stemFromYaml(entry.name), filePath: join(dir, entry.name) });
+    } else if (entry.isDirectory()) {
+      const found = await findIndexWorkflow(dir, entry.name);
+      if (found !== null) {
+        result.push(found);
+      }
     }
-    const stem = entry.endsWith(".yaml") ? entry.slice(0, -5) : entry.slice(0, -4);
-    result.push({ name: stem, filePath: join(dir, entry) });
   }
   return result;
+}
+
+/**
+ * Scan `<projectRoot>/.workflow/` (preferred) and `.workflows/` (legacy) for workflow entries.
+ * .workflow/ takes priority: if a name is found in both, .workflow/ wins.
+ * Returns an empty array if neither directory exists.
+ */
+export async function discoverProjectWorkflows(
+  projectRoot: string,
+): Promise<ProjectWorkflowEntry[]> {
+  const primary = await scanWorkflowDir(join(projectRoot, ".workflow"));
+  const legacy = await scanWorkflowDir(join(projectRoot, ".workflows"));
+  const seen = new Set(primary.map((e) => e.name));
+  const merged = [...primary];
+  for (const entry of legacy) {
+    if (!seen.has(entry.name)) {
+      merged.push(entry);
+    }
+  }
+  return merged;
 }
 
 /** Default filesystem root for uwf data (`~/.uncaged/workflow`). */

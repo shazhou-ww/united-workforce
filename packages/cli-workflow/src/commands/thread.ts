@@ -28,6 +28,7 @@ import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
+import { createIncludeTag } from "../include.js";
 import { evaluate } from "../moderator/index.js";
 import {
   appendThreadHistory,
@@ -118,12 +119,30 @@ async function findWorkflowInDir(dir: string, name: string): Promise<string | nu
       return result;
     }
   }
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const candidate = resolvePath(dir, ".workflow", name, indexName);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
+  }
 
   // Check .workflows/ directory as fallback (legacy)
   for (const ext of [".yaml", ".yml"]) {
     const result = await workflowFileExists(resolvePath(dir, ".workflows"), name, ext);
     if (result !== null) {
       return result;
+    }
+  }
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const candidate = resolvePath(dir, ".workflows", name, indexName);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
     }
   }
 
@@ -172,7 +191,7 @@ async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promis
 
   let raw: unknown;
   try {
-    raw = parse(text) as unknown;
+    raw = parse(text, { customTags: [createIncludeTag(dirname(filePath))] }) as unknown;
   } catch (e) {
     fail(`invalid YAML in ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
   }
