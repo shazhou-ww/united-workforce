@@ -14,7 +14,7 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 | **Moderator** | Status-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
 | **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
 | **CAS** | Content-Addressed Storage via `@ocas/core` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
-| **Registry** | `~/.uncaged/workflow/registry.yaml` — maps workflow names to current CAS hashes. |
+| **Registry** | `~/.uwf/registry.yaml` — maps workflow names to current CAS hashes. |
 
 ### Monorepo Structure
 
@@ -273,11 +273,11 @@ node scripts/publish-all.mjs --dry-run    # preview without publishing
 examples/solve-issue.yaml       — write a workflow YAML definition
   │  uwf workflow put
   ▼
-~/.uncaged/json-cas/            — Workflow stored as CAS node (unified CAS store)
-~/.uncaged/workflow/registry.yaml — name → hash mapping updated
+~/.ocas/                         — Workflow stored as CAS node (unified CAS store)
+~/.uwf/registry.yaml             — name → hash mapping updated
   │  uwf thread start <name> -p "..."
   ▼
-~/.uncaged/workflow/threads.yaml — new thread head pointer
+~/.uwf/threads.yaml              — new thread head pointer
   │  uwf thread step <thread-id>
   ▼
 moderator → agent → extract      — one step per invocation, repeat until $END

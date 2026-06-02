@@ -21,23 +21,27 @@ import { parse } from "yaml";
 
 import { registerAgentSchemas } from "./schemas.js";
 
-/** Default filesystem root for uwf data (`~/.uncaged/workflow`). */
+/** Default filesystem root for uwf data (`~/.uwf`). */
 export function getDefaultStorageRoot(): string {
-  return join(homedir(), ".uncaged", "workflow");
+  return join(homedir(), ".uwf");
 }
 
 /**
  * Resolve storage root.
- * Priority: `UNCAGED_WORKFLOW_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
+ * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → `UNCAGED_WORKFLOW_STORAGE_ROOT` (legacy) → default.
  */
 export function resolveStorageRoot(): string {
-  const internal = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
-  if (internal !== undefined && internal !== "") {
-    return internal;
+  const primary = process.env.UWF_STORAGE_ROOT;
+  if (primary !== undefined && primary !== "") {
+    return primary;
   }
   const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
   if (userOverride !== undefined && userOverride !== "") {
     return userOverride;
+  }
+  const legacy = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
+  if (legacy !== undefined && legacy !== "") {
+    return legacy;
   }
   return getDefaultStorageRoot();
 }

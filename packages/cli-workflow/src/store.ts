@@ -1,4 +1,5 @@
 import type { Dirent } from "node:fs";
+import { existsSync, symlinkSync } from "node:fs";
 import { access, appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -105,25 +106,53 @@ export async function discoverProjectWorkflows(
   return merged;
 }
 
-/** Default filesystem root for uwf data (`~/.uncaged/workflow`). */
+/** Default filesystem root for uwf data (`~/.uwf`). */
 export function getDefaultStorageRoot(): string {
-  return join(homedir(), ".uncaged", "workflow");
+  return join(homedir(), ".uwf");
 }
 
 /**
  * Resolve storage root.
- * Priority: `UNCAGED_WORKFLOW_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
+ * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → `UNCAGED_WORKFLOW_STORAGE_ROOT` (legacy) → default.
  */
 export function resolveStorageRoot(): string {
-  const internal = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
-  if (internal !== undefined && internal !== "") {
-    return internal;
+  const primary = process.env.UWF_STORAGE_ROOT;
+  if (primary !== undefined && primary !== "") {
+    return primary;
   }
   const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
   if (userOverride !== undefined && userOverride !== "") {
     return userOverride;
   }
+  const legacy = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
+  if (legacy !== undefined && legacy !== "") {
+    return legacy;
+  }
   return getDefaultStorageRoot();
+}
+
+/** Symlink legacy storage paths to ~/.uwf and ~/.ocas when upgrading from older installs. */
+export function migrateStorageIfNeeded(home: string = homedir()): void {
+  const oldPath = join(home, ".uncaged", "workflow");
+  const newPath = join(home, ".uwf");
+
+  if (!existsSync(newPath) && existsSync(oldPath)) {
+    symlinkSync(oldPath, newPath);
+    // biome-ignore lint/suspicious/noConsole: migration notice
+    console.log("⚠️  Storage migrated: ~/.uwf → ~/.uncaged/workflow (symlink)");
+    // biome-ignore lint/suspicious/noConsole: migration notice
+    console.log(
+      "   This symlink is temporary. Copy your data to ~/.uwf/ and remove the symlink in a future version.",
+    );
+  }
+
+  const oldCas = join(home, ".uncaged", "json-cas");
+  const newCas = join(home, ".ocas");
+  if (!existsSync(newCas) && existsSync(oldCas)) {
+    symlinkSync(oldCas, newCas);
+    // biome-ignore lint/suspicious/noConsole: migration notice
+    console.log("⚠️  CAS storage migrated: ~/.ocas → ~/.uncaged/json-cas (symlink)");
+  }
 }
 
 /**
@@ -135,15 +164,19 @@ export function getCasDir(storageRoot: string): string {
 }
 
 /**
- * Returns the global CAS directory shared by all uwf and json-cas tools.
- * Priority: UNCAGED_CAS_DIR environment variable → default ~/.uncaged/json-cas
+ * Returns the global CAS directory shared by all uwf and ocas tools.
+ * Priority: `OCAS_DIR` → `UNCAGED_CAS_DIR` (legacy) → default ~/.ocas
  */
 export function getGlobalCasDir(): string {
-  const envPath = process.env.UNCAGED_CAS_DIR;
-  if (envPath !== undefined && envPath !== "") {
-    return envPath;
+  const primary = process.env.OCAS_DIR;
+  if (primary !== undefined && primary !== "") {
+    return primary;
   }
-  return join(homedir(), ".uncaged", "json-cas");
+  const legacy = process.env.UNCAGED_CAS_DIR;
+  if (legacy !== undefined && legacy !== "") {
+    return legacy;
+  }
+  return join(homedir(), ".ocas");
 }
 
 export function getRegistryPath(storageRoot: string): string {

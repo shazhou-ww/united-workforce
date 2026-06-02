@@ -6,45 +6,64 @@ import { createUwfStore, getCasDir, getGlobalCasDir } from "../store.js";
 
 describe("Global CAS directory", () => {
   let tmpDir: string;
-  let originalEnv: string | undefined;
+  let originalOcasDir: string | undefined;
+  let originalLegacyCasDir: string | undefined;
 
   beforeEach(async () => {
     tmpDir = join(tmpdir(), `uwf-test-global-cas-${Date.now()}`);
     await mkdir(tmpDir, { recursive: true });
-    originalEnv = process.env.UNCAGED_CAS_DIR;
+    originalOcasDir = process.env.OCAS_DIR;
+    originalLegacyCasDir = process.env.UNCAGED_CAS_DIR;
   });
 
   afterEach(async () => {
     if (tmpDir) {
       await rm(tmpDir, { recursive: true, force: true });
     }
-    if (originalEnv === undefined) {
+    if (originalOcasDir === undefined) {
+      delete process.env.OCAS_DIR;
+    } else {
+      process.env.OCAS_DIR = originalOcasDir;
+    }
+    if (originalLegacyCasDir === undefined) {
       delete process.env.UNCAGED_CAS_DIR;
     } else {
-      process.env.UNCAGED_CAS_DIR = originalEnv;
+      process.env.UNCAGED_CAS_DIR = originalLegacyCasDir;
     }
   });
 
   test("getGlobalCasDir returns default path when no env var set", () => {
+    delete process.env.OCAS_DIR;
     delete process.env.UNCAGED_CAS_DIR;
     const casDir = getGlobalCasDir();
-    // Should return ~/.uncaged/json-cas
-    expect(casDir).toContain(".uncaged");
-    expect(casDir).toContain("json-cas");
+    expect(casDir).toContain(".ocas");
+  });
+
+  test("getGlobalCasDir respects OCAS_DIR environment variable", () => {
+    const customPath = join(tmpDir, "custom-cas");
+    process.env.OCAS_DIR = customPath;
+    const casDir = getGlobalCasDir();
+    expect(casDir).toBe(customPath);
   });
 
   test("getGlobalCasDir respects UNCAGED_CAS_DIR environment variable", () => {
-    const customPath = join(tmpDir, "custom-cas");
+    const customPath = join(tmpDir, "legacy-cas");
     process.env.UNCAGED_CAS_DIR = customPath;
     const casDir = getGlobalCasDir();
     expect(casDir).toBe(customPath);
   });
 
-  test("getGlobalCasDir ignores empty UNCAGED_CAS_DIR", () => {
-    process.env.UNCAGED_CAS_DIR = "";
+  test("getGlobalCasDir prefers OCAS_DIR over UNCAGED_CAS_DIR", () => {
+    process.env.OCAS_DIR = join(tmpDir, "primary-cas");
+    process.env.UNCAGED_CAS_DIR = join(tmpDir, "legacy-cas");
+    expect(getGlobalCasDir()).toBe(join(tmpDir, "primary-cas"));
+  });
+
+  test("getGlobalCasDir ignores empty OCAS_DIR", () => {
+    process.env.OCAS_DIR = "";
+    delete process.env.UNCAGED_CAS_DIR;
     const casDir = getGlobalCasDir();
-    expect(casDir).toContain(".uncaged");
-    expect(casDir).toContain("json-cas");
+    expect(casDir).toContain(".ocas");
   });
 
   test("getCasDir is deprecated but still works for backward compatibility", () => {
