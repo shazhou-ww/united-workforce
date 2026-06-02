@@ -8,20 +8,32 @@ roles:
       - docker
       - shell
     procedure: |
-      1. Start a Docker container with isolated storage:
+      1. Start a Docker container with isolated storage.
+         IMPORTANT: Mount the source code READ-ONLY to prevent the container
+         from overwriting host files (e.g. bun install would replace macOS bun with Linux bun).
+         Use a container-local HOME so bun/npm installs stay inside the container.
+         Add host.docker.internal mapping for LLM API access from inside the container.
          ```
          docker run -d --name uwf-e2e-$$ \
-           -v $HOME:$HOME \
-           -e HOME=$HOME \
+           -v "$(pwd):/workspace:ro" \
+           -e HOME=/root \
            -e UNCAGED_WORKFLOW_STORAGE_ROOT=/tmp/uwf-e2e-storage \
-           -w ~/repos/workflow \
+           --add-host=host.docker.internal:host-gateway \
+           -w /workspace \
            node:22-bookworm \
            sleep infinity
          ```
-      2. Inside the container, install bun, install deps, then `bun link` all packages
-         so that `uwf`, `uwf-hermes`, `uwf-builtin` are on PATH (from source):
+         NOTE: Run this from the workflow monorepo root directory.
+         On macOS Docker Desktop, host.docker.internal is already available;
+         --add-host ensures it also works on Linux Docker.
+
+      2. Inside the container, copy source to a writable location, install bun, install deps,
+         then `bun link` all packages so that `uwf`, `uwf-hermes`, `uwf-builtin` are on PATH:
          ```
          docker exec uwf-e2e-$$ bash -c '
+           # Copy source to writable location (mount is read-only)
+           cp -r /workspace /root/workflow
+
            # Install bun
            curl -fsSL https://bun.sh/install | bash
            export PATH="$HOME/.bun/bin:$PATH"
@@ -30,7 +42,7 @@ roles:
            mkdir -p $UNCAGED_WORKFLOW_STORAGE_ROOT
 
            # Install workspace deps
-           cd ~/repos/workflow && bun install --frozen-lockfile
+           cd /root/workflow && bun install
 
            # bun link each package that has a bin entry
            cd packages/cli-workflow && bun link && cd ../..
@@ -44,11 +56,15 @@ roles:
          docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-hermes --help'
          docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-builtin --help'
          ```
-      4. Copy host config if it exists:
+      4. Copy host uwf config into the container's isolated storage.
+         The host config contains provider credentials and model settings needed for LLM calls.
+         Also rewrite any localhost URLs to host.docker.internal so the container can reach host services.
          ```
+         docker cp ~/.uncaged/workflow/config.yaml uwf-e2e-$$:/tmp/uwf-e2e-storage/config.yaml 2>/dev/null || true
          docker exec uwf-e2e-$$ bash -c '
-           if [ -f $HOME/.uncaged/workflow/config.yaml ]; then
-             cp $HOME/.uncaged/workflow/config.yaml $UNCAGED_WORKFLOW_STORAGE_ROOT/config.yaml
+           if [ -f $UNCAGED_WORKFLOW_STORAGE_ROOT/config.yaml ]; then
+             sed -i "s|localhost|host.docker.internal|g; s|127\.0\.0\.1|host.docker.internal|g" \
+               $UNCAGED_WORKFLOW_STORAGE_ROOT/config.yaml
            fi
          '
          ```
@@ -87,7 +103,7 @@ roles:
       3. `uwf config get models.test.name` — verify it returns "test-model"
 
       Workflow registration tests:
-      4. `uwf workflow add ~/repos/workflow/examples/solve-issue.yaml` — register workflow
+      4. `uwf workflow add /root/workflow/examples/debate.yaml` — register a workflow (use debate.yaml as it has no $SUSPEND dependency)
       5. Verify the output contains a hash
       6. `uwf workflow list` — verify non-empty array
       7. Capture the workflow name from the list
@@ -197,7 +213,7 @@ roles:
       Cancel:
       1. Start a second thread: `uwf thread start <workflowName> -p 'E2E cancel test'`
       2. Cancel it: `uwf thread cancel <secondThreadId>`
-      3. Verify it appears in completed list: `uwf thread list --status completed`
+      3. Verify it appears in cancelled list: `uwf thread list --status cancelled`
 
       Fork:
       4. Fork from the first thread's last step: `uwf step fork <lastStepHash>`
