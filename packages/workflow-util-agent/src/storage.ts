@@ -12,11 +12,11 @@ import type {
   ProviderAlias,
   ProviderConfig,
   Scenario,
-  ThreadId,
   ThreadsIndex,
   WorkflowConfig,
   WorkflowName,
 } from "@uncaged/workflow-protocol";
+import { parseThreadsIndex } from "@uncaged/workflow-protocol";
 import { parse } from "yaml";
 
 import { registerAgentSchemas } from "./schemas.js";
@@ -207,16 +207,7 @@ export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsInde
   try {
     const text = await readFile(path, "utf8");
     const raw = parse(text) as unknown;
-    if (!isRecord(raw)) {
-      return {};
-    }
-    const index: ThreadsIndex = {};
-    for (const [threadId, head] of Object.entries(raw)) {
-      if (typeof head === "string") {
-        index[threadId as ThreadId] = head;
-      }
-    }
-    return index;
+    return parseThreadsIndex(raw);
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT") {

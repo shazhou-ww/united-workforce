@@ -175,8 +175,9 @@ async function insertStepNode(
 ): Promise<void> {
   const uwf = await createUwfStore(storageRoot);
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) throw new Error(`thread ${threadId} not in index`);
+  const headEntry = index[threadId];
+  if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
+  const head = headEntry.head;
 
   const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
   const outputHash = await uwf.store.put(outputSchemaHash, outputPayload);
@@ -199,7 +200,7 @@ async function insertStepNode(
     detail: detailHash,
   })) as CasRef;
 
-  index[threadId] = stepHash;
+  index[threadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
   await saveThreadsIndex(storageRoot, index);
 }
 
@@ -280,7 +281,7 @@ describe("currentRole field", () => {
       const tid = thread as ThreadId;
 
       const index = await loadThreadsIndex(storageRoot);
-      const head = index[tid]!;
+      const head = index[tid]!.head;
       delete index[tid];
       await saveThreadsIndex(storageRoot, index);
       await appendThreadHistory(storageRoot, {
@@ -309,7 +310,7 @@ describe("currentRole field", () => {
       const tid = thread as ThreadId;
 
       const index = await loadThreadsIndex(storageRoot);
-      const head = index[tid]!;
+      const head = index[tid]!.head;
       delete index[tid];
       await saveThreadsIndex(storageRoot, index);
       await appendThreadHistory(storageRoot, {
@@ -371,7 +372,7 @@ describe("currentRole field", () => {
       const comp = await cmdThreadStart(storageRoot, wf, "completed", tmpDir);
       const compId = comp.thread as ThreadId;
       const index = await loadThreadsIndex(storageRoot);
-      const compHead = index[compId]!;
+      const compHead = index[compId]!.head;
       delete index[compId];
       await saveThreadsIndex(storageRoot, index);
       await appendThreadHistory(storageRoot, {

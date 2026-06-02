@@ -75,7 +75,7 @@ graph:
   async function getStartNodeCwd(threadId: string): Promise<string> {
     const uwf = await createUwfStore(storageRoot);
     const index = await loadThreadsIndex(storageRoot);
-    const headHash = index[threadId as ThreadId];
+    const headHash = index[threadId as ThreadId]!.head;
     expect(headHash).toBeDefined();
 
     const startNode = uwf.store.get(headHash as CasRef);

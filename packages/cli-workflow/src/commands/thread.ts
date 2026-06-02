@@ -11,11 +11,17 @@ import type {
   StepNodePayload,
   StepOutput,
   ThreadId,
+  ThreadIndexEntry,
   ThreadListItem,
   ThreadStatus,
   ThreadsIndex,
   WorkflowConfig,
   WorkflowPayload,
+} from "@uncaged/workflow-protocol";
+import {
+  createThreadIndexEntry,
+  markThreadSuspended,
+  updateThreadHead,
 } from "@uncaged/workflow-protocol";
 import {
   createProcessLogger,
@@ -68,8 +74,15 @@ function buildStepOutputFromEvaluation(
 ): StepOutput {
   const done = status === "completed";
   let currentRole: string | null = null;
-  if (evaluation.ok && !isSuspendResult(evaluation.value) && evaluation.value.role !== END_ROLE) {
-    currentRole = evaluation.value.role;
+  let suspendedRole: string | null = null;
+  let suspendMessage: string | null = null;
+  if (evaluation.ok) {
+    if (isSuspendResult(evaluation.value)) {
+      suspendedRole = evaluation.value.suspendedRole;
+      suspendMessage = evaluation.value.prompt;
+    } else if (evaluation.value.role !== END_ROLE) {
+      currentRole = evaluation.value.role;
+    }
   }
   return {
     workflow: workflowHash,
@@ -77,9 +90,66 @@ function buildStepOutputFromEvaluation(
     head,
     status,
     currentRole,
+    suspendedRole,
+    suspendMessage,
     done,
     background,
   };
+}
+
+function resolveSuspendFieldsFromGraph(
+  uwf: UwfStore,
+  head: CasRef,
+  workflowRef: CasRef,
+): { suspendedRole: string | null; suspendMessage: string | null } {
+  const chain = walkChain(uwf, head);
+  const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
+  const workflow = loadWorkflowPayload(uwf, workflowRef);
+  const result = evaluate(workflow.graph, lastRole, lastOutput);
+  if (result.ok && isSuspendResult(result.value)) {
+    return {
+      suspendedRole: result.value.suspendedRole,
+      suspendMessage: result.value.prompt,
+    };
+  }
+  return { suspendedRole: null, suspendMessage: null };
+}
+
+function resolveSuspendFieldsForShow(
+  entry: ThreadIndexEntry,
+  status: ThreadStatus,
+  uwf: UwfStore,
+  head: CasRef,
+  workflowRef: CasRef,
+): { suspendedRole: string | null; suspendMessage: string | null } {
+  if (status !== "suspended") {
+    return { suspendedRole: null, suspendMessage: null };
+  }
+  if (entry.suspendedRole !== null && entry.suspendMessage !== null) {
+    return { suspendedRole: entry.suspendedRole, suspendMessage: entry.suspendMessage };
+  }
+  const fromGraph = resolveSuspendFieldsFromGraph(uwf, head, workflowRef);
+  return {
+    suspendedRole: entry.suspendedRole ?? fromGraph.suspendedRole,
+    suspendMessage: entry.suspendMessage ?? fromGraph.suspendMessage,
+  };
+}
+
+async function ensureThreadSuspendMetadata(
+  storageRoot: string,
+  threadId: ThreadId,
+  entry: ThreadIndexEntry,
+  suspendedRole: string,
+  suspendMessage: string,
+): Promise<ThreadIndexEntry> {
+  if (entry.suspendedRole !== null && entry.suspendMessage !== null) {
+    return entry;
+  }
+  const updated = markThreadSuspended(entry, suspendedRole, suspendMessage);
+  const index = await loadThreadsIndex(storageRoot);
+  index[threadId] = updated;
+  await saveThreadsIndex(storageRoot, index);
+  return updated;
 }
 
 async function resolveActiveThreadStatus(
@@ -130,6 +200,25 @@ const PL_AGENT_DONE = "C6P9E3H7";
 const PL_THREAD_ARCHIVED = "F4D8Q2K5";
 const PL_STEP_ERROR = "B8T5N1V6";
 const PL_BACKGROUND_START = "X7Q4W9M2";
+const PL_THREAD_RESUME = "K2R7M4N8";
+
+type ResumeStepConfig = {
+  role: string;
+  prompt: string;
+};
+
+type AgentStepTarget = {
+  role: string;
+  edgePrompt: string;
+  effectiveCwd: string;
+};
+
+function buildResumePrompt(graphPrompt: string, supplement: string | null): string {
+  if (supplement === null || supplement === "") {
+    return graphPrompt;
+  }
+  return `${graphPrompt}\n\n${supplement}`;
+}
 
 function failStep(plog: ProcessLogger, message: string): never {
   plog.log(PL_STEP_ERROR, message, null);
@@ -380,7 +469,7 @@ export async function cmdThreadStart(
   }
 
   const index = await loadThreadsIndex(storageRoot);
-  index[threadId] = headHash;
+  index[threadId] = createThreadIndexEntry(headHash);
   await saveThreadsIndex(storageRoot, index);
 
   plog.log(
@@ -394,8 +483,9 @@ export async function cmdThreadStart(
 
 export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Promise<StepOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId];
-  if (activeHead !== undefined) {
+  const entry = index[threadId];
+  if (entry !== undefined) {
+    const activeHead = entry.head;
     const uwf = await createUwfStore(storageRoot);
     const workflow = resolveWorkflowFromHead(uwf, activeHead);
     if (workflow === null) {
@@ -410,6 +500,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       workflow,
     );
     const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
+    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
 
     return {
       workflow,
@@ -417,6 +508,8 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       head: activeHead,
       status,
       currentRole,
+      suspendedRole: suspendFields.suspendedRole,
+      suspendMessage: suspendFields.suspendMessage,
       done: false,
       background: null,
     };
@@ -432,6 +525,8 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       head: hist.head,
       status,
       currentRole: null,
+      suspendedRole: null,
+      suspendMessage: null,
       done: true,
       background: null,
     };
@@ -473,13 +568,8 @@ async function collectActiveThreads(
   index: ThreadsIndex,
 ): Promise<ThreadListItemWithStatus[]> {
   const items: ThreadListItemWithStatus[] = [];
-  for (const [threadId, head] of Object.entries(index)) {
-    const item = await threadListItemFromActive(
-      storageRoot,
-      uwf,
-      threadId as ThreadId,
-      head as CasRef,
-    );
+  for (const [threadId, entry] of Object.entries(index)) {
+    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, entry.head);
     if (item !== null) {
       items.push(item);
     }
@@ -945,6 +1035,65 @@ async function archiveThread(
   });
 }
 
+export async function cmdThreadResume(
+  storageRoot: string,
+  threadId: ThreadId,
+  supplement: string | null,
+  agentOverride: string | null,
+): Promise<StepOutput> {
+  const runningMarker = await isThreadRunning(storageRoot, threadId);
+  if (runningMarker !== null) {
+    fail(`thread already executing in background (PID: ${runningMarker.pid})`);
+  }
+
+  const index = await loadThreadsIndex(storageRoot);
+  const entry = index[threadId];
+  if (entry === undefined) {
+    fail(`thread not active: ${threadId}`);
+  }
+
+  const uwf = await createUwfStore(storageRoot);
+  const headHash = entry.head;
+  const chain = walkChain(uwf, headHash);
+  const workflowHash = chain.start.workflow;
+
+  const status = await resolveActiveThreadStatus(
+    storageRoot,
+    threadId,
+    uwf,
+    headHash,
+    workflowHash,
+  );
+  if (status !== "suspended") {
+    fail(`thread is not suspended: ${threadId} (status: ${status})`);
+  }
+
+  const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, headHash, workflowHash);
+  if (suspendFields.suspendedRole === null) {
+    fail(`thread is suspended but suspendedRole is missing: ${threadId}`);
+  }
+  if (suspendFields.suspendMessage === null) {
+    fail(`thread is suspended but suspendMessage is missing: ${threadId}`);
+  }
+
+  const resumePrompt = buildResumePrompt(suspendFields.suspendMessage, supplement);
+  const plog = createProcessLogger({
+    storageRoot,
+    context: { thread: threadId, workflow: workflowHash },
+  });
+
+  plog.log(
+    PL_THREAD_RESUME,
+    `resume role=${suspendFields.suspendedRole} supplement=${supplement !== null}`,
+    null,
+  );
+
+  return cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog, {
+    role: suspendFields.suspendedRole,
+    prompt: resumePrompt,
+  });
+}
+
 export async function cmdThreadExec(
   storageRoot: string,
   threadId: ThreadId,
@@ -1011,12 +1160,12 @@ async function resolveActiveThreadWorkflowHash(
   threadId: ThreadId,
 ): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
   const uwf = await createUwfStore(storageRoot);
-  const chain = walkChain(uwf, headHash);
+  const chain = walkChain(uwf, entry.head);
   return chain.start.workflow;
 }
 
@@ -1030,10 +1179,11 @@ async function cmdThreadStepBackground(
 ): Promise<StepOutput[]> {
   // Get current head to return to caller
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     failStep(plog, `thread not active: ${threadId}`);
   }
+  const headHash = entry.head;
 
   const uwf = await createUwfStore(storageRoot);
 
@@ -1069,30 +1219,42 @@ async function cmdThreadStepBackground(
       head: headHash,
       status: "running",
       currentRole: resolveCurrentRole(uwf, headHash, workflowHash),
+      suspendedRole: null,
+      suspendMessage: null,
       done: false,
       background: true,
     },
   ];
 }
 
-async function cmdThreadStepOnce(
+function resolveResumeStepTarget(
+  resume: ResumeStepConfig,
+  chain: ChainState,
+  threadCwd: string,
+  plog: ProcessLogger,
+): AgentStepTarget {
+  const lastStep = chain.stepsNewestFirst[0];
+  plog.log(PL_MODERATOR, `resume role=${resume.role} prompt=${resume.prompt}`, null);
+  return {
+    role: resume.role,
+    edgePrompt: resume.prompt,
+    effectiveCwd: lastStep !== undefined && lastStep.cwd !== "" ? lastStep.cwd : threadCwd,
+  };
+}
+
+async function resolveModeratorStepTarget(
   storageRoot: string,
   threadId: ThreadId,
-  agentOverride: string | null,
+  entry: ThreadIndexEntry,
+  headHash: CasRef,
+  workflowHash: CasRef,
+  workflow: WorkflowPayload,
+  uwf: UwfStore,
+  chain: ChainState,
+  threadCwd: string,
   plog: ProcessLogger,
-): Promise<StepOutput> {
-  const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
-    failStep(plog, `thread not active: ${threadId}`);
-  }
-
-  const uwf = await createUwfStore(storageRoot);
-  const chain = walkChain(uwf, headHash);
-  const workflowHash = chain.start.workflow;
-  const workflow = loadWorkflowPayload(uwf, workflowHash);
+): Promise<StepOutput | AgentStepTarget> {
   const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
-
   const nextResult = evaluate(workflow.graph, lastRole, lastOutput);
   if (!nextResult.ok) {
     failStep(plog, `moderator evaluate failed: ${nextResult.error.message}`);
@@ -1109,6 +1271,13 @@ async function cmdThreadStepOnce(
   );
 
   if (isSuspendResult(nextResult.value)) {
+    await ensureThreadSuspendMetadata(
+      storageRoot,
+      threadId,
+      entry,
+      nextResult.value.suspendedRole,
+      nextResult.value.prompt,
+    );
     return buildStepOutputFromEvaluation(
       workflowHash,
       threadId,
@@ -1128,41 +1297,32 @@ async function cmdThreadStepOnce(
       head: headHash,
       status: "completed",
       currentRole: null,
+      suspendedRole: null,
+      suspendMessage: null,
       done: true,
       background: null,
     };
   }
 
-  const role = nextResult.value.role;
-  const edgePrompt = nextResult.value.prompt;
+  return {
+    role: nextResult.value.role,
+    edgePrompt: nextResult.value.prompt,
+    effectiveCwd: nextResult.value.location !== null ? nextResult.value.location : threadCwd,
+  };
+}
 
-  // Resolve cwd: use edge location if provided, otherwise inherit thread.cwd
-  const threadCwd = chain.start.cwd;
-  const effectiveCwd = nextResult.value.location !== null ? nextResult.value.location : threadCwd;
-
-  const config = await loadWorkflowConfig(storageRoot);
-  const agent = resolveAgentConfig(config, workflow, role, agentOverride);
-
-  plog.log(PL_AGENT_SPAWN, `spawning agent command=${agent.command}`, {
-    args: [...agent.args, threadId, role].join(" "),
-  });
-
-  loadDotenv({ path: getEnvPath(storageRoot) });
-  const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
-  const newHead = agentResult.stepHash as CasRef;
-
-  plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
-
-  // Re-create store to pick up nodes written by the agent subprocess
-  const uwfAfter = await createUwfStore(storageRoot);
-  const newNode = uwfAfter.store.get(newHead);
-  if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
-    failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
-  }
-
-  // Reload threads index to avoid overwriting changes made by the agent subprocess
+async function finalizeAgentStep(
+  storageRoot: string,
+  threadId: ThreadId,
+  workflowHash: CasRef,
+  workflow: WorkflowPayload,
+  newHead: CasRef,
+  uwfAfter: UwfStore,
+  plog: ProcessLogger,
+): Promise<StepOutput> {
   const freshIndex = await loadThreadsIndex(storageRoot);
-  freshIndex[threadId] = newHead;
+  const priorEntry = freshIndex[threadId] ?? createThreadIndexEntry(newHead);
+  freshIndex[threadId] = updateThreadHead(priorEntry, newHead);
   await saveThreadsIndex(storageRoot, freshIndex);
 
   const chainAfter = walkChain(uwfAfter, newHead);
@@ -1176,6 +1336,12 @@ async function cmdThreadStepOnce(
   }
 
   if (isSuspendResult(afterResult.value)) {
+    freshIndex[threadId] = markThreadSuspended(
+      freshIndex[threadId] ?? createThreadIndexEntry(newHead),
+      afterResult.value.suspendedRole,
+      afterResult.value.prompt,
+    );
+    await saveThreadsIndex(storageRoot, freshIndex);
     return buildStepOutputFromEvaluation(
       workflowHash,
       threadId,
@@ -1192,7 +1358,6 @@ async function cmdThreadStepOnce(
     await archiveThread(storageRoot, threadId, workflowHash, newHead);
   }
 
-  // Determine status based on whether thread is done and running state
   const status: ThreadStatus = done ? "completed" : "idle";
   const currentRole = done ? null : afterResult.value.role;
 
@@ -1202,14 +1367,80 @@ async function cmdThreadStepOnce(
     head: newHead,
     status,
     currentRole,
+    suspendedRole: null,
+    suspendMessage: null,
     done,
     background: null,
   };
 }
 
+async function cmdThreadStepOnce(
+  storageRoot: string,
+  threadId: ThreadId,
+  agentOverride: string | null,
+  plog: ProcessLogger,
+  resume: ResumeStepConfig | null = null,
+): Promise<StepOutput> {
+  const index = await loadThreadsIndex(storageRoot);
+  const entry = index[threadId];
+  if (entry === undefined) {
+    failStep(plog, `thread not active: ${threadId}`);
+  }
+  const headHash = entry.head;
+
+  const uwf = await createUwfStore(storageRoot);
+  const chain = walkChain(uwf, headHash);
+  const workflowHash = chain.start.workflow;
+  const workflow = loadWorkflowPayload(uwf, workflowHash);
+  const threadCwd = chain.start.cwd;
+
+  const targetOrOutput =
+    resume !== null
+      ? resolveResumeStepTarget(resume, chain, threadCwd, plog)
+      : await resolveModeratorStepTarget(
+          storageRoot,
+          threadId,
+          entry,
+          headHash,
+          workflowHash,
+          workflow,
+          uwf,
+          chain,
+          threadCwd,
+          plog,
+        );
+
+  if ("status" in targetOrOutput) {
+    return targetOrOutput;
+  }
+
+  const { role, edgePrompt, effectiveCwd } = targetOrOutput;
+
+  const config = await loadWorkflowConfig(storageRoot);
+  const agent = resolveAgentConfig(config, workflow, role, agentOverride);
+
+  plog.log(PL_AGENT_SPAWN, `spawning agent command=${agent.command}`, {
+    args: [...agent.args, threadId, role].join(" "),
+  });
+
+  loadDotenv({ path: getEnvPath(storageRoot) });
+  const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
+  const newHead = agentResult.stepHash as CasRef;
+
+  plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
+
+  const uwfAfter = await createUwfStore(storageRoot);
+  const newNode = uwfAfter.store.get(newHead);
+  if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
+    failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
+  }
+
+  return finalizeAgentStep(storageRoot, threadId, workflowHash, workflow, newHead, uwfAfter, plog);
+}
+
 async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId];
+  const activeHead = index[threadId]?.head;
   if (activeHead !== undefined) {
     return activeHead;
   }
@@ -1262,8 +1493,8 @@ export type CancelOutput = {
  */
 export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
 
@@ -1292,10 +1523,11 @@ export async function cmdThreadCancel(
   threadId: ThreadId,
 ): Promise<CancelOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
+  const head = entry.head;
 
   // Check if thread is running in background and terminate it
   const runningMarker = await isThreadRunning(storageRoot, threadId);

@@ -113,7 +113,7 @@ export async function cmdStepFork(
 
   const newThreadId = generateUlid(Date.now()) as ThreadId;
   const index = await loadThreadsIndex(storageRoot);
-  index[newThreadId] = stepHash;
+  index[newThreadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
   await saveThreadsIndex(storageRoot, index);
 
   return {

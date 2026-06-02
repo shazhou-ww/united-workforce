@@ -163,7 +163,7 @@ export async function buildContext(
   const { store, schemas } = agentStore;
 
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
+  const headHash = index[threadId]?.head;
   if (headHash === undefined) {
     fail(`thread not found in threads.yaml: ${threadId}`);
   }
@@ -212,7 +212,7 @@ export async function buildContextWithMeta(
   const { store, schemas } = agentStore;
 
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
+  const headHash = index[threadId]?.head;
   if (headHash === undefined) {
     fail(`thread not found in threads.yaml: ${threadId}`);
   }

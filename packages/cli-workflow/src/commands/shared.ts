@@ -203,7 +203,7 @@ function collectOrderedSteps(
 
 async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId];
+  const activeHead = index[threadId]?.head;
   if (activeHead !== undefined) {
     return activeHead;
   }

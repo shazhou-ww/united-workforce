@@ -80,7 +80,7 @@ graph:
     // Verify StartNode has the cwd field
     const uwf = await createUwfStore(storageRoot);
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-    const headHash = index[result.thread as ThreadId];
+    const headHash = index[result.thread as ThreadId]!.head;
     expect(headHash).toBeDefined();
 
     const startNode = uwf.store.get(headHash as CasRef);
@@ -175,7 +175,7 @@ graph:
 
     const uwf = await createUwfStore(storageRoot);
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-    const headHash = index[result.thread as ThreadId];
+    const headHash = index[result.thread as ThreadId]!.head;
 
     const startNode = uwf.store.get(headHash as CasRef);
     const startPayload = startNode?.payload as StartNodePayload;
