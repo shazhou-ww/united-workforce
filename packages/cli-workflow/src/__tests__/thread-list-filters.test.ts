@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
+import { createThreadIndexEntry } from "@uncaged/workflow-protocol";
 import { extractUlidTimestamp, generateUlid } from "@uncaged/workflow-util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
@@ -45,9 +46,15 @@ async function createTestThread(
   const startPayload = {
     workflow: workflowHash,
     prompt: "test prompt",
+    cwd: storageRoot,
   };
   const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
-  await saveThreadsIndex(storageRoot, { [threadId]: headHash });
+
+  // Load existing index and add new thread
+  const existingIndex = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
+  existingIndex[threadId] = createThreadIndexEntry(headHash);
+  await saveThreadsIndex(storageRoot, existingIndex);
+
   return threadId;
 }
 
