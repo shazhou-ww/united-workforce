@@ -1,4 +1,4 @@
-import type { BootstrapCapableStore } from "@uncaged/json-cas";
+import type { BootstrapCapableStore } from "@ocas/core";
 import type {
   CasRef,
   StartEntry,

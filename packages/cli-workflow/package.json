@@ -11,8 +11,8 @@
     "uwf": "./dist/cli.js"
   },
   "dependencies": {
-    "@uncaged/json-cas": "^0.5.3",
-    "@uncaged/json-cas-fs": "^0.5.3",
+    "@ocas/core": "^0.1.1",
+    "@ocas/fs": "^0.1.1",
     "@uncaged/workflow-protocol": "workspace:^",
     "@uncaged/workflow-util": "workspace:^",
     "@uncaged/workflow-util-agent": "workspace:^",

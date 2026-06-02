@@ -1,4 +1,4 @@
-import { getSchema, validate } from "@uncaged/json-cas";
+import { getSchema, validate } from "@ocas/core";
 
 import type { CasRef, ModelAlias, WorkflowConfig } from "@uncaged/workflow-protocol";
 import { createAgentStore, resolveStorageRoot } from "./storage.js";

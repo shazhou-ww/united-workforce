@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFsStore } from "@uncaged/json-cas-fs";
+import { createFsStore } from "@ocas/fs";
 import type { CasRef, WorkflowPayload } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { stringify } from "yaml";

@@ -8,13 +8,13 @@
 
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions stored as CAS nodes; threads are immutable chains of CAS-linked step nodes. No daemon — each `uwf thread step` invocation runs one moderator→agent→extract cycle and exits.
 
-The implementation lives in **5** active packages under `packages/`, plus two external CAS packages (`@uncaged/json-cas`, `@uncaged/json-cas-fs`). Legacy packages reside in `legacy-packages/` and are not part of the active stack.
+The implementation lives in **5** active packages under `packages/`, plus two external CAS packages (`@ocas/core`, `@ocas/fs`). Legacy packages reside in `legacy-packages/` and are not part of the active stack.
 
 ## Package map
 
 | Layer | Package | One-line role |
 |-------|---------|---------------|
-| Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@uncaged/json-cas-fs`. |
+| Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@ocas/fs`. |
 | Shared infra | `@uncaged/workflow-util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
 | Agent framework | `@uncaged/workflow-util-agent` → `workflow-util-agent` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
 | Agent: Hermes | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
@@ -24,8 +24,8 @@ The implementation lives in **5** active packages under `packages/`, plus two ex
 
 | Package | Role |
 |---------|------|
-| `@uncaged/json-cas` | Content-addressed store API, XXH64 hashing, JSON Schema registration and validation. |
-| `@uncaged/json-cas-fs` | Filesystem backend for `json-cas`. |
+| `@ocas/core` | Content-addressed store API, XXH64 hashing, JSON Schema registration and validation. |
+| `@ocas/fs` | Filesystem backend for `ocas`. |
 | `mustache` | Template renderer for edge prompts (used by `cli-workflow` moderator). |
 | `commander` | CLI argument parsing (used by `cli-workflow`). |
 | `dotenv` | Loads `.env` files for API keys. |
@@ -36,8 +36,8 @@ The implementation lives in **5** active packages under `packages/`, plus two ex
 ```mermaid
 flowchart BT
   subgraph External
-    jcas["@uncaged/json-cas"]
-    jcasfs["@uncaged/json-cas-fs"]
+    jcas["@ocas/core"]
+    jcasfs["@ocas/fs"]
   end
   subgraph L0["Layer 0 — contract"]
     protocol["@uncaged/workflow-protocol"]
@@ -146,7 +146,7 @@ Key properties:
 - **`roles`** — inline role definitions; each `meta` is a JSON Schema (stored as its own CAS node on registration)
 - **`graph`** — `Record<Role | "$START", Record<Status, Target>>` — status-based routing; each role maps statuses to targets
 - **No agent binding** — agent selection is a deployment concern, configured in `config.yaml`
-- **No Zod** — all schemas are JSON Schema, validated through `@uncaged/json-cas`
+- **No Zod** — all schemas are JSON Schema, validated through `@ocas/core`
 
 ## Three-phase engine loop
 
@@ -263,7 +263,7 @@ Structured output extraction uses a two-layer strategy (`workflow-util-agent`):
 2. Validate required fields (`validateFrontmatter`)
 3. Build a candidate object from frontmatter fields (`status`, `next`, `confidence`, `artifacts`, `scope`)
 4. `store.put()` the candidate against the role's `meta` schema
-5. Validate with `json-cas` schema validation
+5. Validate with `ocas` schema validation
 6. If valid → return `outputHash` (zero LLM cost)
 
 ### Layer 2: LLM extract fallback (`extract.ts`)
@@ -302,7 +302,7 @@ payload:
       capabilities: [planning, issue-analysis]
       procedure: "Analyze the issue and create a plan."
       output: "Output the plan summary."
-      meta: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema node
+      meta: "5GWKR8TN1V3JA"    # ocas_ref → JSON Schema node
   conditions:
     notApproved:
       description: "Reviewer rejected"
@@ -318,7 +318,7 @@ payload:
 ```yaml
 type: <start-node-schema-hash>
 payload:
-  workflow: "4KNM2PXR3B1QW"    # cas_ref → Workflow
+  workflow: "4KNM2PXR3B1QW"    # ocas_ref → Workflow
   prompt: "Fix the login bug..."
 ```
 
@@ -327,11 +327,11 @@ payload:
 ```yaml
 type: <step-node-schema-hash>
 payload:
-  start: "4TNVW8KR2B3MA"      # cas_ref → StartNode
-  prev: "2MXBG6PN4A8JR"       # cas_ref → previous StepNode (null for first step)
+  start: "4TNVW8KR2B3MA"      # ocas_ref → StartNode
+  prev: "2MXBG6PN4A8JR"       # ocas_ref → previous StepNode (null for first step)
   role: "developer"
-  output: "9KRVW3TN5F1QA"     # cas_ref → structured output (validated against meta schema)
-  detail: "7BQST3VW9F2MA"     # cas_ref → execution detail (raw turns, session data)
+  output: "9KRVW3TN5F1QA"     # ocas_ref → structured output (validated against meta schema)
+  detail: "7BQST3VW9F2MA"     # ocas_ref → execution detail (raw turns, session data)
   agent: "uwf-hermes"         # agent command used (plain string)
 ```
 
@@ -484,7 +484,7 @@ Binary: `uwf`
 | **Frontmatter markdown output** | Agents produce structured meta (YAML frontmatter) alongside free-form content (markdown body). Enables zero-cost extraction when frontmatter is well-formed. |
 | **Two-layer extract** | Fast path avoids LLM calls when agents follow the format; LLM fallback handles messy output gracefully. |
 | **Prompt injection for format** | Output format instruction prepended to system prompt ensures agents produce parseable output without per-agent configuration. |
-| **JSON Schema (not Zod)** | Schemas are CAS-native data — storable, hashable, validatable through `json-cas`. No code generation, no runtime library dependency. |
+| **JSON Schema (not Zod)** | Schemas are CAS-native data — storable, hashable, validatable through `ocas`. No code generation, no runtime library dependency. |
 | **Agent as external command** | Agents are independent CLI binaries (`uwf-hermes`, `uwf-cursor`). Swappable per workflow/role via config. No tight coupling to the engine. |
 | **No daemon** | Process starts, does one step, exits. Simpler failure model, no connection management. |
 | **Crockford Base32** | Filesystem-safe, case-insensitive, readable, compact. |

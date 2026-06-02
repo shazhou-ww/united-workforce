@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createMemoryStore, walk } from "@uncaged/json-cas";
+import { createMemoryStore, walk } from "@ocas/core";
 import {
   parseClaudeCodeJsonOutput,
   parseClaudeCodeStreamOutput,

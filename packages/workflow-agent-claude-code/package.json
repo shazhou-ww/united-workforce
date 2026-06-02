@@ -23,7 +23,7 @@
     "test:ci": "vitest run"
   },
   "dependencies": {
-    "@uncaged/json-cas": "^0.5.3",
+    "@ocas/core": "^0.1.1",
     "@uncaged/workflow-util-agent": "workspace:^",
     "@uncaged/workflow-util": "workspace:^"
   },

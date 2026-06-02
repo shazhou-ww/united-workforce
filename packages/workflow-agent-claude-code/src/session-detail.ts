@@ -1,4 +1,4 @@
-import { bootstrap, putSchema, type Store } from "@uncaged/json-cas";
+import { bootstrap, putSchema, type Store } from "@ocas/core";
 
 import {
   CLAUDE_CODE_DETAIL_SCHEMA,

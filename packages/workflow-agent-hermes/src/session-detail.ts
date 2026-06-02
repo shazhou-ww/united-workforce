@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { bootstrap, putSchema, type Store } from "@uncaged/json-cas";
+import { bootstrap, putSchema, type Store } from "@ocas/core";
 
 import { HERMES_DETAIL_SCHEMA, HERMES_RAW_OUTPUT_SCHEMA, HERMES_TURN_SCHEMA } from "./schemas.js";
 import type {

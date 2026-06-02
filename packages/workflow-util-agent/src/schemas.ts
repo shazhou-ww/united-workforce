@@ -1,5 +1,5 @@
-import type { Hash, Store } from "@uncaged/json-cas";
-import { putSchema } from "@uncaged/json-cas";
+import type { Hash, Store } from "@ocas/core";
+import { putSchema } from "@ocas/core";
 import { START_NODE_SCHEMA, STEP_NODE_SCHEMA, WORKFLOW_SCHEMA } from "@uncaged/workflow-protocol";
 
 export type UwfAgentSchemaHashes = {

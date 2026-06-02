@@ -4,9 +4,9 @@ Shared TypeScript types and JSON Schema constants for the workflow engine.
 
 ## Overview
 
-This is the contract layer (Layer 0). It defines `WorkflowPayload`, thread node payloads, moderator context, CLI output shapes, and configuration types used across every other package. It has no runtime logic beyond exporting schema objects from `@uncaged/json-cas`.
+This is the contract layer (Layer 0). It defines `WorkflowPayload`, thread node payloads, moderator context, CLI output shapes, and configuration types used across every other package. It has no runtime logic beyond exporting schema objects from `@ocas/core`.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/json-cas-fs`
+**Dependencies:** `@ocas/core`, `@ocas/fs`
 
 ## Installation
 

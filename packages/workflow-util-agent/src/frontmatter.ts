@@ -1,5 +1,5 @@
-import type { Store } from "@uncaged/json-cas";
-import { getSchema, validate } from "@uncaged/json-cas";
+import type { Store } from "@ocas/core";
+import { getSchema, validate } from "@ocas/core";
 import type { CasRef } from "@uncaged/workflow-protocol";
 import {
   type AgentFrontmatter,

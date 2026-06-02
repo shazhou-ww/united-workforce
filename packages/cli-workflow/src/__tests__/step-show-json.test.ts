@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bootstrap, type Hash, type JSONSchema, putSchema } from "@uncaged/json-cas";
-import { createFsStore } from "@uncaged/json-cas-fs";
+import { bootstrap, type Hash, type JSONSchema, putSchema } from "@ocas/core";
+import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdStepShow } from "../commands/step.js";
@@ -45,7 +45,7 @@ const DETAIL_SCHEMA: JSONSchema = {
   properties: {
     turns: {
       type: "array",
-      items: { type: "string", format: "cas_ref" },
+      items: { type: "string", format: "ocas_ref" },
     },
   },
   additionalProperties: false,

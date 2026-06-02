@@ -20,7 +20,7 @@ Dependency layers (each only imports from packages above it):
 protocol → util → util-agent → agent-hermes / agent-builtin / cli-workflow
 \`\`\`
 
-External CAS: \`@uncaged/json-cas\` (store API, hashing, schema validation) + \`@uncaged/json-cas-fs\` (filesystem backend).
+External CAS: \`@ocas/core\` (store API, hashing, schema validation) + \`@ocas/fs\` (filesystem backend).
 
 ## Coding Conventions
 
@@ -122,7 +122,7 @@ Shared entry point for all agent CLIs. Handles:
 
 ### CAS Integration
 
-All data is CAS-addressed via \`@uncaged/json-cas\`:
+All data is CAS-addressed via \`@ocas/core\`:
 - \`store.put(schemaHash, data)\` → content hash
 - \`store.get(hash)\` → node
 - \`validate(store, node)\` → schema check

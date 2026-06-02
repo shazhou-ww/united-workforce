@@ -67,7 +67,7 @@ App (uses protocol; not in the runtime engine stack)
   workflow-dashboard         Web UI for visual workflow editing
 ```
 
-External CAS: [`@uncaged/json-cas`](https://www.npmjs.com/package/@uncaged/json-cas) (store API, hashing, schema validation) + `@uncaged/json-cas-fs` (filesystem backend).
+External CAS: [`@ocas/core`](https://www.npmjs.com/package/@ocas/core) (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend).
 
 See [docs/architecture.md](docs/architecture.md) for the full design — three-phase engine loop, CAS node types, storage layout, agent CLI protocol, and design decisions.
 

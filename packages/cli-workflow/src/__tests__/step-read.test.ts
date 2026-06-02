@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bootstrap, putSchema } from "@uncaged/json-cas";
-import { createFsStore } from "@uncaged/json-cas-fs";
+import { bootstrap, putSchema } from "@ocas/core";
+import { createFsStore } from "@ocas/fs";
 import type { CasRef } from "@uncaged/workflow-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdStepRead } from "../commands/step.js";
@@ -40,7 +40,7 @@ const DETAIL_SCHEMA = {
     turnCount: { type: "integer" as const },
     turns: {
       type: "array" as const,
-      items: { type: "string" as const, format: "cas_ref" },
+      items: { type: "string" as const, format: "ocas_ref" },
     },
   },
   additionalProperties: false,

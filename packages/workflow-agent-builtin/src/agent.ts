@@ -1,4 +1,4 @@
-import type { Store } from "@uncaged/json-cas";
+import type { Store } from "@ocas/core";
 import { createLogger, generateUlid } from "@uncaged/workflow-util";
 import {
   type AgentContext,

@@ -1,4 +1,4 @@
-import type { JSONSchema } from "@uncaged/json-cas";
+import type { JSONSchema } from "@ocas/core";
 
 const BUILTIN_TOOL_CALL_SCHEMA: JSONSchema = {
   type: "object",
@@ -38,7 +38,7 @@ export const BUILTIN_DETAIL_SCHEMA: JSONSchema = {
     turnCount: { type: "integer" },
     turns: {
       type: "array",
-      items: { type: "string", format: "cas_ref" },
+      items: { type: "string", format: "ocas_ref" },
     },
   },
   additionalProperties: false,

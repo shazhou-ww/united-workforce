@@ -20,7 +20,7 @@ workflow → thread → step → turn
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/json-cas-fs`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `commander`, `dotenv`, `mustache`, `yaml`
+**Dependencies:** `@ocas/core`, `@ocas/fs`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `commander`, `dotenv`, `mustache`, `yaml`
 
 ## Installation
 
@@ -209,7 +209,7 @@ src/
 | `~/.uncaged/workflow/.env` | API keys (referenced by `apiKeyEnv` in config) |
 | `~/.uncaged/workflow/registry.yaml` | Workflow name → CAS hash |
 | `~/.uncaged/workflow/threads.yaml` | Active thread head pointers |
-| `~/.uncaged/json-cas/` | Content-addressed node storage (unified CAS store, shared with `json-cas` CLI) |
+| `~/.uncaged/json-cas/` | Content-addressed node storage (unified CAS store, shared with `ocas` CLI) |
 
 ### Environment Variables
 

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { JSONSchema, Store } from "@uncaged/json-cas";
-import { bootstrap, getSchema, putSchema, refs, walk } from "@uncaged/json-cas";
-import { createFsStore } from "@uncaged/json-cas-fs";
+import type { JSONSchema, Store } from "@ocas/core";
+import { bootstrap, getSchema, putSchema, refs, walk } from "@ocas/core";
+import { createFsStore } from "@ocas/fs";
 
 import { TEXT_SCHEMA } from "../schemas.js";
 
@@ -85,13 +85,17 @@ export type SchemaListEntry = {
 
 export async function cmdCasSchemaList(storageRoot: string): Promise<SchemaListEntry[]> {
   const store = openStore(storageRoot);
-  const metaHash = await bootstrap(store);
+  const aliases = await bootstrap(store);
+  const metaHash = aliases["@ocas/schema"];
+  if (metaHash === undefined) {
+    throw new Error("Meta-schema not found in bootstrap result");
+  }
   const entries: SchemaListEntry[] = [];
 
   // Include meta-schema itself
   entries.push({ hash: metaHash, title: "(meta-schema)" });
 
-  for (const hash of store.listByType(metaHash)) {
+  for (const { hash } of store.listByType(metaHash)) {
     if (hash === metaHash) continue;
     const node = store.get(hash);
     if (node !== null) {

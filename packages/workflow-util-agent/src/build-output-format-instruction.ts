@@ -1,4 +1,4 @@
-import type { JSONSchema } from "@uncaged/json-cas";
+import type { JSONSchema } from "@ocas/core";
 
 type SchemaProperty = {
   name: string;

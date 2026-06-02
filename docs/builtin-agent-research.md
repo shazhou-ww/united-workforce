@@ -630,7 +630,7 @@ flowchart TB
   Spawn -->|"stdout: step hash"| Step
 ```
 
-**新包**：`packages/workflow-agent-builtin`，bin `uwf-builtin`，仅依赖 `workflow-util-agent`、`workflow-protocol`、`workflow-util`（可选 `@uncaged/json-cas` 写 detail schema）。
+**新包**：`packages/workflow-agent-builtin`，bin `uwf-builtin`，仅依赖 `workflow-util-agent`、`workflow-protocol`、`workflow-util`（可选 `@ocas/core` 写 detail schema）。
 
 **分层**：
 

@@ -6,7 +6,7 @@
 
 Layer 3 agent implementation. Spawns the `claude` CLI with a composed system prompt (role definition, task, prior steps, edge prompt). Parses stream or JSON stdout, caches session IDs for multi-turn continuation, and stores raw output plus structured detail in CAS.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-util-agent`
+**Dependencies:** `@ocas/core`, `@uncaged/workflow-util-agent`
 
 ## Installation
 
