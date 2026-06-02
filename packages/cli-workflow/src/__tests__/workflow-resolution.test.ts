@@ -2,24 +2,19 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFsStore } from "@ocas/fs";
 import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
 import { stringify } from "yaml";
 import { cmdThreadStart } from "../commands/thread.js";
-import { registerUwfSchemas } from "../schemas.js";
 import type { UwfStore } from "../store.js";
-import { loadWorkflowRegistry, saveWorkflowRegistry } from "../store.js";
+import { createUwfStore, saveWorkflowRegistry } from "../store.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  // Set UNCAGED_CAS_DIR to use the test's CAS directory
   process.env.UNCAGED_CAS_DIR = casDir;
-  const store = createFsStore(casDir);
-  const schemas = await registerUwfSchemas(store);
-  return { storageRoot, store, schemas };
+  return createUwfStore(storageRoot);
 }
 
 function makeMinimalPayload(name: string, description: string): WorkflowPayload {
@@ -308,9 +303,7 @@ describe("Strategy 4: Global Registry Resolution", () => {
   test("should resolve workflow from global registry when not found locally", async () => {
     const uwf = await makeUwfStore(storageRoot);
     const hash = await storeWorkflow(uwf, "deploy-pipeline");
-    const registry = await loadWorkflowRegistry(storageRoot);
-    registry["deploy-pipeline"] = hash;
-    await saveWorkflowRegistry(storageRoot, registry);
+    saveWorkflowRegistry(uwf.varStore, "deploy-pipeline", hash);
 
     const isolatedRoot = join(tmpDir, "isolated");
     await mkdir(isolatedRoot, { recursive: true });
@@ -360,9 +353,7 @@ describe("Resolution Priority", () => {
 
     // Setup: Register globally
     const globalHash = await storeWorkflow(uwf, "solve-issue");
-    const registry = await loadWorkflowRegistry(storageRoot);
-    registry["solve-issue"] = globalHash;
-    await saveWorkflowRegistry(storageRoot, registry);
+    saveWorkflowRegistry(uwf.varStore, "solve-issue", globalHash);
 
     // Setup: Create local .workflow/
     const workflowDir = join(projectRoot, ".workflow");

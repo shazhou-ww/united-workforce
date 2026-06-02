@@ -156,9 +156,7 @@ export async function cmdWorkflowAdd(
     fail("stored workflow failed schema validation");
   }
 
-  const registry = await loadWorkflowRegistry(storageRoot);
-  registry[materialized.name] = hash;
-  await saveWorkflowRegistry(storageRoot, registry);
+  saveWorkflowRegistry(uwf.varStore, materialized.name, hash);
 
   return { name: materialized.name, hash };
 }
@@ -168,7 +166,7 @@ export async function cmdWorkflowShow(
   id: string,
 ): Promise<WorkflowShowOutput> {
   const uwf = await createUwfStore(storageRoot);
-  const registry = await loadWorkflowRegistry(storageRoot);
+  const registry = loadWorkflowRegistry(uwf.varStore);
   const hash = resolveWorkflowHash(registry, id);
 
   const node = uwf.store.get(hash);
@@ -193,8 +191,9 @@ export async function cmdWorkflowList(
   storageRoot: string,
   projectRoot: string,
 ): Promise<WorkflowListEntry[]> {
+  const uwf = await createUwfStore(storageRoot);
   const localEntries = await discoverProjectWorkflows(projectRoot);
-  const registry = await loadWorkflowRegistry(storageRoot);
+  const registry = loadWorkflowRegistry(uwf.varStore);
 
   const result: WorkflowListEntry[] = [];
   const localNames = new Set<string>();

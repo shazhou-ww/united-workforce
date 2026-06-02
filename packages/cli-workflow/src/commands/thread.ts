@@ -362,7 +362,6 @@ async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promis
 
 async function resolveWorkflowCasRef(
   uwf: UwfStore,
-  storageRoot: string,
   workflowId: string,
   projectRoot: string,
 ): Promise<CasRef> {
@@ -397,7 +396,7 @@ async function resolveWorkflowCasRef(
   }
 
   // Strategy 4: Global registry fallback
-  const registry = await loadWorkflowRegistry(storageRoot);
+  const registry = loadWorkflowRegistry(uwf.varStore);
   const hash = resolveWorkflowHash(registry, trimmed);
   if (!isCasRef(hash)) {
     fail(`workflow not found: ${trimmed}`);
@@ -449,7 +448,7 @@ export async function cmdThreadStart(
   }
 
   const uwf = await createUwfStore(storageRoot);
-  const workflowHash = await resolveWorkflowCasRef(uwf, storageRoot, workflowId, projectRoot);
+  const workflowHash = await resolveWorkflowCasRef(uwf, workflowId, projectRoot);
 
   const threadId = generateUlid(Date.now()) as ThreadId;
   const plog = createProcessLogger({

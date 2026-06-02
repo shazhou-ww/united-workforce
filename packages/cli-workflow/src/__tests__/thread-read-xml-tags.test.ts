@@ -3,12 +3,11 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import type { createFsStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadRead, THREAD_READ_DEFAULT_QUOTA } from "../commands/thread.js";
-import { registerUwfSchemas } from "../schemas.js";
 import type { UwfStore } from "../store.js";
-import { saveThreadsIndex } from "../store.js";
+import { createUwfStore, saveThreadsIndex } from "../store.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -53,11 +52,8 @@ const DETAIL_SCHEMA = {
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  // Set UNCAGED_CAS_DIR to use the test's CAS directory
   process.env.UNCAGED_CAS_DIR = casDir;
-  const store = createFsStore(casDir);
-  const schemas = await registerUwfSchemas(store);
-  return { storageRoot, store, schemas };
+  return createUwfStore(storageRoot);
 }
 
 async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {

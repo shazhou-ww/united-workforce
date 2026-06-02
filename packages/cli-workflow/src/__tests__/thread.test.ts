@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import type { createFsStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdStepList, cmdStepShow } from "../commands/step.js";
 import {
@@ -11,9 +11,8 @@ import {
   extractLastAssistantContent,
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
-import { registerUwfSchemas } from "../schemas.js";
 import type { UwfStore } from "../store.js";
-import { appendThreadHistory, saveThreadsIndex } from "../store.js";
+import { appendThreadHistory, createUwfStore, saveThreadsIndex } from "../store.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -58,11 +57,8 @@ const DETAIL_SCHEMA = {
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  // Set UNCAGED_CAS_DIR to use the test's CAS directory
   process.env.UNCAGED_CAS_DIR = casDir;
-  const store = createFsStore(casDir);
-  const schemas = await registerUwfSchemas(store);
-  return { storageRoot, store, schemas };
+  return createUwfStore(storageRoot);
 }
 
 async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
@@ -594,12 +590,7 @@ describe("cmdStepShow (process.exit tests - must be last)", () => {
   });
 
   test("before with unknown hash rejects", async () => {
-    const _uwf = await makeUwfStore(tmpDir);
-    const casDir = join(tmpDir, "cas");
-    await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
-    const schemas = await registerUwfSchemas(store);
-    const uwfStore: UwfStore = { storageRoot: tmpDir, store, schemas };
+    const uwfStore = await makeUwfStore(tmpDir);
 
     const workflowHash = await uwfStore.store.put(uwfStore.schemas.workflow, {
       name: "wf2",

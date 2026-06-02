@@ -1,10 +1,11 @@
 import type { Dirent } from "node:fs";
 import { existsSync, symlinkSync } from "node:fs";
-import { access, appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { BootstrapCapableStore, Hash } from "@ocas/core";
+import { createVariableStore, type VariableStore } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type {
   CasRef,
@@ -23,6 +24,9 @@ import { parse, stringify } from "yaml";
 import { registerUwfSchemas, type UwfSchemaHashes } from "./schemas.js";
 
 export type WorkflowRegistry = Record<string, CasRef>;
+
+/** Variable name prefix for workflow registry entries (`@uwf/registry/<name>`). */
+export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 
 /** A workflow entry discovered from the project-local .workflows/ directory. */
 export type ProjectWorkflowEntry = {
@@ -200,6 +204,7 @@ export type UwfStore = {
   storageRoot: string;
   store: BootstrapCapableStore;
   schemas: UwfSchemaHashes;
+  varStore: VariableStore;
 };
 
 export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
@@ -207,41 +212,57 @@ export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
   await mkdir(casDir, { recursive: true });
   const store = createFsStore(casDir);
   const schemas = await registerUwfSchemas(store);
-  return { storageRoot, store, schemas };
+  const varStore = createVariableStore(join(casDir, "variables.db"), store);
+  await migrateWorkflowRegistryIfNeeded(storageRoot, varStore);
+  return { storageRoot, store, schemas, varStore };
 }
 
-export async function loadWorkflowRegistry(storageRoot: string): Promise<WorkflowRegistry> {
+async function loadWorkflowRegistryFromYaml(storageRoot: string): Promise<WorkflowRegistry> {
   const path = getRegistryPath(storageRoot);
-  try {
-    const text = await readFile(path, "utf8");
-    const raw = parse(text) as unknown;
-    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-      return {};
-    }
-    const registry: WorkflowRegistry = {};
-    for (const [name, hash] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof hash === "string") {
-        registry[name] = hash;
-      }
-    }
-    return registry;
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      return {};
-    }
-    throw e;
+  const text = await readFile(path, "utf8");
+  const raw = parse(text) as unknown;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
   }
+  const registry: WorkflowRegistry = {};
+  for (const [name, hash] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof hash === "string") {
+      registry[name] = hash;
+    }
+  }
+  return registry;
 }
 
-export async function saveWorkflowRegistry(
+/** One-time migration: `~/.uwf/workflows.yaml` → `@uwf/registry/*` variables. */
+export async function migrateWorkflowRegistryIfNeeded(
   storageRoot: string,
-  registry: WorkflowRegistry,
+  varStore: VariableStore,
 ): Promise<void> {
   const path = getRegistryPath(storageRoot);
-  await mkdir(storageRoot, { recursive: true });
-  const text = stringify(registry, { indent: 2 });
-  await writeFile(path, text, "utf8");
+  if (!existsSync(path)) {
+    return;
+  }
+
+  const registry = await loadWorkflowRegistryFromYaml(storageRoot);
+  for (const [name, hash] of Object.entries(registry)) {
+    saveWorkflowRegistry(varStore, name, hash);
+  }
+
+  await rename(path, `${path}.migrated`);
+}
+
+export function loadWorkflowRegistry(varStore: VariableStore): WorkflowRegistry {
+  const vars = varStore.list({ namePrefix: REGISTRY_VAR_PREFIX });
+  const registry: WorkflowRegistry = {};
+  for (const v of vars) {
+    const name = v.name.slice(REGISTRY_VAR_PREFIX.length);
+    registry[name] = v.value;
+  }
+  return registry;
+}
+
+export function saveWorkflowRegistry(varStore: VariableStore, name: string, hash: CasRef): void {
+  varStore.set(`${REGISTRY_VAR_PREFIX}${name}`, hash);
 }
 
 export function resolveWorkflowHash(registry: WorkflowRegistry, id: string): CasRef {
