@@ -6,16 +6,18 @@ import { describe, expect, test } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import {
-  cmdSkillAdapter,
-  cmdSkillAuthor,
-  cmdSkillDeveloper,
-  cmdSkillList,
-  cmdSkillUser,
-} from "../commands/skill.js";
+  cmdPromptAdapter,
+  cmdPromptAuthor,
+  cmdPromptDeveloper,
+  cmdPromptList,
+  cmdPromptSetup,
+  cmdPromptUsage,
+  cmdPromptUser,
+} from "../commands/prompt.js";
 
-describe("skill commands", () => {
-  test("skill list returns all skill names", () => {
-    const result = cmdSkillList();
+describe("prompt commands", () => {
+  test("prompt list returns all prompt names", () => {
+    const result = cmdPromptList();
     expect(result).toBeInstanceOf(Array);
     expect(result).toContain("user");
     expect(result).toContain("author");
@@ -26,8 +28,8 @@ describe("skill commands", () => {
     }
   });
 
-  test("skill user returns non-empty markdown string", () => {
-    const result = cmdSkillUser();
+  test("prompt user returns non-empty markdown string", () => {
+    const result = cmdPromptUser();
     expect(typeof result).toBe("string");
     expect(result).toContain("uwf");
     expect(result).toContain("thread");
@@ -36,8 +38,8 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("skill author returns non-empty markdown string", () => {
-    const result = cmdSkillAuthor();
+  test("prompt author returns non-empty markdown string", () => {
+    const result = cmdPromptAuthor();
     expect(typeof result).toBe("string");
     expect(result).toContain("frontmatter");
     expect(result).toContain("graph");
@@ -47,8 +49,8 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("skill developer returns non-empty markdown string", () => {
-    const result = cmdSkillDeveloper();
+  test("prompt developer returns non-empty markdown string", () => {
+    const result = cmdPromptDeveloper();
     expect(typeof result).toBe("string");
     expect(result).toContain("Monorepo");
     expect(result).toContain("CAS");
@@ -56,8 +58,8 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("skill adapter returns non-empty markdown string", () => {
-    const result = cmdSkillAdapter();
+  test("prompt adapter returns non-empty markdown string", () => {
+    const result = cmdPromptAdapter();
     expect(typeof result).toBe("string");
     expect(result).toContain("createAgent");
     expect(result).toContain("AgentContext");
@@ -65,13 +67,36 @@ describe("skill commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("skill help subcommand is suppressed", () => {
-    const output = execFileSync("bun", ["src/cli.ts", "skill", "--help"], {
+  test("prompt usage combines all references", () => {
+    const result = cmdPromptUsage();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("User Reference");
+    expect(result).toContain("Author Reference");
+    expect(result).toContain("Developer Reference");
+    expect(result).toContain("Adapter Reference");
+    expect(result).toContain("---");
+    expect(result.length).toBeGreaterThan(2000);
+  });
+
+  test("prompt setup returns setup instructions", () => {
+    const result = cmdPromptSetup();
+    expect(typeof result).toBe("string");
+    expect(result).toContain("uwf Skill Setup");
+    expect(result).toContain("uwf prompt usage");
+    expect(result).toContain("uwf prompt setup");
+    expect(result).toContain("SKILL.md");
+    expect(result).toContain("version");
+  });
+
+  test("prompt help subcommand is suppressed", () => {
+    const output = execFileSync("bun", ["src/cli.ts", "prompt", "--help"], {
       cwd: join(__dirname, "..", ".."),
       encoding: "utf-8",
       env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
     });
     expect(output).not.toMatch(/help\s+\[command\]/i);
+    expect(output).toContain("usage");
+    expect(output).toContain("setup");
     expect(output).toContain("user");
     expect(output).toContain("author");
     expect(output).toContain("developer");
