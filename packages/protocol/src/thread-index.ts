@@ -50,7 +50,7 @@ export function markThreadSuspended(
   };
 }
 
-/** Serialize for threads.yaml — compact string when not suspended. */
+/** Serialize for variable store — compact string when not suspended. */
 export function serializeThreadIndexEntry(
   entry: ThreadIndexEntry,
 ): string | Record<string, string> {

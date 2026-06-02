@@ -150,7 +150,7 @@ async function loadWorkflow(store: Store, schemas: AgentStore["schemas"], workfl
 }
 
 /**
- * Build agent execution context from thread head in threads.yaml.
+ * Build agent execution context from thread head in the variable store.
  * Walks the CAS chain from head to StartNode and expands step outputs.
  */
 export async function buildContext(
