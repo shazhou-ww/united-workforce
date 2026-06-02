@@ -7,7 +7,7 @@ import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {
-  appendThreadHistory,
+  addHistoryEntry,
   createUwfStore,
   deleteThread,
   loadAllThreads,
@@ -210,7 +210,7 @@ describe("thread show status field", () => {
 
     deleteThread(uwfForIndex.varStore, threadId);
 
-    await appendThreadHistory(storageRoot, {
+    addHistoryEntry(uwfForIndex.varStore, {
       thread: threadId,
       workflow,
       head,
@@ -247,7 +247,7 @@ describe("thread show status field", () => {
 
     deleteThread(uwfForIndex.varStore, threadId);
 
-    await appendThreadHistory(storageRoot, {
+    addHistoryEntry(uwfForIndex.varStore, {
       thread: threadId,
       workflow,
       head,
@@ -284,7 +284,7 @@ describe("thread show status field", () => {
 
     deleteThread(uwfForIndex.varStore, threadId);
 
-    await appendThreadHistory(storageRoot, {
+    addHistoryEntry(uwfForIndex.varStore, {
       thread: threadId,
       workflow,
       head,

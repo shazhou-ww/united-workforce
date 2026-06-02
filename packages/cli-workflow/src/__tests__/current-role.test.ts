@@ -7,7 +7,7 @@ import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadList, cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {
-  appendThreadHistory,
+  addHistoryEntry,
   createUwfStore,
   deleteThread,
   loadAllThreads,
@@ -288,7 +288,7 @@ describe("currentRole field", () => {
       const uwfForIndex = await createUwfStore(storageRoot);
       const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
       deleteThread(uwfForIndex.varStore, tid);
-      await appendThreadHistory(storageRoot, {
+      addHistoryEntry(uwfForIndex.varStore, {
         thread: tid,
         workflow,
         head,
@@ -316,7 +316,7 @@ describe("currentRole field", () => {
       const uwfForIndex = await createUwfStore(storageRoot);
       const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
       deleteThread(uwfForIndex.varStore, tid);
-      await appendThreadHistory(storageRoot, {
+      addHistoryEntry(uwfForIndex.varStore, {
         thread: tid,
         workflow,
         head,
@@ -377,7 +377,7 @@ describe("currentRole field", () => {
       const uwfForIndex = await createUwfStore(storageRoot);
       const compHead = loadAllThreads(uwfForIndex.varStore)[compId]!.head;
       deleteThread(uwfForIndex.varStore, compId);
-      await appendThreadHistory(storageRoot, {
+      addHistoryEntry(uwfForIndex.varStore, {
         thread: compId,
         workflow: comp.workflow,
         head: compHead,

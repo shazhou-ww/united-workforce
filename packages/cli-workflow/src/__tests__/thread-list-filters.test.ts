@@ -10,7 +10,7 @@ import { cmdThreadList } from "../commands/thread.js";
 import { parseTimeInput } from "../commands/thread-time-parser.js";
 import type { UwfStore } from "../store.js";
 import {
-  appendThreadHistory,
+  addHistoryEntry,
   createUwfStore,
   deleteThread,
   loadAllThreads,
@@ -78,7 +78,7 @@ async function completeThread(
 ) {
   const uwfIdx = await createUwfStore(storageRoot);
   deleteThread(uwfIdx.varStore, threadId);
-  await appendThreadHistory(storageRoot, {
+  addHistoryEntry(uwfIdx.varStore, {
     thread: threadId,
     workflow: workflowHash,
     head: headHash,

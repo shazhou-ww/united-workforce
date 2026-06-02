@@ -38,13 +38,13 @@ import { createMarker, deleteMarker, isThreadRunning } from "../background/index
 import { createIncludeTag } from "../include.js";
 import { evaluate, isSuspendResult } from "../moderator/index.js";
 import {
-  appendThreadHistory,
+  addHistoryEntry,
   createUwfStore,
   deleteThread,
-  findThreadInHistory,
+  findHistoryEntry,
   getThread,
+  loadAllHistory,
   loadAllThreads,
-  loadThreadHistory,
   loadWorkflowRegistry,
   resolveWorkflowHash,
   setThread,
@@ -521,7 +521,7 @@ export async function cmdThreadShow(
     };
   }
 
-  const hist = await findThreadInHistory(storageRoot, threadId);
+  const hist = findHistoryEntry(uwf.varStore, threadId);
   if (hist !== null) {
     const status: ThreadStatus = hist.reason === "cancelled" ? "cancelled" : "completed";
 
@@ -593,12 +593,12 @@ async function collectActiveThreads(
   return items;
 }
 
-async function collectCompletedThreads(
-  storageRoot: string,
+function collectCompletedThreads(
+  varStore: VariableStore,
   activeIds: Set<ThreadId>,
-): Promise<ThreadListItemWithStatus[]> {
+): ThreadListItemWithStatus[] {
   const items: ThreadListItemWithStatus[] = [];
-  const history = await loadThreadHistory(storageRoot);
+  const history = loadAllHistory(varStore);
   const seen = new Set<ThreadId>(); // Deduplication (issue #470)
   for (const entry of history) {
     if (!activeIds.has(entry.thread) && !seen.has(entry.thread)) {
@@ -671,7 +671,7 @@ export async function cmdThreadList(
     statusFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
-    const completedItems = await collectCompletedThreads(storageRoot, activeIds);
+    const completedItems = collectCompletedThreads(uwf.varStore, activeIds);
     items = items.concat(completedItems);
   }
 
@@ -1035,15 +1035,9 @@ function spawnAgent(
   return obj as unknown as AdapterOutput;
 }
 
-async function archiveThread(
-  uwf: UwfStore,
-  storageRoot: string,
-  threadId: ThreadId,
-  workflow: CasRef,
-  head: CasRef,
-): Promise<void> {
+function archiveThread(uwf: UwfStore, threadId: ThreadId, workflow: CasRef, head: CasRef): void {
   deleteThread(uwf.varStore, threadId);
-  await appendThreadHistory(storageRoot, {
+  addHistoryEntry(uwf.varStore, {
     thread: threadId,
     workflow,
     head,
@@ -1302,7 +1296,7 @@ async function resolveModeratorStepTarget(
 
   if (nextResult.value.role === END_ROLE) {
     plog.log(PL_THREAD_ARCHIVED, `thread archived head=${headHash}`, null);
-    await archiveThread(uwf, storageRoot, threadId, workflowHash, headHash);
+    archiveThread(uwf, threadId, workflowHash, headHash);
     return {
       workflow: workflowHash,
       thread: threadId,
@@ -1368,7 +1362,7 @@ async function finalizeAgentStep(
   const done = afterResult.value.role === END_ROLE;
   if (done) {
     plog.log(PL_THREAD_ARCHIVED, `thread archived head=${newHead}`, null);
-    await archiveThread(uwfAfter, storageRoot, threadId, workflowHash, newHead);
+    archiveThread(uwfAfter, threadId, workflowHash, newHead);
   }
 
   const status: ThreadStatus = done ? "completed" : "idle";
@@ -1456,7 +1450,7 @@ async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise
   if (entry !== null) {
     return entry.head;
   }
-  const hist = await findThreadInHistory(storageRoot, threadId);
+  const hist = findHistoryEntry(uwf.varStore, threadId);
   if (hist !== null) {
     return hist.head;
   }
@@ -1566,7 +1560,7 @@ export async function cmdThreadCancel(
     completedAt: Date.now(),
     reason: "cancelled",
   };
-  await appendThreadHistory(storageRoot, historyEntry);
+  addHistoryEntry(uwf.varStore, historyEntry);
 
   return { thread: threadId, cancelled: true };
 }
