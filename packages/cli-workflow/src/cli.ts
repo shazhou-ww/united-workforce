@@ -30,6 +30,7 @@ import {
   cmdThreadExec,
   cmdThreadList,
   cmdThreadRead,
+  cmdThreadResume,
   cmdThreadShow,
   cmdThreadStart,
   cmdThreadStop,
@@ -279,6 +280,27 @@ thread
       });
     },
   );
+
+thread
+  .command("resume")
+  .description("Resume a suspended thread and re-run the suspended role")
+  .argument("<thread-id>", "Thread ULID")
+  .option("-p, --prompt <text>", "Supplementary info to append to the resume prompt")
+  .option("--agent <cmd>", "Override agent command")
+  .action((threadId: string, opts: { prompt: string | undefined; agent: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const supplement = opts.prompt ?? null;
+      const agentOverride = opts.agent ?? null;
+      const result = await cmdThreadResume(
+        storageRoot,
+        threadId as ThreadId,
+        supplement,
+        agentOverride,
+      );
+      writeOutput(result);
+    });
+  });
 
 thread
   .command("stop")
