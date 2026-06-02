@@ -107,7 +107,7 @@ packages/workflow-template-document/
 
 ```json
 {
-  "@uncaged/workflow-protocol": "workspace:^",
+  "@uncaged/protocol": "workspace:^",
   "@uncaged/workflow-runtime": "workspace:^",
   "@uncaged/workflow-register": "workspace:^",
   "zod": "^4.0.0"
@@ -246,9 +246,9 @@ packages/workflow-agent-office/
 
 ```json
 {
-  "@uncaged/workflow-protocol": "workspace:^",
-  "@uncaged/workflow-util": "workspace:^",
-  "@uncaged/workflow-util-agent": "workspace:^"
+  "@uncaged/protocol": "workspace:^",
+  "@uncaged/util": "workspace:^",
+  "@uncaged/util-agent": "workspace:^"
 }
 ```
 
@@ -347,8 +347,8 @@ packages/workflow-agent-docx-diff/
 
 ```json
 {
-  "@uncaged/workflow-protocol": "workspace:^",
-  "@uncaged/workflow-util-agent": "workspace:^",
+  "@uncaged/protocol": "workspace:^",
+  "@uncaged/util-agent": "workspace:^",
   "@uncaged/workflow-template-document": "workspace:^"
 }
 ```
@@ -365,7 +365,7 @@ import {
   documentWorkflowDefinition,
 } from "@uncaged/workflow-template-document";
 import { createWorkflow } from "@uncaged/workflow-runtime";
-import { getDefaultWorkflowStorageRoot } from "@uncaged/workflow-util";
+import { getDefaultWorkflowStorageRoot } from "@uncaged/util";
 import { join } from "node:path";
 
 const outputDir = join(getDefaultWorkflowStorageRoot(), "outputs");

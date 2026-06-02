@@ -45,9 +45,9 @@ roles:
            cd /root/workflow && bun install
 
            # bun link each package that has a bin entry
-           cd packages/cli-workflow && bun link && cd ../..
-           cd packages/workflow-agent-hermes && bun link && cd ../..
-           cd packages/workflow-agent-builtin && bun link && cd ../..
+           cd packages/cli && bun link && cd ../..
+           cd packages/agent-hermes && bun link && cd ../..
+           cd packages/agent-builtin && bun link && cd ../..
          '
          ```
       3. Verify all three commands are available inside the container:

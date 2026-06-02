@@ -1,0 +1,42 @@
+{
+  "name": "@united-workforce/protocol",
+  "version": "0.5.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
+    "test": "bun test src/__tests__/",
+    "test:ci": "bun test src/__tests__/"
+  },
+  "dependencies": {
+    "@ocas/core": "^0.1.1",
+    "@ocas/fs": "^0.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.shazhou.work/uncaged/workflow.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
+  "bugs": {
+    "url": "https://git.shazhou.work/uncaged/workflow/issues"
+  },
+  "license": "MIT"
+}

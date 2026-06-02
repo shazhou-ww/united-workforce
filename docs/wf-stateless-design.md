@@ -341,11 +341,11 @@ OPENROUTER_API_KEY=sk-or-...
 
 ```
 packages/
-├── cli-workflow/              # @united-workforce/cli — uwf CLI（thread/workflow 命令，含 src/moderator/）
-├── workflow-util-agent/       # @united-workforce/util-agent — Agent CLI 框架（含 extractor）
-├── workflow-agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI
+├── cli/              # @united-workforce/cli — uwf CLI（thread/workflow 命令，含 src/moderator/）
+├── util-agent/       # @united-workforce/util-agent — Agent CLI 框架（含 extractor）
+├── agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI
 ├── workflow-agent-cursor/ # @united-workforce/agent-cursor — uwf-cursor CLI
-└── workflow-protocol/         # @united-workforce/protocol — 共享类型定义
+└── protocol/         # @united-workforce/protocol — 共享类型定义
 ```
 
 **外部依赖：**

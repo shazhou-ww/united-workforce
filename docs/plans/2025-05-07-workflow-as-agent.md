@@ -43,7 +43,7 @@ Export from `packages/workflow/src/index.ts`.
 **Objective:** CLI `cas get/put/list/rm` no longer needs threadId for storage location — CAS is global. But keep threadId in CLI for backward compat of planner/coder prompts (they pass threadId).
 
 **Files:**
-- Modify: `packages/cli-workflow/src/cmd-cas.ts`
+- Modify: `packages/cli/src/cmd-cas.ts`
 
 **Changes:**
 - `resolveCasDir` → use `getGlobalCasDir(storageRoot)` instead of deriving from thread data path
@@ -73,7 +73,7 @@ export async function cmdCasGet(
 **Objective:** Since CAS is global, `thread rm` should NOT delete CAS entries. CAS cleanup is GC's job.
 
 **Files:**
-- Modify: `packages/cli-workflow/src/cmd-thread.ts`
+- Modify: `packages/cli/src/cmd-thread.ts`
 - Check: remove any `rmdir` / `unlink` of `<threadId>.cas/` directory
 
 ### Task 1.4: Rename `createThreadCas` → `createCasStore`
@@ -90,7 +90,7 @@ export async function cmdCasGet(
 **Objective:** All CAS-related tests use global dir instead of thread-local.
 
 **Files:**
-- Modify: `packages/cli-workflow/__tests__/commands.test.ts`
+- Modify: `packages/cli/__tests__/commands.test.ts`
 - Verify: `bun test` passes
 
 ### Task 1.6: Clean up old thread-local `.cas/` references
@@ -208,18 +208,18 @@ export async function garbageCollectCas(storageRoot: string): Promise<GcResult> 
 ### Task 3.2: Add `uncaged-workflow gc` CLI command
 
 **Files:**
-- Create: `packages/cli-workflow/src/cmd-gc.ts`
-- Modify: `packages/cli-workflow/src/cli-dispatch.ts` — add `gc` subcommand
+- Create: `packages/cli/src/cmd-gc.ts`
+- Modify: `packages/cli/src/cli-dispatch.ts` — add `gc` subcommand
 
 ### Task 3.3: Run GC on `thread rm`
 
 **Files:**
-- Modify: `packages/cli-workflow/src/cmd-thread.ts` — after deleting thread data, optionally run GC
+- Modify: `packages/cli/src/cmd-thread.ts` — after deleting thread data, optionally run GC
 
 ### Task 3.4: Tests for GC
 
 **Files:**
-- Create: `packages/cli-workflow/__tests__/gc-cli.test.ts`
+- Create: `packages/cli/__tests__/gc-cli.test.ts`
 
 ---
 

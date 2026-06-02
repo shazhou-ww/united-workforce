@@ -36,7 +36,7 @@ See [CLAUDE.md](CLAUDE.md) for the full coding standard. Key points:
 - **Functional-first** — `function` + `type`, not `class` + `interface`
 - **No optional properties** — use `T | null` instead of `?:`
 - **Named exports only** — no default exports
-- **No `console.log`** — use the structured logger from `@uncaged/workflow-util`
+- **No `console.log`** — use the structured logger from `@uncaged/util`
 - **Static imports only** — no `await import()` in production code
 - **Biome** for lint + format — run `bun run check` before committing
 
@@ -92,14 +92,14 @@ This creates a markdown file in `.changeset/` describing the change. It will be 
 
 ```
 packages/
-  workflow-protocol/      # Shared types and JSON Schema
-  workflow-util/          # Encoding, IDs, logging, frontmatter
-  workflow-util-agent/    # createAgent factory, extract pipeline
-  workflow-agent-hermes/  # Hermes ACP agent
-  workflow-agent-builtin/ # Built-in LLM agent
-  workflow-agent-claude-code/ # Claude Code agent
-  cli-workflow/           # uwf CLI binary
-  workflow-dashboard/     # Web UI (private, alpha)
+  protocol/      # Shared types and JSON Schema
+  util/          # Encoding, IDs, logging, frontmatter
+  util-agent/    # createAgent factory, extract pipeline
+  agent-hermes/  # Hermes ACP agent
+  agent-builtin/ # Built-in LLM agent
+  agent-claude-code/ # Claude Code agent
+  cli/           # uwf CLI binary
+  dashboard/     # Web UI (private, alpha)
 ```
 
 Dependency flows downward — lower layers have no dependency on higher layers. See [CLAUDE.md](CLAUDE.md) for the full architecture.

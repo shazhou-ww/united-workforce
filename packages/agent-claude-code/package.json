@@ -1,0 +1,46 @@
+{
+  "name": "@united-workforce/agent-claude-code",
+  "version": "0.1.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf-claude-code": "./src/cli.ts"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
+    "test": "bun test __tests__/",
+    "test:ci": "bun test __tests__/"
+  },
+  "dependencies": {
+    "@ocas/core": "^0.1.1",
+    "@united-workforce/util-agent": "workspace:^",
+    "@united-workforce/util": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.shazhou.work/uncaged/workflow.git",
+    "directory": "packages/agent-claude-code"
+  },
+  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
+  "bugs": {
+    "url": "https://git.shazhou.work/uncaged/workflow/issues"
+  },
+  "license": "MIT"
+}

@@ -16,7 +16,7 @@ The root README should have these sections in order:
 3. **Architecture** — dependency layer diagram (text-based)
 4. **Packages** — table with ALL packages from packages/ directory, columns: Package, Description, Type (cli/lib/agent/app)
 5. **Quick Start** — install, build, register workflow, start thread, run step
-6. **CLI Reference** — brief command list, detailed usage in cli-workflow README
+6. **CLI Reference** — brief command list, detailed usage in cli README
 7. **Development** — bun install / build / check / test
 
 ## Per-Package README Structure

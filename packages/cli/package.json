@@ -1,0 +1,45 @@
+{
+  "name": "@united-workforce/cli",
+  "version": "0.5.0",
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf": "./dist/cli.js"
+  },
+  "dependencies": {
+    "@ocas/core": "^0.1.1",
+    "@ocas/fs": "^0.1.1",
+    "@united-workforce/protocol": "workspace:^",
+    "@united-workforce/util": "workspace:^",
+    "@united-workforce/util-agent": "workspace:^",
+    "commander": "^14.0.3",
+    "dotenv": "^16.6.1",
+    "mustache": "^4.2.0",
+    "yaml": "^2.8.4"
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
+    "test": "bun test src/",
+    "test:ci": "bun test src/"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/mustache": "^4.2.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.shazhou.work/uncaged/workflow.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
+  "bugs": {
+    "url": "https://git.shazhou.work/uncaged/workflow/issues"
+  },
+  "license": "MIT"
+}
