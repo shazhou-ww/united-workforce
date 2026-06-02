@@ -7,6 +7,7 @@ import type { EvaluateResult, Result } from "./types.js";
 mustache.escape = (text: string) => text;
 
 const START_ROLE = "$START";
+const SUSPEND_ROLE = "$SUSPEND";
 const UNIT_STATUS = "_";
 
 type LastOutput = Record<string, unknown>;
@@ -51,6 +52,17 @@ export function evaluate(
         ),
       };
     }
+    if (target.role === SUSPEND_ROLE) {
+      return {
+        ok: true,
+        value: {
+          action: "suspend",
+          suspendedRole: lastRole,
+          prompt,
+        },
+      };
+    }
+
     const location = target.location !== null ? mustache.render(target.location, lastOutput) : null;
     return { ok: true, value: { role: target.role, prompt, location } };
   } catch (error) {

@@ -35,8 +35,12 @@ export type RoleDefinition = {
   frontmatter: CasRef;
 };
 
+/** Pseudo-role targets in workflow graph edges (not real roles). */
+export type GraphPseudoRole = "$END" | "$SUSPEND";
+
 export type Target = {
-  role: string;
+  /** Next role name, or a graph pseudo-role such as `$END` or `$SUSPEND`. */
+  role: string | GraphPseudoRole;
   prompt: string;
   /** Optional working directory override via mustache template. */
   location: string | null;
@@ -79,7 +83,7 @@ export type ModeratorContext = {
 // ── 4.5 CLI 输出 ────────────────────────────────────────────────────
 
 /** Thread status — unified status representation */
-export type ThreadStatus = "idle" | "running" | "completed" | "cancelled";
+export type ThreadStatus = "idle" | "running" | "suspended" | "completed" | "cancelled";
 
 /** uwf thread start */
 export type StartOutput = {
@@ -90,7 +94,7 @@ export type StartOutput = {
 /**
  * Output from thread show and thread exec commands.
  *
- * @property status - Current thread status (idle/running/completed/cancelled)
+ * @property status - Current thread status (idle/running/suspended/completed/cancelled)
  * @property done - @deprecated Use status field instead. True if thread is completed or cancelled.
  * @property background - @deprecated Use status field instead. Always null in current implementation.
  */
@@ -99,7 +103,7 @@ export type StepOutput = {
   thread: ThreadId;
   head: CasRef;
   status: ThreadStatus;
-  /** The current or next role. Null when completed, cancelled, or next is $END. */
+  /** The current or next role. Null when completed, cancelled, suspended, or next is $END. */
   currentRole: string | null;
   done: boolean;
   background: boolean | null;
