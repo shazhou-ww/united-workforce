@@ -28,7 +28,11 @@ export type {
 export { createProcessLogger } from "./process-logger/index.js";
 export { normalizeRefsField } from "./refs-field.js";
 export { err, ok } from "./result.js";
-export { getDefaultWorkflowStorageRoot, getGlobalCasDir } from "./storage-root.js";
+export {
+  getDefaultStorageRoot,
+  getDefaultWorkflowStorageRoot,
+  getGlobalCasDir,
+} from "./storage-root.js";
 export type { LogFn, Result } from "./types.js";
 export { extractUlidTimestamp, generateUlid } from "./ulid.js";
 export { generateUserReference } from "./user-reference.js";

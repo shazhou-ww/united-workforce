@@ -122,7 +122,7 @@ The \`detailHash\` is preserved from the first \`run()\` call — retry \`contin
 
 ## Registration
 
-Register your adapter in \`~/.uncaged/workflow/config.yaml\`:
+Register your adapter in \`~/.uwf/config.yaml\`:
 
 \`\`\`yaml
 agents:

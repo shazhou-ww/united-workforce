@@ -113,7 +113,7 @@ export type StepOutput = {
   background: boolean | null;
 };
 
-/** Active thread entry in ~/.uncaged/workflow/threads.yaml */
+/** Active thread entry in ~/.uwf/threads.yaml */
 export type ThreadIndexEntry = {
   head: CasRef;
   suspendedRole: string | null;
@@ -199,7 +199,7 @@ export type AgentConfig = {
   args: string[];
 };
 
-/** ~/.uncaged/workflow/config.yaml */
+/** ~/.uwf/config.yaml */
 export type WorkflowConfig = {
   providers: Record<ProviderAlias, ProviderConfig>;
   models: Record<ModelAlias, ModelConfig>;
@@ -210,5 +210,5 @@ export type WorkflowConfig = {
   modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 
-/** ~/.uncaged/workflow/threads.yaml */
+/** ~/.uwf/threads.yaml */
 export type ThreadsIndex = Record<ThreadId, ThreadIndexEntry>;

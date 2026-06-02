@@ -51,7 +51,7 @@ uwf thread exec <thread-id>
 
 ## Storage Layout
 
-All data lives under \`~/.uncaged/workflow/\`:
+All data lives under \`~/.uwf/\`:
 - \`cas/\` — content-addressed store (XXH64-keyed)
 - \`threads.yaml\` — active thread index
 - \`history.jsonl\` — completed thread archive

@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { getDefaultWorkflowStorageRoot } from "../storage-root.js";
+import { getDefaultStorageRoot } from "../storage-root.js";
 import { assertValidLogTag } from "./log-tag.js";
 import type { CreateProcessLoggerOptions, ProcessLogger, ProcessLoggerContext } from "./types.js";
 
@@ -52,7 +52,7 @@ function appendEntry(filePath: string, entry: Record<string, string>): void {
 
 /** Process-scoped debug logger — append-only JSONL under `<storageRoot>/logs/YYYY-MM-DD.jsonl`. */
 export function createProcessLogger(options: CreateProcessLoggerOptions): ProcessLogger {
-  const storageRoot = options.storageRoot ?? getDefaultWorkflowStorageRoot();
+  const storageRoot = options.storageRoot ?? getDefaultStorageRoot();
   const processId = `${Date.now()}-${process.pid}`;
   const baseContext = options.context;
   const logFilePath = getProcessLogFilePath(storageRoot, new Date());
