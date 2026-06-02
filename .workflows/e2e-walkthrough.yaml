@@ -177,10 +177,10 @@ roles:
       4. `uwf thread read <threadId>` — verify non-empty output
 
       CAS operations:
-      5. `uwf cas get <lastStepHash>` — verify returns a type field
-      6. `uwf cas has <lastStepHash>` — verify exits 0
-      7. `uwf cas refs <lastStepHash>` — list refs (may be empty)
-      8. `uwf cas walk <lastStepHash>` — verify returns non-empty array
+      5. `ocas get <lastStepHash>` — verify returns a type field
+      6. `ocas has <lastStepHash>` — verify exits 0
+      7. `ocas refs <lastStepHash>` — list refs (may be empty)
+      8. `ocas walk <lastStepHash>` — verify returns non-empty array
 
       Report results. Pass threadId, lastStepHash, workflowName, containerName forward.
     output: "Report test results. Set $status to pass (with threadId, lastStepHash, workflowName, containerName) or fail."

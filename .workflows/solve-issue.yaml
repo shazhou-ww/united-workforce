@@ -20,8 +20,8 @@ roles:
       2. Revise the test spec accordingly
 
       After producing the test spec:
-      1. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
-      2. Put the hash in frontmatter.plan (required when $status=ready)
+      1. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
+      2. Put the plan hash in frontmatter.plan (required when $status=ready)
       3. Set repoPath to the absolute path of the repository root
 
       IMPORTANT: Extract the repo remote (owner/repo) from git:
@@ -63,7 +63,7 @@ roles:
       5. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
-      6. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      6. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
       7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
       8. Write tests first based on the spec
       9. Implement the code to make tests pass
@@ -151,7 +151,7 @@ roles:
       The worktree path is provided in your task prompt. cd into it first.
 
       1. Run `bun test` for automated test verification
-      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner step in the thread history)
+      2. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner step in the thread history)
       3. Verify each scenario in the spec is covered and passing
       4. Determine outcome:
          - passed: all scenarios verified, tests pass

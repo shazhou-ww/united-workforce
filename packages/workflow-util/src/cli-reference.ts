@@ -49,19 +49,19 @@ uwf step fork <step-hash>        # fork a thread from a specific step
 
 ## CAS Commands
 
+Use the \`ocas\` CLI for direct CAS operations (\`~/.ocas/\` store, shared with \`uwf\`):
+
 \`\`\`
-uwf cas get <hash>                # read a CAS node (type + payload)
+ocas get <hash>                # read a CAS node (type + payload)
             [--timestamp]         # include timestamp in output
-uwf cas put <type-hash> <data>    # store a node, print its hash
-                                  # <data>: JSON file path or inline JSON string
-uwf cas put-text <text>           # store a plain text string, print its hash
-                                  # shortcut for put with the built-in text schema
-uwf cas has <hash>                # check if a hash exists
-uwf cas refs <hash>               # list direct CAS references from a node
-uwf cas walk <hash>               # recursive traversal from a node
-uwf cas reindex                   # rebuild type index from all CAS nodes
-uwf cas schema list               # list all registered schemas
-uwf cas schema get <hash>         # show a schema by its type hash
+ocas put <type-hash> <data>    # store a node, print its hash
+                               # <data>: JSON file path or inline JSON string
+ocas has <hash>                # check if a hash exists
+ocas refs <hash>               # list direct CAS references from a node
+ocas walk <hash>               # recursive traversal from a node
+ocas reindex                   # rebuild type index from all CAS nodes
+ocas schema list               # list all registered schemas
+ocas schema get <hash>         # show a schema by its type hash
 \`\`\`
 
 ## Log Commands

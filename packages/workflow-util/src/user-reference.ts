@@ -91,17 +91,18 @@ Forking creates a new thread that shares history up to the fork point — useful
 
 ## CAS Commands
 
+Use the \`ocas\` CLI for direct CAS operations (\`~/.ocas/\` store, shared with \`uwf\`):
+
 \`\`\`
-uwf cas get <hash>                 # read a node (type + payload)
+ocas get <hash>                 # read a node (type + payload)
             [--timestamp]          # include timestamp
-uwf cas put <type-hash> <data>     # store typed JSON, print hash
-uwf cas put-text <text>            # store plain text, print hash
-uwf cas has <hash>                 # check existence
-uwf cas refs <hash>                # list direct references
-uwf cas walk <hash>                # recursive traversal
-uwf cas reindex                    # rebuild type index
-uwf cas schema list                # list schemas
-uwf cas schema get <hash>          # show schema definition
+ocas put <type-hash> <data>     # store typed JSON, print hash
+ocas has <hash>                 # check existence
+ocas refs <hash>                # list direct references
+ocas walk <hash>                # recursive traversal
+ocas reindex                    # rebuild type index
+ocas schema list                # list schemas
+ocas schema get <hash>          # show schema definition
 \`\`\`
 
 ## Log Commands

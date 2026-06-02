@@ -84,8 +84,9 @@ REAL_HOME="${6:-$HOME}"
 export HOME="$REAL_HOME"
 export PATH="$REAL_HOME/.bun/bin:$REAL_HOME/.hermes/hermes-agent/venv/bin:$REAL_HOME/.local/share/npm/bin:$PATH"
 
-# Resolve uwf
+# Resolve uwf and ocas
 UWF="bun $REPO_DIR/packages/cli-workflow/src/cli.ts"
+OCAS="ocas"
 
 PASS=0
 FAIL=0
@@ -267,14 +268,14 @@ run_test "thread read produces output" bash -c "[ -n '$OUT' ]"
 
 # CAS operations
 if [ -n "$LAST_STEP" ]; then
-  OUT=$(run_test "uwf cas get" bash -c "$UWF cas get $LAST_STEP")
+  OUT=$(run_test "ocas get" bash -c "$OCAS get $LAST_STEP")
   run_test "cas get returns type" bash -c "echo '$OUT' | jq -e '.type'"
 
-  OUT=$(run_test "uwf cas has" bash -c "$UWF cas has $LAST_STEP")
+  OUT=$(run_test "ocas has" bash -c "$OCAS has $LAST_STEP")
 
-  OUT=$(run_test "uwf cas refs" bash -c "$UWF cas refs $LAST_STEP")
+  OUT=$(run_test "ocas refs" bash -c "$OCAS refs $LAST_STEP")
 
-  OUT=$(run_test "uwf cas walk" bash -c "$UWF cas walk $LAST_STEP")
+  OUT=$(run_test "ocas walk" bash -c "$OCAS walk $LAST_STEP")
   run_test "cas walk returns nodes" bash -c "echo '$OUT' | jq -e 'length > 0'"
 fi
 

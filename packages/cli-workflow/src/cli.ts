@@ -2,17 +2,6 @@
 
 import type { CasRef, ThreadId, ThreadStatus } from "@united-workforce/protocol";
 import { Command } from "commander";
-import {
-  cmdCasGet,
-  cmdCasHas,
-  cmdCasPut,
-  cmdCasPutText,
-  cmdCasRefs,
-  cmdCasReindex,
-  cmdCasSchemaGet,
-  cmdCasSchemaList,
-  cmdCasWalk,
-} from "./commands/cas.js";
 import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import {
@@ -615,113 +604,6 @@ program
       });
     },
   );
-
-const cas = program.command("cas").description("Content-addressable storage operations");
-
-cas
-  .command("get")
-  .description("Read a CAS node (type + payload; use --timestamp to include timestamp)")
-  .argument("<hash>", "CAS hash (13 char)")
-  .option("--timestamp", "Include timestamp in output")
-  .action((hash: string, opts: { timestamp?: boolean }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasGet(storageRoot, hash, opts));
-    });
-  });
-
-cas
-  .command("put")
-  .description("Store a node, print its hash")
-  .argument("<type-hash>", "Type (schema) hash")
-  .argument("<data>", "JSON file path or inline JSON string")
-  .action((typeHash: string, data: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasPut(storageRoot, typeHash, data));
-    });
-  });
-
-cas
-  .command("put-text")
-  .description("Store a plain text string, print its hash")
-  .argument("<text>", "Text content to store")
-  .action((text: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasPutText(storageRoot, text));
-    });
-  });
-
-cas
-  .command("has")
-  .description("Check if a hash exists")
-  .argument("<hash>", "CAS hash (13 char)")
-  .action((hash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const result = await cmdCasHas(storageRoot, hash);
-      writeOutput(result);
-      if (!result.exists) {
-        process.exit(1);
-      }
-    });
-  });
-
-cas
-  .command("refs")
-  .description("List direct CAS references from a node")
-  .argument("<hash>", "CAS hash (13 char)")
-  .action((hash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasRefs(storageRoot, hash));
-    });
-  });
-
-cas
-  .command("walk")
-  .description("Recursive traversal from a node")
-  .argument("<hash>", "CAS hash (13 char)")
-  .action((hash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasWalk(storageRoot, hash));
-    });
-  });
-
-cas
-  .command("reindex")
-  .description("Rebuild type index from all CAS nodes")
-  .action(() => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasReindex(storageRoot));
-    });
-  });
-
-const casSchema = cas.command("schema").description("CAS schema operations");
-
-casSchema
-  .command("list")
-  .description("List all registered schemas")
-  .action(() => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasSchemaList(storageRoot));
-    });
-  });
-
-casSchema
-  .command("get")
-  .description("Show a schema by its type hash")
-  .argument("<hash>", "Schema type hash")
-  .action((hash: string) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      writeOutput(await cmdCasSchemaGet(storageRoot, hash));
-    });
-  });
 
 const log = program.command("log").description("Process-level debug logs");
 
