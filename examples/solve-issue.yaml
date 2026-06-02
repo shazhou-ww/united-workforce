@@ -216,7 +216,7 @@ graph:
   $START:
     _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
   planner:
-    insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
+    insufficient_info: { role: "$SUSPEND", prompt: "信息不足，需要补充：{{{reason}}}" }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
     continue: { role: "developer", prompt: "Continue work on existing branch {{{branch}}} at worktree {{{worktree}}}. Implement the revised TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:

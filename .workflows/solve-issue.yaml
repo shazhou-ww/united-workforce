@@ -228,7 +228,7 @@ graph:
   $START:
     _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
   planner:
-    insufficient_info: { role: "$END", prompt: "Insufficient information to proceed; end the workflow." }
+    insufficient_info: { role: "$SUSPEND", prompt: "信息不足，需要补充：{{{reason}}}" }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Repo remote: {{{repoRemote}}}." }
   developer:
     done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance. Repo remote: {{{repoRemote}}}." }
