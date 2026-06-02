@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { evaluate } from "../evaluate.js";
+import { isSuspendResult } from "../types.js";
 
 describe("Edge prompt template variable resolution", () => {
   test("returns error when rendered prompt is empty string", () => {
@@ -107,7 +108,7 @@ describe("Moderator location resolution", () => {
     const result = evaluate(graph, "planner", { $status: "ready" });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !isSuspendResult(result.value)) {
       expect(result.value.location).toBe(null);
     }
   });
@@ -126,7 +127,7 @@ describe("Moderator location resolution", () => {
     const result = evaluate(graph, "planner", { $status: "ready" });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !isSuspendResult(result.value)) {
       expect(result.value.location).toBe("/static/path");
     }
   });
@@ -148,7 +149,7 @@ describe("Moderator location resolution", () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !isSuspendResult(result.value)) {
       expect(result.value.location).toBe("/home/user/repo");
     }
   });
@@ -171,7 +172,7 @@ describe("Moderator location resolution", () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !isSuspendResult(result.value)) {
       expect(result.value.location).toBe("/home/user/myproject");
     }
   });
@@ -190,7 +191,7 @@ describe("Moderator location resolution", () => {
     const result = evaluate(graph, "planner", { $status: "ready" });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !isSuspendResult(result.value)) {
       // Mustache renders missing variables as empty string
       expect(result.value.location).toBe("");
     }

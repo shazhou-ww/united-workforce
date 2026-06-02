@@ -7,6 +7,7 @@ export type {
   AgentAlias,
   AgentConfig,
   CasRef,
+  GraphPseudoRole,
   ModelAlias,
   ModelConfig,
   ModeratorContext,

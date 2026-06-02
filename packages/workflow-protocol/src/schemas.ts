@@ -18,7 +18,7 @@ const TARGET: JSONSchema = {
   type: "object",
   required: ["role", "prompt"],
   properties: {
-    role: { type: "string" },
+    role: { type: "string", description: "Role name or pseudo-role ($END, $SUSPEND)" },
     prompt: { type: "string" },
     location: {
       anyOf: [{ type: "string" }, { type: "null" }],

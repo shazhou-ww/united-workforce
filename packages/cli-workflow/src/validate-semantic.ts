@@ -2,7 +2,8 @@ import type { WorkflowPayload } from "@uncaged/workflow-protocol";
 
 type SchemaObj = Record<string, unknown>;
 
-const RESERVED_NAMES = new Set(["$START", "$END"]);
+const RESERVED_NAMES = new Set(["$START", "$END", "$SUSPEND"]);
+const PSEUDO_TARGETS = new Set(["$END", "$SUSPEND"]);
 
 /** Extract mustache variable names from a prompt string. */
 function extractMustacheVars(prompt: string): string[] {
@@ -110,9 +111,13 @@ function checkGraphStructure(payload: WorkflowPayload, errors: string[]): void {
     errors.push("$END must not have outgoing edges");
   }
 
+  if (graphNodes.has("$SUSPEND")) {
+    errors.push("$SUSPEND must not have outgoing edges");
+  }
+
   for (const [node, statusMap] of Object.entries(payload.graph)) {
     for (const [status, target] of Object.entries(statusMap)) {
-      if (target.role !== "$END" && !roleNames.has(target.role)) {
+      if (!PSEUDO_TARGETS.has(target.role) && !roleNames.has(target.role)) {
         errors.push(`edge ${node}→${status}: unknown target role "${target.role}"`);
       }
     }
@@ -129,7 +134,7 @@ function collectReachableRoles(graph: WorkflowPayload["graph"]): Set<string> {
 
   const queue: string[] = [];
   for (const target of Object.values(startEdges)) {
-    if (target.role !== "$END" && !reachable.has(target.role)) {
+    if (!PSEUDO_TARGETS.has(target.role) && !reachable.has(target.role)) {
       reachable.add(target.role);
       queue.push(target.role);
     }
@@ -140,7 +145,7 @@ function collectReachableRoles(graph: WorkflowPayload["graph"]): Set<string> {
     const edges = graph[current];
     if (!edges) continue;
     for (const target of Object.values(edges)) {
-      if (target.role !== "$END" && !reachable.has(target.role)) {
+      if (!PSEUDO_TARGETS.has(target.role) && !reachable.has(target.role)) {
         reachable.add(target.role);
         queue.push(target.role);
       }
