@@ -22,7 +22,7 @@ roles:
       3. Assess whether the issue has enough information to produce a test spec
       4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output $status=insufficient_info
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
-      6. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      6. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       7. Output **$status=ready** with plan hash and repoPath
 
       **Mode B — Continue on existing PR (prompt mentions PR, branch, or review feedback):**
@@ -32,14 +32,14 @@ roles:
       3. Read the existing issue for full context: `tea issues <number> -r <owner/repo>`
       4. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       5. Produce a TDD test spec that ONLY covers the changes requested in the review — do NOT re-spec already-implemented features
-      6. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      6. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       7. Find the existing worktree: `git worktree list` and locate the branch
       8. Output **$status=continue** with plan hash, repoPath, branch name, and worktree path
 
       **Mode C — Bounced back by tester (fix_spec):**
       1. Read the tester's output from the previous step to understand what's wrong with the spec
       2. Revise the test spec accordingly
-      3. Store it via `uwf cas put-text "<markdown content>"` and capture the returned hash
+      3. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       4. Output **$status=ready** with plan hash and repoPath
 
       IMPORTANT: Extract the repo remote (owner/repo) from git:
@@ -91,7 +91,7 @@ roles:
       6. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
-      6. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      6. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
       7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
       8. Write tests first based on the spec
       9. Implement the code to make tests pass
@@ -160,7 +160,7 @@ roles:
       The worktree path is provided in your task prompt. cd into it first.
 
       1. Run `bun test` for automated test verification
-      2. Read the test spec from CAS: `uwf cas get <plan hash>` (find the hash from the planner step in the thread history)
+      2. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner step in the thread history)
       3. Verify each scenario in the spec is covered and passing
       4. Determine outcome:
          - passed: all scenarios verified, tests pass

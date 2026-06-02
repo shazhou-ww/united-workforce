@@ -161,7 +161,7 @@ uwf step list <thread-id>
 uwf step show <step-hash>
 
 # Check the CAS data
-uwf cas get <output-hash>
+ocas get <output-hash>
 \`\`\`
 
 ### Validation Checklist

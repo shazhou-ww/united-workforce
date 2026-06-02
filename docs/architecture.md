@@ -447,16 +447,18 @@ Binary: `uwf`
 
 ### CAS commands
 
+Use the `ocas` CLI for direct CAS operations (`~/.ocas/` store, shared with `uwf`):
+
 | Command | Description |
 |---------|-------------|
-| `uwf cas get <hash>` | Read a CAS node. |
-| `uwf cas put <type-hash> <data>` | Store a node, print its hash. |
-| `uwf cas has <hash>` | Check if a hash exists. |
-| `uwf cas refs <hash>` | List direct CAS references. |
-| `uwf cas walk <hash>` | Recursive traversal from a node. |
-| `uwf cas reindex` | Rebuild type index from all nodes. |
-| `uwf cas schema list` | List registered schemas. |
-| `uwf cas schema get <hash>` | Show a schema by type hash. |
+| `ocas get <hash>` | Read a CAS node. |
+| `ocas put <type-hash> <data>` | Store a node, print its hash. |
+| `ocas has <hash>` | Check if a hash exists. |
+| `ocas refs <hash>` | List direct CAS references. |
+| `ocas walk <hash>` | Recursive traversal from a node. |
+| `ocas reindex` | Rebuild type index from all nodes. |
+| `ocas schema list` | List registered schemas. |
+| `ocas schema get <hash>` | Show a schema by type hash. |
 
 ### Setup
 

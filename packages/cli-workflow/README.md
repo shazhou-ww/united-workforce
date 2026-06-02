@@ -99,17 +99,18 @@ uwf step fork 32GCDE899RRQ3
 
 ### CAS
 
+Use the [`ocas`](https://www.npmjs.com/package/@ocas/cli) CLI for direct CAS operations (`~/.ocas/` store, shared with `uwf`):
+
 | Command | Description |
 |---------|-------------|
-| `uwf cas get <hash> [--timestamp]` | Read a CAS node |
-| `uwf cas put <type-hash> <data>` | Store a node, print hash |
-| `uwf cas put-text <text>` | Store plain text, print hash |
-| `uwf cas has <hash>` | Check existence |
-| `uwf cas refs <hash>` | List direct references |
-| `uwf cas walk <hash>` | Recursive traversal |
-| `uwf cas reindex` | Rebuild type index |
-| `uwf cas schema list` | List registered schemas |
-| `uwf cas schema get <hash>` | Show a schema |
+| `ocas get <hash> [--timestamp]` | Read a CAS node |
+| `ocas put <type-hash> <data>` | Store a node, print hash |
+| `ocas has <hash>` | Check existence |
+| `ocas refs <hash>` | List direct references |
+| `ocas walk <hash>` | Recursive traversal |
+| `ocas reindex` | Rebuild type index |
+| `ocas schema list` | List registered schemas |
+| `ocas schema get <hash>` | Show a schema |
 
 ### Setup
 

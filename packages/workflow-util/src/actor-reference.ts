@@ -36,29 +36,30 @@ If the engine cannot parse your frontmatter, it will ask you to retry (up to 2 t
 
 ## 2. CAS (Content-Addressable Store)
 
-Your frontmatter output is automatically stored in CAS. You can also **use CAS directly** to store intermediate artifacts, build merkle DAGs for large outputs, or reference data from previous steps.
+Your frontmatter output is automatically stored in CAS. You can also **use CAS directly** via the \`ocas\` CLI to store intermediate artifacts, build merkle DAGs for large outputs, or reference data from previous steps.
 
 ### Commands
 
 \`\`\`
-uwf cas put-text <text>           # store plain text, print hash
-uwf cas put <type-hash> <json>    # store typed JSON data, print hash
-uwf cas get <hash>                # read a CAS node (type + payload)
-uwf cas has <hash>                # check if a hash exists
-uwf cas refs <hash>               # list direct references from a node
-uwf cas walk <hash>               # recursive traversal from a node
-uwf cas schema list               # list registered schemas
-uwf cas schema get <hash>         # show a schema definition
+ocas put <type-hash> <json>    # store typed JSON data, print hash
+ocas get <hash>                # read a CAS node (type + payload)
+ocas has <hash>                # check if a hash exists
+ocas refs <hash>               # list direct references from a node
+ocas walk <hash>               # recursive traversal from a node
+ocas schema list               # list registered schemas
+ocas schema get <hash>         # show a schema definition
 \`\`\`
+
+Plain-text storage for agent output is handled internally by the uwf pipeline — agents do not need to call \`ocas put\` for their deliverables.
 
 ### Merkle DAG Pattern
 
 For large outputs, store parts individually and reference their hashes:
 
 \`\`\`bash
-# Store individual sections
-HASH1=$(uwf cas put-text "section 1 content")
-HASH2=$(uwf cas put-text "section 2 content")
+# Store individual sections (use ocas put with the appropriate type hash)
+HASH1=$(ocas put <type-hash> '"section 1 content"')
+HASH2=$(ocas put <type-hash> '"section 2 content"')
 
 # Reference hashes in your frontmatter or in a parent node
 \`\`\`
