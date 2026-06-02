@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 
 /**
  * B-group tests: validate JSON parsing logic used by spawnAgent.

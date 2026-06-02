@@ -1,5 +1,5 @@
+import { describe, expect, test } from "bun:test";
 import { createMemoryStore, putSchema } from "@ocas/core";
-import { describe, expect, test } from "vitest";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 

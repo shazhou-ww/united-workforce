@@ -1,9 +1,9 @@
+import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, StartNodePayload, ThreadId } from "@uncaged/workflow-protocol";
-import { describe, expect, test } from "vitest";
 import { cmdThreadStart } from "../commands/thread.js";
 import { createUwfStore, loadThreadsIndex } from "../store.js";
 
@@ -136,14 +136,14 @@ graph:
     const uwfBin = join(process.cwd(), "dist", "cli.js");
 
     // Register the workflow
-    execFileSync("node", [uwfBin, "workflow", "add", workflowPath], {
+    execFileSync("bun", [uwfBin, "workflow", "add", workflowPath], {
       env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },
       encoding: "utf8",
     });
 
     // Verify CLI accepts --cwd option (no error thrown)
     const output = execFileSync(
-      "node",
+      "bun",
       [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
       {
         env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },

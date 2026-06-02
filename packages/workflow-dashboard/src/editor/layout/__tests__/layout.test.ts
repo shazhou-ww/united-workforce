@@ -1,5 +1,5 @@
+import { describe, expect, it } from "bun:test";
 import type { Edge, Node } from "@xyflow/react";
-import { describe, expect, it } from "vitest";
 import { LayoutLR } from "../index.js";
 
 function makeNode(id: string): Node {

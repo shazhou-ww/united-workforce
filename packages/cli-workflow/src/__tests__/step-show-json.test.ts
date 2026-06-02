@@ -1,10 +1,10 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, type Hash, type JSONSchema, putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload } from "@uncaged/workflow-protocol";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdStepShow } from "../commands/step.js";
 import { formatOutput } from "../format.js";
 import { registerUwfSchemas } from "../schemas.js";

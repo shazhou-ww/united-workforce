@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { evaluate } from "../evaluate.js";
 import { isSuspendResult } from "../types.js";
 

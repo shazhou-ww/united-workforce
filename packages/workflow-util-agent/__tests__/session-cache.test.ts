@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { ThreadId } from "@uncaged/workflow-protocol";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { getCachedSessionId, getCachePath, setCachedSessionId } from "../src/session-cache.js";
 import { resolveStorageRoot } from "../src/storage.js";

@@ -1,8 +1,8 @@
+import { describe, expect, test } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, StartNodePayload, ThreadId } from "@uncaged/workflow-protocol";
-import { describe, expect, test } from "vitest";
 import { cmdThreadStart } from "../commands/thread.js";
 import { createUwfStore } from "../store.js";
 
@@ -128,7 +128,7 @@ graph:
     const workflowPath = join(tmpDir, "test-location.yaml");
     await writeFile(workflowPath, workflowYaml, "utf8");
 
-    // Relative path should fail (process.exit is wrapped by vitest)
+    // Relative path should fail via fail() → process.exit (mocked in test preload)
     await expect(
       cmdThreadStart(storageRoot, workflowPath, "test", tmpDir, "relative/path"),
     ).rejects.toThrow();

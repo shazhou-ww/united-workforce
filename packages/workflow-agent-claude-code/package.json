@@ -19,8 +19,8 @@
   },
   "scripts": {
     "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
-    "test": "vitest run",
-    "test:ci": "vitest run"
+    "test": "bun test __tests__/",
+    "test:ci": "bun test __tests__/"
   },
   "dependencies": {
     "@ocas/core": "^0.1.1",

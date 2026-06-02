@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 
 import { buildOutputFormatInstruction } from "../src/build-output-format-instruction.js";
 

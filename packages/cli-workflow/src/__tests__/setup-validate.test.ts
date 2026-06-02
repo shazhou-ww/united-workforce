@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { cmdSetup, validateModel } from "../commands/setup.js";
 
 describe("validateModel", () => {
@@ -10,18 +10,18 @@ describe("validateModel", () => {
   const MODEL = "test-model";
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   test("success path — returns ok on 200", async () => {
-    const mockFetch = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
 
     const [url, opts] = mockFetch.mock.calls[0]!;
     expect(url).toBe(`${BASE_URL}/chat/completions`);
@@ -37,7 +37,7 @@ describe("validateModel", () => {
   });
 
   test("HTTP 401 — returns error containing 401", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }),
     );
 
@@ -50,7 +50,7 @@ describe("validateModel", () => {
   });
 
   test("HTTP 404 — returns error containing 404", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Not Found", { status: 404, statusText: "Not Found" }),
     );
 
@@ -64,7 +64,7 @@ describe("validateModel", () => {
 
   test("network timeout — returns error mentioning timeout", async () => {
     const err = new DOMException("signal timed out", "AbortError");
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(err);
+    spyOn(globalThis, "fetch").mockRejectedValue(err);
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
@@ -75,7 +75,7 @@ describe("validateModel", () => {
   });
 
   test("network error (DNS/connection) — returns error mentioning connectivity", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+    spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
@@ -86,9 +86,9 @@ describe("validateModel", () => {
   });
 
   test("request body correctness", async () => {
-    const mockFetch = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     await validateModel(BASE_URL, API_KEY, "my-special-model");
 
@@ -109,7 +109,7 @@ describe("cmdSetup with validation", () => {
   });
 
   afterEach(async () => {
-    vi.restoreAllMocks();
+    mock.restore();
     await rm(storageRoot, { recursive: true, force: true });
   });
 
@@ -122,9 +122,7 @@ describe("cmdSetup with validation", () => {
   });
 
   test("includes validation result on success", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
+    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup(setupArgs());
 
@@ -134,7 +132,7 @@ describe("cmdSetup with validation", () => {
   });
 
   test("includes validation failure — config still saved", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }),
     );
 

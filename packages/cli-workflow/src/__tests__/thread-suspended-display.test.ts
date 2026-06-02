@@ -1,10 +1,10 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import type { ThreadId } from "@uncaged/workflow-protocol";
 import { createThreadIndexEntry, markThreadSuspended } from "@uncaged/workflow-protocol";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdThreadList, cmdThreadShow } from "../commands/thread.js";
 import { createUwfStore, saveThreadsIndex } from "../store.js";
 

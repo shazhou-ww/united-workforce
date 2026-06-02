@@ -1,5 +1,5 @@
+import { describe, expect, test } from "bun:test";
 import type { WorkflowPayload } from "@uncaged/workflow-protocol";
-import { describe, expect, test } from "vitest";
 import { validateWorkflow } from "../validate-semantic.js";
 
 /** Build a valid two-role workflow that passes all checks. */

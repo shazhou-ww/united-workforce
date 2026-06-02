@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,7 +6,6 @@ import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protocol";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { parse } from "yaml";
 import { cmdThreadShow } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
