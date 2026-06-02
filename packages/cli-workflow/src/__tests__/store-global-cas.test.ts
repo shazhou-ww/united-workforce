@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createUwfStore, getCasDir, getGlobalCasDir } from "../store.js";
+import {
+  createUwfStore,
+  getCasDir,
+  getGlobalCasDir,
+  getRegistryPath,
+  loadWorkflowRegistry,
+  saveWorkflowRegistry,
+} from "../store.js";
 
 describe("Global CAS directory", () => {
   let tmpDir: string;
@@ -85,6 +92,7 @@ describe("Global CAS directory", () => {
     expect(uwf.storageRoot).toBe(storageRoot);
     expect(uwf.store).toBeDefined();
     expect(uwf.schemas).toBeDefined();
+    expect(uwf.varStore).toBeDefined();
 
     // The global CAS directory should be created
     const { stat } = await import("node:fs/promises");
@@ -137,29 +145,50 @@ describe("Global CAS directory", () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
-  test("workflow metadata remains in storageRoot, not global CAS", async () => {
+  test("workflow registry is stored in global CAS variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
     process.env.UNCAGED_CAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
 
-    const _uwf = await createUwfStore(storageRoot);
+    const uwf = await createUwfStore(storageRoot);
+    const hash = await uwf.store.put(uwf.schemas.text, "registry-test");
+    saveWorkflowRegistry(uwf.varStore, "test-workflow", hash);
 
-    // Write workflow registry file
-    const { saveWorkflowRegistry } = await import("../store.js");
-    await saveWorkflowRegistry(storageRoot, { "test-workflow": "ABC123" });
+    const registry = loadWorkflowRegistry(uwf.varStore);
+    expect(registry["test-workflow"]).toBe(hash);
 
-    // Verify registry is in storageRoot, not global CAS
-    const { readFile } = await import("node:fs/promises");
+    const { access } = await import("node:fs/promises");
+    await access(join(globalCasDir, "variables.db"));
+
     const registryPath = join(storageRoot, "workflows.yaml");
-    const content = await readFile(registryPath, "utf8");
-    expect(content).toContain("test-workflow");
-    expect(content).toContain("ABC123");
+    await expect(access(registryPath)).rejects.toThrow();
+  });
 
-    // Verify registry is NOT in global CAS directory
-    const globalRegistryPath = join(globalCasDir, "workflows.yaml");
-    await expect(readFile(globalRegistryPath, "utf8")).rejects.toThrow();
+  test("migrates workflows.yaml to variable store and renames file", async () => {
+    const globalCasDir = join(tmpDir, "global-cas");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage-migrate");
+    await mkdir(storageRoot, { recursive: true });
+
+    const uwfSeed = await createUwfStore(storageRoot);
+    const hash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-workflow");
+
+    const registryPath = getRegistryPath(storageRoot);
+    const { writeFile, access, readFile } = await import("node:fs/promises");
+    await writeFile(registryPath, `migrated-workflow: ${hash}\n`, "utf8");
+
+    const uwf = await createUwfStore(storageRoot);
+    const registry = loadWorkflowRegistry(uwf.varStore);
+    expect(registry["migrated-workflow"]).toBe(hash);
+
+    await expect(access(registryPath)).rejects.toThrow();
+    const migratedPath = `${registryPath}.migrated`;
+    const migratedContent = await readFile(migratedPath, "utf8");
+    expect(migratedContent).toContain("migrated-workflow");
+    expect(migratedContent).toContain(hash);
   });
 
   test("thread metadata remains in storageRoot", async () => {
