@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { putSchema } from "@uncaged/json-cas";
+import { putSchema } from "@ocas/core";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";

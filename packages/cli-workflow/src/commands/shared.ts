@@ -1,5 +1,5 @@
-import type { Store as CasStore, JSONSchema } from "@uncaged/json-cas";
-import { getSchema } from "@uncaged/json-cas";
+import type { Store as CasStore, JSONSchema } from "@ocas/core";
+import { getSchema } from "@ocas/core";
 import type {
   CasRef,
   StartNodePayload,
@@ -88,7 +88,7 @@ function expandOutput(uwf: UwfStore, outputRef: CasRef): unknown {
 }
 
 /**
- * Recursively expand all cas_ref fields in a CAS node's payload,
+ * Recursively expand all ocas_ref fields in a CAS node's payload,
  * replacing hash strings with the referenced node's expanded payload.
  */
 function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unknown {
@@ -120,7 +120,7 @@ function expandAnyOfField(
 ): unknown {
   if (!Array.isArray(schema.anyOf)) return value;
   for (const sub of schema.anyOf as JSONSchema[]) {
-    if (sub.format === "cas_ref" && typeof value === "string") {
+    if (sub.format === "ocas_ref" && typeof value === "string") {
       return expandDeep(store, value as CasRef, visited);
     }
   }
@@ -163,7 +163,7 @@ function expandValue(
   value: unknown,
   visited: Set<string>,
 ): unknown {
-  if (schema.format === "cas_ref") return expandCasRefField(store, value, visited);
+  if (schema.format === "ocas_ref") return expandCasRefField(store, value, visited);
   if (Array.isArray(schema.anyOf)) return expandAnyOfField(store, schema, value, visited);
   if (schema.type === "array") return expandArrayField(store, schema, value, visited);
   return expandObjectField(store, schema, value, visited);

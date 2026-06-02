@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve as resolvePath } from "node:path";
 
-import type { JSONSchema } from "@uncaged/json-cas";
-import { putSchema, validate } from "@uncaged/json-cas";
+import type { JSONSchema } from "@ocas/core";
+import { putSchema, validate } from "@ocas/core";
 import type { CasRef, RoleDefinition, Target, WorkflowPayload } from "@uncaged/workflow-protocol";
 import { parse } from "yaml";
 import { createIncludeTag } from "../include.js";

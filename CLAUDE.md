@@ -13,7 +13,7 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 | **Role** | A named actor within a workflow. Each role has a system prompt and a JSON Schema `outputSchema`. |
 | **Moderator** | Status-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
 | **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
-| **CAS** | Content-Addressed Storage via `@uncaged/json-cas` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
+| **CAS** | Content-Addressed Storage via `@ocas/core` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
 | **Registry** | `~/.uncaged/workflow/registry.yaml` — maps workflow names to current CAS hashes. |
 
 ### Monorepo Structure
@@ -35,7 +35,7 @@ workflow/
 
 - Dependency layers: `workflow-protocol` → `workflow-util` → `workflow-util-agent` → `workflow-agent-hermes` / `cli-workflow`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
-- External CAS: `@uncaged/json-cas` (store API, hashing, schema validation) + `@uncaged/json-cas-fs` (filesystem backend)
+- External CAS: `@ocas/core` (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend)
 
 ## Language & Paradigm
 

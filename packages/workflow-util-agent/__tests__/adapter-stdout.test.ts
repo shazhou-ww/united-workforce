@@ -1,4 +1,4 @@
-import { createMemoryStore, putSchema } from "@uncaged/json-cas";
+import { createMemoryStore, putSchema } from "@ocas/core";
 import { describe, expect, test } from "vitest";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";

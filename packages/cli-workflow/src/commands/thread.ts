@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
-import { validate } from "@uncaged/json-cas";
+import { validate } from "@ocas/core";
 import type {
   AgentAlias,
   AgentConfig,

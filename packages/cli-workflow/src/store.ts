@@ -3,8 +3,8 @@ import { access, appendFile, mkdir, readdir, readFile, writeFile } from "node:fs
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { BootstrapCapableStore, Hash } from "@uncaged/json-cas";
-import { createFsStore } from "@uncaged/json-cas-fs";
+import type { BootstrapCapableStore, Hash } from "@ocas/core";
+import { createFsStore } from "@ocas/fs";
 import type { CasRef, ThreadId, ThreadListItem, ThreadsIndex } from "@uncaged/workflow-protocol";
 import { parse, stringify } from "yaml";
 

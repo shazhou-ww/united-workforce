@@ -1,4 +1,4 @@
-import type { JSONSchema } from "@uncaged/json-cas";
+import type { JSONSchema } from "@ocas/core";
 
 export const CLAUDE_CODE_DETAIL_SCHEMA: JSONSchema = {
   title: "claude-code-detail",
@@ -34,7 +34,7 @@ export const CLAUDE_CODE_DETAIL_SCHEMA: JSONSchema = {
     },
     turns: {
       type: "array",
-      items: { type: "string", format: "cas_ref" },
+      items: { type: "string", format: "ocas_ref" },
     },
   },
   additionalProperties: false,

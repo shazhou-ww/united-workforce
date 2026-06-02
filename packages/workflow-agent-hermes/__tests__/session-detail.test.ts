@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createMemoryStore, refs, validate, walk } from "@uncaged/json-cas";
+import { createMemoryStore, refs, validate, walk } from "@ocas/core";
 
 import {
   computeDurationMs,
@@ -82,7 +82,7 @@ describe("computeDurationMs", () => {
 });
 
 describe("storeHermesSessionDetail", () => {
-  test("stores hermes-detail root with cas_ref turns walkable", async () => {
+  test("stores hermes-detail root with ocas_ref turns walkable", async () => {
     const session: HermesSessionJson = {
       session_id: "20260518_133159_6a84e8",
       model: "claude-opus-4.6",

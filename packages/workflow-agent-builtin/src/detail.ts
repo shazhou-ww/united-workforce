@@ -1,4 +1,4 @@
-import { bootstrap, putSchema, type Store } from "@uncaged/json-cas";
+import { bootstrap, putSchema, type Store } from "@ocas/core";
 
 import { BUILTIN_DETAIL_SCHEMA, BUILTIN_TURN_SCHEMA } from "./schemas.js";
 import { readSessionTurns } from "./session.js";

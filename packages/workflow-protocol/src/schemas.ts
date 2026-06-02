@@ -1,4 +1,4 @@
-import type { JSONSchema } from "@uncaged/json-cas";
+import type { JSONSchema } from "@ocas/core";
 
 const ROLE_DEFINITION: JSONSchema = {
   type: "object",
@@ -9,7 +9,7 @@ const ROLE_DEFINITION: JSONSchema = {
     capabilities: { type: "array", items: { type: "string" } },
     procedure: { type: "string" },
     output: { type: "string" },
-    frontmatter: { type: "string", format: "cas_ref" },
+    frontmatter: { type: "string", format: "ocas_ref" },
   },
   additionalProperties: false,
 };
@@ -54,7 +54,7 @@ export const START_NODE_SCHEMA: JSONSchema = {
   type: "object",
   required: ["workflow", "prompt", "cwd"],
   properties: {
-    workflow: { type: "string", format: "cas_ref" },
+    workflow: { type: "string", format: "ocas_ref" },
     prompt: { type: "string" },
     cwd: { type: "string" },
   },
@@ -76,20 +76,20 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     "cwd",
   ],
   properties: {
-    start: { type: "string", format: "cas_ref" },
+    start: { type: "string", format: "ocas_ref" },
     prev: {
-      anyOf: [{ type: "string", format: "cas_ref" }, { type: "null" }],
+      anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
     },
     role: { type: "string" },
-    output: { type: "string", format: "cas_ref" },
-    detail: { type: "string", format: "cas_ref" },
+    output: { type: "string", format: "ocas_ref" },
+    detail: { type: "string", format: "ocas_ref" },
     agent: { type: "string" },
     edgePrompt: { type: "string" },
     startedAtMs: { type: "integer" },
     completedAtMs: { type: "integer" },
     cwd: { type: "string" },
     assembledPrompt: {
-      anyOf: [{ type: "string", format: "cas_ref" }, { type: "null" }],
+      anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
     },
   },
   additionalProperties: false,

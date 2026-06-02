@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Mock agent for smoke testing
-import { bootstrap, type JSONSchema, putSchema } from "@uncaged/json-cas";
+import { bootstrap, type JSONSchema, putSchema } from "@ocas/core";
 import { createAgent } from "../packages/uwf-agent-kit/src/index.js";
 
 const MOCK_RAW_OUTPUT_SCHEMA: JSONSchema = {
