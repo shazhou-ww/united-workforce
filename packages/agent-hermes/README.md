@@ -96,6 +96,6 @@ src/
 
 ## Configuration
 
-Uses workflow config from `~/.uncaged/workflow/config.yaml` (via agent-kit). Hermes session files are stored under the workflow storage root (see `session-detail.ts`).
+Uses workflow config from `~/.uwf/config.yaml` (via agent-kit). Hermes session files are stored under the workflow storage root (see `session-detail.ts`).
 
 Set `UWF_HERMES_NO_RESUME=1` to disable session resume (see `isResumeDisabled` in `session-cache.ts`).

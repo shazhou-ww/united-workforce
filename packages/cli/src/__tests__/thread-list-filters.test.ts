@@ -22,8 +22,8 @@ import {
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  // Set UNCAGED_CAS_DIR to use the test's CAS directory
-  process.env.UNCAGED_CAS_DIR = casDir;
+  // Set OCAS_DIR to use the test's CAS directory
+  process.env.OCAS_DIR = casDir;
   return createUwfStore(storageRoot);
 }
 

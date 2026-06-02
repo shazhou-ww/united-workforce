@@ -202,7 +202,7 @@ payload:
 - `graph` — `Record<Role | "$START", Record<Status, Target>>`，每个 Target = `{ role, prompt }`
 - Status 来自上一个 role 输出的 `status` 字段，`$START` 用 `_` 作为初始 status
 - Prompt 模板使用 Mustache 渲染，变量来自 lastOutput
-- 不含 agent binding — agent 配置在 `~/.uncaged/workflow/config.yaml` 中管理
+- 不含 agent binding — agent 配置在 `~/.uwf/config.yaml` 中管理
 
 Moderator 的求值逻辑：
 
@@ -276,7 +276,7 @@ threads.yaml: { "01J7K9M2XNPQR5VWBCDF8G3H4T": "8FWKR3TN5V1QA" }
 系统两个顶层 YAML 文件和一个 env 文件：
 
 ```yaml
-# ~/.uncaged/workflow/config.yaml — 全局配置
+# ~/.uwf/config.yaml — 全局配置
 providers:
   openai:
     baseUrl: "https://api.openai.com/v1"
@@ -315,7 +315,7 @@ modelOverrides:
 ```
 
 ```yaml
-# ~/.uncaged/workflow/threads.yaml — active thread 链头指针
+# ~/.uwf/threads.yaml — active thread 链头指针
 01J7K9M2XNPQR5VWBCDF8G3H4T: "8FWKR3TN5V1QA"
 01J8AB3QRMSTV6WKXZ2C4DF7GN: "3CNWT9KR6D2HV"
 ```
@@ -323,7 +323,7 @@ modelOverrides:
 Thread 结束时从 threads.yaml 移除。可选：追加到 `history.jsonl` 做归档。
 
 ```bash
-# ~/.uncaged/workflow/.env — 敏感信息（API keys）
+# ~/.uwf/.env — 敏感信息（API keys）
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 OPENROUTER_API_KEY=sk-or-...
@@ -478,7 +478,7 @@ type AgentConfig = {
   args: string[];
 };
 
-/** ~/.uncaged/workflow/config.yaml */
+/** ~/.uwf/config.yaml */
 type WorkflowConfig = {
   providers: Record<ProviderAlias, ProviderConfig>;
   models: Record<ModelAlias, ModelConfig>;
@@ -489,7 +489,7 @@ type WorkflowConfig = {
   modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 
-/** ~/.uncaged/workflow/threads.yaml */
+/** ~/.uwf/threads.yaml */
 type ThreadsIndex = Record<ThreadId, CasRef>;
 //                         ^ thread-id  ^ head StepNode/StartNode hash
 ```

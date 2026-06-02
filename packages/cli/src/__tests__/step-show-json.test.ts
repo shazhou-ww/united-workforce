@@ -131,16 +131,16 @@ describe("cmdStepShow JSON serialization", () => {
     testDir = await mkdtemp(join(tmpdir(), "uwf-test-"));
     casDir = join(testDir, "cas");
     await mkdir(casDir, { recursive: true });
-    originalEnv = process.env.UNCAGED_CAS_DIR;
-    process.env.UNCAGED_CAS_DIR = casDir;
+    originalEnv = process.env.OCAS_DIR;
+    process.env.OCAS_DIR = casDir;
   });
 
   afterEach(async () => {
     await rm(testDir, { recursive: true, force: true });
     if (originalEnv === undefined) {
-      delete process.env.UNCAGED_CAS_DIR;
+      delete process.env.OCAS_DIR;
     } else {
-      process.env.UNCAGED_CAS_DIR = originalEnv;
+      process.env.OCAS_DIR = originalEnv;
     }
   });
 

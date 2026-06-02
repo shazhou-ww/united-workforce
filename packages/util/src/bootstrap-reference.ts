@@ -1,15 +1,15 @@
 export function generateBootstrapReference(): string {
   return `---
 name: uwf
-description: "Uncaged Workflow (uwf) — YAML 状态机工作流引擎。任务涉及 workflow 时加载此 skill。"
-tags: [workflow, uwf, uncaged]
+description: "United Workforce (uwf) — YAML 状态机工作流引擎。任务涉及 workflow 时加载此 skill。"
+tags: [workflow, uwf]
 triggers:
   - uwf
   - workflow
   - 工作流
 ---
 
-# uwf (Uncaged Workflow)
+# uwf (United Workforce)
 
 YAML 状态机工作流引擎。当用户提到「workflow」「工作流」时，指的是 **uwf workflow**（YAML 定义的状态机），不是 Hermes skill。用 \`uwf\` CLI 操作，不要混淆。
 

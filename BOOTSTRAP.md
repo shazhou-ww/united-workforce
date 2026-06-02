@@ -1,6 +1,6 @@
 # UWF Bootstrap Guide
 
-This guide helps any AI agent set up `uwf` (Uncaged Workflow) from scratch — or self-check and upgrade an existing installation.
+This guide helps any AI agent set up `uwf` (United Workforce) from scratch — or self-check and upgrade an existing installation.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ This guide helps any AI agent set up `uwf` (Uncaged Workflow) from scratch — o
 ### 1. Install uwf CLI
 
 ```bash
-bun install -g @uncaged/cli
+bun install -g @united-workforce/cli
 ```
 
 ✅ **Check:** `uwf --version` prints a version number (e.g. `0.5.1`).
@@ -27,11 +27,11 @@ Install the adapter that matches your agent runtime. Pick **one**:
 
 | Agent | Package | Binary |
 |-------|---------|--------|
-| Hermes | `@uncaged/agent-hermes` | `uwf-hermes` |
+| Hermes | `@united-workforce/agent-hermes` | `uwf-hermes` |
 
 ```bash
 # Example: Hermes agent
-bun install -g @uncaged/agent-hermes
+bun install -g @united-workforce/agent-hermes
 ```
 
 ✅ **Check:** `uwf-hermes --version` prints a version number.
@@ -55,7 +55,7 @@ uwf setup \
   --agent hermes
 ```
 
-This creates `~/.uncaged/workflow/config.yaml` with your provider, model, and default agent.
+This creates `~/.uwf/config.yaml` with your provider, model, and default agent.
 
 #### Config Structure
 
@@ -76,7 +76,7 @@ defaultAgent: hermes
 defaultModel: default
 ```
 
-✅ **Check:** `cat ~/.uncaged/workflow/config.yaml` shows valid provider, model, and agent config.
+✅ **Check:** `cat ~/.uwf/config.yaml` shows valid provider, model, and agent config.
 
 ### 4. Verify Installation
 
@@ -129,23 +129,23 @@ Compare with latest published versions:
 
 ```bash
 bun pm ls -g | grep -E "cli|workflow-agent"
-npm info @uncaged/cli version
-npm info @uncaged/agent-hermes version
+npm info @united-workforce/cli version
+npm info @united-workforce/agent-hermes version
 ```
 
 If local version < published version, upgrade:
 
 ```bash
-bun install -g @uncaged/cli@latest
-bun install -g @uncaged/agent-hermes@latest
+bun install -g @united-workforce/cli@latest
+bun install -g @united-workforce/agent-hermes@latest
 ```
 
-✅ **Check:** `uwf --version` matches `npm info @uncaged/cli version`.
+✅ **Check:** `uwf --version` matches `npm info @united-workforce/cli version`.
 
 ### Config Check
 
 ```bash
-cat ~/.uncaged/workflow/config.yaml
+cat ~/.uwf/config.yaml
 ```
 
 Verify:

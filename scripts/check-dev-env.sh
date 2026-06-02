@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check development environment prerequisites for uncaged/workflow.
+# Check development environment prerequisites for shazhou/united-workforce.
 # Non-interactive — prints actionable fix instructions on failure.
 # Exit 0 = all good, exit 1 = missing dependencies.
 set -euo pipefail
@@ -54,7 +54,7 @@ echo "=== Workflow ==="
 REPO_DIR="${WORKFLOW_REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
 check "repo at ~/repos/workflow or WORKFLOW_REPO set" \
   "[ -f '$REPO_DIR/packages/cli/src/cli.ts' ]" \
-  "Clone the repo: git clone https://git.shazhou.work/uncaged/workflow ~/repos/workflow"
+  "Clone the repo: git clone https://git.shazhou.work/shazhou/united-workforce ~/repos/workflow"
 
 # Check bun install
 check "node_modules installed" \
@@ -89,7 +89,7 @@ echo ""
 echo "=== Config ==="
 
 # Check workflow config exists
-CONFIG_DIR="${UNCAGED_WORKFLOW_STORAGE_ROOT:-$HOME/.uncaged/workflow}"
+CONFIG_DIR="${UWF_STORAGE_ROOT:-$HOME/.shazhou/united-workforce}"
 check "config.yaml exists" \
   "[ -f '$CONFIG_DIR/config.yaml' ]" \
   "Run: uwf setup"

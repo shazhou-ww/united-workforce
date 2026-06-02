@@ -29,7 +29,7 @@ export function getDefaultStorageRoot(): string {
 
 /**
  * Resolve storage root.
- * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → `UNCAGED_WORKFLOW_STORAGE_ROOT` (legacy) → default.
+ * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
  */
 export function resolveStorageRoot(): string {
   const primary = process.env.UWF_STORAGE_ROOT;
@@ -39,10 +39,6 @@ export function resolveStorageRoot(): string {
   const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
   if (userOverride !== undefined && userOverride !== "") {
     return userOverride;
-  }
-  const legacy = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
-  if (legacy !== undefined && legacy !== "") {
-    return legacy;
   }
   return getDefaultStorageRoot();
 }
@@ -63,16 +59,12 @@ const THREAD_VAR_PREFIX = "@uwf/thread/";
 
 /**
  * Global CAS directory (same as uwf CLI).
- * Priority: `OCAS_DIR` → `UNCAGED_CAS_DIR` (legacy) → default ~/.ocas
+ * Priority: `OCAS_DIR` → default ~/.ocas
  */
 export function getGlobalCasDir(): string {
   const primary = process.env.OCAS_DIR;
   if (primary !== undefined && primary !== "") {
     return primary;
-  }
-  const legacy = process.env.UNCAGED_CAS_DIR;
-  if (legacy !== undefined && legacy !== "") {
-    return legacy;
   }
   return join(homedir(), ".ocas");
 }

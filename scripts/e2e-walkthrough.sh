@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E walkthrough for uncaged/workflow.
-# Runs inside Docker with isolated UNCAGED_WORKFLOW_STORAGE_ROOT.
+# E2E walkthrough for shazhou/united-workforce.
+# Runs inside Docker with isolated UWF_STORAGE_ROOT.
 # Exercises: setup → workflow add → thread start/exec → cancel/fork → read/inspect.
 #
 # Usage:
@@ -69,9 +69,9 @@ cat > "$E2E_DIR/run.sh" << 'INNER_SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Isolated storage — never touches host's ~/.uncaged/workflow
-export UNCAGED_WORKFLOW_STORAGE_ROOT="/tmp/uwf-e2e-storage"
-mkdir -p "$UNCAGED_WORKFLOW_STORAGE_ROOT"
+# Isolated storage — never touches host's ~/.uwf
+export UWF_STORAGE_ROOT="/tmp/uwf-e2e-storage"
+mkdir -p "$UWF_STORAGE_ROOT"
 
 REPO_DIR="$1"
 AGENT="$2"
@@ -156,8 +156,8 @@ if [ -n "$PROVIDER" ] && [ -n "$MODEL" ] && [ -n "$API_KEY" ]; then
   run_test "uwf setup (non-interactive)" bash -c "$SETUP_CMD"
 else
   # Copy host config if available
-  if [ -f "$HOME/.uncaged/workflow/config.yaml" ]; then
-    cp "$HOME/.uncaged/workflow/config.yaml" "$UNCAGED_WORKFLOW_STORAGE_ROOT/config.yaml"
+  if [ -f "$HOME/.shazhou/united-workforce/config.yaml" ]; then
+    cp "$HOME/.shazhou/united-workforce/config.yaml" "$UWF_STORAGE_ROOT/config.yaml"
     echo "  Copied host config.yaml" >&2
   fi
 fi

@@ -82,7 +82,7 @@ Agent 解析优先级（`resolveAgentConfig`）：
 
 ```33:43:packages/util-agent/src/storage.ts
 export function resolveStorageRoot(): string {
-  const internal = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
+  const internal = process.env.UWF_STORAGE_ROOT;
   if (internal !== undefined && internal !== "") {
     return internal;
   }
@@ -94,7 +94,7 @@ export function resolveStorageRoot(): string {
 }
 ```
 
-Agent 子进程通过继承的 `process.env` 与父 CLI 共享同一 storage root；`createAgent` 内还会 `loadDotenv({ path: getEnvPath(storageRoot) })` 加载 `~/.uncaged/workflow/.env`。
+Agent 子进程通过继承的 `process.env` 与父 CLI 共享同一 storage root；`createAgent` 内还会 `loadDotenv({ path: getEnvPath(storageRoot) })` 加载 `~/.uwf/.env`。
 
 #### Agent 侧职责（设计文档 + 实现）
 

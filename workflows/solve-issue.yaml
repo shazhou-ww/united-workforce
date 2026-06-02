@@ -148,7 +148,7 @@ roles:
 
       - Crockford Base32 log tags (8-char, unique per call site)
 
-      - No `console.log` in production code (use createLogger from @uncaged/util)
+      - No `console.log` in production code (use createLogger from @united-workforce/util)
 
       - No dynamic imports in production code
 
@@ -247,7 +247,7 @@ roles:
       \ create a new branch.\n1. Stage all changes: `git add -A`\n2. Commit with a descriptive message referencing the issue: `git commit -m \"type: description\\n\\nFixes #N\"`\n3. Push the branch: `git\
       \ push -u origin <branch-name>`\n4. **Verify push succeeded** — run `git ls-remote origin <branch-name>` and confirm it prints a commit hash.\n   - If no output or push failed: capture the error, mark hook_failed\n\
       5. Create a PR using the Gitea API (do NOT use `tea pr create` — it fails in worktrees):\n   ```bash\n   GITEA_TOKEN=$(cfg get GITEA_TOKEN)\n   curl -s -X POST -H \"Authorization: token $GITEA_TOKEN\" -H \"Content-Type: application/json\" \\\n\
-      \     \"https://git.shazhou.work/api/v1/repos/<owner>/<repo>/pulls\" \\\n     -d '{\"title\":\"...\",\"body\":\"...\",\"head\":\"<branch>\",\"base\":\"main\"}'\n   ```\n   - The repo remote (owner/repo format, e.g. \"uncaged/workflow\") is given in your task prompt — use it directly.\n\
+      \     \"https://git.shazhou.work/api/v1/repos/<owner>/<repo>/pulls\" \\\n     -d '{\"title\":\"...\",\"body\":\"...\",\"head\":\"<branch>\",\"base\":\"main\"}'\n   ```\n   - The repo remote (owner/repo format, e.g. \"shazhou/united-workforce\") is given in your task prompt — use it directly.\n\
       \   - PR body must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref\n6. **Verify PR was created** — parse the curl response JSON: it must contain a `\"number\"` field. Print the PR URL.\n\
       \   - If curl returns an error or no number field: capture the response, mark hook_failed\n7. After PR creation, clean up the worktree:\n   - cd to the repo root (parent of .worktrees)\n   - `git worktree remove <worktree-path>`"
     output: Include PR URL on success or error log on failure. Set $status to committed (with prUrl) or hook_failed (with error).

@@ -225,9 +225,9 @@ describe("currentRole field", () => {
     await mkdir(storageRoot, { recursive: true });
     await mkdir(casDir, { recursive: true });
 
-    // Set UNCAGED_CAS_DIR for this test
-    originalEnv = process.env.UNCAGED_CAS_DIR;
-    process.env.UNCAGED_CAS_DIR = casDir;
+    // Set OCAS_DIR for this test
+    originalEnv = process.env.OCAS_DIR;
+    process.env.OCAS_DIR = casDir;
   }
 
   async function teardown() {
@@ -236,9 +236,9 @@ describe("currentRole field", () => {
     }
     // Restore original environment
     if (originalEnv === undefined) {
-      delete process.env.UNCAGED_CAS_DIR;
+      delete process.env.OCAS_DIR;
     } else {
-      process.env.UNCAGED_CAS_DIR = originalEnv;
+      process.env.OCAS_DIR = originalEnv;
     }
   }
 

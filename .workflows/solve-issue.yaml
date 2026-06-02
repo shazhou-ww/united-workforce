@@ -201,7 +201,7 @@ roles:
            "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/pulls" \
            -d '{"title":"...","body":"...","head":"<branch>","base":"main"}'
          ```
-         - The repo remote (owner/repo format, e.g. "uncaged/workflow") is given in your task prompt — use it directly.
+         - The repo remote (owner/repo format, e.g. "shazhou/united-workforce") is given in your task prompt — use it directly.
          - PR body must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
       6. **Verify PR was created** — parse the curl response JSON: it must contain a `"number"` field. Print the PR URL.
          - If curl returns an error or no number field: capture the response, mark hook_failed

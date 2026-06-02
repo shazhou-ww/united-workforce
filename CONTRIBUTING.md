@@ -1,4 +1,4 @@
-# Contributing to @uncaged/workflow
+# Contributing to @united-workforce/cli
 
 Thank you for your interest in contributing! This guide covers setup, conventions, and the PR workflow.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide covers setup, convention
 ## Setup
 
 ```bash
-git clone https://github.com/shazhou-ww/uncaged-workflow.git
-cd uncaged-workflow
+git clone https://github.com/shazhou-ww/united-workforce.git
+cd united-workforce
 bun install
 bun run build
 bun test
@@ -36,7 +36,7 @@ See [CLAUDE.md](CLAUDE.md) for the full coding standard. Key points:
 - **Functional-first** — `function` + `type`, not `class` + `interface`
 - **No optional properties** — use `T | null` instead of `?:`
 - **Named exports only** — no default exports
-- **No `console.log`** — use the structured logger from `@uncaged/util`
+- **No `console.log`** — use the structured logger from `@united-workforce/util`
 - **Static imports only** — no `await import()` in production code
 - **Biome** for lint + format — run `bun run check` before committing
 

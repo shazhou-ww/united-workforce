@@ -1,6 +1,6 @@
 # United Workforce (uwf)
 
-[![CI](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml)
+[![CI](https://github.com/shazhou-ww/united-workforce/actions/workflows/ci.yml/badge.svg)](https://github.com/shazhou-ww/united-workforce/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@united-workforce/cli?label=%40united-workforce%2Fcli)](https://www.npmjs.com/package/@united-workforce/cli)
 [![npm](https://img.shields.io/npm/v/@united-workforce/protocol?label=%40united-workforce%2Fprotocol)](https://www.npmjs.com/package/@united-workforce/protocol)
 [![npm](https://img.shields.io/npm/v/@united-workforce/util-agent?label=%40united-workforce%2Futil-agent)](https://www.npmjs.com/package/@united-workforce/util-agent)

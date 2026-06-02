@@ -136,6 +136,6 @@ src/
 
 ## Configuration
 
-Requires a configured OpenAI-compatible provider and model in `~/.uncaged/workflow/config.yaml` (via `uwf setup`). API keys are loaded from `~/.uncaged/workflow/.env`.
+Requires a configured OpenAI-compatible provider and model in `~/.uwf/config.yaml` (via `uwf setup`). API keys are loaded from `~/.uwf/.env`.
 
 Tools run with the current working directory as `ToolContext.cwd` (typically the directory where `uwf thread step` was invoked).
