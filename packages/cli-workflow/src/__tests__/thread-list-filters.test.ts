@@ -9,7 +9,13 @@ import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadList } from "../commands/thread.js";
 import { parseTimeInput } from "../commands/thread-time-parser.js";
 import type { UwfStore } from "../store.js";
-import { appendThreadHistory, createUwfStore, saveThreadsIndex } from "../store.js";
+import {
+  appendThreadHistory,
+  createUwfStore,
+  deleteThread,
+  loadAllThreads,
+  setThread,
+} from "../store.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,10 +56,7 @@ async function createTestThread(
   };
   const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
 
-  // Load existing index and add new thread
-  const existingIndex = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-  existingIndex[threadId] = createThreadIndexEntry(headHash);
-  await saveThreadsIndex(storageRoot, existingIndex);
+  setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
 
   return threadId;
 }
@@ -73,9 +76,8 @@ async function completeThread(
   workflowHash: CasRef,
   headHash: CasRef,
 ) {
-  const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-  delete index[threadId];
-  await saveThreadsIndex(storageRoot, index);
+  const uwfIdx = await createUwfStore(storageRoot);
+  deleteThread(uwfIdx.varStore, threadId);
   await appendThreadHistory(storageRoot, {
     thread: threadId,
     workflow: workflowHash,
@@ -110,7 +112,8 @@ describe("cmdThreadList status filter", () => {
 
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
     const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
@@ -134,7 +137,8 @@ describe("cmdThreadList status filter", () => {
 
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
     const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
@@ -158,7 +162,8 @@ describe("cmdThreadList status filter", () => {
     const _thread2 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
     const thread3 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
     const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
@@ -180,7 +185,8 @@ describe("cmdThreadList status filter", () => {
 
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
     const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
@@ -352,7 +358,8 @@ describe("combined filters", () => {
 
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
     const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
@@ -376,7 +383,8 @@ describe("combined filters", () => {
     for (let i = 9; i >= 0; i--) {
       const thread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() + i * 1000);
       threads.push(thread);
-      const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+      const uwfIdx = await createUwfStore(tmpDir);
+      const index = loadAllThreads(uwfIdx.varStore);
       const headHash = index[thread]!.head;
       if (headHash === undefined) throw new Error("head not found");
       await completeThread(tmpDir, thread, workflowHash, headHash);
@@ -425,7 +433,8 @@ describe("combined filters", () => {
       threads.push(thread);
 
       if (i % 2 === 0) {
-        const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+        const uwfIdx = await createUwfStore(tmpDir);
+        const index = loadAllThreads(uwfIdx.varStore);
         const headHash = index[thread]!.head;
         if (headHash === undefined) throw new Error("head not found");
         await completeThread(tmpDir, thread, workflowHash, headHash);
@@ -483,13 +492,20 @@ describe("edge cases", () => {
     const thread1 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
     const thread2 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
 
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
+    const placeholderHead = (await uwfIdx.store.put(
+      uwfIdx.schemas.text,
+      "invalid-ulid-placeholder",
+    )) as CasRef;
     index["INVALID_ULID_FORMAT_HERE" as ThreadId] = {
-      head: "01J6HMVRNQKJV2",
+      head: placeholderHead,
       suspendedRole: null,
       suspendMessage: null,
     };
-    await saveThreadsIndex(tmpDir, index);
+    for (const [tid, ent] of Object.entries(index)) {
+      setThread(uwfIdx.varStore, tid as ThreadId, ent);
+    }
 
     const afterMs = Date.now() - 3000;
     const result = await cmdThreadList(tmpDir, null, afterMs, null, null, null);

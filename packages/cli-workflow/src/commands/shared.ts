@@ -6,7 +6,7 @@ import type {
   StepNodePayload,
   ThreadId,
 } from "@united-workforce/protocol";
-import { findThreadInHistory, loadThreadsIndex, type UwfStore } from "../store.js";
+import { createUwfStore, findThreadInHistory, getThread, type UwfStore } from "../store.js";
 
 type ChainState = {
   startHash: CasRef;
@@ -202,10 +202,10 @@ function collectOrderedSteps(
 }
 
 async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise<CasRef> {
-  const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId]?.head;
-  if (activeHead !== undefined) {
-    return activeHead;
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry !== null) {
+    return entry.head;
   }
   const hist = await findThreadInHistory(storageRoot, threadId);
   if (hist !== null) {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, StartNodePayload, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadStart } from "../commands/thread.js";
-import { createUwfStore } from "../store.js";
+import { createUwfStore, getThread } from "../store.js";
 
 describe("Thread and edge location integration", () => {
   let tmpDir: string;
@@ -79,8 +79,7 @@ graph:
 
     // Verify StartNode has the cwd field
     const uwf = await createUwfStore(storageRoot);
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-    const headHash = index[result.thread as ThreadId]!.head;
+    const headHash = getThread(uwf.varStore, result.thread as ThreadId)!.head;
     expect(headHash).toBeDefined();
 
     const startNode = uwf.store.get(headHash as CasRef);
@@ -174,8 +173,7 @@ graph:
     const result = await cmdThreadStart(storageRoot, workflowPath, "test", tmpDir);
 
     const uwf = await createUwfStore(storageRoot);
-    const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-    const headHash = index[result.thread as ThreadId]!.head;
+    const headHash = getThread(uwf.varStore, result.thread as ThreadId)!.head;
 
     const startNode = uwf.store.get(headHash as CasRef);
     const startPayload = startNode?.payload as StartNodePayload;

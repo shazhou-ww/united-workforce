@@ -2,21 +2,22 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { Store } from "@ocas/core";
+import { createVariableStore, type Store } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type {
   AgentAlias,
   AgentConfig,
+  CasRef,
   ModelAlias,
   ModelConfig,
   ProviderAlias,
   ProviderConfig,
   Scenario,
-  ThreadsIndex,
+  ThreadId,
+  ThreadIndexEntry,
   WorkflowConfig,
   WorkflowName,
 } from "@united-workforce/protocol";
-import { parseThreadsIndex } from "@united-workforce/protocol";
 import { parse } from "yaml";
 
 import { registerAgentSchemas } from "./schemas.js";
@@ -58,8 +59,46 @@ export function getEnvPath(storageRoot: string): string {
   return join(storageRoot, ".env");
 }
 
-export function getThreadsPath(storageRoot: string): string {
-  return join(storageRoot, "threads.yaml");
+const THREAD_VAR_PREFIX = "@uwf/thread/";
+
+/**
+ * Global CAS directory (same as uwf CLI).
+ * Priority: `OCAS_DIR` → `UNCAGED_CAS_DIR` (legacy) → default ~/.ocas
+ */
+export function getGlobalCasDir(): string {
+  const primary = process.env.OCAS_DIR;
+  if (primary !== undefined && primary !== "") {
+    return primary;
+  }
+  const legacy = process.env.UNCAGED_CAS_DIR;
+  if (legacy !== undefined && legacy !== "") {
+    return legacy;
+  }
+  return join(homedir(), ".ocas");
+}
+
+function threadVarName(threadId: ThreadId): string {
+  return `${THREAD_VAR_PREFIX}${threadId}`;
+}
+
+/** Read active thread head + suspend metadata from ocas variable store. */
+export async function getActiveThreadEntry(
+  _storageRoot: string,
+  threadId: ThreadId,
+): Promise<ThreadIndexEntry | null> {
+  const casDir = getGlobalCasDir();
+  const store = createFsStore(casDir);
+  const varStore = createVariableStore(join(casDir, "variables.db"), store);
+  const vars = varStore.list({ exactName: threadVarName(threadId) });
+  const v = vars[0];
+  if (v === undefined) {
+    return null;
+  }
+  return {
+    head: v.value as CasRef,
+    suspendedRole: v.tags.suspendedRole ?? null,
+    suspendMessage: v.tags.suspendMessage ?? null,
+  };
 }
 
 export type AgentStore = {
@@ -204,19 +243,4 @@ export async function loadWorkflowConfig(storageRoot: string): Promise<WorkflowC
   const text = await readFile(path, "utf8");
   const raw = parse(text) as unknown;
   return normalizeWorkflowConfig(raw);
-}
-
-export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsIndex> {
-  const path = getThreadsPath(storageRoot);
-  try {
-    const text = await readFile(path, "utf8");
-    const raw = parse(text) as unknown;
-    return parseThreadsIndex(raw);
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      return {};
-    }
-    throw e;
-  }
 }

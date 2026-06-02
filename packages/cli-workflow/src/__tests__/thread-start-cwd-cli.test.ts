@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, StartNodePayload, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadStart } from "../commands/thread.js";
-import { createUwfStore, loadThreadsIndex } from "../store.js";
+import { createUwfStore, getThread } from "../store.js";
 
 describe("thread start --cwd CLI option", () => {
   let tmpDir: string;
@@ -74,8 +74,8 @@ graph:
 
   async function getStartNodeCwd(threadId: string): Promise<string> {
     const uwf = await createUwfStore(storageRoot);
-    const index = await loadThreadsIndex(storageRoot);
-    const headHash = index[threadId as ThreadId]!.head;
+    const entry = getThread(uwf.varStore, threadId as ThreadId);
+    const headHash = entry!.head;
     expect(headHash).toBeDefined();
 
     const startNode = uwf.store.get(headHash as CasRef);
