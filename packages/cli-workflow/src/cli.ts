@@ -15,15 +15,17 @@ import {
 } from "./commands/cas.js";
 import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
-import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import {
-  cmdSkillAdapter,
-  cmdSkillAuthor,
-  cmdSkillBootstrap,
-  cmdSkillDeveloper,
-  cmdSkillList,
-  cmdSkillUser,
-} from "./commands/skill.js";
+  cmdPromptAdapter,
+  cmdPromptAuthor,
+  cmdPromptBootstrap,
+  cmdPromptDeveloper,
+  cmdPromptList,
+  cmdPromptSetup,
+  cmdPromptUsage,
+  cmdPromptUser,
+} from "./commands/prompt.js";
+import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
@@ -492,49 +494,63 @@ For more information, see: uwf help thread list
     process.exit(1);
   });
 
-const skill = program.command("skill").description("Built-in skill references for agents");
-skill.addHelpCommand(false);
+const prompt = program.command("prompt").description("Built-in prompt references for agents");
+prompt.addHelpCommand(false);
 
-skill
+prompt
+  .command("usage")
+  .description("Print the complete skill content (all references combined)")
+  .action(() => {
+    console.log(cmdPromptUsage());
+  });
+
+prompt
+  .command("setup")
+  .description("Print setup instructions for installing the uwf skill")
+  .action(() => {
+    console.log(cmdPromptSetup());
+  });
+
+prompt
   .command("adapter")
   .description("Print the adapter reference (building agent adapters)")
   .action(() => {
-    console.log(cmdSkillAdapter());
+    console.log(cmdPromptAdapter());
   });
 
-skill
+prompt
   .command("author")
   .description("Print the author reference (workflow YAML design guide)")
   .action(() => {
-    console.log(cmdSkillAuthor());
+    console.log(cmdPromptAuthor());
   });
 
-skill
+prompt
   .command("developer")
   .description("Print the developer reference (coding conventions + architecture)")
   .action(() => {
-    console.log(cmdSkillDeveloper());
+    console.log(cmdPromptDeveloper());
   });
 
-skill
+prompt
   .command("user")
   .description("Print the user reference (CLI guide + typical workflows)")
   .action(() => {
-    console.log(cmdSkillUser());
+    console.log(cmdPromptUser());
   });
 
-skill
+prompt
   .command("bootstrap")
   .description("Print the bootstrap skill YAML for Hermes agents")
   .action(() => {
-    console.log(cmdSkillBootstrap());
+    console.log(cmdPromptBootstrap());
   });
 
-skill
+prompt
   .command("list")
-  .description("List all available skill names")
+  .description("List all available prompt names")
   .action(() => {
-    console.log(cmdSkillList().join("\n"));
+    console.log(cmdPromptList().join("\n"));
   });
 
 program
