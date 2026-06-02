@@ -40,7 +40,8 @@ roles:
           required: [$status, plan, repoPath, repoRemote]
         - properties:
             $status: { const: "insufficient_info" }
-          required: [$status]
+            reason: { type: string }
+          required: [$status, reason]
   developer:
     description: "TDD implementation per test spec"
     goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
