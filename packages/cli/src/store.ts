@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { existsSync, symlinkSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { access, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -131,30 +131,6 @@ export function resolveStorageRoot(): string {
     return userOverride;
   }
   return getDefaultStorageRoot();
-}
-
-/** Symlink legacy storage paths to ~/.uwf and ~/.ocas when upgrading from older installs. */
-export function migrateStorageIfNeeded(home: string = homedir()): void {
-  const oldPath = join(home, ".uncaged", "workflow");
-  const newPath = join(home, ".uwf");
-
-  if (!existsSync(newPath) && existsSync(oldPath)) {
-    symlinkSync(oldPath, newPath);
-    // biome-ignore lint/suspicious/noConsole: migration notice
-    console.log("⚠️  Storage linked: ~/.uwf → legacy workflow directory (symlink)");
-    // biome-ignore lint/suspicious/noConsole: migration notice
-    console.log(
-      "   This symlink is temporary. Copy your data to ~/.uwf/ and remove the symlink in a future version.",
-    );
-  }
-
-  const oldCas = join(home, ".uncaged", "json-cas");
-  const newCas = join(home, ".ocas");
-  if (!existsSync(newCas) && existsSync(oldCas)) {
-    symlinkSync(oldCas, newCas);
-    // biome-ignore lint/suspicious/noConsole: migration notice
-    console.log("⚠️  CAS storage linked: ~/.ocas → legacy CAS directory (symlink)");
-  }
 }
 
 /**
