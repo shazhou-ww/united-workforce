@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type CasRef, createThreadIndexEntry, type ThreadId } from "@united-workforce/protocol";
 import { resolveHeadHash } from "../commands/shared.js";
-import { appendThreadHistory } from "../store.js";
+import { addHistoryEntry, createUwfStore, setThread } from "../store.js";
 
 let tmpDir: string;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-resolve-head-"));
+  const casDir = join(tmpDir, "cas");
+  await mkdir(casDir, { recursive: true });
+  process.env.UNCAGED_CAS_DIR = casDir;
 });
 
 afterEach(async () => {
@@ -19,7 +22,6 @@ afterEach(async () => {
 describe("resolveHeadHash", () => {
   test("returns head hash from variable store for active thread", async () => {
     const threadId = "01JTEST0000000000000000001" as ThreadId;
-    const { createUwfStore, setThread } = await import("../store.js");
     const uwf = await createUwfStore(tmpDir);
     const headHash = (await uwf.store.put(uwf.schemas.text, "active")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash as CasRef));
@@ -29,13 +31,13 @@ describe("resolveHeadHash", () => {
     expect(result).toBe(headHash);
   });
 
-  test("falls back to history.jsonl when thread not in threads.yaml", async () => {
+  test("falls back to history variable when thread not in active index", async () => {
     const threadId = "01JTEST0000000000000000002" as ThreadId;
-    const headHash = "completed_hash_456" as CasRef;
     const workflowHash = "workflow_hash_789" as CasRef;
 
-    // No entry in threads.yaml, only in history.jsonl
-    await appendThreadHistory(tmpDir, {
+    const uwf = await createUwfStore(tmpDir);
+    const headHash = (await uwf.store.put(uwf.schemas.text, "completed-head")) as CasRef;
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: headHash,
@@ -54,15 +56,13 @@ describe("resolveHeadHash", () => {
 
   test("prioritizes active thread over history when thread exists in both", async () => {
     const threadId = "01JTEST0000000000000000004" as ThreadId;
-    const historicalHash = "historical_hash_v1" as CasRef;
     const workflowHash = "workflow_hash_xyz" as CasRef;
 
-    const { createUwfStore, setThread } = await import("../store.js");
-    const { createThreadIndexEntry } = await import("@united-workforce/protocol");
     const uwf = await createUwfStore(tmpDir);
     const activeHead = (await uwf.store.put(uwf.schemas.text, "active-v2")) as CasRef;
+    const historicalHash = (await uwf.store.put(uwf.schemas.text, "historical-v1")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(activeHead));
-    await appendThreadHistory(tmpDir, {
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: historicalHash,
@@ -80,25 +80,26 @@ describe("resolveHeadHash", () => {
     const threadId1 = "01JTEST0000000000000000005" as ThreadId;
     const threadId2 = "01JTEST0000000000000000006" as ThreadId;
     const threadId3 = "01JTEST0000000000000000007" as ThreadId;
-    const hash1 = "hash_thread1" as CasRef;
-    const hash2 = "hash_thread2" as CasRef;
-    const hash3 = "hash_thread3" as CasRef;
     const workflowHash = "workflow_hash_abc" as CasRef;
-    await appendThreadHistory(tmpDir, {
+    const uwf = await createUwfStore(tmpDir);
+    const hash1 = (await uwf.store.put(uwf.schemas.text, "hash-thread1")) as CasRef;
+    const hash2 = (await uwf.store.put(uwf.schemas.text, "hash-thread2")) as CasRef;
+    const hash3 = (await uwf.store.put(uwf.schemas.text, "hash-thread3")) as CasRef;
+    addHistoryEntry(uwf.varStore, {
       thread: threadId1,
       workflow: workflowHash,
       head: hash1,
       completedAt: Date.now() - 2000,
       reason: null,
     });
-    await appendThreadHistory(tmpDir, {
+    addHistoryEntry(uwf.varStore, {
       thread: threadId2,
       workflow: workflowHash,
       head: hash2,
       completedAt: Date.now() - 1000,
       reason: null,
     });
-    await appendThreadHistory(tmpDir, {
+    addHistoryEntry(uwf.varStore, {
       thread: threadId3,
       workflow: workflowHash,
       head: hash3,

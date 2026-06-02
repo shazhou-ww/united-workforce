@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
 import { existsSync, symlinkSync } from "node:fs";
-import { access, appendFile, mkdir, readdir, readFile, rename } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -26,6 +26,9 @@ export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 
 /** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
 export const THREAD_VAR_PREFIX = "@uwf/thread/";
+
+/** Variable name prefix for completed/cancelled thread history (`@uwf/history/<thread-id>`). */
+export const HISTORY_VAR_PREFIX = "@uwf/history/";
 
 /** A workflow entry discovered from the project-local .workflows/ directory. */
 export type ProjectWorkflowEntry = {
@@ -190,10 +193,6 @@ export function getThreadsPath(storageRoot: string): string {
   return join(storageRoot, "threads.yaml");
 }
 
-export function getHistoryPath(storageRoot: string): string {
-  return join(storageRoot, "history.jsonl");
-}
-
 export type ThreadHistoryLine = ThreadListItem & {
   completedAt: number;
   reason: "completed" | "cancelled" | null;
@@ -214,6 +213,7 @@ export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
   const varStore = createVariableStore(join(casDir, "variables.db"), store);
   await migrateWorkflowRegistryIfNeeded(storageRoot, varStore);
   await migrateThreadsIndexIfNeeded(storageRoot, varStore);
+  await migrateHistoryIfNeeded(storageRoot, varStore);
   return { storageRoot, store, schemas, varStore };
 }
 
@@ -384,77 +384,100 @@ export function deleteThread(varStore: VariableStore, threadId: ThreadId): void 
   varStore.remove(threadVarName(threadId));
 }
 
-export async function loadThreadHistory(storageRoot: string): Promise<ThreadHistoryLine[]> {
-  const path = getHistoryPath(storageRoot);
+function parseHistoryJsonlLine(trimmed: string): ThreadHistoryLine | null {
+  let raw: unknown;
   try {
-    const text = await readFile(path, "utf8");
-    const lines: ThreadHistoryLine[] = [];
-    for (const line of text.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed === "") {
-        continue;
-      }
-      let raw: unknown;
-      try {
-        raw = JSON.parse(trimmed) as unknown;
-      } catch {
-        continue;
-      }
-      if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-        continue;
-      }
-      const rec = raw as Record<string, unknown>;
-      const thread = rec.thread;
-      const workflow = rec.workflow;
-      const head = rec.head;
-      const completedAt = rec.completedAt;
-      if (
-        typeof thread === "string" &&
-        typeof workflow === "string" &&
-        typeof head === "string" &&
-        typeof completedAt === "number"
-      ) {
-        const reason = rec.reason;
-        const parsedReason = reason === "completed" || reason === "cancelled" ? reason : null;
-        lines.push({
-          thread: thread as ThreadId,
-          workflow,
-          head,
-          completedAt,
-          reason: parsedReason,
-        });
-      }
-    }
-    return lines;
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      return [];
-    }
-    throw e;
+    raw = JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
   }
-}
-
-export async function findThreadInHistory(
-  storageRoot: string,
-  threadId: ThreadId,
-): Promise<ThreadHistoryLine | null> {
-  const history = await loadThreadHistory(storageRoot);
-  for (let i = history.length - 1; i >= 0; i--) {
-    const entry = history[i];
-    if (entry !== undefined && entry.thread === threadId) {
-      return entry;
-    }
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const rec = raw as Record<string, unknown>;
+  const thread = rec.thread;
+  const workflow = rec.workflow;
+  const head = rec.head;
+  const completedAt = rec.completedAt;
+  if (
+    typeof thread === "string" &&
+    typeof workflow === "string" &&
+    typeof head === "string" &&
+    typeof completedAt === "number"
+  ) {
+    const reason = rec.reason;
+    const parsedReason = reason === "completed" || reason === "cancelled" ? reason : null;
+    return {
+      thread: thread as ThreadId,
+      workflow,
+      head,
+      completedAt,
+      reason: parsedReason,
+    };
   }
   return null;
 }
 
-export async function appendThreadHistory(
+/** One-time migration: `~/.uwf/history.jsonl` → `@uwf/history/*` variables. */
+export async function migrateHistoryIfNeeded(
   storageRoot: string,
-  entry: ThreadHistoryLine,
+  varStore: VariableStore,
 ): Promise<void> {
-  const path = getHistoryPath(storageRoot);
-  await mkdir(storageRoot, { recursive: true });
-  const line = `${JSON.stringify(entry)}\n`;
-  await appendFile(path, line, "utf8");
+  const path = join(storageRoot, "history.jsonl");
+  if (!existsSync(path)) {
+    return;
+  }
+
+  const text = await readFile(path, "utf8");
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      continue;
+    }
+    const entry = parseHistoryJsonlLine(trimmed);
+    if (entry !== null) {
+      addHistoryEntry(varStore, entry);
+    }
+  }
+
+  await rename(path, `${path}.migrated`);
+}
+
+export function loadAllHistory(varStore: VariableStore): ThreadHistoryLine[] {
+  const vars = varStore.list({ namePrefix: HISTORY_VAR_PREFIX });
+  return vars.map((v) => ({
+    thread: v.name.slice(HISTORY_VAR_PREFIX.length) as ThreadId,
+    workflow: v.tags.workflow ?? "",
+    head: v.value as CasRef,
+    completedAt: Number(v.tags.completedAt ?? "0"),
+    reason: v.tags.reason === "completed" || v.tags.reason === "cancelled" ? v.tags.reason : null,
+  }));
+}
+
+export function findHistoryEntry(
+  varStore: VariableStore,
+  threadId: ThreadId,
+): ThreadHistoryLine | null {
+  const vars = varStore.list({ namePrefix: `${HISTORY_VAR_PREFIX}${threadId}` });
+  const v = vars.find((entry) => entry.name === `${HISTORY_VAR_PREFIX}${threadId}`);
+  if (v === undefined) {
+    return null;
+  }
+  return {
+    thread: threadId,
+    workflow: v.tags.workflow ?? "",
+    head: v.value as CasRef,
+    completedAt: Number(v.tags.completedAt ?? "0"),
+    reason: v.tags.reason === "completed" || v.tags.reason === "cancelled" ? v.tags.reason : null,
+  };
+}
+
+export function addHistoryEntry(varStore: VariableStore, entry: ThreadHistoryLine): void {
+  varStore.set(`${HISTORY_VAR_PREFIX}${entry.thread}`, entry.head, {
+    tags: {
+      workflow: entry.workflow,
+      completedAt: String(entry.completedAt),
+      reason: entry.reason ?? "completed",
+    },
+  });
 }

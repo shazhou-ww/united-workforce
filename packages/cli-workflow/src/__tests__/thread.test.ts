@@ -12,7 +12,7 @@ import {
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
 import type { UwfStore } from "../store.js";
-import { appendThreadHistory, createUwfStore } from "../store.js";
+import { addHistoryEntry, createUwfStore } from "../store.js";
 import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
@@ -744,9 +744,9 @@ describe("cmdStepList with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000A2" as ThreadId;
-    // Thread is NOT in threads.yaml (simulating completed thread)
-    // But it IS in history.jsonl
-    await appendThreadHistory(tmpDir, {
+    // Thread is NOT in active index (simulating completed thread)
+    // But it IS in history variable store
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: step2Hash,
@@ -872,9 +872,9 @@ describe("cmdStepShow with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000B2" as ThreadId;
-    // Thread is NOT in threads.yaml
-    // But it IS in history.jsonl
-    await appendThreadHistory(tmpDir, {
+    // Thread is NOT in active index
+    // But it IS in history variable store
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: stepHash,
@@ -935,9 +935,9 @@ describe("cmdThreadRead with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000C1" as ThreadId;
-    // Thread is NOT in threads.yaml
-    // But it IS in history.jsonl
-    await appendThreadHistory(tmpDir, {
+    // Thread is NOT in active index
+    // But it IS in history variable store
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: stepHash,
@@ -999,7 +999,7 @@ describe("cmdThreadRead with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000C2" as ThreadId;
-    await appendThreadHistory(tmpDir, {
+    addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
       head: step3Hash,

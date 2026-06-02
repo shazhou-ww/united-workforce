@@ -238,35 +238,78 @@ describe("Global CAS directory", () => {
     await expect(readFile(threadsPath, "utf8")).rejects.toThrow();
   });
 
-  test("history remains in storageRoot", async () => {
+  test("history is stored in global CAS variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
     process.env.UNCAGED_CAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
 
-    await createUwfStore(storageRoot);
-
-    // Write history
-    const { appendThreadHistory } = await import("../store.js");
-    await appendThreadHistory(storageRoot, {
-      thread: "thread-123" as any,
+    const uwf = await createUwfStore(storageRoot);
+    const threadId = "thread-123" as ThreadId;
+    const headHash = await uwf.store.put(uwf.schemas.text, "history-head");
+    const { addHistoryEntry, findHistoryEntry } = await import("../store.js");
+    addHistoryEntry(uwf.varStore, {
+      thread: threadId,
       workflow: "workflow-456",
-      head: "hash-789",
+      head: headHash,
       completedAt: Date.now(),
       reason: "completed",
     });
 
-    // Verify history.jsonl is in storageRoot, not global CAS
-    const { readFile } = await import("node:fs/promises");
-    const historyPath = join(storageRoot, "history.jsonl");
-    const content = await readFile(historyPath, "utf8");
-    expect(content).toContain("thread-123");
-    expect(content).toContain("workflow-456");
+    const entry = findHistoryEntry(uwf.varStore, threadId);
+    expect(entry?.thread).toBe(threadId);
+    expect(entry?.workflow).toBe("workflow-456");
+    expect(entry?.head).toBe(headHash);
 
-    // Verify history.jsonl is NOT in global CAS directory
-    const globalHistoryPath = join(globalCasDir, "history.jsonl");
-    await expect(readFile(globalHistoryPath, "utf8")).rejects.toThrow();
+    const { access } = await import("node:fs/promises");
+    await access(join(globalCasDir, "variables.db"));
+
+    const historyPath = join(storageRoot, "history.jsonl");
+    await expect(access(historyPath)).rejects.toThrow();
+  });
+
+  test("migrates history.jsonl to variable store and renames file", async () => {
+    const globalCasDir = join(tmpDir, "global-cas-history");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage-history-migrate");
+    await mkdir(storageRoot, { recursive: true });
+
+    const threadId = "01JTEST0000000000000000CD" as ThreadId;
+    const uwfSeed = await createUwfStore(storageRoot);
+    const workflowHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-workflow");
+    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-head");
+    const completedAt = 1780410000000;
+    const { writeFile, access, readFile } = await import("node:fs/promises");
+    const historyPath = join(storageRoot, "history.jsonl");
+    await writeFile(
+      historyPath,
+      `${JSON.stringify({
+        thread: threadId,
+        workflow: workflowHash,
+        head: headHash,
+        completedAt,
+        reason: "cancelled",
+      })}\n`,
+      "utf8",
+    );
+
+    const uwf = await createUwfStore(storageRoot);
+    const { findHistoryEntry } = await import("../store.js");
+    const entry = findHistoryEntry(uwf.varStore, threadId);
+    expect(entry).toEqual({
+      thread: threadId,
+      workflow: workflowHash,
+      head: headHash,
+      completedAt,
+      reason: "cancelled",
+    });
+
+    await expect(access(historyPath)).rejects.toThrow();
+    const migratedContent = await readFile(`${historyPath}.migrated`, "utf8");
+    expect(migratedContent).toContain(threadId);
+    expect(migratedContent).toContain(workflowHash);
   });
 
   test("CAS nodes are stored in global directory", async () => {
