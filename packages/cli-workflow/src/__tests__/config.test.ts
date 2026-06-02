@@ -720,7 +720,7 @@ defaultModel: default
 
   describe("no legacy apiKeyEnv references", () => {
     test("config.ts has no references to apiKeyEnv", () => {
-      const configSource = readFileSync(join(__dirname, "..", "commands", "config.ts"), "utf8");
+      const configSource = readFileSync(join(__dirname, "..", "..", "src", "commands", "config.ts"), "utf8");
       expect(configSource).not.toContain("apiKeyEnv");
     });
 
