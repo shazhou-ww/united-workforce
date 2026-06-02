@@ -9,12 +9,12 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 | Concept | What it is |
 |---------|-----------|
 | **Workflow** | A YAML definition (`WorkflowPayload`) with roles, status-based routing, and a directed graph. Stored as a CAS node, identified by its XXH64 hash. |
-| **Thread** | A single execution of a workflow, identified by a ULID. State is an immutable CAS chain; active threads indexed in `threads.yaml`; completed threads in `history.jsonl`. |
+| **Thread** | A single execution of a workflow, identified by a ULID. State is an immutable CAS chain; active threads indexed as `@uwf/thread/*` variables; completed threads as `@uwf/history/*` variables. |
 | **Role** | A named actor within a workflow. Each role has a system prompt and a JSON Schema `outputSchema`. |
 | **Moderator** | Status-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
 | **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
 | **CAS** | Content-Addressed Storage via `@ocas/core` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
-| **Registry** | `~/.uwf/registry.yaml` — maps workflow names to current CAS hashes. |
+| **Registry** | `@uwf/registry/*` variables in `~/.ocas/variables.db` — maps workflow names to current CAS hashes. |
 
 ### Monorepo Structure
 
@@ -274,10 +274,10 @@ examples/solve-issue.yaml       — write a workflow YAML definition
   │  uwf workflow put
   ▼
 ~/.ocas/                         — Workflow stored as CAS node (unified CAS store)
-~/.uwf/registry.yaml             — name → hash mapping updated
+~/.ocas/variables.db             — @uwf/registry/* variable maps name → hash
   │  uwf thread start <name> -p "..."
   ▼
-~/.uwf/threads.yaml              — new thread head pointer
+~/.ocas/variables.db             — @uwf/thread/* variable tracks head pointer
   │  uwf thread step <thread-id>
   ▼
 moderator → agent → extract      — one step per invocation, repeat until $END

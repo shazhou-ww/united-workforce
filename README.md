@@ -1,9 +1,9 @@
-# @uncaged/workflow
+# United Workforce (uwf)
 
 [![CI](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/shazhou-ww/uncaged-workflow/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@uncaged/cli-workflow?label=%40uncaged%2Fcli-workflow)](https://www.npmjs.com/package/@uncaged/cli-workflow)
-[![npm](https://img.shields.io/npm/v/@uncaged/workflow-protocol?label=%40uncaged%2Fworkflow-protocol)](https://www.npmjs.com/package/@uncaged/workflow-protocol)
-[![npm](https://img.shields.io/npm/v/@uncaged/workflow-util-agent?label=%40uncaged%2Fworkflow-util-agent)](https://www.npmjs.com/package/@uncaged/workflow-util-agent)
+[![npm](https://img.shields.io/npm/v/@united-workforce/cli?label=%40united-workforce%2Fcli)](https://www.npmjs.com/package/@united-workforce/cli)
+[![npm](https://img.shields.io/npm/v/@united-workforce/protocol?label=%40united-workforce%2Fprotocol)](https://www.npmjs.com/package/@united-workforce/protocol)
+[![npm](https://img.shields.io/npm/v/@united-workforce/util-agent?label=%40united-workforce%2Futil-agent)](https://www.npmjs.com/package/@united-workforce/util-agent)
 
 A stateless workflow engine driven by a single-step CLI. Workflows are YAML definitions with roles, status-based routing, and a directed graph. Threads are immutable CAS-linked chains — each `uwf thread step` runs one moderator→agent→extract cycle and exits.
 
@@ -11,14 +11,14 @@ A stateless workflow engine driven by a single-step CLI. Workflows are YAML defi
 
 This monorepo implements **uwf**, a workflow engine with no long-running daemon. You register YAML workflow definitions in a content-addressed store (CAS), start a thread with an initial prompt, then invoke `uwf thread step` repeatedly until the moderator routes to `$END`. Each step is a complete process: the moderator evaluates status-based routing to pick the next role, an external agent CLI produces frontmatter markdown output, and an extract pipeline validates or structures that output against the role's JSON Schema.
 
-Workflow state lives entirely on disk under `~/.uncaged/workflow/`: CAS nodes for definitions and step payloads, `registry.yaml` for workflow name→hash mappings, and `threads.yaml` for active thread head pointers. Completed threads are archived to `history.jsonl`. Because there is no server process, workflows are easy to debug, fork, and inspect with ordinary CLI tools.
+Workflow state lives entirely on disk: CAS nodes under `~/.ocas/` for definitions and step payloads, and `~/.ocas/variables.db` for all metadata (`@uwf/registry/*` for workflow name→hash mappings, `@uwf/thread/*` for active thread head pointers, `@uwf/history/*` for completed/cancelled threads). Config is at `~/.uwf/config.yaml`. Because there is no server process, workflows are easy to debug, fork, and inspect with ordinary CLI tools.
 
 Agents are pluggable CLI binaries (`uwf-hermes`, `uwf-builtin`, `uwf-claude-code`, or custom commands). The engine spawns the configured agent with `<thread-id>` and `<role>`, sets `UWF_EDGE_PROMPT` from the graph transition, and captures both the agent's markdown output and a detail CAS node for session replay.
 
 ## Install
 
 ```bash
-npm install -g @uncaged/cli-workflow
+npm install -g @united-workforce/cli
 ```
 
 Requires [Bun](https://bun.sh/) runtime (used internally for TypeScript execution).
@@ -75,14 +75,14 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 
 | Package | npm | Description | Type | README |
 |---------|-----|-------------|------|--------|
-| `cli-workflow` | `@uncaged/cli-workflow` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
-| `workflow-protocol` | `@uncaged/workflow-protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
-| `workflow-util-agent` | `@uncaged/workflow-util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-util-agent/README.md) |
-| `workflow-util` | `@uncaged/workflow-util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
-| `workflow-agent-hermes` | `@uncaged/workflow-agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |
-| `workflow-agent-builtin` | `@uncaged/workflow-agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |
-| `workflow-agent-claude-code` | `@uncaged/workflow-agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/workflow-agent-claude-code/README.md) |
-| `workflow-dashboard` | `@uncaged/workflow-dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/workflow-dashboard/README.md) |
+| `cli-workflow` | `@united-workforce/cli` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
+| `workflow-protocol` | `@united-workforce/protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
+| `workflow-util-agent` | `@united-workforce/util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-util-agent/README.md) |
+| `workflow-util` | `@united-workforce/util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
+| `workflow-agent-hermes` | `@united-workforce/agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |
+| `workflow-agent-builtin` | `@united-workforce/agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |
+| `workflow-agent-claude-code` | `@united-workforce/agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/workflow-agent-claude-code/README.md) |
+| `workflow-dashboard` | `@united-workforce/dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/workflow-dashboard/README.md) |
 
 ## CLI Reference
 
@@ -98,7 +98,7 @@ Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 | **skill** | `cli` — print markdown reference of all uwf commands |
 | **log** | `list`, `show`, `clean` — process-level debug logs |
 
-Config is stored in `~/.uncaged/workflow/config.yaml`. API keys go in `~/.uncaged/workflow/.env`.
+Config is stored in `~/.uwf/config.yaml`. API keys go in `~/.uwf/.env`.
 
 Detailed command usage, options, and examples: [packages/cli-workflow/README.md](packages/cli-workflow/README.md).
 
