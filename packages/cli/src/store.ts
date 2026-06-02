@@ -119,7 +119,7 @@ export function getDefaultStorageRoot(): string {
 
 /**
  * Resolve storage root.
- * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → `UNCAGED_WORKFLOW_STORAGE_ROOT` (legacy) → default.
+ * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
  */
 export function resolveStorageRoot(): string {
   const primary = process.env.UWF_STORAGE_ROOT;
@@ -129,10 +129,6 @@ export function resolveStorageRoot(): string {
   const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
   if (userOverride !== undefined && userOverride !== "") {
     return userOverride;
-  }
-  const legacy = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
-  if (legacy !== undefined && legacy !== "") {
-    return legacy;
   }
   return getDefaultStorageRoot();
 }
@@ -145,7 +141,7 @@ export function migrateStorageIfNeeded(home: string = homedir()): void {
   if (!existsSync(newPath) && existsSync(oldPath)) {
     symlinkSync(oldPath, newPath);
     // biome-ignore lint/suspicious/noConsole: migration notice
-    console.log("⚠️  Storage migrated: ~/.uwf → ~/.uncaged/workflow (symlink)");
+    console.log("⚠️  Storage linked: ~/.uwf → legacy workflow directory (symlink)");
     // biome-ignore lint/suspicious/noConsole: migration notice
     console.log(
       "   This symlink is temporary. Copy your data to ~/.uwf/ and remove the symlink in a future version.",
@@ -157,7 +153,7 @@ export function migrateStorageIfNeeded(home: string = homedir()): void {
   if (!existsSync(newCas) && existsSync(oldCas)) {
     symlinkSync(oldCas, newCas);
     // biome-ignore lint/suspicious/noConsole: migration notice
-    console.log("⚠️  CAS storage migrated: ~/.ocas → ~/.uncaged/json-cas (symlink)");
+    console.log("⚠️  CAS storage linked: ~/.ocas → legacy CAS directory (symlink)");
   }
 }
 
@@ -171,16 +167,12 @@ export function getCasDir(storageRoot: string): string {
 
 /**
  * Returns the global CAS directory shared by all uwf and ocas tools.
- * Priority: `OCAS_DIR` → `UNCAGED_CAS_DIR` (legacy) → default ~/.ocas
+ * Priority: `OCAS_DIR` → default ~/.ocas
  */
 export function getGlobalCasDir(): string {
   const primary = process.env.OCAS_DIR;
   if (primary !== undefined && primary !== "") {
     return primary;
-  }
-  const legacy = process.env.UNCAGED_CAS_DIR;
-  if (legacy !== undefined && legacy !== "") {
-    return legacy;
   }
   return join(homedir(), ".ocas");
 }

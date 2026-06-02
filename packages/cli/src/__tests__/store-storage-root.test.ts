@@ -10,13 +10,7 @@ import {
 } from "../store.js";
 
 describe("Storage root resolution", () => {
-  const envKeys = [
-    "UWF_STORAGE_ROOT",
-    "WORKFLOW_STORAGE_ROOT",
-    "UNCAGED_WORKFLOW_STORAGE_ROOT",
-    "OCAS_DIR",
-    "UNCAGED_CAS_DIR",
-  ] as const;
+  const envKeys = ["UWF_STORAGE_ROOT", "WORKFLOW_STORAGE_ROOT", "OCAS_DIR"] as const;
   const savedEnv: Partial<Record<(typeof envKeys)[number], string | undefined>> = {};
 
   beforeEach(() => {
@@ -43,19 +37,12 @@ describe("Storage root resolution", () => {
   test("resolveStorageRoot prefers UWF_STORAGE_ROOT", () => {
     process.env.UWF_STORAGE_ROOT = "/tmp/uwf-primary";
     process.env.WORKFLOW_STORAGE_ROOT = "/tmp/uwf-fallback";
-    process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = "/tmp/uwf-legacy";
     expect(resolveStorageRoot()).toBe("/tmp/uwf-primary");
   });
 
   test("resolveStorageRoot falls back to WORKFLOW_STORAGE_ROOT", () => {
     process.env.WORKFLOW_STORAGE_ROOT = "/tmp/uwf-fallback";
-    process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = "/tmp/uwf-legacy";
     expect(resolveStorageRoot()).toBe("/tmp/uwf-fallback");
-  });
-
-  test("resolveStorageRoot falls back to UNCAGED_WORKFLOW_STORAGE_ROOT", () => {
-    process.env.UNCAGED_WORKFLOW_STORAGE_ROOT = "/tmp/uwf-legacy";
-    expect(resolveStorageRoot()).toBe("/tmp/uwf-legacy");
   });
 
   test("getGlobalCasDir returns ~/.ocas by default", () => {
@@ -63,15 +50,9 @@ describe("Storage root resolution", () => {
     expect(casDir).toBe(join(homedir(), ".ocas"));
   });
 
-  test("getGlobalCasDir prefers OCAS_DIR over UNCAGED_CAS_DIR", () => {
+  test("getGlobalCasDir respects OCAS_DIR", () => {
     process.env.OCAS_DIR = "/tmp/ocas-primary";
-    process.env.UNCAGED_CAS_DIR = "/tmp/ocas-legacy";
     expect(getGlobalCasDir()).toBe("/tmp/ocas-primary");
-  });
-
-  test("getGlobalCasDir falls back to UNCAGED_CAS_DIR", () => {
-    process.env.UNCAGED_CAS_DIR = "/tmp/ocas-legacy";
-    expect(getGlobalCasDir()).toBe("/tmp/ocas-legacy");
   });
 });
 

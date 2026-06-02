@@ -742,7 +742,7 @@ roles:
       6. Private packages (server, frontend, tools) must have `"private": true` and can skip publishConfig/files
       7. Each package should have a `"scripts"` section with at least `"test"` if tests exist
       8. Workspace dependencies should use `"workspace:^"` protocol, not version numbers
-         - Check: `grep -r '"@uncaged/' packages/*/package.json | grep -v 'workspace:'`
+         - Check: `grep -r '"@united-workforce/' packages/*/package.json | grep -v 'workspace:'`
 
       ## Verification
       You MUST actually run each command below and include real output. Do NOT guess or fabricate results.
@@ -764,7 +764,7 @@ roles:
         "
       done
       # No hardcoded workspace deps
-      ! grep -r '"@uncaged/' packages/*/package.json | grep -v 'workspace:' | grep -v node_modules
+      ! grep -r '"@united-workforce/' packages/*/package.json | grep -v 'workspace:' | grep -v node_modules
       ```
 
       Post-condition: Verification script shows OK for all non-private packages, no hardcoded workspace versions.
@@ -849,4 +849,4 @@ roles:
               type: string
     capabilities:
       - workflow-config
-description: Normalize an existing project to @uncaged bun monorepo conventions. Supports both TypeScript and JS/MJS projects. Each role handles one configuration layer. All roles allow fail.
+description: Normalize an existing project to @united-workforce bun monorepo conventions. Supports both TypeScript and JS/MJS projects. Each role handles one configuration layer. All roles allow fail.

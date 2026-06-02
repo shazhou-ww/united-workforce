@@ -35,12 +35,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://git.shazhou.work/uncaged/workflow.git",
+    "url": "https://git.shazhou.work/shazhou/united-workforce.git",
     "directory": "packages/agent-claude-code"
   },
-  "homepage": "https://git.shazhou.work/uncaged/workflow#readme",
+  "homepage": "https://git.shazhou.work/shazhou/united-workforce#readme",
   "bugs": {
-    "url": "https://git.shazhou.work/uncaged/workflow/issues"
+    "url": "https://git.shazhou.work/shazhou/united-workforce/issues"
   },
   "license": "MIT"
 }

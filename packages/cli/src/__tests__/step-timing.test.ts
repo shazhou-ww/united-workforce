@@ -67,17 +67,17 @@ let originalEnv: string | undefined;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-step-timing-test-"));
-  originalEnv = process.env.UNCAGED_CAS_DIR;
-  process.env.UNCAGED_CAS_DIR = join(tmpDir, "cas");
-  await mkdir(process.env.UNCAGED_CAS_DIR, { recursive: true });
+  originalEnv = process.env.OCAS_DIR;
+  process.env.OCAS_DIR = join(tmpDir, "cas");
+  await mkdir(process.env.OCAS_DIR, { recursive: true });
 });
 
 afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
   if (originalEnv === undefined) {
-    delete process.env.UNCAGED_CAS_DIR;
+    delete process.env.OCAS_DIR;
   } else {
-    process.env.UNCAGED_CAS_DIR = originalEnv;
+    process.env.OCAS_DIR = originalEnv;
   }
 });
 

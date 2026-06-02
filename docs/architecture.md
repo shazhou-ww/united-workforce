@@ -358,7 +358,7 @@ threads.yaml: { "01J7K9...4T": "8FWKR3TN5V1QA" }
 ## Storage layout
 
 ```
-~/.uncaged/workflow/
+~/.uwf/
 ├── cas/                          # json-cas filesystem store (all CAS nodes)
 ├── config.yaml                   # Provider, model, agent configuration
 ├── threads.yaml                  # Active thread head pointers: threadId → CasRef

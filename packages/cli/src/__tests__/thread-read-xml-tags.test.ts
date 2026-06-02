@@ -53,7 +53,7 @@ const DETAIL_SCHEMA = {
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  process.env.UNCAGED_CAS_DIR = casDir;
+  process.env.OCAS_DIR = casDir;
   return createUwfStore(storageRoot);
 }
 

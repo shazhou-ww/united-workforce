@@ -20,9 +20,9 @@ describe("thread start --cwd CLI option", () => {
     await mkdir(storageRoot, { recursive: true });
     await mkdir(casDir, { recursive: true });
 
-    // Set UNCAGED_CAS_DIR for this test
-    originalEnv = process.env.UNCAGED_CAS_DIR;
-    process.env.UNCAGED_CAS_DIR = casDir;
+    // Set OCAS_DIR for this test
+    originalEnv = process.env.OCAS_DIR;
+    process.env.OCAS_DIR = casDir;
   }
 
   async function teardown() {
@@ -31,9 +31,9 @@ describe("thread start --cwd CLI option", () => {
     }
     // Restore original environment
     if (originalEnv === undefined) {
-      delete process.env.UNCAGED_CAS_DIR;
+      delete process.env.OCAS_DIR;
     } else {
-      process.env.UNCAGED_CAS_DIR = originalEnv;
+      process.env.OCAS_DIR = originalEnv;
     }
   }
 
@@ -137,7 +137,7 @@ graph:
 
     // Register the workflow
     execFileSync("bun", [uwfBin, "workflow", "add", workflowPath], {
-      env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },
+      env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },
       encoding: "utf8",
     });
 
@@ -146,7 +146,7 @@ graph:
       "bun",
       [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
       {
-        env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, UNCAGED_CAS_DIR: casDir },
+        env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },
         encoding: "utf8",
       },
     );

@@ -8,7 +8,7 @@ import { addHistoryEntry, createUwfStore, loadAllHistory } from "../store.js";
 async function makeUwfStore(storageRoot: string) {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  process.env.UNCAGED_CAS_DIR = casDir;
+  process.env.OCAS_DIR = casDir;
   return createUwfStore(storageRoot);
 }
 

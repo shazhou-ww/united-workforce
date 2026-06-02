@@ -16,13 +16,11 @@ import {
 describe("Global CAS directory", () => {
   let tmpDir: string;
   let originalOcasDir: string | undefined;
-  let originalLegacyCasDir: string | undefined;
 
   beforeEach(async () => {
     tmpDir = join(tmpdir(), `uwf-test-global-cas-${Date.now()}`);
     await mkdir(tmpDir, { recursive: true });
     originalOcasDir = process.env.OCAS_DIR;
-    originalLegacyCasDir = process.env.UNCAGED_CAS_DIR;
   });
 
   afterEach(async () => {
@@ -34,16 +32,10 @@ describe("Global CAS directory", () => {
     } else {
       process.env.OCAS_DIR = originalOcasDir;
     }
-    if (originalLegacyCasDir === undefined) {
-      delete process.env.UNCAGED_CAS_DIR;
-    } else {
-      process.env.UNCAGED_CAS_DIR = originalLegacyCasDir;
-    }
   });
 
   test("getGlobalCasDir returns default path when no env var set", () => {
     delete process.env.OCAS_DIR;
-    delete process.env.UNCAGED_CAS_DIR;
     const casDir = getGlobalCasDir();
     expect(casDir).toContain(".ocas");
   });
@@ -55,22 +47,8 @@ describe("Global CAS directory", () => {
     expect(casDir).toBe(customPath);
   });
 
-  test("getGlobalCasDir respects UNCAGED_CAS_DIR environment variable", () => {
-    const customPath = join(tmpDir, "legacy-cas");
-    process.env.UNCAGED_CAS_DIR = customPath;
-    const casDir = getGlobalCasDir();
-    expect(casDir).toBe(customPath);
-  });
-
-  test("getGlobalCasDir prefers OCAS_DIR over UNCAGED_CAS_DIR", () => {
-    process.env.OCAS_DIR = join(tmpDir, "primary-cas");
-    process.env.UNCAGED_CAS_DIR = join(tmpDir, "legacy-cas");
-    expect(getGlobalCasDir()).toBe(join(tmpDir, "primary-cas"));
-  });
-
   test("getGlobalCasDir ignores empty OCAS_DIR", () => {
     process.env.OCAS_DIR = "";
-    delete process.env.UNCAGED_CAS_DIR;
     const casDir = getGlobalCasDir();
     expect(casDir).toContain(".ocas");
   });
@@ -83,7 +61,7 @@ describe("Global CAS directory", () => {
 
   test("createUwfStore uses global CAS directory", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
@@ -104,7 +82,7 @@ describe("Global CAS directory", () => {
 
   test("createUwfStore creates global CAS directory if it does not exist", async () => {
     const globalCasDir = join(tmpDir, "new-global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
@@ -119,7 +97,7 @@ describe("Global CAS directory", () => {
 
   test("multiple uwfStore instances share the same global CAS filesystem", async () => {
     const globalCasDir = join(tmpDir, "shared-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot1 = join(tmpDir, "storage1");
     const storageRoot2 = join(tmpDir, "storage2");
@@ -149,7 +127,7 @@ describe("Global CAS directory", () => {
 
   test("workflow registry is stored in global CAS variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
@@ -170,7 +148,7 @@ describe("Global CAS directory", () => {
 
   test("migrates workflows.yaml to variable store and renames file", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage-migrate");
     await mkdir(storageRoot, { recursive: true });
@@ -195,7 +173,7 @@ describe("Global CAS directory", () => {
 
   test("migrates threads.yaml to variable store and renames file", async () => {
     const globalCasDir = join(tmpDir, "global-cas-threads");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage-threads-migrate");
     await mkdir(storageRoot, { recursive: true });
@@ -219,7 +197,7 @@ describe("Global CAS directory", () => {
 
   test("thread metadata stored in ocas variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
@@ -240,7 +218,7 @@ describe("Global CAS directory", () => {
 
   test("history is stored in global CAS variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
@@ -271,7 +249,7 @@ describe("Global CAS directory", () => {
 
   test("migrates history.jsonl to variable store and renames file", async () => {
     const globalCasDir = join(tmpDir, "global-cas-history");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage-history-migrate");
     await mkdir(storageRoot, { recursive: true });
@@ -314,7 +292,7 @@ describe("Global CAS directory", () => {
 
   test("CAS nodes are stored in global directory", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
-    process.env.UNCAGED_CAS_DIR = globalCasDir;
+    process.env.OCAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });

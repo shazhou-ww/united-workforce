@@ -135,7 +135,7 @@ src/
 ├── frontmatter-markdown/    Parse and validate agent frontmatter
 ├── refs-field.ts            Normalize refs arrays on CAS nodes
 ├── result.ts                ok / err helpers
-├── storage-root.ts          Default ~/.uncaged/workflow paths
+├── storage-root.ts          Default ~/.uwf paths
 ├── env.ts                   Environment variable helper
 ├── cli-reference.ts         Markdown CLI reference generator
 └── types.ts                 LogFn, Result, logger options
@@ -143,4 +143,4 @@ src/
 
 ## Configuration
 
-`getDefaultWorkflowStorageRoot()` resolves to `~/.uncaged/workflow` unless overridden by environment (see `storage-root.ts`).
+`getDefaultWorkflowStorageRoot()` resolves to `~/.uwf` unless overridden by environment (see `storage-root.ts`).

@@ -180,4 +180,4 @@ src/
 
 ## Configuration
 
-Reads `config.yaml` and `.env` from the workflow storage root (`~/.uncaged/workflow` by default). See `@united-workforce/protocol` for `WorkflowConfig` shape. Set via `uwf setup`.
+Reads `config.yaml` and `.env` from the workflow storage root (`~/.uwf` by default). See `@united-workforce/protocol` for `WorkflowConfig` shape. Set via `uwf setup`.

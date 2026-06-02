@@ -120,7 +120,7 @@ uwf setup --provider openai --base-url https://api.openai.com/v1 \
   --api-key sk-... --model gpt-4o --agent hermes
 ```
 
-Config: `~/.uncaged/workflow/config.yaml` (includes API keys).
+Config: `~/.uwf/config.yaml` (includes API keys).
 
 ### Skill
 
@@ -206,17 +206,17 @@ src/
 
 | File | Purpose |
 |------|---------|
-| `~/.uncaged/workflow/config.yaml` | Providers, models, default agent |
-| `~/.uncaged/workflow/.env` | API keys (referenced by `apiKeyEnv` in config) |
-| `~/.uncaged/workflow/registry.yaml` | Workflow name → CAS hash |
-| `~/.uncaged/workflow/threads.yaml` | Active thread head pointers |
-| `~/.uncaged/json-cas/` | Content-addressed node storage (unified CAS store, shared with `ocas` CLI) |
+| `~/.uwf/config.yaml` | Providers, models, default agent |
+| `~/.uwf/.env` | API keys (referenced by `apiKeyEnv` in config) |
+| `~/.uwf/registry.yaml` | Workflow name → CAS hash |
+| `~/.uwf/threads.yaml` | Active thread head pointers |
+| `~/.ocas/` | Content-addressed node storage (unified CAS store, shared with `ocas` CLI) |
 
 ### Environment Variables
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `UNCAGED_CAS_DIR` | Override the global CAS directory location | `~/.uncaged/json-cas` |
-| `UNCAGED_WORKFLOW_STORAGE_ROOT` | Internal override for workflow metadata storage | `~/.uncaged/workflow` |
-| `WORKFLOW_STORAGE_ROOT` | User override for workflow metadata storage | `~/.uncaged/workflow` |
+| `OCAS_DIR` | Override the global CAS directory location | `~/.ocas` |
+| `UWF_STORAGE_ROOT` | Internal override for workflow metadata storage | `~/.uwf` |
+| `WORKFLOW_STORAGE_ROOT` | User override for workflow metadata storage | `~/.uwf` |
 

@@ -67,7 +67,7 @@ describe("C1: adapter JSON round-trip integration", () => {
       prompt: "Test round-trip task",
     });
 
-    process.env.UNCAGED_CAS_DIR = casDir;
+    process.env.OCAS_DIR = casDir;
 
     const threadId = "01ROUNDTRIPTEST0000000000" as ThreadId;
     await seedThreads(tmpDir, { [threadId]: startHash });
@@ -134,7 +134,7 @@ describe("C1: adapter JSON round-trip integration", () => {
           env: {
             ...process.env,
             WORKFLOW_STORAGE_ROOT: tmpDir,
-            UNCAGED_CAS_DIR: casDir,
+            OCAS_DIR: casDir,
           },
           cwd: tmpDir,
           timeout: 30000,
