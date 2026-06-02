@@ -16,7 +16,7 @@ This guide helps any AI agent set up `uwf` (Uncaged Workflow) from scratch — o
 ### 1. Install uwf CLI
 
 ```bash
-bun install -g @uncaged/cli-workflow
+bun install -g @uncaged/cli
 ```
 
 ✅ **Check:** `uwf --version` prints a version number (e.g. `0.5.1`).
@@ -27,11 +27,11 @@ Install the adapter that matches your agent runtime. Pick **one**:
 
 | Agent | Package | Binary |
 |-------|---------|--------|
-| Hermes | `@uncaged/workflow-agent-hermes` | `uwf-hermes` |
+| Hermes | `@uncaged/agent-hermes` | `uwf-hermes` |
 
 ```bash
 # Example: Hermes agent
-bun install -g @uncaged/workflow-agent-hermes
+bun install -g @uncaged/agent-hermes
 ```
 
 ✅ **Check:** `uwf-hermes --version` prints a version number.
@@ -128,19 +128,19 @@ uwf-hermes --version   # or your agent adapter
 Compare with latest published versions:
 
 ```bash
-bun pm ls -g | grep -E "cli-workflow|workflow-agent"
-npm info @uncaged/cli-workflow version
-npm info @uncaged/workflow-agent-hermes version
+bun pm ls -g | grep -E "cli|workflow-agent"
+npm info @uncaged/cli version
+npm info @uncaged/agent-hermes version
 ```
 
 If local version < published version, upgrade:
 
 ```bash
-bun install -g @uncaged/cli-workflow@latest
-bun install -g @uncaged/workflow-agent-hermes@latest
+bun install -g @uncaged/cli@latest
+bun install -g @uncaged/agent-hermes@latest
 ```
 
-✅ **Check:** `uwf --version` matches `npm info @uncaged/cli-workflow version`.
+✅ **Check:** `uwf --version` matches `npm info @uncaged/cli version`.
 
 ### Config Check
 

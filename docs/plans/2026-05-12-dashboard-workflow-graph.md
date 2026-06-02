@@ -154,7 +154,7 @@ function getNodeStates(records: ThreadRecord[]): Map<string, "completed" | "acti
 ## 组件结构
 
 ```
-workflow-dashboard/src/
+dashboard/src/
   components/
     workflow-graph/
       types.ts           — NodeState 等前端类型

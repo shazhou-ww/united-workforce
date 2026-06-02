@@ -9,7 +9,7 @@
 
 | Package | 机制 | 能力 |
 |---------|------|------|
-| `workflow-agent-hermes` | spawn `hermes chat` | 完整工具链（文件、终端、浏览器…） |
+| `agent-hermes` | spawn `hermes chat` | 完整工具链（文件、终端、浏览器…） |
 | `workflow-agent-cursor` | spawn `cursor-agent` | IDE 级别代码编辑 |
 | `workflow-agent-llm` | 单轮 chat completion | 纯文本，无工具 |
 
@@ -77,7 +77,7 @@ AdapterFn 的终止条件是"拿到符合 schema 的 T"——和 `workflow-react
 
 ```typescript
 import { createLlmFn, createThreadReactor } from "@uncaged/workflow-reactor";
-import type { ThreadContext, LlmProvider } from "@uncaged/workflow-protocol";
+import type { ThreadContext, LlmProvider } from "@uncaged/protocol";
 import type { ToolDefinition } from "@uncaged/workflow-reactor";
 
 type ReactToolHandler = (name: string, args: string) => Promise<string>;
@@ -147,7 +147,7 @@ packages/workflow-agent-react/
 ```
 
 依赖：
-- `@uncaged/workflow-protocol` — `ThreadContext`, `LlmProvider`
+- `@uncaged/protocol` — `ThreadContext`, `LlmProvider`
 - `@uncaged/workflow-reactor` — `createLlmFn`, `createThreadReactor`, types
 
 ## 影响范围
@@ -162,16 +162,16 @@ packages/workflow-agent-react/
 
 ### 需修改的包
 
-1. `workflow-protocol` — 删除 `AgentContext`/`AgentFn`/`AgentFnResult`/`AgentBinding`，新增 `AdapterFn`/`RoleFn`/`AdapterBinding`
+1. `protocol` — 删除 `AgentContext`/`AgentFn`/`AgentFnResult`/`AgentBinding`，新增 `AdapterFn`/`RoleFn`/`AdapterBinding`
 2. `workflow-runtime` — 更新 re-export
 3. `workflow-execute` — engine 调用 `adapter(prompt, schema)` 替代 `agent(ctx) + extract`
-4. `workflow-util-agent` — `buildAgentPrompt` → `buildThreadInput`，接收 `ThreadContext`
+4. `util-agent` — `buildAgentPrompt` → `buildThreadInput`，接收 `ThreadContext`
 5. 所有 bundle-entry — `agent:` → `adapter:`
 
 ### 不受影响
 
-- `workflow-cas` / `workflow-register` / `workflow-reactor` / `workflow-dashboard`
-- `workflow-agent-hermes` / `workflow-agent-cursor`（内部不改，外部用 `agentToAdapter` 包装）
+- `workflow-cas` / `workflow-register` / `workflow-reactor` / `dashboard`
+- `agent-hermes` / `workflow-agent-cursor`（内部不改，外部用 `agentToAdapter` 包装）
 
 ## Phases
 

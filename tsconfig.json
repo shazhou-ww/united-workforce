@@ -18,12 +18,12 @@
     "types": ["bun-types", "node"]
   },
   "references": [
-    { "path": "packages/workflow-util" },
-    { "path": "packages/workflow-protocol" },
-    { "path": "packages/workflow-util-agent" },
-    { "path": "packages/workflow-agent-hermes" },
-    { "path": "packages/workflow-agent-builtin" },
-    { "path": "packages/workflow-agent-claude-code" },
-    { "path": "packages/cli-workflow" }
+    { "path": "packages/util" },
+    { "path": "packages/protocol" },
+    { "path": "packages/util-agent" },
+    { "path": "packages/agent-hermes" },
+    { "path": "packages/agent-builtin" },
+    { "path": "packages/agent-claude-code" },
+    { "path": "packages/cli" }
   ]
 }

@@ -21,14 +21,14 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 ```
 workflow/
   packages/
-    workflow-protocol/         # @united-workforce/protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
-    workflow-util/             # @united-workforce/util — Crockford Base32, ULID, logger, frontmatter parsing/validation
-    workflow-util-agent/       # @united-workforce/util-agent — createAgent factory, context builder, extract pipeline
-    workflow-agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
-    workflow-agent-claude-code/ # @united-workforce/agent-claude-code — uwf-claude-code CLI binary
-    workflow-agent-builtin/    # @united-workforce/agent-builtin — uwf-builtin CLI binary
-    cli-workflow/              # @united-workforce/cli — uwf CLI binary (includes status-based moderator in src/moderator/)
-    workflow-dashboard/        # @united-workforce/dashboard — web dashboard (private, not published)
+    protocol/         # @united-workforce/protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
+    util/             # @united-workforce/util — Crockford Base32, ULID, logger, frontmatter parsing/validation
+    util-agent/       # @united-workforce/util-agent — createAgent factory, context builder, extract pipeline
+    agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
+    agent-claude-code/ # @united-workforce/agent-claude-code — uwf-claude-code CLI binary
+    agent-builtin/    # @united-workforce/agent-builtin — uwf-builtin CLI binary
+    cli/              # @united-workforce/cli — uwf CLI binary (includes status-based moderator in src/moderator/)
+    dashboard/        # @united-workforce/dashboard — web dashboard (private, not published)
   legacy-packages/       # Archived packages (preserved for reference, not active)
   examples/              # Workflow YAML examples (solve-issue.yaml)
   docs/                  # Architecture docs
@@ -36,7 +36,7 @@ workflow/
   tsconfig.json          # root TypeScript config
 ```
 
-- Dependency layers: `workflow-protocol` → `workflow-util` → `workflow-util-agent` → `workflow-agent-hermes` / `workflow-agent-claude-code` / `workflow-agent-builtin` / `cli-workflow`
+- Dependency layers: `protocol` → `util` → `util-agent` → `agent-hermes` / `agent-claude-code` / `agent-builtin` / `cli`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
 - External CAS: `@ocas/core` (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend)
 
@@ -225,7 +225,7 @@ Test files (`__tests__/**`) are exempt.
 | **bun** | Package manager + runtime |
 | **TypeScript** | Type checking (strict mode) |
 | **Biome** | Lint + format (replaces ESLint + Prettier) |
-| **vitest** | Test runner (`cli-workflow` uses vitest; other packages use `bun test`) |
+| **vitest** | Test runner (`cli` uses vitest; other packages use `bun test`) |
 
 ### Development Workflow
 

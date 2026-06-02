@@ -148,7 +148,7 @@ roles:
 
       - Crockford Base32 log tags (8-char, unique per call site)
 
-      - No `console.log` in production code (use createLogger from @uncaged/workflow-util)
+      - No `console.log` in production code (use createLogger from @uncaged/util)
 
       - No dynamic imports in production code
 

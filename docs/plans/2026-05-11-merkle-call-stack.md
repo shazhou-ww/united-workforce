@@ -145,7 +145,7 @@ STATE_D1（父 developer state）
 
 ### Phase 1: Protocol + CAS 层
 
-1. `workflow-protocol/src/cas-types.ts` — `StartNodePayload` 加 `parentState: string | null`，`StateNodePayload` 加 `childThread: string | null`
+1. `protocol/src/cas-types.ts` — `StartNodePayload` 加 `parentState: string | null`，`StateNodePayload` 加 `childThread: string | null`
 2. `workflow-cas/src/nodes.ts` — `putStartNode` 接受可选 `parentStateHash`，放入 refs；`putStateNode` 接受可选 `childThreadHash`，放入 refs
 3. `workflow-cas/src/nodes.ts` — 解析逻辑兼容新字段（缺失时视为 null）
 

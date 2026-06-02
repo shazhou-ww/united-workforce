@@ -85,7 +85,7 @@ export HOME="$REAL_HOME"
 export PATH="$REAL_HOME/.bun/bin:$REAL_HOME/.hermes/hermes-agent/venv/bin:$REAL_HOME/.local/share/npm/bin:$PATH"
 
 # Resolve uwf and ocas
-UWF="bun $REPO_DIR/packages/cli-workflow/src/cli.ts"
+UWF="bun $REPO_DIR/packages/cli/src/cli.ts"
 OCAS="ocas"
 
 PASS=0

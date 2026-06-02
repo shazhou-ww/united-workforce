@@ -253,10 +253,10 @@ Breaking change. Old `.data.jsonl` files become incompatible. No backward compat
 
 | Package | Changes |
 |---------|---------|
-| `workflow-protocol` | Replace `StartStep`, `RoleStep` types with `StartNode`, `StateNode`. Add `ContentMerkleNode` type. Expand `ExtractResult` to include `refs[]`. |
+| `protocol` | Replace `StartStep`, `RoleStep` types with `StartNode`, `StateNode`. Add `ContentMerkleNode` type. Expand `ExtractResult` to include `refs[]`. |
 | `workflow-cas` | Add `findReachableHashes(roots)` for GC mark phase |
 | `workflow-execute` | Rewrite engine to write CAS nodes + update `threads.json` instead of appending JSONL. Move completed threads to `history/`. Simplify `gc.ts`. Simplify `fork-thread.ts`. Expand extract phase to produce refs. |
 | `workflow-runtime` | `ThreadContext` built by walking chain from head. `start.prompt` resolved from CAS via StartNode.refs[0]. |
-| `cli-workflow` | `thread list/show/rm` read from `threads.json` + `history/`. SSE watches `threads.json`. |
-| `workflow-dashboard` | Watch `threads.json` instead of `.data.jsonl` |
+| `cli` | `thread list/show/rm` read from `threads.json` + `history/`. SSE watches `threads.json`. |
+| `dashboard` | Watch `threads.json` instead of `.data.jsonl` |
 | Templates & Agents | Update extract definitions to produce `refs[]`. Update `ctx.start.content` → CAS resolved. |

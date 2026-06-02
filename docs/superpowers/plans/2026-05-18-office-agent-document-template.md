@@ -96,7 +96,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@uncaged/workflow-protocol": "workspace:^"
+    "@uncaged/protocol": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
@@ -116,7 +116,7 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../workflow-protocol" },
+    { "path": "../protocol" },
     { "path": "../workflow-runtime" },
     { "path": "../workflow-register" }
   ]
@@ -160,7 +160,7 @@ export {};
 ```typescript
 // __tests__/document-template.test.ts
 import { describe, expect, test } from "bun:test";
-import { tableToModerator } from "@uncaged/workflow-protocol/moderator-table.js";
+import { tableToModerator } from "@uncaged/protocol/moderator-table.js";
 import { validateWorkflowDescriptor } from "@uncaged/workflow-register";
 import { END, type ModeratorContext, type RoleStep, START } from "@uncaged/workflow-runtime";
 import { buildDocumentDescriptor } from "../src/descriptor.js";
@@ -497,8 +497,8 @@ git commit -m "feat(template): add workflow-template-document with writer/differ
   },
   "dependencies": {
     "@uncaged/workflow-runtime": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
-    "@uncaged/workflow-util-agent": "workspace:^"
+    "@uncaged/util": "workspace:^",
+    "@uncaged/util-agent": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
@@ -518,10 +518,10 @@ git commit -m "feat(template): add workflow-template-document with writer/differ
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../workflow-protocol" },
+    { "path": "../protocol" },
     { "path": "../workflow-runtime" },
-    { "path": "../workflow-util" },
-    { "path": "../workflow-util-agent" }
+    { "path": "../util" },
+    { "path": "../util-agent" }
   ]
 }
 ```
@@ -555,11 +555,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, mock, test } from "bun:test";
-import { ok, err } from "@uncaged/workflow-util";
-import type { SpawnCliConfig } from "@uncaged/workflow-util-agent";
+import { ok, err } from "@uncaged/util";
+import type { SpawnCliConfig } from "@uncaged/util-agent";
 import { editDocument, generateDocument } from "../src/runner.js";
 
-type MockSpawnResult = Awaited<ReturnType<typeof import("@uncaged/workflow-util-agent").spawnCli>>;
+type MockSpawnResult = Awaited<ReturnType<typeof import("@uncaged/util-agent").spawnCli>>;
 
 function makeSpawn(result: MockSpawnResult) {
   return mock(async (_cmd: string, _args: string[], _opts: SpawnCliConfig) => result);
@@ -705,7 +705,7 @@ export type OfficeAgentConfig = {
 ```typescript
 import { copyFile, mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { spawnCli } from "@uncaged/workflow-util-agent";
+import { spawnCli } from "@uncaged/util-agent";
 import type { OfficeAgentConfig } from "./types.js";
 
 type SpawnCliFn = typeof spawnCli;
@@ -769,9 +769,9 @@ export async function editDocument(
 }
 ```
 
-> **注意**：`throwSpawnError` 的参数类型可以简化为 `import type { SpawnCliError } from "@uncaged/workflow-util-agent"` 直接 import，避免复杂类型推导。把 `throwSpawnError` 的签名改成：
+> **注意**：`throwSpawnError` 的参数类型可以简化为 `import type { SpawnCliError } from "@uncaged/util-agent"` 直接 import，避免复杂类型推导。把 `throwSpawnError` 的签名改成：
 > ```typescript
-> import type { SpawnCliError } from "@uncaged/workflow-util-agent";
+> import type { SpawnCliError } from "@uncaged/util-agent";
 > function throwSpawnError(e: SpawnCliError): never { ... }
 > ```
 
@@ -839,7 +839,7 @@ Expected：`Cannot find module '../src/agent.js'`
 import * as z from "zod/v4";
 import { join } from "node:path";
 import type { AdapterFn, RoleResult, ThreadContext, WorkflowRuntime } from "@uncaged/workflow-runtime";
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@uncaged/util";
 import { editDocument, generateDocument } from "./runner.js";
 import type { OfficeAgentConfig } from "./types.js";
 
@@ -976,7 +976,7 @@ git commit -m "feat(agent): add workflow-agent-office with generate/edit Adapter
   },
   "dependencies": {
     "@uncaged/workflow-runtime": "workspace:^",
-    "@uncaged/workflow-util-agent": "workspace:^",
+    "@uncaged/util-agent": "workspace:^",
     "@uncaged/workflow-template-document": "workspace:^"
   },
   "publishConfig": {
@@ -997,9 +997,9 @@ git commit -m "feat(agent): add workflow-agent-office with generate/edit Adapter
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../workflow-protocol" },
+    { "path": "../protocol" },
     { "path": "../workflow-runtime" },
-    { "path": "../workflow-util-agent" },
+    { "path": "../util-agent" },
     { "path": "../workflow-template-document" }
   ]
 }
@@ -1034,11 +1034,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, mock, test } from "bun:test";
-import { ok, err } from "@uncaged/workflow-util";
-import type { SpawnCliConfig } from "@uncaged/workflow-util-agent";
+import { ok, err } from "@uncaged/util";
+import type { SpawnCliConfig } from "@uncaged/util-agent";
 import { runDocxDiff } from "../src/runner.js";
 
-type MockSpawnResult = Awaited<ReturnType<typeof import("@uncaged/workflow-util-agent").spawnCli>>;
+type MockSpawnResult = Awaited<ReturnType<typeof import("@uncaged/util-agent").spawnCli>>;
 
 function makeSpawn(result: MockSpawnResult) {
   return mock(async (_cmd: string, _args: string[], _opts: SpawnCliConfig) => result);
@@ -1165,8 +1165,8 @@ export type DocxDiffAgentConfig = {
 
 ```typescript
 import { stat } from "node:fs/promises";
-import { spawnCli } from "@uncaged/workflow-util-agent";
-import type { SpawnCliError } from "@uncaged/workflow-util-agent";
+import { spawnCli } from "@uncaged/util-agent";
+import type { SpawnCliError } from "@uncaged/util-agent";
 import type { DocxDiffAgentConfig } from "./types.js";
 
 type SpawnCliFn = typeof spawnCli;
@@ -1365,7 +1365,7 @@ git commit -m "feat(agent): add workflow-agent-docx-diff with docx-diff AdapterF
 
 - [ ] **Step 1：在 architecture.md 的 Package map 表格中补充三个包**
 
-在 `Agent adapters` 分组下（`workflow-agent-hermes` 行之后）追加：
+在 `Agent adapters` 分组下（`agent-hermes` 行之后）追加：
 
 ```markdown
 | | `@uncaged/workflow-agent-office` → `workflow-agent-office` | `AdapterFn` via `office-agent` CLI; generates or edits Word documents, stores outputs per threadId. |

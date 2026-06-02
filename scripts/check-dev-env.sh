@@ -53,7 +53,7 @@ echo "=== Workflow ==="
 # Check repo location
 REPO_DIR="${WORKFLOW_REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
 check "repo at ~/repos/workflow or WORKFLOW_REPO set" \
-  "[ -f '$REPO_DIR/packages/cli-workflow/src/cli.ts' ]" \
+  "[ -f '$REPO_DIR/packages/cli/src/cli.ts' ]" \
   "Clone the repo: git clone https://git.shazhou.work/uncaged/workflow ~/repos/workflow"
 
 # Check bun install
@@ -63,27 +63,27 @@ check "node_modules installed" \
 
 # Check build
 check "packages built (dist/)" \
-  "[ -f '$REPO_DIR/packages/cli-workflow/dist/cli.js' ]" \
+  "[ -f '$REPO_DIR/packages/cli/dist/cli.js' ]" \
   "cd $REPO_DIR && bun run build"
 
 # Check uwf is runnable
-check_version "uwf" "bun $REPO_DIR/packages/cli-workflow/src/cli.ts --version" \
+check_version "uwf" "bun $REPO_DIR/packages/cli/src/cli.ts --version" \
   "cd $REPO_DIR && bun install && bun run build"
 
 # Check uwf symlink
 check "uwf in PATH" \
   "command -v uwf" \
-  "sudo ln -sf $REPO_DIR/packages/cli-workflow/dist/cli.js /usr/bin/uwf && sudo chmod +x /usr/bin/uwf"
+  "sudo ln -sf $REPO_DIR/packages/cli/dist/cli.js /usr/bin/uwf && sudo chmod +x /usr/bin/uwf"
 
 # Check uwf-hermes
 check "uwf-hermes in PATH" \
   "command -v uwf-hermes" \
-  "bun link in packages/workflow-agent-hermes, or: echo '#!/usr/bin/env bun' > ~/.local/bin/uwf-hermes && echo 'import \"$REPO_DIR/packages/workflow-agent-hermes/src/cli.ts\"' >> ~/.local/bin/uwf-hermes && chmod +x ~/.local/bin/uwf-hermes"
+  "bun link in packages/agent-hermes, or: echo '#!/usr/bin/env bun' > ~/.local/bin/uwf-hermes && echo 'import \"$REPO_DIR/packages/agent-hermes/src/cli.ts\"' >> ~/.local/bin/uwf-hermes && chmod +x ~/.local/bin/uwf-hermes"
 
 # Check uwf-claude-code
 check "uwf-claude-code in PATH" \
   "command -v uwf-claude-code" \
-  "Create wrapper: echo '#!/bin/bash\nexec bun run $REPO_DIR/packages/workflow-agent-claude-code/src/cli.ts \"\$@\"' > ~/.local/bin/uwf-claude-code && chmod +x ~/.local/bin/uwf-claude-code"
+  "Create wrapper: echo '#!/bin/bash\nexec bun run $REPO_DIR/packages/agent-claude-code/src/cli.ts \"\$@\"' > ~/.local/bin/uwf-claude-code && chmod +x ~/.local/bin/uwf-claude-code"
 
 echo ""
 echo "=== Config ==="

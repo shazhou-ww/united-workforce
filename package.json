@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "uwf": "bun packages/cli-workflow/src/cli.ts",
+    "uwf": "bun packages/cli/src/cli.ts",
     "preinstall": "npx only-allow bun",
     "prepublishOnly": "echo 'Use bun run release instead' && exit 1",
     "build": "bunx tsc --build",

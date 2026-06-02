@@ -47,24 +47,24 @@ Dependency layers (lower layers have no dependency on higher layers):
 
 ```
 Layer 0 — Contract
-  workflow-protocol          Shared types and JSON Schema definitions
+  protocol          Shared types and JSON Schema definitions
 
 Layer 1 — Shared infra
-  workflow-util              Encoding, IDs, logging, frontmatter, paths
+  util              Encoding, IDs, logging, frontmatter, paths
 
 Layer 2 — Agent framework
-  workflow-util-agent         createAgent factory, context builder, extract pipeline
+  util-agent         createAgent factory, context builder, extract pipeline
 
 Layer 3 — Agent implementations
-  workflow-agent-hermes      Hermes ACP agent (uwf-hermes)
-  workflow-agent-builtin     Built-in LLM + tools agent (uwf-builtin)
-  workflow-agent-claude-code Claude Code agent (uwf-claude-code)
+  agent-hermes      Hermes ACP agent (uwf-hermes)
+  agent-builtin     Built-in LLM + tools agent (uwf-builtin)
+  agent-claude-code Claude Code agent (uwf-claude-code)
 
 Layer 4 — CLI
-  cli-workflow               uwf binary — thread lifecycle, registry, CAS, setup (includes status-based moderator)
+  cli               uwf binary — thread lifecycle, registry, CAS, setup (includes status-based moderator)
 
 App (uses protocol; not in the runtime engine stack)
-  workflow-dashboard         Web UI for visual workflow editing
+  dashboard         Web UI for visual workflow editing
 ```
 
 External CAS: [`@ocas/core`](https://www.npmjs.com/package/@ocas/core) (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend).
@@ -75,14 +75,14 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 
 | Package | npm | Description | Type | README |
 |---------|-----|-------------|------|--------|
-| `cli-workflow` | `@united-workforce/cli` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli-workflow/README.md) |
-| `workflow-protocol` | `@united-workforce/protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/workflow-protocol/README.md) |
-| `workflow-util-agent` | `@united-workforce/util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/workflow-util-agent/README.md) |
-| `workflow-util` | `@united-workforce/util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/workflow-util/README.md) |
-| `workflow-agent-hermes` | `@united-workforce/agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/workflow-agent-hermes/README.md) |
-| `workflow-agent-builtin` | `@united-workforce/agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/workflow-agent-builtin/README.md) |
-| `workflow-agent-claude-code` | `@united-workforce/agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/workflow-agent-claude-code/README.md) |
-| `workflow-dashboard` | `@united-workforce/dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/workflow-dashboard/README.md) |
+| `cli` | `@united-workforce/cli` | `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, setup | cli | [README](packages/cli/README.md) |
+| `protocol` | `@united-workforce/protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/protocol/README.md) |
+| `util-agent` | `@united-workforce/util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/util-agent/README.md) |
+| `util` | `@united-workforce/util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/util/README.md) |
+| `agent-hermes` | `@united-workforce/agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/agent-hermes/README.md) |
+| `agent-builtin` | `@united-workforce/agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/agent-builtin/README.md) |
+| `agent-claude-code` | `@united-workforce/agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/agent-claude-code/README.md) |
+| `dashboard` | `@united-workforce/dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/dashboard/README.md) |
 
 ## CLI Reference
 
@@ -100,7 +100,7 @@ Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 
 Config is stored in `~/.uwf/config.yaml`. API keys go in `~/.uwf/.env`.
 
-Detailed command usage, options, and examples: [packages/cli-workflow/README.md](packages/cli-workflow/README.md).
+Detailed command usage, options, and examples: [packages/cli/README.md](packages/cli/README.md).
 
 ## Development
 

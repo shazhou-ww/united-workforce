@@ -14,7 +14,7 @@
 现有 agent 是怎么被 CLI 调用的？输入（argv、环境变量）和输出（stdout、CAS）格式是什么？
 
 **调研要点：**
-- `cli-workflow` 里 `spawnAgent` 的完整实现
+- `cli` 里 `spawnAgent` 的完整实现
 - AgentConfig 类型定义
 - agent 进程的 exit code 约定
 - 环境变量传递（UWF_STORAGE_ROOT 等）
@@ -27,7 +27,7 @@
 
 #### AgentConfig 类型
 
-```146:149:packages/workflow-protocol/src/types.ts
+```146:149:packages/protocol/src/types.ts
 export type AgentConfig = {
   command: string;
   args: string[];
@@ -38,7 +38,7 @@ export type AgentConfig = {
 
 #### spawnAgent 行为
 
-```627:653:packages/cli-workflow/src/commands/thread.ts
+```627:653:packages/cli/src/commands/thread.ts
 function spawnAgent(agent: AgentConfig, threadId: ThreadId, role: string): CasRef {
   const argv = [...agent.args, threadId, role];
   let stdout: string;
@@ -78,9 +78,9 @@ Agent 解析优先级（`resolveAgentConfig`）：
 
 #### 环境变量：Storage Root
 
-文档中写的 `UWF_STORAGE_ROOT` **在当前代码中不存在**。实际优先级（`workflow-util-agent` / `cli-workflow` 一致）：
+文档中写的 `UWF_STORAGE_ROOT` **在当前代码中不存在**。实际优先级（`util-agent` / `cli` 一致）：
 
-```33:43:packages/workflow-util-agent/src/storage.ts
+```33:43:packages/util-agent/src/storage.ts
 export function resolveStorageRoot(): string {
   const internal = process.env.UNCAGED_WORKFLOW_STORAGE_ROOT;
   if (internal !== undefined && internal !== "") {
@@ -107,7 +107,7 @@ Agent 子进程通过继承的 `process.env` 与父 CLI 共享同一 storage roo
 
 ### Q2: createAgent 工厂
 
-workflow-util-agent 的 `createAgent` 做了什么？它的完整生命周期是什么？
+util-agent 的 `createAgent` 做了什么？它的完整生命周期是什么？
 
 **调研要点：**
 - `AgentOptions` 类型的 `run` 和 `continue` 回调签名
@@ -119,7 +119,7 @@ workflow-util-agent 的 `createAgent` 做了什么？它的完整生命周期是
 
 #### 类型定义
 
-```4:35:packages/workflow-util-agent/src/types.ts
+```4:35:packages/util-agent/src/types.ts
 export type AgentContext = ModeratorContext & {
   threadId: ThreadId;
   role: string;
@@ -156,7 +156,7 @@ export type AgentOptions = {
 
 #### 生命周期（按执行顺序）
 
-```101:152:packages/workflow-util-agent/src/run.ts
+```101:152:packages/util-agent/src/run.ts
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
     const { threadId, role } = parseArgv(process.argv);
@@ -197,7 +197,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
 
 #### StepNode 写入结构
 
-```44:68:packages/workflow-util-agent/src/run.ts
+```44:68:packages/util-agent/src/run.ts
 async function writeStepNode(options: {
   store: AgentStore["store"];
   schemas: AgentStore["schemas"];
@@ -242,21 +242,21 @@ async function writeStepNode(options: {
 
 继承 `ModeratorContext`：
 
-```60:68:packages/workflow-protocol/src/types.ts
+```60:68:packages/protocol/src/types.ts
 export type ModeratorContext = {
   start: StartNodePayload;
   steps: StepContext[];
 };
 ```
 
-```48:51:packages/workflow-protocol/src/types.ts
+```48:51:packages/protocol/src/types.ts
 export type StartNodePayload = {
   workflow: CasRef;
   prompt: string;
 };
 ```
 
-```61:63:packages/workflow-protocol/src/types.ts
+```61:63:packages/protocol/src/types.ts
 export type StepContext = Omit<StepRecord, "output"> & {
   output: unknown;
 };
@@ -274,7 +274,7 @@ export type StepContext = Omit<StepRecord, "output"> & {
 
 `buildContextWithMeta` 还返回 `meta`：
 
-```148:154:packages/workflow-util-agent/src/context.ts
+```148:154:packages/util-agent/src/context.ts
 export type BuildContextMeta = {
   storageRoot: string;
   store: Store;
@@ -327,7 +327,7 @@ agent 输出怎么被处理成结构化数据？
 
 Workflow YAML 中每个 role 的 `frontmatter:` 段是 JSON Schema 对象；注册时：
 
-```66:76:packages/cli-workflow/src/commands/workflow.ts
+```66:76:packages/cli/src/commands/workflow.ts
 async function resolveFrontmatterRef(..., frontmatter: unknown): Promise<CasRef> {
   // 校验为 JSON Schema → putSchema → 返回 CasRef
 }
@@ -337,7 +337,7 @@ async function resolveFrontmatterRef(..., frontmatter: unknown): Promise<CasRef>
 
 #### Frontmatter fast-path（createAgent 实际使用的路径）
 
-```148:195:packages/workflow-util-agent/src/frontmatter.ts
+```148:195:packages/util-agent/src/frontmatter.ts
 export async function tryFrontmatterFastPath(
   raw: string,
   outputSchema: CasRef,
@@ -357,7 +357,7 @@ export async function tryFrontmatterFastPath(
 
 #### LLM extract fallback（已实现但未接入 createAgent）
 
-```135:181:packages/workflow-util-agent/src/extract.ts
+```135:181:packages/util-agent/src/extract.ts
 export async function extract(
   rawOutput: string,
   outputSchema: CasRef,
@@ -374,7 +374,7 @@ export async function extract(
 
 #### Correction prompt（retry）
 
-```125:128:packages/workflow-util-agent/src/run.ts
+```125:128:packages/util-agent/src/run.ts
 const correctionMessage =
   "Your previous response did not contain valid YAML frontmatter matching the role schema.\n" +
   "You MUST begin your response with a YAML frontmatter block (--- delimited).\n" +
@@ -399,7 +399,7 @@ workflow 怎么配置和使用 model？
 
 #### WorkflowConfig
 
-```136:160:packages/workflow-protocol/src/types.ts
+```136:160:packages/protocol/src/types.ts
 export type ProviderConfig = {
   baseUrl: string;
   apiKey: string;
@@ -425,7 +425,7 @@ export type WorkflowConfig = {
 
 #### resolveModel
 
-```32:50:packages/workflow-util-agent/src/extract.ts
+```32:50:packages/util-agent/src/extract.ts
 export function resolveModel(config: WorkflowConfig, alias: ModelAlias): ResolvedLlmProvider {
   const modelEntry = config.models[alias];
   const providerEntry = config.providers[modelEntry.provider];
@@ -438,7 +438,7 @@ export function resolveModel(config: WorkflowConfig, alias: ModelAlias): Resolve
 
 Extract 专用别名解析：
 
-```18:30:packages/workflow-util-agent/src/extract.ts
+```18:30:packages/util-agent/src/extract.ts
 export function resolveExtractModelAlias(config: WorkflowConfig): ModelAlias {
   return config.modelOverrides?.extract ?? (config.models.extract ? "extract" : config.models.default ? "default" : config.defaultModel);
 }
@@ -448,7 +448,7 @@ export function resolveExtractModelAlias(config: WorkflowConfig): ModelAlias {
 
 #### chatCompletionText
 
-```87:124:packages/workflow-util-agent/src/extract.ts
+```87:124:packages/util-agent/src/extract.ts
 async function chatCompletionText(
   provider: ResolvedLlmProvider,
   messages: Array<{ role: "system" | "user"; content: string }>,
@@ -463,7 +463,7 @@ async function chatCompletionText(
 | 多模态 | **无**（仅 text `content`） |
 | Extract 专用 | `response_format: { type: "json_object" }` |
 
-builtin agent 的 run loop 需要**新写**带 `tools` 的 completion 客户端（可放在 `workflow-agent-builtin` 或扩展 `workflow-util-agent` 的 `llm/` 模块），不能复用当前 `chatCompletionText` 而不改。
+builtin agent 的 run loop 需要**新写**带 `tools` 的 completion 客户端（可放在 `agent-builtin` 或扩展 `util-agent` 的 `llm/` 模块），不能复用当前 `chatCompletionText` 而不改。
 
 ---
 
@@ -481,7 +481,7 @@ builtin agent 的 run loop 需要**新写**带 `tools` 的 completion 客户端�
 
 #### Prompt 组装
 
-```40:53:packages/workflow-agent-hermes/src/hermes.ts
+```40:53:packages/agent-hermes/src/hermes.ts
 export function buildHermesPrompt(ctx: AgentContext): string {
   const roleDef = ctx.workflow.roles[ctx.role];
   const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
@@ -508,13 +508,13 @@ Hermes 把**整段 prompt 作为单条 user 消息**传给 `hermes chat -q`（�
 
 首次：
 
-```88:97:packages/workflow-agent-hermes/src/hermes.ts
+```88:97:packages/agent-hermes/src/hermes.ts
 spawnHermes(["chat", "-q", prompt, "--yolo", "--max-turns", "90", "--quiet"]);
 ```
 
 续聊：
 
-```100:114:packages/workflow-agent-hermes/src/hermes.ts
+```100:114:packages/agent-hermes/src/hermes.ts
 spawnHermes(["chat", "--resume", sessionId, "-q", message, "--yolo", "--max-turns", "90", "--quiet"]);
 ```
 
@@ -526,7 +526,7 @@ spawnHermes(["chat", "--resume", sessionId, "-q", message, "--yolo", "--max-turn
 
 #### 与 createAgent 的衔接
 
-```157:164:packages/workflow-agent-hermes/src/hermes.ts
+```157:164:packages/agent-hermes/src/hermes.ts
 export function createHermesAgent(): () => Promise<void> {
   return createAgent({ name: "hermes", run: runHermes, continue: continueHermes });
 }
@@ -534,7 +534,7 @@ export function createHermesAgent(): () => Promise<void> {
 
 `uwf-hermes` 入口：`createHermesAgent()` 即 main。
 
-Claude Code 包（`workflow-agent-claude-code`）结构相同：`buildClaudeCodePrompt` 同构，`claude -p` + `--resume` + JSON stdout 解析。
+Claude Code 包（`agent-claude-code`）结构相同：`buildClaudeCodePrompt` 同构，`claude -p` + `--resume` + JSON stdout 解析。
 
 ---
 
@@ -591,7 +591,7 @@ Hermes 自带完整 agent runtime（`--yolo`、max-turns），tool 集由 Hermes
 
 ```mermaid
 flowchart TB
-  subgraph cli ["cli-workflow"]
+  subgraph cli ["cli"]
     Step["uwf thread step"]
     Spawn["spawnAgent(uwf-builtin, threadId, role)"]
     Step --> Spawn
@@ -609,7 +609,7 @@ flowchart TB
     Loop --> Detail
   end
 
-  subgraph kit ["workflow-util-agent"]
+  subgraph kit ["util-agent"]
     Ctx["buildContextWithMeta"]
     FM["tryFrontmatterFastPath"]
     Persist["persistStep"]
@@ -630,7 +630,7 @@ flowchart TB
   Spawn -->|"stdout: step hash"| Step
 ```
 
-**新包**：`packages/workflow-agent-builtin`，bin `uwf-builtin`，仅依赖 `workflow-util-agent`、`workflow-protocol`、`workflow-util`（可选 `@ocas/core` 写 detail schema）。
+**新包**：`packages/agent-builtin`，bin `uwf-builtin`，仅依赖 `util-agent`、`protocol`、`util`（可选 `@ocas/core` 写 detail schema）。
 
 **分层**：
 
