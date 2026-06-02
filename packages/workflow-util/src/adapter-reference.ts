@@ -16,8 +16,8 @@ The adapter must produce frontmatter markdown output. The engine handles argumen
 ## Quick Start
 
 \`\`\`typescript
-import { createAgent } from "@uncaged/workflow-util-agent";
-import type { AgentContext, AgentRunResult, AgentContinueFn, AgentRunFn } from "@uncaged/workflow-util-agent";
+import { createAgent } from "@united-workforce/util-agent";
+import type { AgentContext, AgentRunResult, AgentContinueFn, AgentRunFn } from "@united-workforce/util-agent";
 
 const run: AgentRunFn = async (ctx: AgentContext): Promise<AgentRunResult> => {
   // 1. Build your prompt from ctx
@@ -91,7 +91,7 @@ type AgentRunResult = {
 
 ## Building the Prompt
 
-Use helpers from \`@uncaged/workflow-util-agent\`:
+Use helpers from \`@united-workforce/util-agent\`:
 
 | Helper | Purpose |
 |--------|---------|
@@ -145,9 +145,9 @@ defaultAgent: my-agent
 
 | Adapter | Package | Backend |
 |---------|---------|---------|
-| \`uwf-hermes\` | \`@uncaged/workflow-agent-hermes\` | Hermes ACP (chat sessions) |
-| \`uwf-builtin\` | \`@uncaged/workflow-agent-builtin\` | Direct OpenAI API (tools + loop) |
-| \`uwf-claude-code\` | \`@uncaged/workflow-agent-claude-code\` | Claude Code CLI |
+| \`uwf-hermes\` | \`@united-workforce/agent-hermes\` | Hermes ACP (chat sessions) |
+| \`uwf-builtin\` | \`@united-workforce/agent-builtin\` | Direct OpenAI API (tools + loop) |
+| \`uwf-claude-code\` | \`@united-workforce/agent-claude-code\` | Claude Code CLI |
 
 Study these for patterns on prompt building, session management, and detail storage.
 

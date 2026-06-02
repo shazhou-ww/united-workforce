@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import type { CasRef, ThreadId, ThreadStatus } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId, ThreadStatus } from "@united-workforce/protocol";
 import { Command } from "commander";
 import {
   cmdCasGet,

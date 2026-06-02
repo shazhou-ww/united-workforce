@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Target, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { Target, WorkflowPayload } from "@united-workforce/protocol";
 
 import { evaluate } from "../moderator/evaluate.js";
 

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { ThreadId } from "@united-workforce/protocol";
 
 import { resolveStorageRoot } from "./storage.js";
 

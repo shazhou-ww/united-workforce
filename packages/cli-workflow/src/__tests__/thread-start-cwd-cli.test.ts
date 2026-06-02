@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CasRef, StartNodePayload, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, StartNodePayload, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadStart } from "../commands/thread.js";
 import { createUwfStore, loadThreadsIndex } from "../store.js";
 

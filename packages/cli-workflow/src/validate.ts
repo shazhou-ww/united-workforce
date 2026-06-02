@@ -1,5 +1,5 @@
 import { basename, dirname } from "node:path";
-import type { CasRef, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
 
 const CAS_REF_PATTERN = /^[0-9A-HJKMNP-TV-Z]{13}$/;
 

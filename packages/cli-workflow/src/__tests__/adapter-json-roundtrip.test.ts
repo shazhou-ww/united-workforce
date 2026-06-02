@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
-import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
 import { registerUwfSchemas } from "../schemas.js";
 import { saveThreadsIndex } from "../store.js";
 

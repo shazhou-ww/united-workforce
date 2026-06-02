@@ -1,10 +1,10 @@
 // Re-export session cache from the shared agent-kit package with agent name injected.
 
-import type { ThreadId } from "@uncaged/workflow-protocol";
+import type { ThreadId } from "@united-workforce/protocol";
 import {
   getCachedSessionId as getCachedSessionIdBase,
   setCachedSessionId as setCachedSessionIdBase,
-} from "@uncaged/workflow-util-agent";
+} from "@united-workforce/util-agent";
 
 export async function getCachedSessionId(threadId: ThreadId, role: string): Promise<string | null> {
   return getCachedSessionIdBase("hermes", threadId, role);

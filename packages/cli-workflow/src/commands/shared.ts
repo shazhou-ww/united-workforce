@@ -5,7 +5,7 @@ import type {
   StartNodePayload,
   StepNodePayload,
   ThreadId,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import { findThreadInHistory, loadThreadsIndex, type UwfStore } from "../store.js";
 
 type ChainState = {

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
-import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
-import { STEP_NODE_SCHEMA } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId } from "@united-workforce/protocol";
+import { STEP_NODE_SCHEMA } from "@united-workforce/protocol";
 import { cmdStepList } from "../commands/step.js";
 import { cmdThreadRead } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
@@ -86,7 +86,7 @@ afterEach(async () => {
 describe("protocol types", () => {
   test("StepRecord has startedAtMs and completedAtMs as required fields", () => {
     // Type-level test: this block compiles only if fields exist and are number
-    const record: import("@uncaged/workflow-protocol").StepRecord = {
+    const record: import("@united-workforce/protocol").StepRecord = {
       role: "test",
       output: "hash1" as CasRef,
       detail: "hash2" as CasRef,
@@ -102,7 +102,7 @@ describe("protocol types", () => {
   });
 
   test("StepEntry has durationMs as required field", () => {
-    const entry: import("@uncaged/workflow-protocol").StepEntry = {
+    const entry: import("@united-workforce/protocol").StepEntry = {
       hash: "hash" as CasRef,
       role: "test",
       output: {},
@@ -222,7 +222,7 @@ describe("step list timing", () => {
     const stepEntries = result.steps.slice(1); // skip start entry
     expect(stepEntries).toHaveLength(1);
 
-    const step = stepEntries[0] as import("@uncaged/workflow-protocol").StepEntry;
+    const step = stepEntries[0] as import("@united-workforce/protocol").StepEntry;
     expect(step.durationMs).toBe(3500);
   });
 });

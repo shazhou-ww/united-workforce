@@ -1,4 +1,4 @@
-# @uncaged/workflow-agent-hermes
+# @united-workforce/agent-hermes
 
 `uwf-hermes` — an **agent adapter** that bridges the `uwf` workflow engine and the Hermes CLI.
 
@@ -8,14 +8,14 @@
 
 On first visit to a role it sends a composed prompt (role definition, task, history, edge prompt); on continuation it resumes the cached session. Session transcripts and raw output are stored as CAS detail nodes.
 
-**Dependencies:** `@ocas/core`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`
+**Dependencies:** `@ocas/core`, `@united-workforce/util-agent`, `@united-workforce/protocol`, `@united-workforce/util`
 
 ## Installation
 
-Included as the `uwf-hermes` binary when you install `@uncaged/workflow-agent-hermes`:
+Included as the `uwf-hermes` binary when you install `@united-workforce/agent-hermes`:
 
 ```bash
-bun add -g @uncaged/workflow-agent-hermes
+bun add -g @united-workforce/agent-hermes
 ```
 
 Requires the `hermes` CLI on `PATH`.
@@ -73,7 +73,7 @@ class HermesAcpClient {
 ## Usage (library)
 
 ```typescript
-import { createHermesAgent, buildHermesPrompt } from "@uncaged/workflow-agent-hermes";
+import { createHermesAgent, buildHermesPrompt } from "@united-workforce/agent-hermes";
 
 // CLI entry (src/cli.ts):
 const main = createHermesAgent();

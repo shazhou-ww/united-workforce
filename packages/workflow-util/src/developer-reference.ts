@@ -39,7 +39,7 @@ Classes allowed only when required by third-party libraries or for Error subclas
 
 ### Error Handling
 
-- \`Result<T, E>\` type for expected failures (\`ok\`/\`err\` constructors from \`@uncaged/workflow-util\`)
+- \`Result<T, E>\` type for expected failures (\`ok\`/\`err\` constructors from \`@united-workforce/util\`)
 - \`throw\` only for unrecoverable bugs
 - No try-catch for flow control
 
@@ -52,14 +52,14 @@ Always \`async/await\`, never \`.then()\` chains.
 \`console.*\` is banned (Biome \`noConsole\` rule). Use the structured logger:
 
 \`\`\`typescript
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@united-workforce/util";
 const log = createLogger();
 log("4KNMR2PX", "Loading workflow...");  // 8-char Crockford Base32 tag
 \`\`\`
 
 Each call site gets a unique hand-written tag. \`grep "4KNMR2PX"\` in logs → instant code location.
 
-CLI package (\`@uncaged/cli-workflow\`) may use \`console.log\` for user-facing output with a biome-ignore comment.
+CLI package (\`@united-workforce/cli\`) may use \`console.log\` for user-facing output with a biome-ignore comment.
 
 ### No Dynamic Import
 
@@ -90,7 +90,7 @@ Before committing: \`bun run check\` + \`bun test\` must both pass.
 
 ### Publishing
 
-Fixed-mode versioning — all \`@uncaged/*\` packages share the same version number.
+Fixed-mode versioning — all \`@united-workforce/*\` packages share the same version number.
 
 \`\`\`bash
 bun changeset               # describe the change

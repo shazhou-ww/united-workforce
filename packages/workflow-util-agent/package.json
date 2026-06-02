@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-util-agent",
+  "name": "@united-workforce/util-agent",
   "version": "0.5.0",
   "files": [
     "src",
@@ -22,8 +22,8 @@
   "dependencies": {
     "@ocas/core": "^0.1.1",
     "@ocas/fs": "^0.1.1",
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^",
+    "@united-workforce/protocol": "workspace:^",
+    "@united-workforce/util": "workspace:^",
     "dotenv": "^16.6.1",
     "yaml": "^2.8.4"
   },

@@ -1,12 +1,12 @@
 import type { Store } from "@ocas/core";
 import { getSchema, validate } from "@ocas/core";
-import type { CasRef } from "@uncaged/workflow-protocol";
+import type { CasRef } from "@united-workforce/protocol";
 import {
   type AgentFrontmatter,
   createLogger,
   parseFrontmatterMarkdown,
   validateFrontmatter,
-} from "@uncaged/workflow-util";
+} from "@united-workforce/util";
 import { parse as parseYaml } from "yaml";
 
 import { extractSchemaFields } from "./build-output-format-instruction.js";

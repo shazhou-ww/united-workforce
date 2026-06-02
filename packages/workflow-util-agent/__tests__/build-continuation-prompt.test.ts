@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { StepContext } from "@uncaged/workflow-protocol";
+import type { StepContext } from "@united-workforce/protocol";
 import { buildContinuationPrompt } from "../src/build-continuation-prompt.js";
 
 const reviewerStep: StepContext = {

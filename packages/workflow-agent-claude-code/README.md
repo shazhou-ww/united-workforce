@@ -1,4 +1,4 @@
-# @uncaged/workflow-agent-claude-code
+# @united-workforce/agent-claude-code
 
 `uwf-claude-code` agent — spawns the Claude Code CLI and captures session detail.
 
@@ -6,14 +6,14 @@
 
 Layer 3 agent implementation. Spawns the `claude` CLI with a composed system prompt (role definition, task, prior steps, edge prompt). Parses stream or JSON stdout, caches session IDs for multi-turn continuation, and stores raw output plus structured detail in CAS.
 
-**Dependencies:** `@ocas/core`, `@uncaged/workflow-util-agent`
+**Dependencies:** `@ocas/core`, `@united-workforce/util-agent`
 
 ## Installation
 
-Included as the `uwf-claude-code` binary when you install `@uncaged/workflow-agent-claude-code`:
+Included as the `uwf-claude-code` binary when you install `@united-workforce/agent-claude-code`:
 
 ```bash
-bun add -g @uncaged/workflow-agent-claude-code
+bun add -g @united-workforce/agent-claude-code
 ```
 
 Requires the `claude` CLI on `PATH`.
@@ -66,7 +66,7 @@ function storeClaudeCodeRawOutput(store: Store, rawOutput: string): Promise<stri
 ## Usage (library)
 
 ```typescript
-import { createClaudeCodeAgent, buildClaudeCodePrompt } from "@uncaged/workflow-agent-claude-code";
+import { createClaudeCodeAgent, buildClaudeCodePrompt } from "@united-workforce/agent-claude-code";
 
 const main = createClaudeCodeAgent();
 void main();
@@ -86,6 +86,6 @@ src/
 
 ## Configuration
 
-Uses session caching from `@uncaged/workflow-util-agent` (`getCachedSessionId` / `setCachedSessionId`). No separate config file — relies on the Claude Code CLI's own authentication.
+Uses session caching from `@united-workforce/util-agent` (`getCachedSessionId` / `setCachedSessionId`). No separate config file — relies on the Claude Code CLI's own authentication.
 
 Maximum turns per invocation: 90 (constant in `claude-code.ts`).

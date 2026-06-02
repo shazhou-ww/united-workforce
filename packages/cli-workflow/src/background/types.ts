@@ -1,4 +1,4 @@
-import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId } from "@united-workforce/protocol";
 
 /** Marker file stored at ~/.uncaged/workflow/running/<thread-id>.json */
 export type RunningMarker = {

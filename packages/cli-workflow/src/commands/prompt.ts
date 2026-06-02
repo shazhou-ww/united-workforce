@@ -4,7 +4,7 @@ import {
   generateBootstrapReference,
   generateDeveloperReference,
   generateUserReference,
-} from "@uncaged/workflow-util";
+} from "@united-workforce/util";
 
 export {
   generateAdapterReference as cmdPromptAdapter,
@@ -42,7 +42,7 @@ so that you know how to use the \`uwf\` CLI for workflow orchestration.
    \`\`\`bash
    uwf --help
    \`\`\`
-   If not installed: \`bun add -g @uncaged/cli-workflow\`
+   If not installed: \`bun add -g @united-workforce/cli\`
 
 2. **Clean up old versions of the skill** (if any exist):
    - Look for any existing uwf/workflow skill files in your skill directories

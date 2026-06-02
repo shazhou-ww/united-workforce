@@ -15,8 +15,8 @@ import type {
   ThreadsIndex,
   WorkflowConfig,
   WorkflowName,
-} from "@uncaged/workflow-protocol";
-import { parseThreadsIndex } from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
+import { parseThreadsIndex } from "@united-workforce/protocol";
 import { parse } from "yaml";
 
 import { registerAgentSchemas } from "./schemas.js";

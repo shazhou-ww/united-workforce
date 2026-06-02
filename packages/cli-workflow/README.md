@@ -1,4 +1,4 @@
-# @uncaged/cli-workflow
+# @united-workforce/cli
 
 `uwf` CLI — thread lifecycle, workflow registry, CAS inspection, and setup.
 
@@ -20,14 +20,14 @@ workflow → thread → step → turn
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
-**Dependencies:** `@ocas/core`, `@ocas/fs`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `commander`, `dotenv`, `mustache`, `yaml`
+**Dependencies:** `@ocas/core`, `@ocas/fs`, `@united-workforce/util-agent`, `@united-workforce/protocol`, `@united-workforce/util`, `commander`, `dotenv`, `mustache`, `yaml`
 
 ## Installation
 
-Included as the `uwf` binary when you install `@uncaged/cli-workflow`:
+Included as the `uwf` binary when you install `@united-workforce/cli`:
 
 ```bash
-bun add -g @uncaged/cli-workflow
+bun add -g @united-workforce/cli
 # or from the monorepo:
 bun link packages/cli-workflow
 ```

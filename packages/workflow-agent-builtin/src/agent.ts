@@ -1,5 +1,5 @@
 import type { Store } from "@ocas/core";
-import { createLogger, generateUlid } from "@uncaged/workflow-util";
+import { createLogger, generateUlid } from "@united-workforce/util";
 import {
   type AgentContext,
   type AgentRunResult,
@@ -7,7 +7,7 @@ import {
   loadWorkflowConfig,
   resolveModel,
   resolveStorageRoot,
-} from "@uncaged/workflow-util-agent";
+} from "@united-workforce/util-agent";
 
 import { storeBuiltinDetail } from "./detail.js";
 import type { ChatMessage } from "./llm/index.js";

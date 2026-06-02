@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
-import type { Result } from "@uncaged/workflow-util";
+import type { Result } from "@united-workforce/util";
 import { parse, stringify } from "yaml";
 
 /**
@@ -304,8 +304,8 @@ export async function _promptAgentSelection(
   if (agents.length === 0) {
     console.log("  No uwf-* agent binaries found in PATH.\n");
     console.log("  Install one first, for example:");
-    console.log("    npm i -g @uncaged/workflow-agent-hermes");
-    console.log("    npm i -g @uncaged/workflow-agent-claude-code\n");
+    console.log("    npm i -g @united-workforce/agent-hermes");
+    console.log("    npm i -g @united-workforce/agent-claude-code\n");
     const manual = (
       await rl.question("Agent binary name (e.g. uwf-hermes), or press Enter to skip: ")
     ).trim();

@@ -1,4 +1,4 @@
-# @uncaged/workflow-protocol
+# @united-workforce/protocol
 
 Shared TypeScript types and JSON Schema constants for the workflow engine.
 
@@ -11,7 +11,7 @@ This is the contract layer (Layer 0). It defines `WorkflowPayload`, thread node 
 ## Installation
 
 ```bash
-bun add @uncaged/workflow-protocol
+bun add @united-workforce/protocol
 ```
 
 ## API
@@ -183,4 +183,4 @@ src/
 
 ## Configuration
 
-This package defines `WorkflowConfig` types only. Runtime config loading lives in `@uncaged/workflow-util-agent` (`loadWorkflowConfig`).
+This package defines `WorkflowConfig` types only. Runtime config loading lives in `@united-workforce/util-agent` (`loadWorkflowConfig`).

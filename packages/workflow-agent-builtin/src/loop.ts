@@ -1,5 +1,5 @@
-import { createLogger } from "@uncaged/workflow-util";
-import type { ResolvedLlmProvider } from "@uncaged/workflow-util-agent";
+import { createLogger } from "@united-workforce/util";
+import type { ResolvedLlmProvider } from "@united-workforce/util-agent";
 
 import {
   type ChatMessage,

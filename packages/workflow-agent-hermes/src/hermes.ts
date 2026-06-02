@@ -1,12 +1,12 @@
 import type { Store } from "@ocas/core";
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@united-workforce/util";
 import {
   type AgentContext,
   type AgentRunResult,
   buildContinuationPrompt,
   buildRolePrompt,
   createAgent,
-} from "@uncaged/workflow-util-agent";
+} from "@united-workforce/util-agent";
 
 import { HermesAcpClient } from "./acp-client.js";
 import { getCachedSessionId, isResumeDisabled, setCachedSessionId } from "./session-cache.js";

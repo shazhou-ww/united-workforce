@@ -1,4 +1,4 @@
-# @uncaged/workflow-agent-builtin
+# @united-workforce/agent-builtin
 
 `uwf-builtin` agent — built-in LLM agent with file read/write and shell tools.
 
@@ -8,14 +8,14 @@ Layer 3 agent implementation. Runs an OpenAI-compatible chat completion loop wit
 
 Useful when you want a self-contained agent without an external CLI like Hermes or Claude Code.
 
-**Dependencies:** `@ocas/core`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-util`
+**Dependencies:** `@ocas/core`, `@united-workforce/util-agent`, `@united-workforce/util`
 
 ## Installation
 
-Included as the `uwf-builtin` binary when you install `@uncaged/workflow-agent-builtin`:
+Included as the `uwf-builtin` binary when you install `@united-workforce/agent-builtin`:
 
 ```bash
-bun add -g @uncaged/workflow-agent-builtin
+bun add -g @united-workforce/agent-builtin
 ```
 
 ## CLI Usage
