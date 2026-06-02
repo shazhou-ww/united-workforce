@@ -9,8 +9,9 @@ import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {
   appendThreadHistory,
   createUwfStore,
-  loadThreadsIndex,
-  saveThreadsIndex,
+  deleteThread,
+  loadAllThreads,
+  setThread,
 } from "../store.js";
 
 const OUTPUT_SCHEMA = {
@@ -89,7 +90,7 @@ async function insertStepNode(
   outputPayload: Record<string, unknown>,
 ): Promise<void> {
   const uwf = await createUwfStore(storageRoot);
-  const index = await loadThreadsIndex(storageRoot);
+  const index = loadAllThreads(uwf.varStore);
   const headEntry = index[threadId];
   if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
   const head = headEntry.head;
@@ -117,8 +118,7 @@ async function insertStepNode(
     assembledPrompt: null,
   })) as CasRef;
 
-  index[threadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
-  await saveThreadsIndex(storageRoot, index);
+  setThread(uwf.varStore, threadId, { head: stepHash, suspendedRole: null, suspendMessage: null });
 }
 
 describe("thread show status field", () => {
@@ -203,15 +203,12 @@ describe("thread show status field", () => {
     const workflow = startResult.workflow;
 
     // Get the head hash before moving to history
-    const index = await loadThreadsIndex(storageRoot);
+    const uwfForIndex = await createUwfStore(storageRoot);
+    const index = loadAllThreads(uwfForIndex.varStore);
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    // Move thread to history with reason 'completed'
-    const { saveThreadsIndex } = await import("../store.js");
-    const newIndex = { ...index };
-    delete newIndex[threadId];
-    await saveThreadsIndex(storageRoot, newIndex);
+    deleteThread(uwfForIndex.varStore, threadId);
 
     await appendThreadHistory(storageRoot, {
       thread: threadId,
@@ -243,15 +240,12 @@ describe("thread show status field", () => {
     const workflow = startResult.workflow;
 
     // Get the head hash before moving to history
-    const index = await loadThreadsIndex(storageRoot);
+    const uwfForIndex = await createUwfStore(storageRoot);
+    const index = loadAllThreads(uwfForIndex.varStore);
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    // Move thread to history with reason 'cancelled'
-    const { saveThreadsIndex } = await import("../store.js");
-    const newIndex = { ...index };
-    delete newIndex[threadId];
-    await saveThreadsIndex(storageRoot, newIndex);
+    deleteThread(uwfForIndex.varStore, threadId);
 
     await appendThreadHistory(storageRoot, {
       thread: threadId,
@@ -283,15 +277,12 @@ describe("thread show status field", () => {
     const workflow = startResult.workflow;
 
     // Get the head hash before moving to history
-    const index = await loadThreadsIndex(storageRoot);
+    const uwfForIndex = await createUwfStore(storageRoot);
+    const index = loadAllThreads(uwfForIndex.varStore);
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    // Move thread to history with reason null (legacy format)
-    const { saveThreadsIndex } = await import("../store.js");
-    const newIndex = { ...index };
-    delete newIndex[threadId];
-    await saveThreadsIndex(storageRoot, newIndex);
+    deleteThread(uwfForIndex.varStore, threadId);
 
     await appendThreadHistory(storageRoot, {
       thread: threadId,

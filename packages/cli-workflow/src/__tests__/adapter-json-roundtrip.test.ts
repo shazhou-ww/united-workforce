@@ -7,7 +7,7 @@ import { putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
 import { registerUwfSchemas } from "../schemas.js";
-import { saveThreadsIndex } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas ──────────────────────────────────────────────────────────────────
 
@@ -67,8 +67,10 @@ describe("C1: adapter JSON round-trip integration", () => {
       prompt: "Test round-trip task",
     });
 
+    process.env.UNCAGED_CAS_DIR = casDir;
+
     const threadId = "01ROUNDTRIPTEST0000000000" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: startHash });
+    await seedThreads(tmpDir, { [threadId]: startHash });
 
     // 2. Pre-create CAS nodes that the mock agent would produce
     const outputHash = await store.put(outputSchemaHash, {

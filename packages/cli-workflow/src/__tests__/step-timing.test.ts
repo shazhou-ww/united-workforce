@@ -9,7 +9,7 @@ import { STEP_NODE_SCHEMA } from "@united-workforce/protocol";
 import { cmdStepList } from "../commands/step.js";
 import { cmdThreadRead } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
-import { saveThreadsIndex } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas ──────────────────────────────────────────────────────────────────
 
@@ -216,7 +216,7 @@ describe("step list timing", () => {
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ1" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const result = await cmdStepList(tmpDir, threadId);
     const stepEntries = result.steps.slice(1); // skip start entry
@@ -290,7 +290,7 @@ describe("thread read timing", () => {
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ3" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, 10000, null, false);
     expect(markdown).toContain("**Duration:** 42.0s");
@@ -356,7 +356,7 @@ describe("thread read timing", () => {
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ4" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, 10000, null, false);
     expect(markdown).toContain("**Duration:** 350ms");

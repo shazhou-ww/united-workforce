@@ -7,7 +7,8 @@ import type { createFsStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadRead, THREAD_READ_DEFAULT_QUOTA } from "../commands/thread.js";
 import type { UwfStore } from "../store.js";
-import { createUwfStore, saveThreadsIndex } from "../store.js";
+import { createUwfStore } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000001" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -221,7 +222,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000002" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -296,7 +297,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000003" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: step2 });
+    await seedThreads(tmpDir, { [threadId]: step2 });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -351,7 +352,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000004" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -406,7 +407,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000005" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -461,7 +462,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000006" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, true);
 
@@ -560,7 +561,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000007" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: step3 });
+    await seedThreads(tmpDir, { [threadId]: step3 });
 
     const markdown = await cmdThreadRead(
       tmpDir,
@@ -641,7 +642,7 @@ describe("thread read XML tag isolation", () => {
     });
 
     const threadId = "01JTEST0000000000000008" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -701,7 +702,7 @@ describe("thread read XML tag isolation", () => {
     }
 
     const threadId = "01JTEST0000000000000009" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: steps[steps.length - 1]! });
+    await seedThreads(tmpDir, { [threadId]: steps[steps.length - 1]! });
 
     // Use very small quota
     const markdown = await cmdThreadRead(tmpDir, threadId, 1, null, false);

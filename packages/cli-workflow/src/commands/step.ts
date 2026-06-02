@@ -9,7 +9,7 @@ import type {
   ThreadStepsOutput,
 } from "@united-workforce/protocol";
 import { generateUlid } from "@united-workforce/util";
-import { createUwfStore, loadThreadsIndex, saveThreadsIndex } from "../store.js";
+import { createUwfStore, setThread } from "../store.js";
 import {
   collectOrderedSteps,
   expandDeep,
@@ -112,9 +112,11 @@ export async function cmdStepFork(
   }
 
   const newThreadId = generateUlid(Date.now()) as ThreadId;
-  const index = await loadThreadsIndex(storageRoot);
-  index[newThreadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
-  await saveThreadsIndex(storageRoot, index);
+  setThread(uwf.varStore, newThreadId, {
+    head: stepHash,
+    suspendedRole: null,
+    suspendMessage: null,
+  });
 
   return {
     thread: newThreadId,

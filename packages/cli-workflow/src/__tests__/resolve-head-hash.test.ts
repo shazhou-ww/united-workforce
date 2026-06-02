@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CasRef, ThreadId } from "@united-workforce/protocol";
+import { type CasRef, createThreadIndexEntry, type ThreadId } from "@united-workforce/protocol";
 import { resolveHeadHash } from "../commands/shared.js";
-import { appendThreadHistory, saveThreadsIndex } from "../store.js";
+import { appendThreadHistory } from "../store.js";
 
 let tmpDir: string;
 
@@ -17,11 +17,12 @@ afterEach(async () => {
 });
 
 describe("resolveHeadHash", () => {
-  test("returns head hash from threads.yaml for active thread", async () => {
+  test("returns head hash from variable store for active thread", async () => {
     const threadId = "01JTEST0000000000000000001" as ThreadId;
-    const headHash = "active_hash_123" as CasRef;
-
-    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+    const { createUwfStore, setThread } = await import("../store.js");
+    const uwf = await createUwfStore(tmpDir);
+    const headHash = (await uwf.store.put(uwf.schemas.text, "active")) as CasRef;
+    setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash as CasRef));
 
     const result = await resolveHeadHash(tmpDir, threadId);
 
@@ -34,7 +35,6 @@ describe("resolveHeadHash", () => {
     const workflowHash = "workflow_hash_789" as CasRef;
 
     // No entry in threads.yaml, only in history.jsonl
-    await saveThreadsIndex(tmpDir, {});
     await appendThreadHistory(tmpDir, {
       thread: threadId,
       workflow: workflowHash,
@@ -54,12 +54,14 @@ describe("resolveHeadHash", () => {
 
   test("prioritizes active thread over history when thread exists in both", async () => {
     const threadId = "01JTEST0000000000000000004" as ThreadId;
-    const activeHash = "active_hash_v2" as CasRef;
     const historicalHash = "historical_hash_v1" as CasRef;
     const workflowHash = "workflow_hash_xyz" as CasRef;
 
-    // Thread exists in both locations (should not happen normally, but test the precedence)
-    await saveThreadsIndex(tmpDir, { [threadId]: activeHash });
+    const { createUwfStore, setThread } = await import("../store.js");
+    const { createThreadIndexEntry } = await import("@united-workforce/protocol");
+    const uwf = await createUwfStore(tmpDir);
+    const activeHead = (await uwf.store.put(uwf.schemas.text, "active-v2")) as CasRef;
+    setThread(uwf.varStore, threadId, createThreadIndexEntry(activeHead));
     await appendThreadHistory(tmpDir, {
       thread: threadId,
       workflow: workflowHash,
@@ -71,7 +73,7 @@ describe("resolveHeadHash", () => {
     const result = await resolveHeadHash(tmpDir, threadId);
 
     // Should return the active head, not the historical one
-    expect(result).toBe(activeHash);
+    expect(result).toBe(activeHead);
   });
 
   test("finds thread from multiple history entries", async () => {
@@ -82,8 +84,6 @@ describe("resolveHeadHash", () => {
     const hash2 = "hash_thread2" as CasRef;
     const hash3 = "hash_thread3" as CasRef;
     const workflowHash = "workflow_hash_abc" as CasRef;
-
-    await saveThreadsIndex(tmpDir, {});
     await appendThreadHistory(tmpDir, {
       thread: threadId1,
       workflow: workflowHash,

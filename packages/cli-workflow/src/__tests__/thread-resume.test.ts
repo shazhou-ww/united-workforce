@@ -6,10 +6,9 @@ import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
-import { parse } from "yaml";
 import { cmdThreadShow } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
-import { saveThreadsIndex } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 const OUTPUT_SCHEMA = {
   type: "object" as const,
@@ -89,7 +88,8 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
     cwd: tmpDir,
   });
 
-  await saveThreadsIndex(tmpDir, { [THREAD_ID]: startHash });
+  process.env.UNCAGED_CAS_DIR = casDir;
+  await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
   const outputHash = await store.put(outputSchemaHash, {
     $status: "needs_input",
@@ -114,7 +114,7 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
     assembledPrompt: null,
   });
 
-  await saveThreadsIndex(tmpDir, {
+  await seedThreads(tmpDir, {
     [THREAD_ID]: {
       head: stepHash,
       suspendedRole: "worker",
@@ -241,7 +241,8 @@ describe("uwf thread resume", () => {
       cwd: tmpDir,
     });
 
-    await saveThreadsIndex(tmpDir, { [THREAD_ID]: startHash });
+    process.env.UNCAGED_CAS_DIR = casDir;
+    await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
     const result = runUwf(["thread", "resume", THREAD_ID], casDir);
     expect(result.status).not.toBe(0);
@@ -264,9 +265,12 @@ describe("uwf thread resume", () => {
       expect(cliOutput.suspendMessage).toBeNull();
       expect(cliOutput.done).toBe(false);
 
-      const threadsYaml = await readFile(join(tmpDir, "threads.yaml"), "utf8");
-      const threadsIndex = parse(threadsYaml) as Record<string, unknown>;
-      expect(threadsIndex[THREAD_ID]).toBe(cliOutput.head);
+      const { createUwfStore, getThread } = await import("../store.js");
+      const uwf = await createUwfStore(tmpDir);
+      const entry = getThread(uwf.varStore, THREAD_ID);
+      expect(entry?.head).toBe(cliOutput.head);
+      expect(entry?.suspendedRole).toBeNull();
+      expect(entry?.suspendMessage).toBeNull();
 
       const showResult = await cmdThreadShow(tmpDir, THREAD_ID);
       expect(showResult.status).toBe("idle");
@@ -338,10 +342,9 @@ describe("uwf thread resume", () => {
       expect(firstResume.suspendedRole).toBe("worker");
       expect(firstResume.suspendMessage).toBe(SUSPEND_MESSAGE);
 
-      const threadsAfterFirst = parse(
-        await readFile(join(tmpDir, "threads.yaml"), "utf8"),
-      ) as Record<string, unknown>;
-      expect(threadsAfterFirst[THREAD_ID]).toEqual({
+      const { createUwfStore, getThread } = await import("../store.js");
+      const uwfAfterFirst = await createUwfStore(tmpDir);
+      expect(getThread(uwfAfterFirst.varStore, THREAD_ID)).toEqual({
         head: firstResume.head,
         suspendedRole: "worker",
         suspendMessage: SUSPEND_MESSAGE,

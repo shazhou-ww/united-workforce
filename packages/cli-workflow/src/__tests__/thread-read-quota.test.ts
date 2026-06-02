@@ -7,7 +7,7 @@ import { createFsStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadRead } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
-import { saveThreadsIndex } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ describe("thread read --quota flag", () => {
     }
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ0" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: steps[2] as CasRef });
+    await seedThreads(tmpDir, { [threadId]: steps[2] as CasRef });
 
     // Set quota to 800 chars - should only fit most recent steps
     const markdown = await cmdThreadRead(tmpDir, threadId, 800, null, false);
@@ -266,7 +266,7 @@ describe("thread read --quota flag", () => {
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ1" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: step2Hash });
+    await seedThreads(tmpDir, { [threadId]: step2Hash });
 
     // Set quota to 500 chars
     const markdown = await cmdThreadRead(tmpDir, threadId, 500, null, false);
@@ -354,7 +354,7 @@ describe("thread read --quota flag", () => {
     }
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ2" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: steps[1] as CasRef });
+    await seedThreads(tmpDir, { [threadId]: steps[1] as CasRef });
 
     // Set tight quota with --start flag
     const markdown = await cmdThreadRead(tmpDir, threadId, 600, null, true);
@@ -432,7 +432,7 @@ describe("thread read --quota flag", () => {
     });
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ4" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     // Minimal quota
     const markdown = await cmdThreadRead(tmpDir, threadId, 1, null, false);
@@ -512,7 +512,7 @@ describe("thread read --quota flag", () => {
     }
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ5" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: steps[2] as CasRef });
+    await seedThreads(tmpDir, { [threadId]: steps[2] as CasRef });
 
     // Very large quota
     const markdown = await cmdThreadRead(tmpDir, threadId, 1000000, null, false);
@@ -594,7 +594,7 @@ describe("thread read --quota flag", () => {
     }
 
     const threadId = "01HX2Q3R4S5T6V7W8X9YZ6" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: steps[4] as CasRef });
+    await seedThreads(tmpDir, { [threadId]: steps[4] as CasRef });
 
     // Use --before to limit to steps 1-2, then set quota that allows only 1
     const markdown = await cmdThreadRead(tmpDir, threadId, 500, steps[2] as CasRef, false);

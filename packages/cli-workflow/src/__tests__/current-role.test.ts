@@ -9,8 +9,9 @@ import { cmdThreadList, cmdThreadShow, cmdThreadStart } from "../commands/thread
 import {
   appendThreadHistory,
   createUwfStore,
-  loadThreadsIndex,
-  saveThreadsIndex,
+  deleteThread,
+  loadAllThreads,
+  setThread,
 } from "../store.js";
 
 const OUTPUT_SCHEMA = {
@@ -174,7 +175,7 @@ async function insertStepNode(
   outputPayload: Record<string, unknown>,
 ): Promise<void> {
   const uwf = await createUwfStore(storageRoot);
-  const index = await loadThreadsIndex(storageRoot);
+  const index = loadAllThreads(uwf.varStore);
   const headEntry = index[threadId];
   if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
   const head = headEntry.head;
@@ -195,13 +196,17 @@ async function insertStepNode(
     start: startHash,
     prev: isStart ? null : head,
     role,
-    prompt: `Do ${role}`,
     output: outputHash,
     detail: detailHash,
+    agent: "uwf-test",
+    edgePrompt: `Do ${role}`,
+    startedAtMs: Date.now(),
+    completedAtMs: Date.now() + 1,
+    cwd: storageRoot,
+    assembledPrompt: null,
   })) as CasRef;
 
-  index[threadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
-  await saveThreadsIndex(storageRoot, index);
+  setThread(uwf.varStore, threadId, { head: stepHash, suspendedRole: null, suspendMessage: null });
 }
 
 describe("currentRole field", () => {
@@ -280,10 +285,9 @@ describe("currentRole field", () => {
       const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
-      const index = await loadThreadsIndex(storageRoot);
-      const head = index[tid]!.head;
-      delete index[tid];
-      await saveThreadsIndex(storageRoot, index);
+      const uwfForIndex = await createUwfStore(storageRoot);
+      const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
+      deleteThread(uwfForIndex.varStore, tid);
       await appendThreadHistory(storageRoot, {
         thread: tid,
         workflow,
@@ -309,10 +313,9 @@ describe("currentRole field", () => {
       const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
-      const index = await loadThreadsIndex(storageRoot);
-      const head = index[tid]!.head;
-      delete index[tid];
-      await saveThreadsIndex(storageRoot, index);
+      const uwfForIndex = await createUwfStore(storageRoot);
+      const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
+      deleteThread(uwfForIndex.varStore, tid);
       await appendThreadHistory(storageRoot, {
         thread: tid,
         workflow,
@@ -371,10 +374,9 @@ describe("currentRole field", () => {
       // completed thread
       const comp = await cmdThreadStart(storageRoot, wf, "completed", tmpDir);
       const compId = comp.thread as ThreadId;
-      const index = await loadThreadsIndex(storageRoot);
-      const compHead = index[compId]!.head;
-      delete index[compId];
-      await saveThreadsIndex(storageRoot, index);
+      const uwfForIndex = await createUwfStore(storageRoot);
+      const compHead = loadAllThreads(uwfForIndex.varStore)[compId]!.head;
+      deleteThread(uwfForIndex.varStore, compId);
       await appendThreadHistory(storageRoot, {
         thread: compId,
         workflow: comp.workflow,

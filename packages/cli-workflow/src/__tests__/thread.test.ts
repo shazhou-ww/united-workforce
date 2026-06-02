@@ -12,7 +12,8 @@ import {
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
 import type { UwfStore } from "../store.js";
-import { appendThreadHistory, createUwfStore, saveThreadsIndex } from "../store.js";
+import { appendThreadHistory, createUwfStore } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -258,7 +259,7 @@ describe("cmdThreadRead <output> section", () => {
     });
 
     const threadId = "01JTEST0000000000000000001" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -303,7 +304,7 @@ describe("cmdThreadRead <output> section", () => {
     });
 
     const threadId = "01JTEST0000000000000000002" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -438,7 +439,7 @@ describe("cmdThreadRead <prompt> deduplication", () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["writer", "writer"]);
     const threadId = "01JTEST0000000000000003" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+    await seedThreads(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
     const count = (markdown.match(/<prompt>/g) ?? []).length;
@@ -449,7 +450,7 @@ describe("cmdThreadRead <prompt> deduplication", () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["planner", "coder"]);
     const threadId = "01JTEST0000000000000004" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+    await seedThreads(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
     const count = (markdown.match(/<prompt>/g) ?? []).length;
@@ -460,7 +461,7 @@ describe("cmdThreadRead <prompt> deduplication", () => {
     const uwf = await makeUwfStore(tmpDir);
     const headHash = await makeThreadWithRoles(uwf, ["roleA", "roleB", "roleA"]);
     const threadId = "01JTEST0000000000000005" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: headHash });
+    await seedThreads(tmpDir, { [threadId]: headHash });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
     const count = (markdown.match(/<prompt>/g) ?? []).length;
@@ -528,7 +529,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const uwf = await makeUwfStore(tmpDir);
     const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
     const threadId = "01JTEST0000000000000006" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+    await seedThreads(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, true);
     expect(markdown).toContain("# Thread");
@@ -540,7 +541,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const uwf = await makeUwfStore(tmpDir);
     const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
     const threadId = "01JTEST0000000000000007" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+    await seedThreads(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
 
     // When before=null, the start section is always shown regardless of showStart
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
@@ -553,7 +554,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const { stepHashes } = await makeSimpleThread(uwf, ["roleA", "roleB", "roleC"]);
     const [_hashA, hashB, hashC] = stepHashes as [CasRef, CasRef, CasRef];
     const threadId = "01JTEST0000000000000008" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: hashC });
+    await seedThreads(tmpDir, { [threadId]: hashC });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, hashB, false);
     expect(markdown).toContain("roleA");
@@ -565,7 +566,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const uwf = await makeUwfStore(tmpDir);
     const { stepHashes } = await makeSimpleThread(uwf, ["roleA", "roleB", "roleC"]);
     const threadId = "01JTEST000000000000000A" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
+    await seedThreads(tmpDir, { [threadId]: stepHashes[stepHashes.length - 1]! });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, 1, null, false);
     expect(markdown).toContain("earlier step");
@@ -575,7 +576,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const uwf = await makeUwfStore(tmpDir);
     const { stepHashes } = await makeSimpleThread(uwf, ["roleA"]);
     const threadId = "01JTEST000000000000000B" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHashes[0]! });
+    await seedThreads(tmpDir, { [threadId]: stepHashes[0]! });
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
     expect(markdown).not.toContain("earlier step");
@@ -627,7 +628,7 @@ describe("cmdStepShow (process.exit tests - must be last)", () => {
       detail: null,
       agent: "uwf-test",
     });
-    await saveThreadsIndex(tmpDir, { ["01JTEST000000000000000C" as ThreadId]: stepHash as CasRef });
+    await seedThreads(tmpDir, { ["01JTEST000000000000000C" as ThreadId]: stepHash as CasRef });
 
     await expect(
       cmdThreadRead(
@@ -692,7 +693,7 @@ describe("cmdStepList with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000A1" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: step3Hash });
+    await seedThreads(tmpDir, { [threadId]: step3Hash });
 
     const result = await cmdStepList(tmpDir, threadId);
 
@@ -744,7 +745,6 @@ describe("cmdStepList with completed threads", () => {
 
     const threadId = "01JTEST0000000000000000A2" as ThreadId;
     // Thread is NOT in threads.yaml (simulating completed thread)
-    await saveThreadsIndex(tmpDir, {});
     // But it IS in history.jsonl
     await appendThreadHistory(tmpDir, {
       thread: threadId,
@@ -812,7 +812,7 @@ describe("cmdStepShow with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000B1" as ThreadId;
-    await saveThreadsIndex(tmpDir, { [threadId]: stepHash });
+    await seedThreads(tmpDir, { [threadId]: stepHash });
 
     const result = await cmdStepShow(tmpDir, stepHash);
 
@@ -873,7 +873,6 @@ describe("cmdStepShow with completed threads", () => {
 
     const threadId = "01JTEST0000000000000000B2" as ThreadId;
     // Thread is NOT in threads.yaml
-    await saveThreadsIndex(tmpDir, {});
     // But it IS in history.jsonl
     await appendThreadHistory(tmpDir, {
       thread: threadId,
@@ -937,7 +936,6 @@ describe("cmdThreadRead with completed threads", () => {
 
     const threadId = "01JTEST0000000000000000C1" as ThreadId;
     // Thread is NOT in threads.yaml
-    await saveThreadsIndex(tmpDir, {});
     // But it IS in history.jsonl
     await appendThreadHistory(tmpDir, {
       thread: threadId,
@@ -1001,7 +999,6 @@ describe("cmdThreadRead with completed threads", () => {
     });
 
     const threadId = "01JTEST0000000000000000C2" as ThreadId;
-    await saveThreadsIndex(tmpDir, {});
     await appendThreadHistory(tmpDir, {
       thread: threadId,
       workflow: workflowHash,

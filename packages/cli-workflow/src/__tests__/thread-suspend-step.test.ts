@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
-import { parse } from "yaml";
 import { cmdThreadShow } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
-import { saveThreadsIndex } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 const OUTPUT_SCHEMA = {
   type: "object" as const,
@@ -76,7 +75,7 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       });
 
       const threadId = "01SUSPENDSTEPTEST0000000" as ThreadId;
-      await saveThreadsIndex(tmpDir, { [threadId]: startHash });
+      await seedThreads(tmpDir, { [threadId]: startHash });
 
       const outputHash = await store.put(outputSchemaHash, {
         $status: "needs_input",
@@ -155,9 +154,9 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
         question: "Which API?",
       });
 
-      const threadsYaml = await readFile(join(tmpDir, "threads.yaml"), "utf8");
-      const threadsIndex = parse(threadsYaml) as Record<string, unknown>;
-      const threadEntry = threadsIndex[threadId];
+      const { createUwfStore, getThread } = await import("../store.js");
+      const uwf = await createUwfStore(tmpDir);
+      const threadEntry = getThread(uwf.varStore, threadId);
       expect(threadEntry).toEqual({
         head: stepHash,
         suspendedRole: "worker",

@@ -7,7 +7,7 @@ import type {
   ThreadId,
 } from "@united-workforce/protocol";
 import type { AgentStore } from "./storage.js";
-import { createAgentStore, loadThreadsIndex, resolveStorageRoot } from "./storage.js";
+import { createAgentStore, getActiveThreadEntry, resolveStorageRoot } from "./storage.js";
 import type { AgentContext } from "./types.js";
 
 type ChainState = {
@@ -162,13 +162,12 @@ export async function buildContext(
   const agentStore = await createAgentStore(storageRoot);
   const { store, schemas } = agentStore;
 
-  const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId]?.head;
-  if (headHash === undefined) {
-    fail(`thread not found in threads.yaml: ${threadId}`);
+  const entry = await getActiveThreadEntry(storageRoot, threadId);
+  if (entry === null) {
+    fail(`thread not found in active thread index: ${threadId}`);
   }
 
-  const chain = walkChain(store, schemas, headHash);
+  const chain = walkChain(store, schemas, entry.head);
   const workflow = await loadWorkflow(store, schemas, chain.start.workflow);
   const roleDef = workflow.roles[role];
   if (roleDef === undefined) {
@@ -211,13 +210,12 @@ export async function buildContextWithMeta(
   const agentStore = await createAgentStore(storageRoot);
   const { store, schemas } = agentStore;
 
-  const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId]?.head;
-  if (headHash === undefined) {
-    fail(`thread not found in threads.yaml: ${threadId}`);
+  const entry = await getActiveThreadEntry(storageRoot, threadId);
+  if (entry === null) {
+    fail(`thread not found in active thread index: ${threadId}`);
   }
 
-  const chain = walkChain(store, schemas, headHash);
+  const chain = walkChain(store, schemas, entry.head);
   const workflow = await loadWorkflow(store, schemas, chain.start.workflow);
   const roleDef = workflow.roles[role];
   if (roleDef === undefined) {
@@ -237,6 +235,6 @@ export async function buildContextWithMeta(
     outputFormatInstruction: "",
     edgePrompt,
     isFirstVisit,
-    meta: { storageRoot, store, schemas, headHash, chain },
+    meta: { storageRoot, store, schemas, headHash: entry.head, chain },
   };
 }

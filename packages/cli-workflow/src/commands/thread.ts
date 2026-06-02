@@ -1,6 +1,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
+import type { VariableStore } from "@ocas/core";
 import { validate } from "@ocas/core";
 import type {
   AgentAlias,
@@ -39,12 +40,14 @@ import { evaluate, isSuspendResult } from "../moderator/index.js";
 import {
   appendThreadHistory,
   createUwfStore,
+  deleteThread,
   findThreadInHistory,
+  getThread,
+  loadAllThreads,
   loadThreadHistory,
-  loadThreadsIndex,
   loadWorkflowRegistry,
   resolveWorkflowHash,
-  saveThreadsIndex,
+  setThread,
   type ThreadHistoryLine,
   type UwfStore,
 } from "../store.js";
@@ -136,7 +139,7 @@ function resolveSuspendFieldsForShow(
 }
 
 async function ensureThreadSuspendMetadata(
-  storageRoot: string,
+  varStore: VariableStore,
   threadId: ThreadId,
   entry: ThreadIndexEntry,
   suspendedRole: string,
@@ -146,9 +149,7 @@ async function ensureThreadSuspendMetadata(
     return entry;
   }
   const updated = markThreadSuspended(entry, suspendedRole, suspendMessage);
-  const index = await loadThreadsIndex(storageRoot);
-  index[threadId] = updated;
-  await saveThreadsIndex(storageRoot, index);
+  setThread(varStore, threadId, updated);
   return updated;
 }
 
@@ -467,9 +468,7 @@ export async function cmdThreadStart(
     fail("stored StartNode failed schema validation");
   }
 
-  const index = await loadThreadsIndex(storageRoot);
-  index[threadId] = createThreadIndexEntry(headHash);
-  await saveThreadsIndex(storageRoot, index);
+  setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
 
   plog.log(
     PL_THREAD_START,
@@ -484,11 +483,10 @@ export async function cmdThreadShow(
   storageRoot: string,
   threadId: ThreadId,
 ): Promise<ThreadShowOutput> {
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry !== undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry !== null) {
     const activeHead = entry.head;
-    const uwf = await createUwfStore(storageRoot);
     const workflow = resolveWorkflowFromHead(uwf, activeHead);
     if (workflow === null) {
       fail(`failed to resolve workflow from head: ${activeHead}`);
@@ -661,7 +659,7 @@ export async function cmdThreadList(
   take: number | null,
 ): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
-  const index = await loadThreadsIndex(storageRoot);
+  const index = loadAllThreads(uwf.varStore);
 
   // Collect active threads
   let items = await collectActiveThreads(storageRoot, uwf, index);
@@ -1038,14 +1036,13 @@ function spawnAgent(
 }
 
 async function archiveThread(
+  uwf: UwfStore,
   storageRoot: string,
   threadId: ThreadId,
   workflow: CasRef,
   head: CasRef,
 ): Promise<void> {
-  const index = await loadThreadsIndex(storageRoot);
-  delete index[threadId];
-  await saveThreadsIndex(storageRoot, index);
+  deleteThread(uwf.varStore, threadId);
   await appendThreadHistory(storageRoot, {
     thread: threadId,
     workflow,
@@ -1066,13 +1063,12 @@ export async function cmdThreadResume(
     fail(`thread already executing in background (PID: ${runningMarker.pid})`);
   }
 
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     fail(`thread not active: ${threadId}`);
   }
 
-  const uwf = await createUwfStore(storageRoot);
   const headHash = entry.head;
   const chain = walkChain(uwf, headHash);
   const workflowHash = chain.start.workflow;
@@ -1179,12 +1175,11 @@ async function resolveActiveThreadWorkflowHash(
   storageRoot: string,
   threadId: ThreadId,
 ): Promise<CasRef> {
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     fail(`thread not active: ${threadId}`);
   }
-  const uwf = await createUwfStore(storageRoot);
   const chain = walkChain(uwf, entry.head);
   return chain.start.workflow;
 }
@@ -1197,15 +1192,12 @@ async function cmdThreadStepBackground(
   plog: ProcessLogger,
   workflowHash: CasRef,
 ): Promise<StepOutput[]> {
-  // Get current head to return to caller
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     failStep(plog, `thread not active: ${threadId}`);
   }
   const headHash = entry.head;
-
-  const uwf = await createUwfStore(storageRoot);
 
   // Spawn detached background process
   const scriptPath = process.argv[1];
@@ -1292,7 +1284,7 @@ async function resolveModeratorStepTarget(
 
   if (isSuspendResult(nextResult.value)) {
     await ensureThreadSuspendMetadata(
-      storageRoot,
+      uwf.varStore,
       threadId,
       entry,
       nextResult.value.suspendedRole,
@@ -1310,7 +1302,7 @@ async function resolveModeratorStepTarget(
 
   if (nextResult.value.role === END_ROLE) {
     plog.log(PL_THREAD_ARCHIVED, `thread archived head=${headHash}`, null);
-    await archiveThread(storageRoot, threadId, workflowHash, headHash);
+    await archiveThread(uwf, storageRoot, threadId, workflowHash, headHash);
     return {
       workflow: workflowHash,
       thread: threadId,
@@ -1340,10 +1332,8 @@ async function finalizeAgentStep(
   uwfAfter: UwfStore,
   plog: ProcessLogger,
 ): Promise<StepOutput> {
-  const freshIndex = await loadThreadsIndex(storageRoot);
-  const priorEntry = freshIndex[threadId] ?? createThreadIndexEntry(newHead);
-  freshIndex[threadId] = updateThreadHead(priorEntry, newHead);
-  await saveThreadsIndex(storageRoot, freshIndex);
+  const priorEntry = getThread(uwfAfter.varStore, threadId) ?? createThreadIndexEntry(newHead);
+  setThread(uwfAfter.varStore, threadId, updateThreadHead(priorEntry, newHead));
 
   const chainAfter = walkChain(uwfAfter, newHead);
   const { lastRole: lastRoleAfter, lastOutput: lastOutputAfter } = resolveEvaluateArgs(
@@ -1356,12 +1346,15 @@ async function finalizeAgentStep(
   }
 
   if (isSuspendResult(afterResult.value)) {
-    freshIndex[threadId] = markThreadSuspended(
-      freshIndex[threadId] ?? createThreadIndexEntry(newHead),
-      afterResult.value.suspendedRole,
-      afterResult.value.prompt,
+    setThread(
+      uwfAfter.varStore,
+      threadId,
+      markThreadSuspended(
+        getThread(uwfAfter.varStore, threadId) ?? createThreadIndexEntry(newHead),
+        afterResult.value.suspendedRole,
+        afterResult.value.prompt,
+      ),
     );
-    await saveThreadsIndex(storageRoot, freshIndex);
     return buildStepOutputFromEvaluation(
       workflowHash,
       threadId,
@@ -1375,7 +1368,7 @@ async function finalizeAgentStep(
   const done = afterResult.value.role === END_ROLE;
   if (done) {
     plog.log(PL_THREAD_ARCHIVED, `thread archived head=${newHead}`, null);
-    await archiveThread(storageRoot, threadId, workflowHash, newHead);
+    await archiveThread(uwfAfter, storageRoot, threadId, workflowHash, newHead);
   }
 
   const status: ThreadStatus = done ? "completed" : "idle";
@@ -1401,14 +1394,13 @@ async function cmdThreadStepOnce(
   plog: ProcessLogger,
   resume: ResumeStepConfig | null = null,
 ): Promise<StepOutput> {
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     failStep(plog, `thread not active: ${threadId}`);
   }
   const headHash = entry.head;
 
-  const uwf = await createUwfStore(storageRoot);
   const chain = walkChain(uwf, headHash);
   const workflowHash = chain.start.workflow;
   const workflow = loadWorkflowPayload(uwf, workflowHash);
@@ -1459,10 +1451,10 @@ async function cmdThreadStepOnce(
 }
 
 async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise<CasRef> {
-  const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId]?.head;
-  if (activeHead !== undefined) {
-    return activeHead;
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry !== null) {
+    return entry.head;
   }
   const hist = await findThreadInHistory(storageRoot, threadId);
   if (hist !== null) {
@@ -1512,9 +1504,9 @@ export type CancelOutput = {
  * Stop background execution of a thread (but keep thread active)
  */
 export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     fail(`thread not active: ${threadId}`);
   }
 
@@ -1542,9 +1534,9 @@ export async function cmdThreadCancel(
   storageRoot: string,
   threadId: ThreadId,
 ): Promise<CancelOutput> {
-  const index = await loadThreadsIndex(storageRoot);
-  const entry = index[threadId];
-  if (entry === undefined) {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
     fail(`thread not active: ${threadId}`);
   }
   const head = entry.head;
@@ -1560,14 +1552,12 @@ export async function cmdThreadCancel(
     await deleteMarker(storageRoot, threadId);
   }
 
-  const uwf = await createUwfStore(storageRoot);
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
     fail(`failed to resolve workflow from head: ${head}`);
   }
 
-  delete index[threadId];
-  await saveThreadsIndex(storageRoot, index);
+  deleteThread(uwf.varStore, threadId);
 
   const historyEntry: ThreadHistoryLine = {
     thread: threadId,

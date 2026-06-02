@@ -6,7 +6,8 @@ import { putSchema } from "@ocas/core";
 import type { ThreadId } from "@united-workforce/protocol";
 import { createThreadIndexEntry, markThreadSuspended } from "@united-workforce/protocol";
 import { cmdThreadList, cmdThreadShow } from "../commands/thread.js";
-import { createUwfStore, saveThreadsIndex } from "../store.js";
+import { createUwfStore } from "../store.js";
+import { seedThreads } from "./thread-test-helpers.js";
 
 const OUTPUT_SCHEMA = {
   type: "object" as const,
@@ -109,7 +110,7 @@ describe("suspended thread display", () => {
       });
       const idleEntry = createThreadIndexEntry(idleStartHash);
 
-      await saveThreadsIndex(tmpDir, {
+      await seedThreads(tmpDir, {
         [suspendedThreadId]: suspendedEntry,
         [idleThreadId]: idleEntry,
       });
@@ -205,7 +206,7 @@ describe("suspended thread display", () => {
         "Need clarification: Which database to use?",
       );
 
-      await saveThreadsIndex(tmpDir, { [threadId]: suspendedEntry });
+      await seedThreads(tmpDir, { [threadId]: suspendedEntry });
 
       // Test thread show
       const showResult = await cmdThreadShow(tmpDir, threadId);
@@ -258,7 +259,7 @@ describe("suspended thread display", () => {
       });
 
       const threadId = "01NORMALTHREAD000000000" as ThreadId;
-      await saveThreadsIndex(tmpDir, { [threadId]: createThreadIndexEntry(startHash) });
+      await seedThreads(tmpDir, { [threadId]: createThreadIndexEntry(startHash) });
 
       // Test thread show
       const showResult = await cmdThreadShow(tmpDir, threadId);

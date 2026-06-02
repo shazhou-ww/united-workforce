@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createThreadIndexEntry, type ThreadId } from "@united-workforce/protocol";
 import {
   createUwfStore,
   getCasDir,
@@ -9,6 +10,7 @@ import {
   getRegistryPath,
   loadWorkflowRegistry,
   saveWorkflowRegistry,
+  setThread,
 } from "../store.js";
 
 describe("Global CAS directory", () => {
@@ -191,29 +193,49 @@ describe("Global CAS directory", () => {
     expect(migratedContent).toContain(hash);
   });
 
-  test("thread metadata remains in storageRoot", async () => {
+  test("migrates threads.yaml to variable store and renames file", async () => {
+    const globalCasDir = join(tmpDir, "global-cas-threads");
+    process.env.UNCAGED_CAS_DIR = globalCasDir;
+
+    const storageRoot = join(tmpDir, "storage-threads-migrate");
+    await mkdir(storageRoot, { recursive: true });
+
+    const threadId = "01JTEST0000000000000000AB" as ThreadId;
+    const uwfSeed = await createUwfStore(storageRoot);
+    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-thread-head");
+    const { writeFile, access, readFile } = await import("node:fs/promises");
+    const threadsPath = join(storageRoot, "threads.yaml");
+    await writeFile(threadsPath, `${threadId}: ${headHash}\n`, "utf8");
+
+    const uwf = await createUwfStore(storageRoot);
+    const entry = uwf.varStore.list({ exactName: `@uwf/thread/${threadId}` })[0];
+    expect(entry?.value).toBe(headHash);
+
+    await expect(access(threadsPath)).rejects.toThrow();
+    const migratedContent = await readFile(`${threadsPath}.migrated`, "utf8");
+    expect(migratedContent).toContain(threadId);
+    expect(migratedContent).toContain(headHash);
+  });
+
+  test("thread metadata stored in ocas variable store", async () => {
     const globalCasDir = join(tmpDir, "global-cas");
     process.env.UNCAGED_CAS_DIR = globalCasDir;
 
     const storageRoot = join(tmpDir, "storage");
     await mkdir(storageRoot, { recursive: true });
 
-    await createUwfStore(storageRoot);
+    const threadId = "01JTEST000000000000000123" as ThreadId;
+    const uwfSeed = await createUwfStore(storageRoot);
+    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "hash-456");
+    setThread(uwfSeed.varStore, threadId, createThreadIndexEntry(headHash));
 
-    // Write threads index
-    const { saveThreadsIndex } = await import("../store.js");
-    await saveThreadsIndex(storageRoot, { "thread-123": "hash-456" });
+    const uwf = await createUwfStore(storageRoot);
+    const entry = uwf.varStore.list({ exactName: `@uwf/thread/${threadId}` })[0];
+    expect(entry?.value).toBe(headHash);
 
-    // Verify threads.yaml is in storageRoot, not global CAS
     const { readFile } = await import("node:fs/promises");
     const threadsPath = join(storageRoot, "threads.yaml");
-    const content = await readFile(threadsPath, "utf8");
-    expect(content).toContain("thread-123");
-    expect(content).toContain("hash-456");
-
-    // Verify threads.yaml is NOT in global CAS directory
-    const globalThreadsPath = join(globalCasDir, "threads.yaml");
-    await expect(readFile(globalThreadsPath, "utf8")).rejects.toThrow();
+    await expect(readFile(threadsPath, "utf8")).rejects.toThrow();
   });
 
   test("history remains in storageRoot", async () => {

@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
 import { existsSync, symlinkSync } from "node:fs";
-import { access, appendFile, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -14,12 +14,8 @@ import type {
   ThreadListItem,
   ThreadsIndex,
 } from "@united-workforce/protocol";
-import {
-  createThreadIndexEntry,
-  parseThreadsIndex,
-  serializeThreadsIndex,
-} from "@united-workforce/protocol";
-import { parse, stringify } from "yaml";
+import { parseThreadsIndex } from "@united-workforce/protocol";
+import { parse } from "yaml";
 
 import { registerUwfSchemas, type UwfSchemaHashes } from "./schemas.js";
 
@@ -27,6 +23,9 @@ export type WorkflowRegistry = Record<string, CasRef>;
 
 /** Variable name prefix for workflow registry entries (`@uwf/registry/<name>`). */
 export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
+
+/** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
+export const THREAD_VAR_PREFIX = "@uwf/thread/";
 
 /** A workflow entry discovered from the project-local .workflows/ directory. */
 export type ProjectWorkflowEntry = {
@@ -214,6 +213,7 @@ export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
   const schemas = await registerUwfSchemas(store);
   const varStore = createVariableStore(join(casDir, "variables.db"), store);
   await migrateWorkflowRegistryIfNeeded(storageRoot, varStore);
+  await migrateThreadsIndexIfNeeded(storageRoot, varStore);
   return { storageRoot, store, schemas, varStore };
 }
 
@@ -294,7 +294,7 @@ export function findRegistryName(registry: WorkflowRegistry, hash: Hash): string
   return null;
 }
 
-export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsIndex> {
+async function loadThreadsIndexFromYaml(storageRoot: string): Promise<ThreadsIndex> {
   const path = getThreadsPath(storageRoot);
   try {
     const text = await readFile(path, "utf8");
@@ -309,26 +309,79 @@ export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsInde
   }
 }
 
-/** Accept legacy CasRef values for test convenience. */
-export type ThreadsIndexInput = Record<ThreadId, ThreadIndexEntry | CasRef>;
-
-function normalizeThreadsIndexInput(index: ThreadsIndexInput): ThreadsIndex {
-  const normalized: ThreadsIndex = {};
-  for (const [threadId, value] of Object.entries(index)) {
-    normalized[threadId as ThreadId] =
-      typeof value === "string" ? createThreadIndexEntry(value as CasRef) : value;
-  }
-  return normalized;
-}
-
-export async function saveThreadsIndex(
+/** One-time migration: `~/.uwf/threads.yaml` → `@uwf/thread/*` variables. */
+export async function migrateThreadsIndexIfNeeded(
   storageRoot: string,
-  index: ThreadsIndexInput,
+  varStore: VariableStore,
 ): Promise<void> {
   const path = getThreadsPath(storageRoot);
-  await mkdir(storageRoot, { recursive: true });
-  const text = stringify(serializeThreadsIndex(normalizeThreadsIndexInput(index)), { indent: 2 });
-  await writeFile(path, text, "utf8");
+  if (!existsSync(path)) {
+    return;
+  }
+
+  const index = await loadThreadsIndexFromYaml(storageRoot);
+  for (const [threadId, entry] of Object.entries(index)) {
+    setThread(varStore, threadId as ThreadId, entry);
+  }
+
+  await rename(path, `${path}.migrated`);
+}
+
+function threadVarName(threadId: ThreadId): string {
+  return `${THREAD_VAR_PREFIX}${threadId}`;
+}
+
+function entryFromVariable(v: { value: string; tags: Record<string, string> }): ThreadIndexEntry {
+  return {
+    head: v.value as CasRef,
+    suspendedRole: v.tags.suspendedRole ?? null,
+    suspendMessage: v.tags.suspendMessage ?? null,
+  };
+}
+
+/** Load all active threads (equivalent to legacy `loadThreadsIndex`). */
+export function loadAllThreads(varStore: VariableStore): ThreadsIndex {
+  const vars = varStore.list({ namePrefix: THREAD_VAR_PREFIX });
+  const index: ThreadsIndex = {};
+  for (const v of vars) {
+    const threadId = v.name.slice(THREAD_VAR_PREFIX.length) as ThreadId;
+    index[threadId] = entryFromVariable(v);
+  }
+  return index;
+}
+
+/** Get a single active thread entry, or null if not found. */
+export function getThread(varStore: VariableStore, threadId: ThreadId): ThreadIndexEntry | null {
+  const vars = varStore.list({ exactName: threadVarName(threadId) });
+  const v = vars[0];
+  if (v === undefined) {
+    return null;
+  }
+  return entryFromVariable(v);
+}
+
+/** Set or update a single active thread entry. */
+export function setThread(
+  varStore: VariableStore,
+  threadId: ThreadId,
+  entry: ThreadIndexEntry,
+): void {
+  const name = threadVarName(threadId);
+  // Head CAS nodes may use different schemas (StartNode vs StepNode) — clear all variants first.
+  varStore.remove(name);
+  const tags: Record<string, string> = {};
+  if (entry.suspendedRole !== null) {
+    tags.suspendedRole = entry.suspendedRole;
+  }
+  if (entry.suspendMessage !== null) {
+    tags.suspendMessage = entry.suspendMessage;
+  }
+  varStore.set(name, entry.head, { tags });
+}
+
+/** Remove an active thread entry (on complete/cancel). */
+export function deleteThread(varStore: VariableStore, threadId: ThreadId): void {
+  varStore.remove(threadVarName(threadId));
 }
 
 export async function loadThreadHistory(storageRoot: string): Promise<ThreadHistoryLine[]> {
