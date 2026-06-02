@@ -8,7 +8,7 @@ Layer 3 agent implementation. Runs an OpenAI-compatible chat completion loop wit
 
 Useful when you want a self-contained agent without an external CLI like Hermes or Claude Code.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-util`
+**Dependencies:** `@ocas/core`, `@uncaged/workflow-util-agent`, `@uncaged/workflow-util`
 
 ## Installation
 

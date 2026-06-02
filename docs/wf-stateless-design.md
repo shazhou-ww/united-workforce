@@ -22,7 +22,7 @@ uwf workflow show  <workflow-id>            # 查看 workflow 定义
 uwf workflow list                           # 列出已注册 workflows
 ```
 
-两组对称，各 3-4 个子命令。CAS 操作交给 `json-cas` CLI，不在 `uwf` 中重复。
+两组对称，各 3-4 个子命令。CAS 操作交给 `ocas` CLI，不在 `uwf` 中重复。
 
 ### 1.2 `uwf thread start`
 
@@ -136,14 +136,14 @@ uwf-hermes <thread-id> <role>
 
 沿用 json-cas 的三层：bootstrap meta-schema → JSON Schema nodes → data nodes。
 
-下面所有 CAS 节点都遵循 `{ type: cas_ref, payload: T, timestamp: number }` 的标准格式。
-`cas_ref` 类型的字符串字段在 json-cas 中已内置支持，不需要额外的 `$ref` 包装。
+下面所有 CAS 节点都遵循 `{ type: ocas_ref, payload: T, timestamp: number }` 的标准格式。
+`ocas_ref` 类型的字符串字段在 ocas 中已内置支持，不需要额外的 `$ref` 包装。
 
 ### 2.2 数据节点
 
 #### `Workflow`
 
-Roles 和 moderator 内联在 Workflow 中，只有 meta 独立为 CAS 节点（方便 json-cas 校验）。
+Roles 和 moderator 内联在 Workflow 中，只有 meta 独立为 CAS 节点（方便 ocas 校验）。
 
 ```yaml
 type: <workflow-schema-hash>
@@ -157,21 +157,21 @@ payload:
       capabilities: [planning, issue-analysis]
       procedure: "Analyze the issue and create a plan."
       output: "Output the plan summary."
-      meta: "5GWKR8TN1V3JA"    # cas_ref → JSON Schema 节点（json-cas 内置）
+      meta: "5GWKR8TN1V3JA"    # ocas_ref → JSON Schema 节点（ocas 内置）
     developer:
       description: "Implements code changes"
       goal: "You are a developer agent..."
       capabilities: [file-edit, shell]
       procedure: "Implement the plan."
       output: "List all files changed."
-      meta: "8CNWT4KR6D1HV"    # cas_ref → JSON Schema 节点
+      meta: "8CNWT4KR6D1HV"    # ocas_ref → JSON Schema 节点
     reviewer:
       description: "Reviews code changes"
       goal: "You are a code reviewer..."
       capabilities: [code-review]
       procedure: "Review the implementation."
       output: "Approve or reject with comments."
-      meta: "1VPBG9SM5E7WK"    # cas_ref → JSON Schema 节点
+      meta: "1VPBG9SM5E7WK"    # ocas_ref → JSON Schema 节点
   conditions:
     needsClarification:
       description: "Planner requests clarification from user"
@@ -198,7 +198,7 @@ payload:
         condition: null
 ```
 
-- `roles` — 内联定义，每个 role 的 `meta` 是独立的 cas_ref（指向 json-cas 内置 JSON Schema 节点）
+- `roles` — 内联定义，每个 role 的 `meta` 是独立的 ocas_ref（指向 ocas 内置 JSON Schema 节点）
 - `graph` — `Record<Role | "$START", Record<Status, Target>>`，每个 Target = `{ role, prompt }`
 - Status 来自上一个 role 输出的 `status` 字段，`$START` 用 `_` 作为初始 status
 - Prompt 模板使用 Mustache 渲染，变量来自 lastOutput
@@ -220,7 +220,7 @@ evaluate(graph, lastRole, lastOutput) → { role, prompt }
 ```yaml
 type: <start-node-schema-hash>
 payload:
-  workflow: "4KNM2PXR3B1QW"        # cas_ref → Workflow
+  workflow: "4KNM2PXR3B1QW"        # ocas_ref → Workflow
   prompt: "Fix the login bug..."
 ```
 
@@ -232,18 +232,18 @@ payload:
 ```yaml
 type: <step-node-schema-hash>
 payload:
-  start: "4TNVW8KR2B3MA"          # cas_ref → StartNode（每个 step 都引用）
-  prev: "2MXBG6PN4A8JR"           # cas_ref → 前一个 StepNode，第一步为 null
+  start: "4TNVW8KR2B3MA"          # ocas_ref → StartNode（每个 step 都引用）
+  prev: "2MXBG6PN4A8JR"           # ocas_ref → 前一个 StepNode，第一步为 null
   role: "developer"
-  output: "9KRVW3TN5F1QA"         # cas_ref → 结构化输出节点（符合 role 的 meta schema）
-  detail: "7BQST3VW9F2MA"         # cas_ref → 执行详情（content node / 子 workflow terminal StepNode / ...）
+  output: "9KRVW3TN5F1QA"         # ocas_ref → 结构化输出节点（符合 role 的 meta schema）
+  detail: "7BQST3VW9F2MA"         # ocas_ref → 执行详情（content node / 子 workflow terminal StepNode / ...）
   agent: "uwf-cursor"              # 实际使用的 agent 命令（纯字符串）
 ```
 
 - `start` — 每个 StepNode 都直接引用 StartNode，方便随机访问
-- `prev` — 前一个 StepNode 的 cas_ref，第一步为 `null`（不指向 StartNode）
-- `output` — cas_ref，指向符合 role meta schema 的 CAS 节点，可用 json-cas 校验
-- `detail` — cas_ref，指向执行详情。可以是原始 agent 输出（content node），也可以是子 workflow thread 的 terminal StepNode（workflowAsAgent 场景）
+- `prev` — 前一个 StepNode 的 ocas_ref，第一步为 `null`（不指向 StartNode）
+- `output` — ocas_ref，指向符合 role meta schema 的 CAS 节点，可用 ocas 校验
+- `detail` — ocas_ref，指向执行详情。可以是原始 agent 输出（content node），也可以是子 workflow thread 的 terminal StepNode（workflowAsAgent 场景）
 - `agent` — 纯字符串，不是 CAS 节点
 
 ### 2.3 链式结构
@@ -337,7 +337,7 @@ OPENROUTER_API_KEY=sk-or-...
 
 ## 3. 包结构
 
-全新包，不复用现有 packages，避免命名冲突。CAS 直接依赖 `@uncaged/json-cas`。
+全新包，不复用现有 packages，避免命名冲突。CAS 直接依赖 `@ocas/core`。
 
 ```
 packages/
@@ -349,8 +349,8 @@ packages/
 ```
 
 **外部依赖：**
-- `@uncaged/json-cas` — CAS 存储、hash、schema 校验
-- `@uncaged/json-cas-fs` — 文件系统 CAS 后端
+- `@ocas/core` — CAS 存储、hash、schema 校验
+- `@ocas/fs` — 文件系统 CAS 后端
 
 **现有包全部保留不动**，新旧并存，逐步迁移。
 
@@ -372,8 +372,8 @@ type ThreadId = string;
 /** 一个 step 的核心数据，被 StepNode payload 和 moderator 上下文共享 */
 type StepRecord = {
   role: string;
-  output: CasRef;                    // cas_ref → 结构化输出节点（符合 role meta schema）
-  detail: CasRef;                    // cas_ref → 执行详情（content node / 子 workflow terminal StepNode）
+  output: CasRef;                    // ocas_ref → 结构化输出节点（符合 role meta schema）
+  detail: CasRef;                    // ocas_ref → 执行详情（content node / 子 workflow terminal StepNode）
   agent: string;                     // 实际使用的 agent 命令（纯字符串）
 };
 ```
@@ -387,7 +387,7 @@ type RoleDefinition = {
   capabilities: string[];
   procedure: string;
   output: string;
-  meta: CasRef;                      // cas_ref → json-cas 内置 JSON Schema 节点
+  meta: CasRef;                      // ocas_ref → ocas 内置 JSON Schema 节点
 };
 
 type Target = {
@@ -407,13 +407,13 @@ type WorkflowPayload = {
 
 ```typescript
 type StartNodePayload = {
-  workflow: CasRef;                  // cas_ref → Workflow
+  workflow: CasRef;                  // ocas_ref → Workflow
   prompt: string;
 };
 
 type StepNodePayload = StepRecord & {
-  start: CasRef;                     // cas_ref → StartNode（每个 step 都引用）
-  prev: CasRef | null;               // cas_ref → 前一个 StepNode，第一步为 null
+  start: CasRef;                     // ocas_ref → StartNode（每个 step 都引用）
+  prev: CasRef | null;               // ocas_ref → 前一个 StepNode，第一步为 null
 };
 ```
 

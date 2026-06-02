@@ -8,7 +8,7 @@ Layer 2 agent framework. Provides the standard entrypoint for all agent CLIs: pa
 
 Also exports prompt builders, config/storage helpers, and session ID caching for multi-turn agents.
 
-**Dependencies:** `@uncaged/json-cas`, `@uncaged/json-cas-fs`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `dotenv`, `yaml`
+**Dependencies:** `@ocas/core`, `@ocas/fs`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `dotenv`, `yaml`
 
 ## Installation
 
