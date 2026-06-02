@@ -597,7 +597,7 @@ flowchart TB
     Step --> Spawn
   end
 
-  subgraph builtin_pkg ["@uncaged/workflow-agent-builtin"]
+  subgraph builtin_pkg ["@united-workforce/agent-builtin"]
     Main["createBuiltinAgent() = createAgent({...})"]
     Prompt["buildBuiltinPrompt(ctx)"]
     Loop["runBuiltinLoop(provider, messages, tools)"]
@@ -762,7 +762,7 @@ type ToolContext = {
 | 配置 | `config.yaml` 增加 `agents.builtin`；`uwf setup` 可选默认 agent |
 | 存储 | `resolveStorageRoot()` + `loadWorkflowConfig` + `getEnvPath`；与 Hermes 相同，**不**改 `threads.yaml` 写入方 |
 | 测试 | 单元测试：tool handlers、prompt 组装、mock LLM tool loop；集成测试：临时 storage root + fake provider |
-| 发布 | 新包 `@uncaged/workflow-agent-builtin`，bin `uwf-builtin`，加入 `scripts/publish-all.mjs` |
+| 发布 | 新包 `@united-workforce/agent-builtin`，bin `uwf-builtin`，加入 `scripts/publish-all.mjs` |
 
 **明确不做**：
 

@@ -14,11 +14,11 @@ The implementation lives in **5** active packages under `packages/`, plus two ex
 
 | Layer | Package | One-line role |
 |-------|---------|---------------|
-| Contract | `@uncaged/workflow-protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@ocas/fs`. |
-| Shared infra | `@uncaged/workflow-util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
-| Agent framework | `@uncaged/workflow-util-agent` → `workflow-util-agent` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
-| Agent: Hermes | `@uncaged/workflow-agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
-| CLI | `@uncaged/cli-workflow` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. Includes status-based graph evaluator in `src/moderator/` (next role or `$END`). |
+| Contract | `@united-workforce/protocol` → `workflow-protocol` | Shared TypeScript types (`WorkflowPayload`, `StepNodePayload`, `ModeratorContext`, `WorkflowConfig`, etc.). No runtime deps beyond `@ocas/fs`. |
+| Shared infra | `@united-workforce/util` → `workflow-util` | Crockford Base32, ULID generation, `createLogger`, frontmatter parsing/validation. |
+| Agent framework | `@united-workforce/util-agent` → `workflow-util-agent` | `createAgent` entrypoint factory, context builder, frontmatter fast-path extractor, LLM extract fallback, output format instruction builder. |
+| Agent: Hermes | `@united-workforce/agent-hermes` → `workflow-agent-hermes` | `uwf-hermes` CLI binary — spawns `hermes chat`, pipes prompt, captures session detail. |
+| CLI | `@united-workforce/cli` → `cli-workflow` | `uwf` binary — thread lifecycle, workflow registry, CAS inspection, setup. Includes status-based graph evaluator in `src/moderator/` (next role or `$END`). |
 
 ### External dependencies
 
@@ -40,19 +40,19 @@ flowchart BT
     jcasfs["@ocas/fs"]
   end
   subgraph L0["Layer 0 — contract"]
-    protocol["@uncaged/workflow-protocol"]
+    protocol["@united-workforce/protocol"]
   end
   subgraph L1["Layer 1 — shared"]
-    util["@uncaged/workflow-util"]
+    util["@united-workforce/util"]
   end
   subgraph L2["Layer 2 — agent framework"]
-    kit["@uncaged/workflow-util-agent"]
+    kit["@united-workforce/util-agent"]
   end
   subgraph L3["Layer 3 — agent implementations"]
-    hermes["@uncaged/workflow-agent-hermes"]
+    hermes["@united-workforce/agent-hermes"]
   end
   subgraph L4["Layer 4 — CLI"]
-    cli["@uncaged/cli-workflow"]
+    cli["@united-workforce/cli"]
   end
   protocol --> jcasfs
   util --> protocol
