@@ -1,7 +1,7 @@
+import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WorkflowPayload } from "@uncaged/workflow-protocol";
-import { describe, expect, test } from "vitest";
 import { parse } from "yaml";
 
 /**

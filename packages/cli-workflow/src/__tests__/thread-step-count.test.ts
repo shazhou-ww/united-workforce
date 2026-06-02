@@ -1,6 +1,6 @@
+import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
 
 const CLI_PATH = join(import.meta.dirname, "..", "cli.js");
 

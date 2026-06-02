@@ -1,10 +1,10 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
 import { createThreadIndexEntry } from "@uncaged/workflow-protocol";
 import { extractUlidTimestamp, generateUlid } from "@uncaged/workflow-util";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadList } from "../commands/thread.js";
 import { parseTimeInput } from "../commands/thread-time-parser.js";

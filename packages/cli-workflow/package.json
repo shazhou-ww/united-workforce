@@ -23,15 +23,14 @@
   },
   "scripts": {
     "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
-    "test": "vitest run",
-    "test:ci": "vitest run"
+    "test": "bun test src/",
+    "test:ci": "bun test src/"
   },
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "@types/mustache": "^4.2.6",
-    "vitest": "^4.1.6"
+    "@types/mustache": "^4.2.6"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 describe("parseArgv empty prompt error message", () => {
   let stderrOutput: string;

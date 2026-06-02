@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   _discoverAgents,
   _isBackspace,
@@ -178,7 +178,7 @@ describe("_isBackspace", () => {
 
 describe("_printProviderMenu", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   const providers = [
@@ -188,7 +188,7 @@ describe("_printProviderMenu", () => {
 
   test("prints correct number of lines (one per provider + custom)", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printProviderMenu(providers);
@@ -198,7 +198,7 @@ describe("_printProviderMenu", () => {
 
   test("custom option number = providers.length + 1", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printProviderMenu(providers);
@@ -208,7 +208,7 @@ describe("_printProviderMenu", () => {
 
   test("each provider line contains its label and baseUrl", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printProviderMenu(providers);
@@ -294,12 +294,12 @@ describe("_resolveModelChoice", () => {
 
 describe("_printModelMenu", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   test("prints all models — each model name appears in output", () => {
     const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       output.push(msg);
     });
     const models = ["model-a", "model-b", "model-c"];
@@ -312,7 +312,7 @@ describe("_printModelMenu", () => {
 
   test("single column when termCols is very small", () => {
     const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       output.push(msg);
     });
     _printModelMenu(["a", "b", "c"], 1);
@@ -322,7 +322,7 @@ describe("_printModelMenu", () => {
 
   test("wide terminal fits multiple columns", () => {
     const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       output.push(msg);
     });
     const models = Array.from({ length: 6 }, (_, i) => `m${i}`);
@@ -338,12 +338,12 @@ describe("_printModelMenu", () => {
 
 describe("_printValidationResult", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   test("ok=true prints success message containing '✓'", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printValidationResult({ ok: true, error: null });
@@ -352,7 +352,7 @@ describe("_printValidationResult", () => {
 
   test("ok=false prints warning message containing '⚠'", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printValidationResult({ ok: false, error: "HTTP 401" });
@@ -361,7 +361,7 @@ describe("_printValidationResult", () => {
 
   test("ok=false includes the error string in output", () => {
     const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
+    spyOn(console, "log").mockImplementation((msg: string) => {
       lines.push(msg);
     });
     _printValidationResult({ ok: false, error: "HTTP 401" });

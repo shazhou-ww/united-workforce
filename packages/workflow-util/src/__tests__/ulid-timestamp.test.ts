@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { extractUlidTimestamp, generateUlid } from "../ulid.js";
 
 describe("extractUlidTimestamp", () => {
