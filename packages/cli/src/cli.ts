@@ -30,9 +30,7 @@ import {
 import { parseTimeInput } from "./commands/thread-time-parser.js";
 import { cmdWorkflowAdd, cmdWorkflowList, cmdWorkflowShow } from "./commands/workflow.js";
 import { formatOutput, type OutputFormat } from "./format.js";
-import { migrateStorageIfNeeded, resolveStorageRoot } from "./store.js";
-
-migrateStorageIfNeeded();
+import { resolveStorageRoot } from "./store.js";
 
 function writeOutput(data: unknown): void {
   const fmt = program.opts().format as OutputFormat;
