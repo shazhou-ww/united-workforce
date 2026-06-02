@@ -11,11 +11,17 @@ import type {
   StepNodePayload,
   StepOutput,
   ThreadId,
+  ThreadIndexEntry,
   ThreadListItem,
   ThreadStatus,
   ThreadsIndex,
   WorkflowConfig,
   WorkflowPayload,
+} from "@uncaged/workflow-protocol";
+import {
+  createThreadIndexEntry,
+  markThreadSuspended,
+  updateThreadHead,
 } from "@uncaged/workflow-protocol";
 import {
   createProcessLogger,
@@ -68,8 +74,15 @@ function buildStepOutputFromEvaluation(
 ): StepOutput {
   const done = status === "completed";
   let currentRole: string | null = null;
-  if (evaluation.ok && !isSuspendResult(evaluation.value) && evaluation.value.role !== END_ROLE) {
-    currentRole = evaluation.value.role;
+  let suspendedRole: string | null = null;
+  let suspendMessage: string | null = null;
+  if (evaluation.ok) {
+    if (isSuspendResult(evaluation.value)) {
+      suspendedRole = evaluation.value.suspendedRole;
+      suspendMessage = evaluation.value.prompt;
+    } else if (evaluation.value.role !== END_ROLE) {
+      currentRole = evaluation.value.role;
+    }
   }
   return {
     workflow: workflowHash,
@@ -77,9 +90,66 @@ function buildStepOutputFromEvaluation(
     head,
     status,
     currentRole,
+    suspendedRole,
+    suspendMessage,
     done,
     background,
   };
+}
+
+function resolveSuspendFieldsFromGraph(
+  uwf: UwfStore,
+  head: CasRef,
+  workflowRef: CasRef,
+): { suspendedRole: string | null; suspendMessage: string | null } {
+  const chain = walkChain(uwf, head);
+  const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
+  const workflow = loadWorkflowPayload(uwf, workflowRef);
+  const result = evaluate(workflow.graph, lastRole, lastOutput);
+  if (result.ok && isSuspendResult(result.value)) {
+    return {
+      suspendedRole: result.value.suspendedRole,
+      suspendMessage: result.value.prompt,
+    };
+  }
+  return { suspendedRole: null, suspendMessage: null };
+}
+
+function resolveSuspendFieldsForShow(
+  entry: ThreadIndexEntry,
+  status: ThreadStatus,
+  uwf: UwfStore,
+  head: CasRef,
+  workflowRef: CasRef,
+): { suspendedRole: string | null; suspendMessage: string | null } {
+  if (status !== "suspended") {
+    return { suspendedRole: null, suspendMessage: null };
+  }
+  if (entry.suspendedRole !== null && entry.suspendMessage !== null) {
+    return { suspendedRole: entry.suspendedRole, suspendMessage: entry.suspendMessage };
+  }
+  const fromGraph = resolveSuspendFieldsFromGraph(uwf, head, workflowRef);
+  return {
+    suspendedRole: entry.suspendedRole ?? fromGraph.suspendedRole,
+    suspendMessage: entry.suspendMessage ?? fromGraph.suspendMessage,
+  };
+}
+
+async function ensureThreadSuspendMetadata(
+  storageRoot: string,
+  threadId: ThreadId,
+  entry: ThreadIndexEntry,
+  suspendedRole: string,
+  suspendMessage: string,
+): Promise<ThreadIndexEntry> {
+  if (entry.suspendedRole !== null && entry.suspendMessage !== null) {
+    return entry;
+  }
+  const updated = markThreadSuspended(entry, suspendedRole, suspendMessage);
+  const index = await loadThreadsIndex(storageRoot);
+  index[threadId] = updated;
+  await saveThreadsIndex(storageRoot, index);
+  return updated;
 }
 
 async function resolveActiveThreadStatus(
@@ -380,7 +450,7 @@ export async function cmdThreadStart(
   }
 
   const index = await loadThreadsIndex(storageRoot);
-  index[threadId] = headHash;
+  index[threadId] = createThreadIndexEntry(headHash);
   await saveThreadsIndex(storageRoot, index);
 
   plog.log(
@@ -394,8 +464,9 @@ export async function cmdThreadStart(
 
 export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Promise<StepOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId];
-  if (activeHead !== undefined) {
+  const entry = index[threadId];
+  if (entry !== undefined) {
+    const activeHead = entry.head;
     const uwf = await createUwfStore(storageRoot);
     const workflow = resolveWorkflowFromHead(uwf, activeHead);
     if (workflow === null) {
@@ -410,6 +481,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       workflow,
     );
     const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
+    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
 
     return {
       workflow,
@@ -417,6 +489,8 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       head: activeHead,
       status,
       currentRole,
+      suspendedRole: suspendFields.suspendedRole,
+      suspendMessage: suspendFields.suspendMessage,
       done: false,
       background: null,
     };
@@ -432,6 +506,8 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       head: hist.head,
       status,
       currentRole: null,
+      suspendedRole: null,
+      suspendMessage: null,
       done: true,
       background: null,
     };
@@ -473,13 +549,8 @@ async function collectActiveThreads(
   index: ThreadsIndex,
 ): Promise<ThreadListItemWithStatus[]> {
   const items: ThreadListItemWithStatus[] = [];
-  for (const [threadId, head] of Object.entries(index)) {
-    const item = await threadListItemFromActive(
-      storageRoot,
-      uwf,
-      threadId as ThreadId,
-      head as CasRef,
-    );
+  for (const [threadId, entry] of Object.entries(index)) {
+    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, entry.head);
     if (item !== null) {
       items.push(item);
     }
@@ -1011,12 +1082,12 @@ async function resolveActiveThreadWorkflowHash(
   threadId: ThreadId,
 ): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
   const uwf = await createUwfStore(storageRoot);
-  const chain = walkChain(uwf, headHash);
+  const chain = walkChain(uwf, entry.head);
   return chain.start.workflow;
 }
 
@@ -1030,10 +1101,11 @@ async function cmdThreadStepBackground(
 ): Promise<StepOutput[]> {
   // Get current head to return to caller
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     failStep(plog, `thread not active: ${threadId}`);
   }
+  const headHash = entry.head;
 
   const uwf = await createUwfStore(storageRoot);
 
@@ -1069,6 +1141,8 @@ async function cmdThreadStepBackground(
       head: headHash,
       status: "running",
       currentRole: resolveCurrentRole(uwf, headHash, workflowHash),
+      suspendedRole: null,
+      suspendMessage: null,
       done: false,
       background: true,
     },
@@ -1082,10 +1156,11 @@ async function cmdThreadStepOnce(
   plog: ProcessLogger,
 ): Promise<StepOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const headHash = index[threadId];
-  if (headHash === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     failStep(plog, `thread not active: ${threadId}`);
   }
+  const headHash = entry.head;
 
   const uwf = await createUwfStore(storageRoot);
   const chain = walkChain(uwf, headHash);
@@ -1109,6 +1184,13 @@ async function cmdThreadStepOnce(
   );
 
   if (isSuspendResult(nextResult.value)) {
+    await ensureThreadSuspendMetadata(
+      storageRoot,
+      threadId,
+      entry,
+      nextResult.value.suspendedRole,
+      nextResult.value.prompt,
+    );
     return buildStepOutputFromEvaluation(
       workflowHash,
       threadId,
@@ -1128,6 +1210,8 @@ async function cmdThreadStepOnce(
       head: headHash,
       status: "completed",
       currentRole: null,
+      suspendedRole: null,
+      suspendMessage: null,
       done: true,
       background: null,
     };
@@ -1162,7 +1246,8 @@ async function cmdThreadStepOnce(
 
   // Reload threads index to avoid overwriting changes made by the agent subprocess
   const freshIndex = await loadThreadsIndex(storageRoot);
-  freshIndex[threadId] = newHead;
+  const priorEntry = freshIndex[threadId] ?? createThreadIndexEntry(newHead);
+  freshIndex[threadId] = updateThreadHead(priorEntry, newHead);
   await saveThreadsIndex(storageRoot, freshIndex);
 
   const chainAfter = walkChain(uwfAfter, newHead);
@@ -1176,6 +1261,12 @@ async function cmdThreadStepOnce(
   }
 
   if (isSuspendResult(afterResult.value)) {
+    freshIndex[threadId] = markThreadSuspended(
+      freshIndex[threadId] ?? createThreadIndexEntry(newHead),
+      afterResult.value.suspendedRole,
+      afterResult.value.prompt,
+    );
+    await saveThreadsIndex(storageRoot, freshIndex);
     return buildStepOutputFromEvaluation(
       workflowHash,
       threadId,
@@ -1202,6 +1293,8 @@ async function cmdThreadStepOnce(
     head: newHead,
     status,
     currentRole,
+    suspendedRole: null,
+    suspendMessage: null,
     done,
     background: null,
   };
@@ -1209,7 +1302,7 @@ async function cmdThreadStepOnce(
 
 async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise<CasRef> {
   const index = await loadThreadsIndex(storageRoot);
-  const activeHead = index[threadId];
+  const activeHead = index[threadId]?.head;
   if (activeHead !== undefined) {
     return activeHead;
   }
@@ -1262,8 +1355,8 @@ export type CancelOutput = {
  */
 export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
 
@@ -1292,10 +1385,11 @@ export async function cmdThreadCancel(
   threadId: ThreadId,
 ): Promise<CancelOutput> {
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) {
+  const entry = index[threadId];
+  if (entry === undefined) {
     fail(`thread not active: ${threadId}`);
   }
+  const head = entry.head;
 
   // Check if thread is running in background and terminate it
   const runningMarker = await isThreadRunning(storageRoot, threadId);

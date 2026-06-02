@@ -90,8 +90,9 @@ async function insertStepNode(
 ): Promise<void> {
   const uwf = await createUwfStore(storageRoot);
   const index = await loadThreadsIndex(storageRoot);
-  const head = index[threadId];
-  if (head === undefined) throw new Error(`thread ${threadId} not in index`);
+  const headEntry = index[threadId];
+  if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
+  const head = headEntry.head;
 
   const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
   const outputHash = await uwf.store.put(outputSchemaHash, outputPayload);
@@ -116,7 +117,7 @@ async function insertStepNode(
     assembledPrompt: null,
   })) as CasRef;
 
-  index[threadId] = stepHash;
+  index[threadId] = { head: stepHash, suspendedRole: null, suspendMessage: null };
   await saveThreadsIndex(storageRoot, index);
 }
 
@@ -203,7 +204,7 @@ describe("thread show status field", () => {
 
     // Get the head hash before moving to history
     const index = await loadThreadsIndex(storageRoot);
-    const head = index[threadId];
+    const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
     // Move thread to history with reason 'completed'
@@ -243,7 +244,7 @@ describe("thread show status field", () => {
 
     // Get the head hash before moving to history
     const index = await loadThreadsIndex(storageRoot);
-    const head = index[threadId];
+    const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
     // Move thread to history with reason 'cancelled'
@@ -283,7 +284,7 @@ describe("thread show status field", () => {
 
     // Get the head hash before moving to history
     const index = await loadThreadsIndex(storageRoot);
-    const head = index[threadId];
+    const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
     // Move thread to history with reason null (legacy format)
@@ -333,6 +334,8 @@ describe("thread show status field", () => {
       expect(result.status).toBe("suspended");
       expect(result.done).toBe(false);
       expect(result.currentRole).toBe(null);
+      expect(result.suspendedRole).toBe("worker");
+      expect(result.suspendMessage).toBe("Please clarify: Which API?");
       expect(result.background).toBe(null);
       expect(result.thread).toBe(threadId);
     } finally {

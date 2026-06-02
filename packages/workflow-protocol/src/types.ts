@@ -105,8 +105,19 @@ export type StepOutput = {
   status: ThreadStatus;
   /** The current or next role. Null when completed, cancelled, suspended, or next is $END. */
   currentRole: string | null;
+  /** Role whose output triggered suspension. Null when thread is not suspended. */
+  suspendedRole: string | null;
+  /** Rendered suspend prompt for the user. Null when thread is not suspended. */
+  suspendMessage: string | null;
   done: boolean;
   background: boolean | null;
+};
+
+/** Active thread entry in ~/.uncaged/workflow/threads.yaml */
+export type ThreadIndexEntry = {
+  head: CasRef;
+  suspendedRole: string | null;
+  suspendMessage: string | null;
 };
 
 /** uwf thread steps — single step entry */
@@ -200,4 +211,4 @@ export type WorkflowConfig = {
 };
 
 /** ~/.uncaged/workflow/threads.yaml */
-export type ThreadsIndex = Record<ThreadId, CasRef>;
+export type ThreadsIndex = Record<ThreadId, ThreadIndexEntry>;

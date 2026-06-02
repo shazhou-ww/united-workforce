@@ -3,6 +3,15 @@ export {
   STEP_NODE_SCHEMA,
   WORKFLOW_SCHEMA,
 } from "./schemas.js";
+export {
+  createThreadIndexEntry,
+  markThreadSuspended,
+  normalizeThreadIndexEntry,
+  parseThreadsIndex,
+  serializeThreadIndexEntry,
+  serializeThreadsIndex,
+  updateThreadHead,
+} from "./thread-index.js";
 export type {
   AgentAlias,
   AgentConfig,
@@ -29,6 +38,7 @@ export type {
   Target,
   ThreadForkOutput,
   ThreadId,
+  ThreadIndexEntry,
   ThreadListItem,
   ThreadStatus,
   ThreadStepsOutput,

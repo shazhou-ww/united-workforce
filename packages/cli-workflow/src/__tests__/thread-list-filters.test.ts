@@ -47,9 +47,7 @@ async function createTestThread(
     prompt: "test prompt",
   };
   const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
-  const index = await import("../store.js").then((m) => m.loadThreadsIndex(storageRoot));
-  index[threadId] = headHash;
-  await saveThreadsIndex(storageRoot, index);
+  await saveThreadsIndex(storageRoot, { [threadId]: headHash });
   return threadId;
 }
 
@@ -106,7 +104,7 @@ describe("cmdThreadList status filter", () => {
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    const thread3Head = index[thread3];
+    const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
@@ -130,7 +128,7 @@ describe("cmdThreadList status filter", () => {
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    const thread3Head = index[thread3];
+    const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
@@ -154,7 +152,7 @@ describe("cmdThreadList status filter", () => {
     const thread3 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    const thread3Head = index[thread3];
+    const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
@@ -176,7 +174,7 @@ describe("cmdThreadList status filter", () => {
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    const thread3Head = index[thread3];
+    const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
@@ -348,7 +346,7 @@ describe("combined filters", () => {
     await markThreadRunning(tmpDir, thread2, workflowHash);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    const thread3Head = index[thread3];
+    const thread3Head = index[thread3]!.head;
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
@@ -372,7 +370,7 @@ describe("combined filters", () => {
       const thread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() + i * 1000);
       threads.push(thread);
       const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-      const headHash = index[thread];
+      const headHash = index[thread]!.head;
       if (headHash === undefined) throw new Error("head not found");
       await completeThread(tmpDir, thread, workflowHash, headHash);
     }
@@ -421,7 +419,7 @@ describe("combined filters", () => {
 
       if (i % 2 === 0) {
         const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-        const headHash = index[thread];
+        const headHash = index[thread]!.head;
         if (headHash === undefined) throw new Error("head not found");
         await completeThread(tmpDir, thread, workflowHash, headHash);
       } else {
@@ -479,7 +477,11 @@ describe("edge cases", () => {
     const thread2 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
 
     const index = await import("../store.js").then((m) => m.loadThreadsIndex(tmpDir));
-    index["INVALID_ULID_FORMAT_HERE" as ThreadId] = "01J6HMVRNQKJV2";
+    index["INVALID_ULID_FORMAT_HERE" as ThreadId] = {
+      head: "01J6HMVRNQKJV2",
+      suspendedRole: null,
+      suspendMessage: null,
+    };
     await saveThreadsIndex(tmpDir, index);
 
     const afterMs = Date.now() - 3000;

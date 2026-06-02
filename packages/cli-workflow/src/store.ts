@@ -5,7 +5,18 @@ import { join } from "node:path";
 
 import type { BootstrapCapableStore, Hash } from "@ocas/core";
 import { createFsStore } from "@ocas/fs";
-import type { CasRef, ThreadId, ThreadListItem, ThreadsIndex } from "@uncaged/workflow-protocol";
+import type {
+  CasRef,
+  ThreadId,
+  ThreadIndexEntry,
+  ThreadListItem,
+  ThreadsIndex,
+} from "@uncaged/workflow-protocol";
+import {
+  createThreadIndexEntry,
+  parseThreadsIndex,
+  serializeThreadsIndex,
+} from "@uncaged/workflow-protocol";
 import { parse, stringify } from "yaml";
 
 import { registerUwfSchemas, type UwfSchemaHashes } from "./schemas.js";
@@ -234,16 +245,7 @@ export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsInde
   try {
     const text = await readFile(path, "utf8");
     const raw = parse(text) as unknown;
-    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-      return {};
-    }
-    const index: ThreadsIndex = {};
-    for (const [threadId, head] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof head === "string") {
-        index[threadId as ThreadId] = head;
-      }
-    }
-    return index;
+    return parseThreadsIndex(raw);
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT") {
@@ -253,10 +255,25 @@ export async function loadThreadsIndex(storageRoot: string): Promise<ThreadsInde
   }
 }
 
-export async function saveThreadsIndex(storageRoot: string, index: ThreadsIndex): Promise<void> {
+/** Accept legacy CasRef values for test convenience. */
+export type ThreadsIndexInput = Record<ThreadId, ThreadIndexEntry | CasRef>;
+
+function normalizeThreadsIndexInput(index: ThreadsIndexInput): ThreadsIndex {
+  const normalized: ThreadsIndex = {};
+  for (const [threadId, value] of Object.entries(index)) {
+    normalized[threadId as ThreadId] =
+      typeof value === "string" ? createThreadIndexEntry(value as CasRef) : value;
+  }
+  return normalized;
+}
+
+export async function saveThreadsIndex(
+  storageRoot: string,
+  index: ThreadsIndexInput,
+): Promise<void> {
   const path = getThreadsPath(storageRoot);
   await mkdir(storageRoot, { recursive: true });
-  const text = stringify(index, { indent: 2 });
+  const text = stringify(serializeThreadsIndex(normalizeThreadsIndexInput(index)), { indent: 2 });
   await writeFile(path, text, "utf8");
 }
 
