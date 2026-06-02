@@ -1,5 +1,5 @@
-import type { RoleDefinition } from "@uncaged/workflow-protocol";
-import { generateCliReference } from "@uncaged/workflow-util";
+import type { RoleDefinition } from "@united-workforce/protocol";
+import { generateCliReference } from "@united-workforce/util";
 
 /**
  * Build the role prompt from a RoleDefinition.

@@ -21,11 +21,14 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 ```
 workflow/
   packages/
-    workflow-protocol/    # @uncaged/workflow-protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
-    workflow-util/        # @uncaged/workflow-util — Crockford Base32, ULID, logger, frontmatter parsing/validation
-    workflow-util-agent/  # @uncaged/workflow-util-agent — createAgent factory, context builder, extract pipeline
-    workflow-agent-hermes/ # @uncaged/workflow-agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
-    cli-workflow/         # @uncaged/cli-workflow — uwf CLI binary (includes status-based moderator in src/moderator/)
+    workflow-protocol/         # @united-workforce/protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
+    workflow-util/             # @united-workforce/util — Crockford Base32, ULID, logger, frontmatter parsing/validation
+    workflow-util-agent/       # @united-workforce/util-agent — createAgent factory, context builder, extract pipeline
+    workflow-agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
+    workflow-agent-claude-code/ # @united-workforce/agent-claude-code — uwf-claude-code CLI binary
+    workflow-agent-builtin/    # @united-workforce/agent-builtin — uwf-builtin CLI binary
+    cli-workflow/              # @united-workforce/cli — uwf CLI binary (includes status-based moderator in src/moderator/)
+    workflow-dashboard/        # @united-workforce/dashboard — web dashboard (private, not published)
   legacy-packages/       # Archived packages (preserved for reference, not active)
   examples/              # Workflow YAML examples (solve-issue.yaml)
   docs/                  # Architecture docs
@@ -33,7 +36,7 @@ workflow/
   tsconfig.json          # root TypeScript config
 ```
 
-- Dependency layers: `workflow-protocol` → `workflow-util` → `workflow-util-agent` → `workflow-agent-hermes` / `cli-workflow`
+- Dependency layers: `workflow-protocol` → `workflow-util` → `workflow-util-agent` → `workflow-agent-hermes` / `workflow-agent-claude-code` / `workflow-agent-builtin` / `cli-workflow`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
 - External CAS: `@ocas/core` (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend)
 
@@ -173,10 +176,10 @@ type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 Never use `console.log/warn/error` directly — Biome's `noConsole` rule enforces this.
 
-All logging goes through the structured logger from `@uncaged/workflow-util`:
+All logging goes through the structured logger from `@united-workforce/util`:
 
 ```typescript
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@united-workforce/util";
 
 const log = createLogger();
 
@@ -202,7 +205,7 @@ log("7BQST3VW", `Role ${role} started`);
 
 ### CLI entry point exception
 
-The CLI package (`@uncaged/cli-workflow`) may use `console.log` for user-facing output only. Suppress with:
+The CLI package (`@united-workforce/cli`) may use `console.log` for user-facing output only. Suppress with:
 
 ```typescript
 // biome-ignore lint/nursery/noConsole: CLI user-facing output
@@ -243,7 +246,7 @@ bun test                    # must pass — all package tests
 
 ### Publishing
 
-All public `@uncaged/*` packages are published to **npmjs.org** with **fixed mode** (all packages share the same version number).
+All public `@united-workforce/*` packages are published to **npmjs.org** with **fixed mode** (all packages share the same version number).
 
 ```bash
 # 1. Add a changeset describing the change

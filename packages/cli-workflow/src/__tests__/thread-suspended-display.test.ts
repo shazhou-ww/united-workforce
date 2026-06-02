@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
-import type { ThreadId } from "@uncaged/workflow-protocol";
-import { createThreadIndexEntry, markThreadSuspended } from "@uncaged/workflow-protocol";
+import type { ThreadId } from "@united-workforce/protocol";
+import { createThreadIndexEntry, markThreadSuspended } from "@united-workforce/protocol";
 import { cmdThreadList, cmdThreadShow } from "../commands/thread.js";
 import { createUwfStore, saveThreadsIndex } from "../store.js";
 

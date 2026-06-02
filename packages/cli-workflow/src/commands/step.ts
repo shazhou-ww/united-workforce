@@ -7,8 +7,8 @@ import type {
   ThreadForkOutput,
   ThreadId,
   ThreadStepsOutput,
-} from "@uncaged/workflow-protocol";
-import { generateUlid } from "@uncaged/workflow-util";
+} from "@united-workforce/protocol";
+import { generateUlid } from "@united-workforce/util";
 import { createUwfStore, loadThreadsIndex, saveThreadsIndex } from "../store.js";
 import {
   collectOrderedSteps,

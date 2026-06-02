@@ -1,4 +1,4 @@
-import type { WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { WorkflowPayload } from "@united-workforce/protocol";
 
 type SchemaObj = Record<string, unknown>;
 

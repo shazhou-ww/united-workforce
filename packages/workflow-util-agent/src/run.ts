@@ -1,5 +1,5 @@
 import { getSchema, validate } from "@ocas/core";
-import type { CasRef, StepNodePayload, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";

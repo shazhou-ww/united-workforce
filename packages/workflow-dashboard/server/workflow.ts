@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { RoleDefinition, Target, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { RoleDefinition, Target, WorkflowPayload } from "@united-workforce/protocol";
 import YAML from "yaml";
 import type { WorkFlowSteps, WorkFlowTransition, WorkflowSummary } from "../shared/types.ts";
 

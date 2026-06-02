@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { RunningThreadItem, ThreadId } from "@uncaged/workflow-protocol";
+import type { RunningThreadItem, ThreadId } from "@united-workforce/protocol";
 
 import type { RunningMarker } from "./types.js";
 

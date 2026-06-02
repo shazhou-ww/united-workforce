@@ -1,5 +1,5 @@
 import type { Store } from "@ocas/core";
-import type { ModeratorContext, ThreadId, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { ModeratorContext, ThreadId, WorkflowPayload } from "@united-workforce/protocol";
 
 export type AgentContext = ModeratorContext & {
   threadId: ThreadId;

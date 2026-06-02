@@ -1,4 +1,4 @@
-# @uncaged/workflow-util
+# @united-workforce/util
 
 Shared utilities: encoding, IDs, logging, frontmatter parsing, storage paths, and CLI reference generation.
 
@@ -11,7 +11,7 @@ Layer 1 shared infrastructure used across CLI, agent-kit, and agent packages. Pr
 ## Installation
 
 ```bash
-bun add @uncaged/workflow-util
+bun add @united-workforce/util
 ```
 
 ## API
@@ -114,7 +114,7 @@ import {
   generateUlid,
   getDefaultWorkflowStorageRoot,
   parseFrontmatterMarkdown,
-} from "@uncaged/workflow-util";
+} from "@united-workforce/util";
 
 const log = createLogger();
 log("4KNMR2PX", "Loading workflow...");

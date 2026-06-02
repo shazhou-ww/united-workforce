@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { WorkflowConfig } from "@uncaged/workflow-protocol";
+import type { WorkflowConfig } from "@united-workforce/protocol";
 import { resolveExtractModelAlias } from "../src/extract.js";
 
 function baseConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {

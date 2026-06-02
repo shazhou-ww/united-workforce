@@ -3,7 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
-import type { CasRef, ThreadId } from "@uncaged/workflow-protocol";
+import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {

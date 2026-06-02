@@ -1,4 +1,4 @@
-# @uncaged/workflow-util-agent
+# @united-workforce/util-agent
 
 Agent framework — `createAgent` factory, context builder, frontmatter fast-path, and LLM extract pipeline.
 
@@ -8,12 +8,12 @@ Layer 2 agent framework. Provides the standard entrypoint for all agent CLIs: pa
 
 Also exports prompt builders, config/storage helpers, and session ID caching for multi-turn agents.
 
-**Dependencies:** `@ocas/core`, `@ocas/fs`, `@uncaged/workflow-protocol`, `@uncaged/workflow-util`, `dotenv`, `yaml`
+**Dependencies:** `@ocas/core`, `@ocas/fs`, `@united-workforce/protocol`, `@united-workforce/util`, `dotenv`, `yaml`
 
 ## Installation
 
 ```bash
-bun add @uncaged/workflow-util-agent
+bun add @united-workforce/util-agent
 ```
 
 ## API
@@ -140,8 +140,8 @@ function loadWorkflowConfig(storageRoot: string): Promise<WorkflowConfig>
 ## Usage
 
 ```typescript
-import { createAgent, buildRolePrompt } from "@uncaged/workflow-util-agent";
-import type { AgentContext, AgentRunResult } from "@uncaged/workflow-util-agent";
+import { createAgent, buildRolePrompt } from "@united-workforce/util-agent";
+import type { AgentContext, AgentRunResult } from "@united-workforce/util-agent";
 
 async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const prompt = buildRolePrompt(ctx.workflow.roles[ctx.role]!);
@@ -180,4 +180,4 @@ src/
 
 ## Configuration
 
-Reads `config.yaml` and `.env` from the workflow storage root (`~/.uncaged/workflow` by default). See `@uncaged/workflow-protocol` for `WorkflowConfig` shape. Set via `uwf setup`.
+Reads `config.yaml` and `.env` from the workflow storage root (`~/.uncaged/workflow` by default). See `@united-workforce/protocol` for `WorkflowConfig` shape. Set via `uwf setup`.

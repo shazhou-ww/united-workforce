@@ -1,4 +1,4 @@
-import { type AgentContext, buildRolePrompt } from "@uncaged/workflow-util-agent";
+import { type AgentContext, buildRolePrompt } from "@united-workforce/util-agent";
 
 import type { ChatMessage } from "./llm/index.js";
 

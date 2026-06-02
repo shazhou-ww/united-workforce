@@ -5,7 +5,7 @@ import type {
   StepContext,
   StepNodePayload,
   ThreadId,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import type { AgentStore } from "./storage.js";
 import { createAgentStore, loadThreadsIndex, resolveStorageRoot } from "./storage.js";
 import type { AgentContext } from "./types.js";

@@ -11,12 +11,12 @@ import type {
   ThreadIndexEntry,
   ThreadListItem,
   ThreadsIndex,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import {
   createThreadIndexEntry,
   parseThreadsIndex,
   serializeThreadsIndex,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import { parse, stringify } from "yaml";
 
 import { registerUwfSchemas, type UwfSchemaHashes } from "./schemas.js";

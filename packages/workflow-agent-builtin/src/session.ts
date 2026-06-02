@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@united-workforce/util";
 
 import type { BuiltinTurnPayload } from "./types.js";
 

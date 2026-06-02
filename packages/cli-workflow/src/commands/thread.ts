@@ -17,20 +17,20 @@ import type {
   ThreadsIndex,
   WorkflowConfig,
   WorkflowPayload,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import {
   createThreadIndexEntry,
   markThreadSuspended,
   updateThreadHead,
-} from "@uncaged/workflow-protocol";
+} from "@united-workforce/protocol";
 import {
   createProcessLogger,
   extractUlidTimestamp,
   generateUlid,
   type ProcessLogger,
-} from "@uncaged/workflow-util";
-import type { AdapterOutput } from "@uncaged/workflow-util-agent";
-import { getEnvPath, loadWorkflowConfig } from "@uncaged/workflow-util-agent";
+} from "@united-workforce/util";
+import type { AdapterOutput } from "@united-workforce/util-agent";
+import { getEnvPath, loadWorkflowConfig } from "@united-workforce/util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";

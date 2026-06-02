@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { RoleDefinition } from "@uncaged/workflow-protocol";
+import type { RoleDefinition } from "@united-workforce/protocol";
 import { buildRolePrompt } from "../src/build-role-prompt.js";
 
 describe("buildRolePrompt", () => {

@@ -1,6 +1,6 @@
 import type { Hash, Store } from "@ocas/core";
 import { putSchema } from "@ocas/core";
-import { START_NODE_SCHEMA, STEP_NODE_SCHEMA, WORKFLOW_SCHEMA } from "@uncaged/workflow-protocol";
+import { START_NODE_SCHEMA, STEP_NODE_SCHEMA, WORKFLOW_SCHEMA } from "@united-workforce/protocol";
 
 export const TEXT_SCHEMA = { type: "string" as const };
 

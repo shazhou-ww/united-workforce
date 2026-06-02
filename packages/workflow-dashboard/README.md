@@ -1,14 +1,14 @@
-# @uncaged/workflow-dashboard
+# @united-workforce/dashboard
 
 Web graph editor for visualizing and editing workflow YAML definitions.
 
 ## Overview
 
-A private alpha web app (not part of the runtime engine stack). Provides a React + `@xyflow/react` canvas for editing workflow roles, conditions, and graph transitions. Uses `@uncaged/workflow-protocol` types for validation and YAML round-tripping.
+A private alpha web app (not part of the runtime engine stack). Provides a React + `@xyflow/react` canvas for editing workflow roles, conditions, and graph transitions. Uses `@united-workforce/protocol` types for validation and YAML round-tripping.
 
 Planned integration: local `uwf connect` over WebSocket to sync YAML between CLI and the browser editor. The REST API and Elysia backend are currently stubs for development.
 
-**Dependencies:** `@uncaged/workflow-protocol`, `@xyflow/react`, React 19, react-router v7, Vite 8, Tailwind CSS v4, Elysia
+**Dependencies:** `@united-workforce/protocol`, `@xyflow/react`, React 19, react-router v7, Vite 8, Tailwind CSS v4, Elysia
 
 ## Installation
 

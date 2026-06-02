@@ -1,4 +1,4 @@
-import type { StepContext } from "@uncaged/workflow-protocol";
+import type { StepContext } from "@united-workforce/protocol";
 
 function formatStep(step: StepContext, stepNumber: number, includeContent: boolean): string {
   const lines = [

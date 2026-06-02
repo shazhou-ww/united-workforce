@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-agent-hermes",
+  "name": "@united-workforce/agent-hermes",
   "version": "0.5.0",
   "files": [
     "src",
@@ -24,9 +24,9 @@
   },
   "dependencies": {
     "@ocas/core": "^0.1.1",
-    "@uncaged/workflow-util-agent": "workspace:^",
-    "@uncaged/workflow-protocol": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^"
+    "@united-workforce/util-agent": "workspace:^",
+    "@united-workforce/protocol": "workspace:^",
+    "@united-workforce/util": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

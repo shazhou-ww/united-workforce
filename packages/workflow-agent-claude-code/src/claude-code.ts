@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { Store } from "@ocas/core";
-import { createLogger } from "@uncaged/workflow-util";
+import { createLogger } from "@united-workforce/util";
 import {
   type AgentContext,
   type AgentRunResult,
@@ -9,7 +9,7 @@ import {
   createAgent,
   getCachedSessionId,
   setCachedSessionId,
-} from "@uncaged/workflow-util-agent";
+} from "@united-workforce/util-agent";
 
 import { parseClaudeCodeStreamOutput, storeClaudeCodeDetail } from "./session-detail.js";
 

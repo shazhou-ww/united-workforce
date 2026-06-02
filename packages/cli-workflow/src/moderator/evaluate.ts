@@ -1,4 +1,4 @@
-import type { Target } from "@uncaged/workflow-protocol";
+import type { Target } from "@united-workforce/protocol";
 import mustache from "mustache";
 
 import type { EvaluateResult, Result } from "./types.js";

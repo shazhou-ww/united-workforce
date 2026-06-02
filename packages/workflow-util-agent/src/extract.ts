@@ -1,6 +1,6 @@
 import { getSchema, validate } from "@ocas/core";
 
-import type { CasRef, ModelAlias, WorkflowConfig } from "@uncaged/workflow-protocol";
+import type { CasRef, ModelAlias, WorkflowConfig } from "@united-workforce/protocol";
 import { createAgentStore, resolveStorageRoot } from "./storage.js";
 
 export type ResolvedLlmProvider = {

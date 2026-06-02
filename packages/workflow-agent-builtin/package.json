@@ -1,5 +1,5 @@
 {
-  "name": "@uncaged/workflow-agent-builtin",
+  "name": "@united-workforce/agent-builtin",
   "version": "0.5.0",
   "files": [
     "src",
@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@ocas/core": "^0.1.1",
-    "@uncaged/workflow-util-agent": "workspace:^",
-    "@uncaged/workflow-util": "workspace:^"
+    "@united-workforce/util-agent": "workspace:^",
+    "@united-workforce/util": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

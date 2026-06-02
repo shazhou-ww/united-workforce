@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFsStore } from "@ocas/fs";
-import type { CasRef, WorkflowPayload } from "@uncaged/workflow-protocol";
+import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
 import { stringify } from "yaml";
 import { cmdThreadStart } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
