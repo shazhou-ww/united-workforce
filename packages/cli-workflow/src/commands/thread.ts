@@ -481,7 +481,10 @@ export async function cmdThreadStart(
   return { workflow: workflowHash, thread: threadId };
 }
 
-export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Promise<StepOutput> {
+export async function cmdThreadShow(
+  storageRoot: string,
+  threadId: ThreadId,
+): Promise<ThreadShowOutput> {
   const index = await loadThreadsIndex(storageRoot);
   const entry = index[threadId];
   if (entry !== undefined) {
@@ -502,6 +505,11 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
     const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
     const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
 
+    const hint =
+      status === "suspended"
+        ? `Thread is suspended. Resume with: uwf thread resume ${threadId}`
+        : null;
+
     return {
       workflow,
       thread: threadId,
@@ -512,6 +520,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       suspendMessage: suspendFields.suspendMessage,
       done: false,
       background: null,
+      hint,
     };
   }
 
@@ -529,6 +538,7 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
       suspendMessage: null,
       done: true,
       background: null,
+      hint: null,
     };
   }
 
@@ -538,6 +548,13 @@ export async function cmdThreadShow(storageRoot: string, threadId: ThreadId): Pr
 export type ThreadListItemWithStatus = ThreadListItem & {
   status: ThreadStatus;
   currentRole: string | null;
+  /** Display label with status marker for suspended threads */
+  statusDisplay: string;
+};
+
+export type ThreadShowOutput = StepOutput & {
+  /** Hint message for suspended threads */
+  hint: string | null;
 };
 
 async function threadListItemFromActive(
@@ -552,6 +569,7 @@ async function threadListItemFromActive(
   }
 
   const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, head, workflow);
+  const statusDisplay = status === "suspended" ? `${status} [suspended]` : status;
 
   return {
     thread: threadId,
@@ -559,6 +577,7 @@ async function threadListItemFromActive(
     head,
     status,
     currentRole: resolveCurrentRole(uwf, head, workflow),
+    statusDisplay,
   };
 }
 
@@ -587,12 +606,14 @@ async function collectCompletedThreads(
   for (const entry of history) {
     if (!activeIds.has(entry.thread) && !seen.has(entry.thread)) {
       seen.add(entry.thread);
+      const status = entry.reason === "cancelled" ? "cancelled" : "completed";
       items.push({
         thread: entry.thread,
         workflow: entry.workflow,
         head: entry.head,
-        status: entry.reason === "cancelled" ? "cancelled" : "completed",
+        status,
         currentRole: null,
+        statusDisplay: status,
       });
     }
   }
