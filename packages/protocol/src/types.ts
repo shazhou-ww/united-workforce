@@ -113,7 +113,7 @@ export type StepOutput = {
   background: boolean | null;
 };
 
-/** Active thread entry in ~/.uwf/threads.yaml */
+/** Active thread entry in @uwf/thread/* variable store */
 export type ThreadIndexEntry = {
   head: CasRef;
   suspendedRole: string | null;
@@ -210,5 +210,5 @@ export type WorkflowConfig = {
   modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 
-/** ~/.uwf/threads.yaml */
+/** @uwf/thread/* variable store index */
 export type ThreadsIndex = Record<ThreadId, ThreadIndexEntry>;

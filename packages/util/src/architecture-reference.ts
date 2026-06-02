@@ -15,7 +15,7 @@ Stored artifacts include:
 ### Thread
 A Thread is a single execution of a Workflow, identified by a ULID (26-char Crockford Base32: 10 timestamp + 16 random). Thread state is an immutable CAS chain — each step points to its predecessor via a \`prev\` hash, forming a linked list.
 
-Active threads are indexed in \`threads.yaml\`; completed threads move to \`history.jsonl\`.
+Active threads are indexed as \`@uwf/thread/*\` variables; completed threads move to \`@uwf/history/*\` variables in the ocas variable store.
 
 A thread progresses by running \`uwf thread exec\`, which performs one moderator→agent→extract cycle per step.
 
@@ -51,10 +51,12 @@ uwf thread exec <thread-id>
 
 ## Storage Layout
 
-All data lives under \`~/.uwf/\`:
-- \`cas/\` — content-addressed store (XXH64-keyed)
-- \`threads.yaml\` — active thread index
-- \`history.jsonl\` — completed thread archive
-- \`registry.yaml\` — workflow name → CAS hash mapping
+CAS data lives under \`~/.ocas/\`:
+- \`objects/\` — content-addressed store (XXH64-keyed)
+- \`variables.db\` — variable store (\`@uwf/registry/*\`, \`@uwf/thread/*\`, \`@uwf/history/*\`)
+
+Config lives under \`~/.uwf/\`:
+- \`config.yaml\` — provider, model, agent settings
+- \`.env\` — API keys
 `;
 }
