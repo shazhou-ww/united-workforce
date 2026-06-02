@@ -108,7 +108,7 @@ export type AgentStore = {
 };
 
 export async function createAgentStore(storageRoot: string): Promise<AgentStore> {
-  const store = createFsStore(getCasDir(storageRoot));
+  const store = createFsStore(getGlobalCasDir());
   const schemas = await registerAgentSchemas(store);
   return { storageRoot, store, schemas };
 }
