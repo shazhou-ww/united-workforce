@@ -1,4 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WorkflowPayload } from "@united-workforce/protocol";
@@ -15,7 +17,7 @@ import { parse } from "yaml";
 describe("solve-issue workflow: Gitea API PR creation", () => {
   // Navigate up from packages/cli/src/__tests__ to repo root
   const workflowPath = join(
-    import.meta.dirname,
+    dirname(fileURLToPath(import.meta.url)),
     "..",
     "..",
     "..",

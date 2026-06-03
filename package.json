@@ -1,23 +1,21 @@
 {
   "name": "@united-workforce/monorepo",
   "private": true,
-  "packageManager": "bun@1.3.14",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "uwf": "bun packages/cli/src/cli.ts",
-    "preinstall": "npx only-allow bun",
-    "prepublishOnly": "echo 'Use bun run release instead' && exit 1",
-    "build": "bunx tsc --build",
-    "check": "bunx tsc --build && biome check . && bash scripts/lint-log-tags.sh",
-    "typecheck": "bunx tsc --build",
+    "uwf": "pnpm tsx packages/cli/src/cli.ts",
+    "prepublishOnly": "echo 'Use pnpm run release instead' && exit 1",
+    "build": "npx tsc --build",
+    "check": "npx tsc --build && biome check . && bash scripts/lint-log-tags.sh",
+    "typecheck": "npx tsc --build",
     "format": "biome format --write .",
-    "test": "bun run --filter './packages/*' test",
-    "test:ci": "bun run --filter './packages/*' test:ci",
-    "changeset": "bunx changeset",
-    "version": "bunx changeset version",
-    "release": "bun run build && bun run test && node scripts/publish-all.mjs"
+    "test": "pnpm -r run test",
+    "test:ci": "pnpm -r run test:ci",
+    "changeset": "npx changeset",
+    "version": "npx changeset version",
+    "release": "pnpm run build && pnpm run test && node scripts/publish-all.mjs"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.22.1",
@@ -26,8 +24,8 @@
     "@types/node": "^25.7.0",
     "@types/xxhashjs": "^0.2.4",
     "@united-workforce/agent-hermes": "workspace:*",
-    "bun-types": "^1.3.13",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.1",
     "yaml": "^2.9.0"
   },
   "repository": {

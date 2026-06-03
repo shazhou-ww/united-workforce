@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import type { RoleDefinition } from "@united-workforce/protocol";
 import { buildRolePrompt } from "../src/build-role-prompt.js";
 

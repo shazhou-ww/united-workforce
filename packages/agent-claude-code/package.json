@@ -12,20 +12,19 @@
   },
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
   "scripts": {
-    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
-    "test": "bun test __tests__/",
-    "test:ci": "bun test __tests__/"
+    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
+    "test": "vitest run __tests__/",
+    "test:ci": "vitest run __tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.1.1",
-    "@united-workforce/util-agent": "workspace:^",
-    "@united-workforce/util": "workspace:^"
+    "@ocas/core": "^0.2.2",
+    "@united-workforce/util": "workspace:^",
+    "@united-workforce/util-agent": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

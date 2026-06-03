@@ -1,5 +1,4 @@
-import { describe, expect, test } from "bun:test";
-
+import { describe, expect, test } from 'vitest';
 import { buildOutputFormatInstruction } from "../src/build-output-format-instruction.js";
 
 const PLANNER_SCHEMA = {

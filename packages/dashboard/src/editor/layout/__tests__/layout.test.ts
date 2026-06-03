@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from 'vitest';
 import type { Edge, Node } from "@xyflow/react";
 import { LayoutLR } from "../index.js";
 

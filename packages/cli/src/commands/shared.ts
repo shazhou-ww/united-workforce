@@ -27,7 +27,7 @@ function fail(message: string): never {
 }
 
 function walkChain(uwf: UwfStore, headHash: CasRef): ChainState {
-  const headNode = uwf.store.get(headHash);
+  const headNode = uwf.store.cas.get(headHash);
   if (headNode === null) {
     fail(`CAS node not found: ${headHash}`);
   }
@@ -49,7 +49,7 @@ function walkChain(uwf: UwfStore, headHash: CasRef): ChainState {
   let hash: CasRef | null = headHash;
 
   while (hash !== null) {
-    const node = uwf.store.get(hash);
+    const node = uwf.store.cas.get(hash);
     if (node === null) {
       fail(`CAS node not found while walking chain: ${hash}`);
     }
@@ -66,7 +66,7 @@ function walkChain(uwf: UwfStore, headHash: CasRef): ChainState {
     fail(`empty step chain at head ${headHash}`);
   }
 
-  const startNode = uwf.store.get(newest.start);
+  const startNode = uwf.store.cas.get(newest.start);
   if (startNode === null || startNode.type !== uwf.schemas.startNode) {
     fail(`StartNode not found: ${newest.start}`);
   }
@@ -80,7 +80,7 @@ function walkChain(uwf: UwfStore, headHash: CasRef): ChainState {
 }
 
 function expandOutput(uwf: UwfStore, outputRef: CasRef): unknown {
-  const node = uwf.store.get(outputRef);
+  const node = uwf.store.cas.get(outputRef);
   if (node === null) {
     return {};
   }
@@ -96,7 +96,7 @@ function expandDeep(store: CasStore, hash: CasRef, visited?: Set<string>): unkno
   if (seen.has(hash)) return hash; // cycle guard
   seen.add(hash);
 
-  const node = store.get(hash);
+  const node = store.cas.get(hash);
   if (node === null) return hash;
 
   const schema = getSchema(store, node.type);
@@ -177,7 +177,7 @@ function collectOrderedSteps(
   let hash: CasRef | null = headHash;
   const hashToNode = new Map<string, { payload: StepNodePayload; timestamp: number }>();
   while (hash !== null) {
-    const node = uwf.store.get(hash);
+    const node = uwf.store.cas.get(hash);
     if (node === null || node.type !== uwf.schemas.stepNode) {
       break;
     }

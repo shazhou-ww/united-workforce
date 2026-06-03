@@ -290,7 +290,7 @@ export async function storeClaudeCodeDetail(
   // Store each turn as an individual CAS node
   const turnHashes: string[] = [];
   for (const turn of parsed.turns) {
-    const hash = await store.put(schemas.turn, turn);
+    const hash = await store.cas.put(schemas.turn, turn);
     turnHashes.push(hash);
   }
 
@@ -306,12 +306,12 @@ export async function storeClaudeCodeDetail(
     turns: turnHashes,
   };
 
-  const detailHash = await store.put(schemas.detail, detail);
+  const detailHash = await store.cas.put(schemas.detail, detail);
   return { detailHash, output: parsed.result, sessionId: parsed.sessionId };
 }
 
 /** Fallback: store raw text output when JSON parsing fails. */
 export async function storeClaudeCodeRawOutput(store: Store, rawOutput: string): Promise<string> {
   const schemas = await registerSchemas(store);
-  return store.put(schemas.rawOutput, { text: rawOutput });
+  return store.cas.put(schemas.rawOutput, { text: rawOutput });
 }

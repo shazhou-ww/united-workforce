@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import type { ThreadId } from "@united-workforce/protocol";
 import type { AgentContext } from "@united-workforce/util-agent";
 import { buildHermesPrompt } from "../src/hermes.js";

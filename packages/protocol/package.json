@@ -9,19 +9,18 @@
   "type": "module",
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
   "scripts": {
-    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
-    "test": "bun test src/__tests__/",
-    "test:ci": "bun test src/__tests__/"
+    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
+    "test": "vitest run src/__tests__/",
+    "test:ci": "vitest run src/__tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.1.1",
-    "@ocas/fs": "^0.1.1"
+    "@ocas/core": "^0.2.2",
+    "@ocas/fs": "^0.2.2"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ async function seedHistoryHead(
   uwf: Awaited<ReturnType<typeof createUwfStore>>,
   label: string,
 ): Promise<CasRef> {
-  return (await uwf.store.put(uwf.schemas.text, label)) as CasRef;
+  return (await uwf.store.cas.put(uwf.schemas.text, label)) as CasRef;
 }
 
 describe("thread cancel status", () => {

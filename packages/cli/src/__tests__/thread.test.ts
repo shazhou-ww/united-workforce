@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bootstrap, putSchema } from "@ocas/core";
-import type { createFsStore } from "@ocas/fs";
+import { bootstrap, putSchema, type Store } from "@ocas/core";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdStepList, cmdStepShow } from "../commands/step.js";
 import {
@@ -62,7 +61,7 @@ async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   return createUwfStore(storageRoot);
 }
 
-async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
+async function registerDetailSchemas(store: Store) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
     putSchema(store, TURN_SCHEMA),
@@ -90,21 +89,21 @@ describe("extractLastAssistantContent", () => {
     const uwf = await makeUwfStore(tmpDir);
     const schemas = await registerDetailSchemas(uwf.store);
 
-    const turn1 = await uwf.store.put(schemas.turn, {
+    const turn1 = await uwf.store.cas.put(schemas.turn, {
       index: 0,
       role: "assistant",
       content: "intermediate",
       toolCalls: null,
       reasoning: null,
     });
-    const turn2 = await uwf.store.put(schemas.turn, {
+    const turn2 = await uwf.store.cas.put(schemas.turn, {
       index: 1,
       role: "tool",
       content: "ok",
       toolCalls: null,
       reasoning: null,
     });
-    const turn3 = await uwf.store.put(schemas.turn, {
+    const turn3 = await uwf.store.cas.put(schemas.turn, {
       index: 2,
       role: "assistant",
       content: "final answer",
@@ -112,7 +111,7 @@ describe("extractLastAssistantContent", () => {
       reasoning: null,
     });
 
-    const detailHash = await uwf.store.put(schemas.detail, {
+    const detailHash = await uwf.store.cas.put(schemas.detail, {
       sessionId: "s1",
       model: "m1",
       duration: 1000,
@@ -132,7 +131,7 @@ describe("extractLastAssistantContent", () => {
     const uwf = await makeUwfStore(tmpDir);
     const schemas = await registerDetailSchemas(uwf.store);
 
-    const detailHash = await uwf.store.put(schemas.detail, {
+    const detailHash = await uwf.store.cas.put(schemas.detail, {
       sessionId: "s2",
       model: "m2",
       duration: 0,
@@ -147,7 +146,7 @@ describe("extractLastAssistantContent", () => {
     const uwf = await makeUwfStore(tmpDir);
     const schemas = await registerDetailSchemas(uwf.store);
 
-    const turn1 = await uwf.store.put(schemas.turn, {
+    const turn1 = await uwf.store.cas.put(schemas.turn, {
       index: 0,
       role: "assistant",
       content: "",
@@ -155,7 +154,7 @@ describe("extractLastAssistantContent", () => {
       reasoning: null,
     });
 
-    const detailHash = await uwf.store.put(schemas.detail, {
+    const detailHash = await uwf.store.cas.put(schemas.detail, {
       sessionId: "s3",
       model: "m3",
       duration: 0,
@@ -170,14 +169,14 @@ describe("extractLastAssistantContent", () => {
     const uwf = await makeUwfStore(tmpDir);
     const schemas = await registerDetailSchemas(uwf.store);
 
-    const turn1 = await uwf.store.put(schemas.turn, {
+    const turn1 = await uwf.store.cas.put(schemas.turn, {
       index: 0,
       role: "assistant",
       content: "real content",
       toolCalls: null,
       reasoning: null,
     });
-    const turn2 = await uwf.store.put(schemas.turn, {
+    const turn2 = await uwf.store.cas.put(schemas.turn, {
       index: 1,
       role: "assistant",
       content: "   ",
@@ -185,7 +184,7 @@ describe("extractLastAssistantContent", () => {
       reasoning: null,
     });
 
-    const detailHash = await uwf.store.put(schemas.detail, {
+    const detailHash = await uwf.store.cas.put(schemas.detail, {
       sessionId: "s4",
       model: "m4",
       duration: 0,
@@ -204,7 +203,7 @@ describe("cmdThreadRead <output> section", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -221,12 +220,12 @@ describe("cmdThreadRead <output> section", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Write something",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -234,14 +233,14 @@ describe("cmdThreadRead <output> section", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "The assistant response text",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sx",
       model: "mx",
       duration: 500,
@@ -249,7 +248,7 @@ describe("cmdThreadRead <output> section", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "writer",
@@ -272,18 +271,18 @@ describe("cmdThreadRead <output> section", () => {
   test("omits <output> tags when detail has no matching assistant turns", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf2",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Do stuff",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -294,7 +293,7 @@ describe("cmdThreadRead <output> section", () => {
     // A detail ref that doesn't exist in the store → extractLastAssistantContent returns null
     const missingDetailRef = "missingdetail0" as CasRef;
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -321,18 +320,18 @@ describe("cmdStepShow", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "wf",
       description: "",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "p",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -340,14 +339,14 @@ describe("cmdStepShow", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "done",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sess42",
       model: "gpt-4o",
       duration: 3000,
@@ -355,7 +354,7 @@ describe("cmdStepShow", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "coder",
@@ -400,18 +399,18 @@ describe("cmdThreadRead <prompt> deduplication", () => {
         meta: "placeholder00" as CasRef,
       };
     }
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "dedup-wf",
       description: "desc",
       roles: roleMap,
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Start",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -422,7 +421,7 @@ describe("cmdThreadRead <prompt> deduplication", () => {
     let prev: string | null = null;
     let stepHash = "";
     for (const role of roles) {
-      stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
         start: startHash,
         prev: prev as CasRef | null,
         role,
@@ -477,7 +476,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     roles: string[],
   ): Promise<{ startHash: CasRef; stepHashes: CasRef[] }> {
     const uniqueRoles = [...new Set(roles)];
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "simple-wf",
       description: "desc",
       roles: Object.fromEntries(
@@ -496,11 +495,11 @@ describe("cmdThreadRead start section / before / quota", () => {
       conditions: {},
       graph: {},
     });
-    const startHash = (await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = (await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Initial prompt",
     })) as CasRef;
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -511,7 +510,7 @@ describe("cmdThreadRead start section / before / quota", () => {
     const stepHashes: CasRef[] = [];
     let prev: CasRef | null = null;
     for (const role of roles) {
-      const stepHash = (await uwf.store.put(uwf.schemas.stepNode, {
+      const stepHash = (await uwf.store.cas.put(uwf.schemas.stepNode, {
         start: startHash,
         prev,
         role,
@@ -593,7 +592,7 @@ describe("cmdStepShow (process.exit tests - must be last)", () => {
   test("before with unknown hash rejects", async () => {
     const uwfStore = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwfStore.store.put(uwfStore.schemas.workflow, {
+    const workflowHash = await uwfStore.store.cas.put(uwfStore.schemas.workflow, {
       name: "wf2",
       description: "",
       roles: {
@@ -609,18 +608,18 @@ describe("cmdStepShow (process.exit tests - must be last)", () => {
       conditions: {},
       graph: {},
     });
-    const startHash = await uwfStore.store.put(uwfStore.schemas.startNode, {
+    const startHash = await uwfStore.store.cas.put(uwfStore.schemas.startNode, {
       workflow: workflowHash,
       prompt: "p",
     });
-    const outputHash = await uwfStore.store.put(uwfStore.schemas.workflow, {
+    const outputHash = await uwfStore.store.cas.put(uwfStore.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const stepHash = await uwfStore.store.put(uwfStore.schemas.stepNode, {
+    const stepHash = await uwfStore.store.cas.put(uwfStore.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "roleA",
@@ -648,18 +647,18 @@ describe("cmdStepList with completed threads", () => {
   test("lists steps from active thread", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-active",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Start prompt",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -667,7 +666,7 @@ describe("cmdStepList with completed threads", () => {
       graph: {},
     });
 
-    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step1Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "role1",
@@ -675,7 +674,7 @@ describe("cmdStepList with completed threads", () => {
       detail: null,
       agent: "uwf-test",
     });
-    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step2Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step1Hash,
       role: "role2",
@@ -683,7 +682,7 @@ describe("cmdStepList with completed threads", () => {
       detail: null,
       agent: "uwf-test",
     });
-    const step3Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step3Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step2Hash,
       role: "role3",
@@ -707,18 +706,18 @@ describe("cmdStepList with completed threads", () => {
   test("lists steps from completed thread", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-completed",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Start prompt",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -726,7 +725,7 @@ describe("cmdStepList with completed threads", () => {
       graph: {},
     });
 
-    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step1Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "roleA",
@@ -734,7 +733,7 @@ describe("cmdStepList with completed threads", () => {
       detail: null,
       agent: "uwf-test",
     });
-    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step2Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step1Hash,
       role: "roleB",
@@ -768,18 +767,18 @@ describe("cmdStepShow with completed threads", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-step-active",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "p",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -787,14 +786,14 @@ describe("cmdStepShow with completed threads", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "Active thread response",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sess-active",
       model: "model-x",
       duration: 1234,
@@ -802,7 +801,7 @@ describe("cmdStepShow with completed threads", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "coder",
@@ -828,18 +827,18 @@ describe("cmdStepShow with completed threads", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-step-completed",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "p",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -847,14 +846,14 @@ describe("cmdStepShow with completed threads", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "Completed thread response",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sess-completed",
       model: "model-y",
       duration: 5678,
@@ -862,7 +861,7 @@ describe("cmdStepShow with completed threads", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "reviewer",
@@ -897,7 +896,7 @@ describe("cmdThreadRead with completed threads", () => {
   test("reads completed thread context", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-read-completed",
       description: "desc",
       roles: {
@@ -913,11 +912,11 @@ describe("cmdThreadRead with completed threads", () => {
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Write something",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -925,7 +924,7 @@ describe("cmdThreadRead with completed threads", () => {
       graph: {},
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "writer",
@@ -954,18 +953,18 @@ describe("cmdThreadRead with completed threads", () => {
   test("reads completed thread with before filter", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf-read-before",
       description: "desc",
       roles: {},
       conditions: {},
       graph: {},
     });
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Do task",
     });
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -973,7 +972,7 @@ describe("cmdThreadRead with completed threads", () => {
       graph: {},
     });
 
-    const step1Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step1Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "roleX",
@@ -981,7 +980,7 @@ describe("cmdThreadRead with completed threads", () => {
       detail: null,
       agent: "uwf-test",
     });
-    const step2Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step2Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step1Hash,
       role: "roleY",
@@ -989,7 +988,7 @@ describe("cmdThreadRead with completed threads", () => {
       detail: null,
       agent: "uwf-test",
     });
-    const step3Hash = await uwf.store.put(uwf.schemas.stepNode, {
+    const step3Hash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step2Hash,
       role: "roleZ",

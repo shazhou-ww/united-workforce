@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -96,15 +96,15 @@ async function insertStepNode(
   const head = headEntry.head;
 
   const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
-  const outputHash = await uwf.store.put(outputSchemaHash, outputPayload);
-  const detailHash = await uwf.store.put(uwf.schemas.text, "detail-placeholder");
+  const outputHash = await uwf.store.cas.put(outputSchemaHash, outputPayload);
+  const detailHash = await uwf.store.cas.put(uwf.schemas.text, "detail-placeholder");
 
-  const headNode = uwf.store.get(head);
+  const headNode = uwf.store.cas.get(head);
   if (headNode === null) throw new Error(`head ${head} not found`);
   const isStart = headNode.type === uwf.schemas.startNode;
   const startHash = isStart ? head : (headNode.payload as { start: CasRef }).start;
 
-  const stepHash = (await uwf.store.put(uwf.schemas.stepNode, {
+  const stepHash = (await uwf.store.cas.put(uwf.schemas.stepNode, {
     start: startHash,
     prev: isStart ? null : head,
     role,

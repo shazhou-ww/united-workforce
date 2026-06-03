@@ -1,19 +1,20 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-
-const mockChatCompletionWithTools = mock(async () => ({
-  content: "---\nstatus: done\n---",
-  toolCalls: [],
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+const { mockChatCompletionWithTools, mockAppendSessionTurn, mockExecuteBuiltinTool } = vi.hoisted(() => ({
+  mockChatCompletionWithTools: vi.fn(async () => ({
+    content: "---\nstatus: done\n---",
+    toolCalls: [],
+  })),
+  mockAppendSessionTurn: vi.fn(async () => {}),
+  mockExecuteBuiltinTool: vi.fn(async () => "tool-result"),
 }));
-const mockAppendSessionTurn = mock(async () => {});
-const mockExecuteBuiltinTool = mock(async () => "tool-result");
 
-mock.module("../src/llm/index.js", () => ({
+vi.mock("../src/llm/index.js", () => ({
   chatCompletionWithTools: mockChatCompletionWithTools,
 }));
-mock.module("../src/session.js", () => ({
+vi.mock("../src/session.js", () => ({
   appendSessionTurn: mockAppendSessionTurn,
 }));
-mock.module("../src/tools/index.js", () => ({
+vi.mock("../src/tools/index.js", () => ({
   builtinToolsToOpenAi: () => [],
   executeBuiltinTool: mockExecuteBuiltinTool,
   getBuiltinTools: () => [],

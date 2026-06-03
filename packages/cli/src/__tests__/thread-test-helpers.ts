@@ -7,10 +7,10 @@ async function ensureHeadInCas(
   head: CasRef,
   threadId: ThreadId,
 ): Promise<CasRef> {
-  if (uwf.store.get(head) !== null) {
+  if (uwf.store.cas.get(head) !== null) {
     return head;
   }
-  return (await uwf.store.put(uwf.schemas.text, `thread-head:${threadId}:${head}`)) as CasRef;
+  return (await uwf.store.cas.put(uwf.schemas.text, `thread-head:${threadId}:${head}`)) as CasRef;
 }
 
 export async function seedThread(

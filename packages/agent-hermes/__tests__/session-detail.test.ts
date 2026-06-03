@@ -1,5 +1,5 @@
-import { Database } from "bun:sqlite";
-import { describe, expect, test } from "bun:test";
+import Database from "better-sqlite3";
+import { describe, expect, test } from 'vitest';
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -106,7 +106,7 @@ describe("storeHermesSessionDetail", () => {
 
     expect(output).toBe("done");
 
-    const detailNode = store.get(detailHash);
+    const detailNode = store.cas.get(detailHash);
     expect(detailNode).not.toBeNull();
     if (detailNode === null) {
       return;
@@ -133,14 +133,16 @@ describe("storeHermesSessionDetail", () => {
 
 // ── SQLite fallback tests ──────────────────────────────────────────
 
-function createTestDb(dbPath: string): Database {
+type TestDb = InstanceType<typeof Database>;
+
+function createTestDb(dbPath: string): TestDb {
   const db = new Database(dbPath);
-  db.run(`CREATE TABLE sessions (
+  db.exec(`CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     model TEXT NOT NULL,
     started_at INTEGER NOT NULL
   )`);
-  db.run(`CREATE TABLE messages (
+  db.exec(`CREATE TABLE messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL,
     role TEXT NOT NULL,
@@ -150,6 +152,27 @@ function createTestDb(dbPath: string): Database {
     FOREIGN KEY (session_id) REFERENCES sessions(id)
   )`);
   return db;
+}
+
+function insertSession(db: TestDb, id: string, model: string, startedAt: number): void {
+  db.prepare("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)").run(
+    id,
+    model,
+    startedAt,
+  );
+}
+
+function insertMessage(
+  db: TestDb,
+  sessionId: string,
+  role: string,
+  content: string | null,
+  reasoning: string | null,
+  toolCalls: string | null,
+): void {
+  db.prepare(
+    "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
+  ).run(sessionId, role, content, reasoning, toolCalls);
 }
 
 describe("getHermesDbPath", () => {
@@ -168,19 +191,9 @@ describe("loadHermesSessionFromDb", () => {
 
     const sessionId = "test-session-001";
     const startedAt = 1748099519;
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "claude-opus-4.6",
-      startedAt,
-    ]);
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "user", "hello", null, null],
-    );
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "assistant", "hi there", "thinking...", null],
-    );
+    insertSession(db, sessionId, "claude-opus-4.6", startedAt);
+    insertMessage(db, sessionId, "user", "hello", null, null);
+    insertMessage(db, sessionId, "assistant", "hi there", "thinking...", null);
     db.close();
 
     const result = await loadHermesSessionFromDb(sessionId, dbPath);
@@ -220,18 +233,11 @@ describe("loadHermesSessionFromDb", () => {
     const db = createTestDb(dbPath);
 
     const sessionId = "test-tool-calls";
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "gpt-4",
-      1748099519,
-    ]);
+    insertSession(db, sessionId, "gpt-4", 1748099519);
     const toolCallsJson = JSON.stringify([
       { function: { name: "read_file", arguments: '{"path":"x"}' } },
     ]);
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "assistant", "", null, toolCallsJson],
-    );
+    insertMessage(db, sessionId, "assistant", "", null, toolCallsJson);
     db.close();
 
     const result = await loadHermesSessionFromDb(sessionId, dbPath);
@@ -249,15 +255,8 @@ describe("loadHermesSessionFromDb", () => {
     const db = createTestDb(dbPath);
 
     const sessionId = "test-nulls";
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "model",
-      1748099519,
-    ]);
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "assistant", null, null, null],
-    );
+    insertSession(db, sessionId, "model", 1748099519);
+    insertMessage(db, sessionId, "assistant", null, null, null);
     db.close();
 
     const result = await loadHermesSessionFromDb(sessionId, dbPath);
@@ -276,23 +275,10 @@ describe("loadHermesSessionFromDb", () => {
     const db = createTestDb(dbPath);
 
     const sessionId = "test-order";
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "model",
-      1748099519,
-    ]);
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "user", "first", null, null],
-    );
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "assistant", "second", null, null],
-    );
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "user", "third", null, null],
-    );
+    insertSession(db, sessionId, "model", 1748099519);
+    insertMessage(db, sessionId, "user", "first", null, null);
+    insertMessage(db, sessionId, "assistant", "second", null, null);
+    insertMessage(db, sessionId, "user", "third", null, null);
     db.close();
 
     const result = await loadHermesSessionFromDb(sessionId, dbPath);
@@ -309,11 +295,7 @@ describe("loadHermesSessionFromDb", () => {
 
     const sessionId = "test-timestamp";
     const startedAt = 1748099519;
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "model",
-      startedAt,
-    ]);
+    insertSession(db, sessionId, "model", startedAt);
     db.close();
 
     const result = await loadHermesSessionFromDb(sessionId, dbPath);
@@ -333,15 +315,8 @@ describe("loadHermesSession with SQLite fallback", () => {
     // Create DB with one model value
     const db = createTestDb(dbPath);
     const sessionId = "test-priority";
-    db.run("INSERT INTO sessions (id, model, started_at) VALUES (?, ?, ?)", [
-      sessionId,
-      "db-model",
-      1748099519,
-    ]);
-    db.run(
-      "INSERT INTO messages (session_id, role, content, reasoning, tool_calls) VALUES (?, ?, ?, ?, ?)",
-      [sessionId, "user", "from db", null, null],
-    );
+    insertSession(db, sessionId, "db-model", 1748099519);
+    insertMessage(db, sessionId, "user", "from db", null, null);
     db.close();
 
     // Create JSON file with a different model value

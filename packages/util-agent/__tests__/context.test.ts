@@ -1,5 +1,4 @@
-import { describe, expect, test } from "bun:test";
-
+import { describe, expect, test } from 'vitest';
 // We need to test buildHistory indirectly through buildContext
 // since buildHistory is not exported. For now, we'll test the integration
 // through the public API in a separate integration test.

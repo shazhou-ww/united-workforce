@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +41,7 @@ describe("suspended thread display", () => {
       const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
 
       // Create test workflow with suspend capability
-      const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
         name: "test-suspend-display",
         description: "test suspended display",
         roles: {
@@ -66,7 +66,7 @@ describe("suspended thread display", () => {
         },
       });
 
-      const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
         workflow: workflowHash,
         prompt: "Test task requiring input",
         cwd: tmpDir,
@@ -74,13 +74,13 @@ describe("suspended thread display", () => {
 
       // Create suspended thread
       const suspendedThreadId = "01SUSPENDEDTHREAD0000000" as ThreadId;
-      const outputHash = await uwf.store.put(outputSchemaHash, {
+      const outputHash = await uwf.store.cas.put(outputSchemaHash, {
         $status: "needs_input",
         question: "What is the target API?",
       });
-      const detailHash = await uwf.store.put(uwf.schemas.text, "mock detail");
+      const detailHash = await uwf.store.cas.put(uwf.schemas.text, "mock detail");
 
-      const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
         start: startHash,
         prev: null,
         role: "worker",
@@ -103,7 +103,7 @@ describe("suspended thread display", () => {
 
       // Create normal (idle) thread
       const idleThreadId = "01IDLETHREAD00000000000" as ThreadId;
-      const idleStartHash = await uwf.store.put(uwf.schemas.startNode, {
+      const idleStartHash = await uwf.store.cas.put(uwf.schemas.startNode, {
         workflow: workflowHash,
         prompt: "Normal task",
         cwd: tmpDir,
@@ -148,7 +148,7 @@ describe("suspended thread display", () => {
       const uwf = await createUwfStore(tmpDir);
       const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
 
-      const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
         name: "test-suspend-show",
         description: "test suspended show",
         roles: {
@@ -173,20 +173,20 @@ describe("suspended thread display", () => {
         },
       });
 
-      const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
         workflow: workflowHash,
         prompt: "Test task",
         cwd: tmpDir,
       });
 
       const threadId = "01SUSPENDSHOW000000000" as ThreadId;
-      const outputHash = await uwf.store.put(outputSchemaHash, {
+      const outputHash = await uwf.store.cas.put(outputSchemaHash, {
         $status: "needs_input",
         question: "Which database to use?",
       });
-      const detailHash = await uwf.store.put(uwf.schemas.text, "mock detail");
+      const detailHash = await uwf.store.cas.put(uwf.schemas.text, "mock detail");
 
-      const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+      const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
         start: startHash,
         prev: null,
         role: "worker",
@@ -235,7 +235,7 @@ describe("suspended thread display", () => {
     try {
       const uwf = await createUwfStore(tmpDir);
 
-      const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+      const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
         name: "test-normal",
         description: "test normal thread",
         roles: {
@@ -252,7 +252,7 @@ describe("suspended thread display", () => {
         },
       });
 
-      const startHash = await uwf.store.put(uwf.schemas.startNode, {
+      const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
         workflow: workflowHash,
         prompt: "Normal task",
         cwd: tmpDir,

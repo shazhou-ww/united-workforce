@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -113,7 +113,7 @@ describe("Global CAS directory", () => {
 
     // Store a node in the first store
     const testData = { test: "data" };
-    const _hash = uwf1.store.put(uwf1.schemas.text, JSON.stringify(testData));
+    const _hash = uwf1.store.cas.put(uwf1.schemas.text, JSON.stringify(testData));
 
     // Both stores share the same CAS filesystem directory
     // Since schemas are registered idempotently, they should have the same hash
@@ -133,14 +133,14 @@ describe("Global CAS directory", () => {
     await mkdir(storageRoot, { recursive: true });
 
     const uwf = await createUwfStore(storageRoot);
-    const hash = await uwf.store.put(uwf.schemas.text, "registry-test");
+    const hash = await uwf.store.cas.put(uwf.schemas.text, "registry-test");
     saveWorkflowRegistry(uwf.varStore, "test-workflow", hash);
 
     const registry = loadWorkflowRegistry(uwf.varStore);
     expect(registry["test-workflow"]).toBe(hash);
 
     const { access } = await import("node:fs/promises");
-    await access(join(globalCasDir, "variables.db"));
+    await access(join(globalCasDir, "vars"));
 
     const registryPath = join(storageRoot, "workflows.yaml");
     await expect(access(registryPath)).rejects.toThrow();
@@ -154,7 +154,7 @@ describe("Global CAS directory", () => {
     await mkdir(storageRoot, { recursive: true });
 
     const uwfSeed = await createUwfStore(storageRoot);
-    const hash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-workflow");
+    const hash = await uwfSeed.store.cas.put(uwfSeed.schemas.text, "migrated-workflow");
 
     const registryPath = getRegistryPath(storageRoot);
     const { writeFile, access, readFile } = await import("node:fs/promises");
@@ -180,7 +180,7 @@ describe("Global CAS directory", () => {
 
     const threadId = "01JTEST0000000000000000AB" as ThreadId;
     const uwfSeed = await createUwfStore(storageRoot);
-    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-thread-head");
+    const headHash = await uwfSeed.store.cas.put(uwfSeed.schemas.text, "migrated-thread-head");
     const { writeFile, access, readFile } = await import("node:fs/promises");
     const threadsPath = join(storageRoot, "threads.yaml");
     await writeFile(threadsPath, `${threadId}: ${headHash}\n`, "utf8");
@@ -204,7 +204,7 @@ describe("Global CAS directory", () => {
 
     const threadId = "01JTEST000000000000000123" as ThreadId;
     const uwfSeed = await createUwfStore(storageRoot);
-    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "hash-456");
+    const headHash = await uwfSeed.store.cas.put(uwfSeed.schemas.text, "hash-456");
     setThread(uwfSeed.varStore, threadId, createThreadIndexEntry(headHash));
 
     const uwf = await createUwfStore(storageRoot);
@@ -225,7 +225,7 @@ describe("Global CAS directory", () => {
 
     const uwf = await createUwfStore(storageRoot);
     const threadId = "thread-123" as ThreadId;
-    const headHash = await uwf.store.put(uwf.schemas.text, "history-head");
+    const headHash = await uwf.store.cas.put(uwf.schemas.text, "history-head");
     const { addHistoryEntry, findHistoryEntry } = await import("../store.js");
     addHistoryEntry(uwf.varStore, {
       thread: threadId,
@@ -241,7 +241,7 @@ describe("Global CAS directory", () => {
     expect(entry?.head).toBe(headHash);
 
     const { access } = await import("node:fs/promises");
-    await access(join(globalCasDir, "variables.db"));
+    await access(join(globalCasDir, "vars"));
 
     const historyPath = join(storageRoot, "history.jsonl");
     await expect(access(historyPath)).rejects.toThrow();
@@ -256,8 +256,8 @@ describe("Global CAS directory", () => {
 
     const threadId = "01JTEST0000000000000000CD" as ThreadId;
     const uwfSeed = await createUwfStore(storageRoot);
-    const workflowHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-workflow");
-    const headHash = await uwfSeed.store.put(uwfSeed.schemas.text, "migrated-head");
+    const workflowHash = await uwfSeed.store.cas.put(uwfSeed.schemas.text, "migrated-workflow");
+    const headHash = await uwfSeed.store.cas.put(uwfSeed.schemas.text, "migrated-head");
     const completedAt = 1780410000000;
     const { writeFile, access, readFile } = await import("node:fs/promises");
     const historyPath = join(storageRoot, "history.jsonl");
@@ -301,7 +301,7 @@ describe("Global CAS directory", () => {
 
     // Store a CAS node
     const testPayload = JSON.stringify({ test: "node" });
-    const _hash = uwf.store.put(uwf.schemas.text, testPayload);
+    const _hash = uwf.store.cas.put(uwf.schemas.text, testPayload);
 
     // Verify the node is in global CAS directory
     const { readdir } = await import("node:fs/promises");

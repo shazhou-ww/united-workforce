@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import { createMemoryStore, walk } from "@ocas/core";
 import {
   parseClaudeCodeJsonOutput,
@@ -278,7 +278,7 @@ describe("storeClaudeCodeDetail", () => {
     expect(output).toBe("The answer");
     expect(sessionId).toBe("abc-123");
 
-    const node = await store.get(detailHash);
+    const node = await store.cas.get(detailHash);
     expect(node).not.toBeNull();
     expect(node!.payload.model).toBe("claude-sonnet-4.5");
     expect(node!.payload.stopReason).toBe("end_turn");
@@ -286,7 +286,7 @@ describe("storeClaudeCodeDetail", () => {
     expect(node!.payload.turns).toHaveLength(2);
 
     // Verify turn CAS nodes
-    const turn0 = await store.get(node!.payload.turns[0]);
+    const turn0 = await store.cas.get(node!.payload.turns[0]);
     expect(turn0).not.toBeNull();
     expect(turn0!.payload.role).toBe("assistant");
     expect(turn0!.payload.content).toBe("hello");
@@ -466,7 +466,7 @@ describe("storeClaudeCodeDetail — incomplete results", () => {
     expect(output).toBe("Partial output");
     expect(sessionId).toBe("sess-incomplete");
 
-    const node = await store.get(detailHash);
+    const node = await store.cas.get(detailHash);
     expect(node).not.toBeNull();
     expect(node!.payload.subtype).toBe("incomplete");
     expect(node!.payload.stopReason).toBe("incomplete_no_result_line");
@@ -480,7 +480,7 @@ describe("storeClaudeCodeRawOutput", () => {
     const rawText = "Claude produced plain text without JSON";
     const hash = await storeClaudeCodeRawOutput(store, rawText);
     expect(hash).toHaveLength(13);
-    const node = await store.get(hash);
+    const node = await store.cas.get(hash);
     expect(node).not.toBeNull();
     expect(node!.payload.text).toBe(rawText);
   });

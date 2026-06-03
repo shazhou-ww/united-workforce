@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { STEP_NODE_SCHEMA } from "@united-workforce/protocol";
 import { cmdStepList } from "../commands/step.js";
@@ -51,7 +51,7 @@ const DETAIL_SCHEMA = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
+async function registerDetailSchemas(store: Awaited<ReturnType<typeof openStore>>) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
     putSchema(store, TURN_SCHEMA),
@@ -133,18 +133,18 @@ describe("StepNode JSON schema", () => {
   test("StepNode with timing fields passes CAS validation", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: "placeholder0000" as CasRef,
       prompt: "test",
     });
 
-    const outputHash = await store.put(schemas.text, "output text");
+    const outputHash = await store.cas.put(schemas.text, "output text");
 
     const detailSchemas = await registerDetailSchemas(store);
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "s1",
       model: "m1",
       duration: 100,
@@ -153,7 +153,7 @@ describe("StepNode JSON schema", () => {
     });
 
     // Should succeed — valid timing fields
-    const hash = await store.put(schemas.stepNode, {
+    const hash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -175,24 +175,24 @@ describe("step list timing", () => {
   test("step list includes durationMs = completedAtMs - startedAtMs", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {},
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "test",
     });
 
-    const outputHash = await store.put(schemas.text, "output");
-    const detailHash = await store.put(detailSchemas.detail, {
+    const outputHash = await store.cas.put(schemas.text, "output");
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "s1",
       model: "m1",
       duration: 100,
@@ -203,7 +203,7 @@ describe("step list timing", () => {
     const startedAt = 1716600000000;
     const completedAt = 1716600003500;
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -233,11 +233,11 @@ describe("thread read timing", () => {
   test("thread read header includes Duration", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -256,28 +256,28 @@ describe("thread read timing", () => {
       },
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "test task",
     });
 
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "Done.",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "s1",
       model: "m1",
       duration: 100,
       turnCount: 1,
       turns: [turnHash],
     });
-    const outputHash = await store.put(schemas.text, "output");
+    const outputHash = await store.cas.put(schemas.text, "output");
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -299,11 +299,11 @@ describe("thread read timing", () => {
   test("thread read shows sub-second duration as ms", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -322,28 +322,28 @@ describe("thread read timing", () => {
       },
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "test",
     });
 
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "Done.",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "s1",
       model: "m1",
       duration: 100,
       turnCount: 1,
       turns: [turnHash],
     });
-    const outputHash = await store.put(schemas.text, "output");
+    const outputHash = await store.cas.put(schemas.text, "output");
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",

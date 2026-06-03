@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,7 +46,7 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
 
 async function storeWorkflow(uwf: UwfStore, name: string): Promise<CasRef> {
   const payload = makeMinimalPayload(name, "Test workflow");
-  return await uwf.store.put(uwf.schemas.workflow, payload);
+  return await uwf.store.cas.put(uwf.schemas.workflow, payload);
 }
 
 async function createWorkflowYaml(name: string, version: string | null = null): Promise<string> {
@@ -124,7 +124,7 @@ describe("Strategy 2: File Path Resolution", () => {
 
     expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).name).toBe("test-workflow");
@@ -187,7 +187,7 @@ describe("Strategy 3: Local Discovery", () => {
 
     expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).name).toBe("solve-issue");
@@ -235,7 +235,7 @@ describe("Strategy 3: Local Discovery", () => {
     const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
 
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).description).toBe("Test workflow (1)");
@@ -263,7 +263,7 @@ describe("Strategy 3: Local Discovery", () => {
 
     expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).name).toBe("solve-issue");
@@ -289,7 +289,7 @@ describe("Strategy 3: Local Discovery", () => {
     const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
 
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).description).toBe("Test workflow (flat)");
@@ -341,7 +341,7 @@ describe("Resolution Priority", () => {
     const result = await cmdThreadStart(storageRoot, explicitPath, "prompt", projectRoot);
 
     const uwf = await makeUwfStore(storageRoot);
-    const node = uwf.store.get(result.workflow);
+    const node = uwf.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).description).toBe("Test workflow (explicit)");
@@ -364,7 +364,7 @@ describe("Resolution Priority", () => {
     const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
 
     const uwf2 = await makeUwfStore(storageRoot);
-    const node = uwf2.store.get(result.workflow);
+    const node = uwf2.store.cas.get(result.workflow);
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).description).toBe("Test workflow (local)");

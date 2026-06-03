@@ -12,23 +12,24 @@
   },
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
   "scripts": {
-    "prepublishOnly": "echo 'Use bun run release from repo root' && exit 1",
-    "test": "bun test __tests__/",
-    "test:ci": "bun test __tests__/"
+    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
+    "test": "vitest run __tests__/",
+    "test:ci": "vitest run __tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.1.1",
-    "@united-workforce/util-agent": "workspace:^",
+    "@ocas/core": "^0.2.2",
     "@united-workforce/protocol": "workspace:^",
-    "@united-workforce/util": "workspace:^"
+    "@united-workforce/util": "workspace:^",
+    "@united-workforce/util-agent": "workspace:^",
+    "better-sqlite3": "^12.10.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "typescript": "^5.8.3"
   },
   "publishConfig": {
@@ -42,9 +43,6 @@
   "homepage": "https://git.shazhou.work/shazhou/united-workforce#readme",
   "bugs": {
     "url": "https://git.shazhou.work/shazhou/united-workforce/issues"
-  },
-  "engines": {
-    "bun": ">= 1.0.0"
   },
   "license": "MIT"
 }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,11 +10,11 @@ describe("validateModel", () => {
   const MODEL = "test-model";
 
   afterEach(() => {
-    mock.restore();
+    vi.restoreAllMocks();
   });
 
   test("success path — returns ok on 200", async () => {
-    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValue(
+    const mockFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     );
 
@@ -37,7 +37,7 @@ describe("validateModel", () => {
   });
 
   test("HTTP 401 — returns error containing 401", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }),
     );
 
@@ -50,7 +50,7 @@ describe("validateModel", () => {
   });
 
   test("HTTP 404 — returns error containing 404", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Not Found", { status: 404, statusText: "Not Found" }),
     );
 
@@ -64,7 +64,7 @@ describe("validateModel", () => {
 
   test("network timeout — returns error mentioning timeout", async () => {
     const err = new DOMException("signal timed out", "AbortError");
-    spyOn(globalThis, "fetch").mockRejectedValue(err);
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(err);
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
@@ -75,7 +75,7 @@ describe("validateModel", () => {
   });
 
   test("network error (DNS/connection) — returns error mentioning connectivity", async () => {
-    spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
@@ -86,7 +86,7 @@ describe("validateModel", () => {
   });
 
   test("request body correctness", async () => {
-    const mockFetch = spyOn(globalThis, "fetch").mockResolvedValue(
+    const mockFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     );
 
@@ -109,7 +109,7 @@ describe("cmdSetup with validation", () => {
   });
 
   afterEach(async () => {
-    mock.restore();
+    vi.restoreAllMocks();
     await rm(storageRoot, { recursive: true, force: true });
   });
 
@@ -122,7 +122,7 @@ describe("cmdSetup with validation", () => {
   });
 
   test("includes validation result on success", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup(setupArgs());
 
@@ -132,7 +132,7 @@ describe("cmdSetup with validation", () => {
   });
 
   test("includes validation failure — config still saved", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Unauthorized", { status: 401, statusText: "Unauthorized" }),
     );
 

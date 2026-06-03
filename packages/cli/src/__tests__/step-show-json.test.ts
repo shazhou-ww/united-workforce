@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, type Hash, type JSONSchema, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload } from "@united-workforce/protocol";
 import { cmdStepShow } from "../commands/step.js";
 import { formatOutput } from "../format.js";
@@ -52,7 +52,7 @@ const DETAIL_SCHEMA: JSONSchema = {
 };
 
 type TestSetup = {
-  store: ReturnType<typeof createFsStore>;
+  store: Awaited<ReturnType<typeof openStore>>;
   schemas: {
     workflow: Hash;
     startNode: Hash;
@@ -64,7 +64,7 @@ type TestSetup = {
 };
 
 async function setupTest(casDir: string): Promise<TestSetup> {
-  const store = createFsStore(casDir);
+  const store = await openStore(casDir);
   await bootstrap(store);
   const schemas = await registerUwfSchemas(store);
   const [turnType, detailType] = await Promise.all([
@@ -88,22 +88,22 @@ async function createTestStep(
   // Create turn nodes
   const turnHashes: CasRef[] = [];
   for (const payload of turnPayloads) {
-    const turnHash = await store.put(turnType, payload);
+    const turnHash = await store.cas.put(turnType, payload);
     turnHashes.push(turnHash);
   }
 
   // Create detail node
-  const detailHash = await store.put(detailType, { turns: turnHashes });
+  const detailHash = await store.cas.put(detailType, { turns: turnHashes });
 
   // Create dummy start node
-  const startHash = await store.put(schemas.startNode, {
+  const startHash = await store.cas.put(schemas.startNode, {
     workflow: "0000000000000" as CasRef,
     prompt: "test prompt",
     cwd: "/tmp",
   });
 
   // Create dummy output node
-  const outputHash = await store.put(schemas.text, { $status: "done" });
+  const outputHash = await store.cas.put(schemas.text, { $status: "done" });
 
   // Create step node
   const stepPayload: StepNodePayload = {
@@ -119,7 +119,7 @@ async function createTestStep(
     assembledPrompt: null,
     cwd: "/tmp",
   };
-  return store.put(schemas.stepNode, stepPayload);
+  return store.cas.put(schemas.stepNode, stepPayload);
 }
 
 describe("cmdStepShow JSON serialization", () => {

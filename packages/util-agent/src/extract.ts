@@ -169,8 +169,8 @@ export async function extract(
     throw new Error(`failed to parse extracted JSON: ${message}`);
   }
 
-  const outputHash = await store.put(outputSchema, structured);
-  const node = store.get(outputHash);
+  const outputHash = await store.cas.put(outputSchema, structured);
+  const node = store.cas.get(outputHash);
   if (node === null || !validate(store, node)) {
     throw new Error("extracted output failed JSON Schema validation");
   }

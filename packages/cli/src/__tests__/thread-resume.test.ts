@@ -1,10 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadShow } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
@@ -43,11 +45,11 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
   const casDir = join(tmpDir, "cas");
   await mkdir(casDir, { recursive: true });
 
-  const store = createFsStore(casDir);
+  const store = await openStore(casDir);
   const schemas = await registerUwfSchemas(store);
   const outputSchemaHash = await putSchema(store, OUTPUT_SCHEMA);
 
-  const workflowHash = await store.put(schemas.workflow, {
+  const workflowHash = await store.cas.put(schemas.workflow, {
     name: "test-resume",
     description: "resume command integration test",
     roles: {
@@ -82,7 +84,7 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
     },
   });
 
-  const startHash = await store.put(schemas.startNode, {
+  const startHash = await store.cas.put(schemas.startNode, {
     workflow: workflowHash,
     prompt: "Test resume task",
     cwd: tmpDir,
@@ -91,16 +93,16 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
   process.env.OCAS_DIR = casDir;
   await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
-  const outputHash = await store.put(outputSchemaHash, {
+  const outputHash = await store.cas.put(outputSchemaHash, {
     $status: "needs_input",
     question: "Which API?",
   });
-  const detailHash = await store.put(schemas.text, "mock detail");
+  const detailHash = await store.cas.put(schemas.text, "mock detail");
 
   const startedAtMs = 1716600000000;
   const completedAtMs = 1716600001500;
 
-  const stepHash = await store.put(schemas.stepNode, {
+  const stepHash = await store.cas.put(schemas.stepNode, {
     start: startHash,
     prev: null,
     role: "worker",
@@ -129,11 +131,11 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
     mode === "suspend" ? { $status: "needs_input", question: "Which API?" } : { $status: "ok" };
 
   const adapterJson = JSON.stringify({
-    stepHash: await store.put(schemas.stepNode, {
+    stepHash: await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: stepHash,
       role: "worker",
-      output: await store.put(outputSchemaHash, frontmatter),
+      output: await store.cas.put(outputSchemaHash, frontmatter),
       detail: detailHash,
       agent: "uwf-mock",
       edgePrompt: "resume prompt placeholder",
@@ -181,9 +183,9 @@ function runUwf(
   args: string[],
   casDir: string,
 ): { stdout: string; stderr: string; status: number } {
-  const cliPath = join(import.meta.dirname, "..", "cli.js");
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
   try {
-    const stdout = execFileSync("bun", ["run", cliPath, ...args], {
+    const stdout = execFileSync(process.execPath, [cliPath, ...args], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       env: {
@@ -213,10 +215,10 @@ describe("uwf thread resume", () => {
   test("resume non-suspended thread returns error", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "idle-workflow",
       description: "idle thread",
       roles: {
@@ -235,7 +237,7 @@ describe("uwf thread resume", () => {
       },
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "task",
       cwd: tmpDir,
@@ -382,22 +384,22 @@ async function setupOkMockAgent(
   casDir: string,
   prevHead: CasRef,
 ): Promise<{ mockAgentPath: string }> {
-  const store = createFsStore(casDir);
+  const store = await openStore(casDir);
   const schemas = await registerUwfSchemas(store);
   const outputSchemaHash = await putSchema(store, OUTPUT_SCHEMA);
 
-  const prevNode = store.get(prevHead);
+  const prevNode = store.cas.get(prevHead);
   if (prevNode === null || prevNode.type !== schemas.stepNode) {
     throw new Error(`expected StepNode at ${prevHead}`);
   }
   const prevPayload = prevNode.payload as StepNodePayload;
 
-  const outputHash = await store.put(outputSchemaHash, { $status: "ok" });
-  const detailHash = await store.put(schemas.text, "ok detail");
+  const outputHash = await store.cas.put(outputSchemaHash, { $status: "ok" });
+  const detailHash = await store.cas.put(schemas.text, "ok detail");
   const startedAtMs = Date.now();
   const completedAtMs = startedAtMs + 1;
 
-  const stepHash = await store.put(schemas.stepNode, {
+  const stepHash = await store.cas.put(schemas.stepNode, {
     start: prevPayload.start,
     prev: prevHead,
     role: "worker",

@@ -32,7 +32,7 @@ export async function storeBuiltinDetail(
 
   const turnHashes: string[] = [];
   for (const turn of turns) {
-    const hash = await store.put(schemas.turn, turn);
+    const hash = await store.cas.put(schemas.turn, turn);
     turnHashes.push(hash);
   }
 
@@ -44,6 +44,6 @@ export async function storeBuiltinDetail(
     turnCount: turnHashes.length,
     turns: turnHashes,
   };
-  const detailHash = await store.put(schemas.detail, detail);
+  const detailHash = await store.cas.put(schemas.detail, detail);
   return { detailHash, turnCount: turnHashes.length };
 }

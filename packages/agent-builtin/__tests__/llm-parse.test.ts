@@ -1,5 +1,4 @@
-import { describe, expect, test } from "bun:test";
-
+import { describe, expect, test } from 'vitest';
 import type { LlmToolCall } from "../src/llm/types.js";
 
 /** Mirror OpenAI response shape for parser coverage via chatCompletionWithTools integration later. */
