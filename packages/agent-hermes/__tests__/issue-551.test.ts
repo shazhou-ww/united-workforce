@@ -7,11 +7,9 @@ import { join } from "node:path";
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("Issue #551 — bin entry & engines", () => {
-  test("package.json declares bun in engines", () => {
+  test("package.json no longer declares bun in engines", () => {
     const pkg = JSON.parse(readFileSync(join(PKG_ROOT, "package.json"), "utf-8"));
-    expect(pkg.engines).toBeDefined();
-    expect(pkg.engines.bun).toBeDefined();
-    expect(pkg.engines.bun).toMatch(/^>=?\s*[\d.]+/);
+    expect(pkg.engines?.bun).toBeUndefined();
   });
 
   test("bin entry file has bun shebang", () => {
