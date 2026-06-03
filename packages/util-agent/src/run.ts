@@ -192,7 +192,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     let assembledPromptHash: CasRef | null = null;
     if (promptText !== "") {
       try {
-        assembledPromptHash = ctx.meta.store.cas.put(ctx.meta.schemas.text, promptText);
+        assembledPromptHash = await ctx.meta.store.cas.put(ctx.meta.schemas.text, promptText);
       } catch {
         assembledPromptHash = null;
       }

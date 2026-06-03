@@ -12,11 +12,11 @@ describe("Issue #551 — bin entry & engines", () => {
     expect(pkg.engines?.bun).toBeUndefined();
   });
 
-  test("bin entry file has bun shebang", () => {
+  test("bin entry file has node shebang", () => {
     const pkg = JSON.parse(readFileSync(join(PKG_ROOT, "package.json"), "utf-8"));
     const binPath = pkg.bin["uwf-hermes"];
     const content = readFileSync(join(PKG_ROOT, binPath), "utf-8");
-    expect(content.startsWith("#!/usr/bin/env bun")).toBe(true);
+    expect(content.startsWith("#!/usr/bin/env node")).toBe(true);
   });
 
   test("README.md explains uwf-hermes is an adapter", () => {
