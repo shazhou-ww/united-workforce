@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -31,7 +31,7 @@ describe("_agentNameFromBinary", () => {
 describe("_printAgentMenu", () => {
   test("prints known agents with labels", () => {
     const logs: string[] = [];
-    spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+    vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logs.push(args.join(" "));
     });
 
@@ -40,12 +40,12 @@ describe("_printAgentMenu", () => {
     expect(logs.some((l) => l.includes("Hermes"))).toBe(true);
     expect(logs.some((l) => l.includes("Claude Code"))).toBe(true);
 
-    mock.restore();
+    vi.restoreAllMocks();
   });
 
   test("prints unknown agents with binary name as label", () => {
     const logs: string[] = [];
-    spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+    vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logs.push(args.join(" "));
     });
 
@@ -53,7 +53,7 @@ describe("_printAgentMenu", () => {
 
     expect(logs.some((l) => l.includes("uwf-custom-agent"))).toBe(true);
 
-    mock.restore();
+    vi.restoreAllMocks();
   });
 });
 
@@ -67,7 +67,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   afterEach(async () => {
-    mock.restore();
+    vi.restoreAllMocks();
     await rm(storageRoot, { recursive: true, force: true });
   });
 
@@ -80,7 +80,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("defaults to hermes agent when no agent specified", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup(baseArgs());
 
@@ -91,7 +91,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("writes specified agent as default", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup({ ...baseArgs(), agent: "claude-code" });
 
@@ -102,7 +102,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("preserves existing agents when adding new one", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     // First setup with hermes
     await cmdSetup(baseArgs());
@@ -116,7 +116,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("updates defaultAgent on re-run with different agent", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     await cmdSetup(baseArgs());
     const config1 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -128,7 +128,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("normalizes agent name with uwf- prefix to bare name", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup({ ...baseArgs(), agent: "uwf-hermes" });
 
@@ -141,7 +141,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("normalizes uwf-claude-code to claude-code", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await cmdSetup({ ...baseArgs(), agent: "uwf-claude-code" });
 

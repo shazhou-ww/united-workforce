@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,7 +39,7 @@ async function createTestWorkflow(uwf: UwfStore): Promise<CasRef> {
     graph: { start: "role1" },
     conditions: {},
   };
-  return await uwf.store.put(uwf.schemas.workflow, workflowPayload);
+  return await uwf.store.cas.put(uwf.schemas.workflow, workflowPayload);
 }
 
 async function createTestThread(
@@ -54,7 +54,7 @@ async function createTestThread(
     prompt: "test prompt",
     cwd: storageRoot,
   };
-  const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
+  const headHash = await uwf.store.cas.put(uwf.schemas.startNode, startPayload);
 
   setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
 
@@ -494,7 +494,7 @@ describe("edge cases", () => {
 
     const uwfIdx = await createUwfStore(tmpDir);
     const index = loadAllThreads(uwfIdx.varStore);
-    const placeholderHead = (await uwfIdx.store.put(
+    const placeholderHead = (await uwfIdx.store.cas.put(
       uwfIdx.schemas.text,
       "invalid-ulid-placeholder",
     )) as CasRef;

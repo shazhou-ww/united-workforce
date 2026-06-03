@@ -175,13 +175,11 @@ export async function _discoverAgents(): Promise<string[]> {
 
 async function _tryWhichDiscovery(): Promise<string[] | null> {
   try {
-    const proc = Bun.spawn(["which", "-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
-      stdout: "pipe",
-      stderr: "pipe",
+    const { execFileSync } = await import("node:child_process");
+    const text = execFileSync("which", ["-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
     });
-    const text = await new Response(proc.stdout).text();
-    await proc.exited;
-    if (proc.exitCode !== 0) return null;
     return _parseWhichOutput(text);
   } catch {
     return null;

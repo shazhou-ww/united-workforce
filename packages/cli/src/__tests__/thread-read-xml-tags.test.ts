@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bootstrap, putSchema } from "@ocas/core";
-import type { createFsStore } from "@ocas/fs";
+import { bootstrap, putSchema, type Store } from "@ocas/core";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadRead, THREAD_READ_DEFAULT_QUOTA } from "../commands/thread.js";
 import type { UwfStore } from "../store.js";
@@ -57,7 +56,7 @@ async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   return createUwfStore(storageRoot);
 }
 
-async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
+async function registerDetailSchemas(store: Store) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
     putSchema(store, TURN_SCHEMA),
@@ -85,7 +84,7 @@ describe("thread read XML tag isolation", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -102,12 +101,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Fix issue #459",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -115,7 +114,7 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content:
@@ -123,7 +122,7 @@ describe("thread read XML tag isolation", () => {
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sx",
       model: "mx",
       duration: 500,
@@ -131,7 +130,7 @@ describe("thread read XML tag isolation", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "planner",
@@ -164,7 +163,7 @@ describe("thread read XML tag isolation", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -181,12 +180,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Fix issue",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -194,14 +193,14 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "---\nstatus: ready\n---\n\nContent here...",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sx",
       model: "mx",
       duration: 500,
@@ -209,7 +208,7 @@ describe("thread read XML tag isolation", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "planner",
@@ -242,7 +241,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 3: same role repeated does not show prompt twice", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -259,12 +258,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Write something",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -272,7 +271,7 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const step1 = await uwf.store.put(uwf.schemas.stepNode, {
+    const step1 = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "writer",
@@ -284,7 +283,7 @@ describe("thread read XML tag isolation", () => {
       assembledPrompt: null,
     });
 
-    const step2 = await uwf.store.put(uwf.schemas.stepNode, {
+    const step2 = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step1 as CasRef,
       role: "writer",
@@ -309,7 +308,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 4: step with no detail shows no output tags", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -326,12 +325,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Do stuff",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -339,7 +338,7 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -370,7 +369,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 5: empty content shows no output tags", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {},
@@ -378,12 +377,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Do stuff",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -394,7 +393,7 @@ describe("thread read XML tag isolation", () => {
     // A detail ref that doesn't exist → extractLastAssistantContent returns null
     const missingDetailRef = "missingdetail0" as CasRef;
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -419,7 +418,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 6: thread read with --start flag shows task section", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -436,12 +435,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Initial prompt",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -449,7 +448,7 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "roleA",
@@ -478,7 +477,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 7: thread read with --before parameter", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -511,12 +510,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Initial prompt",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -524,7 +523,7 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const step1 = await uwf.store.put(uwf.schemas.stepNode, {
+    const step1 = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "roleA",
@@ -536,7 +535,7 @@ describe("thread read XML tag isolation", () => {
       assembledPrompt: null,
     });
 
-    const step2 = await uwf.store.put(uwf.schemas.stepNode, {
+    const step2 = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step1 as CasRef,
       role: "roleB",
@@ -548,7 +547,7 @@ describe("thread read XML tag isolation", () => {
       assembledPrompt: null,
     });
 
-    const step3 = await uwf.store.put(uwf.schemas.stepNode, {
+    const step3 = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: step2 as CasRef,
       role: "roleC",
@@ -584,7 +583,7 @@ describe("thread read XML tag isolation", () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -601,12 +600,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Write something",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -614,14 +613,14 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const turnHash = await uwf.store.put(detailSchemas.turn, {
+    const turnHash = await uwf.store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "Content with <special> & characters > like <this>",
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await uwf.store.put(detailSchemas.detail, {
+    const detailHash = await uwf.store.cas.put(detailSchemas.detail, {
       sessionId: "sx",
       model: "mx",
       duration: 500,
@@ -629,7 +628,7 @@ describe("thread read XML tag isolation", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await uwf.store.put(uwf.schemas.stepNode, {
+    const stepHash = await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "writer",
@@ -653,7 +652,7 @@ describe("thread read XML tag isolation", () => {
   test("scenario 10: quota limit with XML tags", async () => {
     const uwf = await makeUwfStore(tmpDir);
 
-    const workflowHash = await uwf.store.put(uwf.schemas.workflow, {
+    const workflowHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -670,12 +669,12 @@ describe("thread read XML tag isolation", () => {
       graph: {},
     });
 
-    const startHash = await uwf.store.put(uwf.schemas.startNode, {
+    const startHash = await uwf.store.cas.put(uwf.schemas.startNode, {
       workflow: workflowHash,
       prompt: "Initial prompt",
     });
 
-    const outputHash = await uwf.store.put(uwf.schemas.workflow, {
+    const outputHash = await uwf.store.cas.put(uwf.schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -686,7 +685,7 @@ describe("thread read XML tag isolation", () => {
     const steps: CasRef[] = [];
     let prev: CasRef | null = null;
     for (let i = 0; i < 5; i++) {
-      const step = (await uwf.store.put(uwf.schemas.stepNode, {
+      const step = (await uwf.store.cas.put(uwf.schemas.stepNode, {
         start: startHash,
         prev,
         role: "roleA",

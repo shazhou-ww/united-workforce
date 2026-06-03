@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { createMemoryStore, putSchema } from "@ocas/core";
+import { describe, expect, test } from 'vitest';
+import { createMemoryStore, putSchema, bootstrap } from "@ocas/core";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 
@@ -48,6 +48,7 @@ const PLANNER_SCHEMA = {
 
 async function makeStoreWithSchema(schema: Record<string, unknown>) {
   const store = createMemoryStore();
+  bootstrap(store);
   const schemaHash = await putSchema(store, schema);
   return { store, schemaHash };
 }
@@ -68,7 +69,7 @@ describe("STANDARD_KEYS contains only status", () => {
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
 
-    const node = store.get(result!.outputHash);
+    const node = store.cas.get(result!.outputHash);
     expect(node).not.toBeNull();
     const payload = node!.payload as Record<string, unknown>;
     expect(payload.status).toBe("done");
@@ -106,7 +107,7 @@ describe("tryFrontmatterFastPath — happy path", () => {
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
 
-    const node = store.get(result!.outputHash);
+    const node = store.cas.get(result!.outputHash);
     expect(node).not.toBeNull();
     const payload = node!.payload as Record<string, unknown>;
     expect(payload.status).toBe("done");
@@ -126,7 +127,7 @@ describe("tryFrontmatterFastPath — legacy fields ignored", () => {
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
 
-    const node = store.get(result!.outputHash);
+    const node = store.cas.get(result!.outputHash);
     const payload = node!.payload as Record<string, unknown>;
     expect(payload.status).toBe("done");
     expect(payload.next).toBeUndefined();
@@ -176,7 +177,7 @@ describe("tryFrontmatterFastPath — role-specific fields", () => {
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
 
-    const node = store.get(result!.outputHash);
+    const node = store.cas.get(result!.outputHash);
     expect(node).not.toBeNull();
     const payload = node!.payload as Record<string, unknown>;
     expect(payload).toEqual({ approved: true });
@@ -192,7 +193,7 @@ describe("tryFrontmatterFastPath — role-specific fields", () => {
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).not.toBeNull();
 
-    const node = store.get(result!.outputHash);
+    const node = store.cas.get(result!.outputHash);
     expect(node).not.toBeNull();
     const payload = node!.payload as Record<string, unknown>;
     expect(payload.status).toBe("ready");

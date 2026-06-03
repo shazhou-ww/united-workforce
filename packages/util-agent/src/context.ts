@@ -22,7 +22,7 @@ function fail(message: string): never {
 }
 
 function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRef): ChainState {
-  const headNode = store.get(headHash);
+  const headNode = store.cas.get(headHash);
   if (headNode === null) {
     fail(`CAS node not found: ${headHash}`);
   }
@@ -44,7 +44,7 @@ function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRe
   let hash: CasRef | null = headHash;
 
   while (hash !== null) {
-    const node = store.get(hash);
+    const node = store.cas.get(hash);
     if (node === null) {
       fail(`CAS node not found while walking chain: ${hash}`);
     }
@@ -61,7 +61,7 @@ function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRe
     fail(`empty step chain at head ${headHash}`);
   }
 
-  const startNode = store.get(newest.start);
+  const startNode = store.cas.get(newest.start);
   if (startNode === null || startNode.type !== schemas.startNode) {
     fail(`StartNode not found: ${newest.start}`);
   }
@@ -75,7 +75,7 @@ function walkChain(store: Store, schemas: AgentStore["schemas"], headHash: CasRe
 }
 
 function expandOutput(store: Store, outputRef: CasRef): unknown {
-  const node = store.get(outputRef);
+  const node = store.cas.get(outputRef);
   if (node === null) {
     return {};
   }
@@ -83,7 +83,7 @@ function expandOutput(store: Store, outputRef: CasRef): unknown {
 }
 
 function extractStepContent(store: Store, detailRef: CasRef): string | null {
-  const detailNode = store.get(detailRef);
+  const detailNode = store.cas.get(detailRef);
   if (detailNode === null) {
     return null;
   }
@@ -98,7 +98,7 @@ function extractStepContent(store: Store, detailRef: CasRef): string | null {
     if (typeof turnRef !== "string") {
       continue;
     }
-    const turnNode = store.get(turnRef as CasRef);
+    const turnNode = store.cas.get(turnRef as CasRef);
     if (turnNode === null) {
       continue;
     }
@@ -139,7 +139,7 @@ async function buildHistory(
 }
 
 async function loadWorkflow(store: Store, schemas: AgentStore["schemas"], workflowRef: CasRef) {
-  const node = store.get(workflowRef);
+  const node = store.cas.get(workflowRef);
   if (node === null) {
     fail(`workflow CAS node not found: ${workflowRef}`);
   }

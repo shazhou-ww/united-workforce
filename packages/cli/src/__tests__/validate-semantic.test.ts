@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import type { WorkflowPayload } from "@united-workforce/protocol";
 import { validateWorkflow } from "../validate-semantic.js";
 

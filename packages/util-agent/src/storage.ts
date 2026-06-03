@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { createVariableStore, type Store } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { bootstrap, type Store } from "@ocas/core";
+import { createFsStore, createSqliteVarStore } from "@ocas/fs";
 import type {
   AgentAlias,
   AgentConfig,
@@ -79,8 +79,8 @@ export async function getActiveThreadEntry(
   threadId: ThreadId,
 ): Promise<ThreadIndexEntry | null> {
   const casDir = getGlobalCasDir();
-  const store = createFsStore(casDir);
-  const varStore = createVariableStore(join(casDir, "variables.db"), store);
+  const cas = createFsStore(casDir);
+  const { var: varStore } = createSqliteVarStore(join(casDir, "vars"), cas);
   const vars = varStore.list({ exactName: threadVarName(threadId) });
   const v = vars[0];
   if (v === undefined) {
@@ -100,7 +100,11 @@ export type AgentStore = {
 };
 
 export async function createAgentStore(storageRoot: string): Promise<AgentStore> {
-  const store = createFsStore(getGlobalCasDir());
+  const casDir = getGlobalCasDir();
+  const cas = createFsStore(casDir);
+  const { var: varSub, tag } = createSqliteVarStore(join(casDir, "vars"), cas);
+  const store: Store = { cas, var: varSub, tag };
+  bootstrap(store);
   const schemas = await registerAgentSchemas(store);
   return { storageRoot, store, schemas };
 }

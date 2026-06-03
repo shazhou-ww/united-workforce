@@ -1,8 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const PKG_ROOT = join(import.meta.dir, "..");
+const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("Issue #551 — bin entry & engines", () => {
   test("package.json declares bun in engines", () => {

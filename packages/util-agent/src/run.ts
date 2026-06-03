@@ -79,8 +79,8 @@ async function writeStepNode(options: {
     cwd: process.cwd(),
     assembledPrompt: options.assembledPromptHash,
   };
-  const hash = await options.store.put(options.schemas.stepNode, payload);
-  const node = options.store.get(hash);
+  const hash = await options.store.cas.put(options.schemas.stepNode, payload);
+  const node = options.store.cas.get(hash);
   if (node === null || !validate(options.store, node)) {
     fail("stored StepNode failed schema validation");
   }
@@ -189,10 +189,14 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
 
     // Store the assembled prompt in CAS for later inspection via `step read --prompt`
     const promptText = agentResult.assembledPrompt;
-    const assembledPromptHash =
-      promptText !== ""
-        ? await ctx.meta.store.put(ctx.meta.schemas.text, promptText).catch(() => null)
-        : null;
+    let assembledPromptHash: CasRef | null = null;
+    if (promptText !== "") {
+      try {
+        assembledPromptHash = ctx.meta.store.cas.put(ctx.meta.schemas.text, promptText);
+      } catch {
+        assembledPromptHash = null;
+      }
+    }
 
     const stepHash = await persistStep({
       ctx,

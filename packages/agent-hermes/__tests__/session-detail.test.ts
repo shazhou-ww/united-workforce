@@ -1,5 +1,5 @@
-import { Database } from "bun:sqlite";
-import { describe, expect, test } from "bun:test";
+import Database from "better-sqlite3";
+import { describe, expect, test } from 'vitest';
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -106,7 +106,7 @@ describe("storeHermesSessionDetail", () => {
 
     expect(output).toBe("done");
 
-    const detailNode = store.get(detailHash);
+    const detailNode = store.cas.get(detailHash);
     expect(detailNode).not.toBeNull();
     if (detailNode === null) {
       return;

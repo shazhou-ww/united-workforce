@@ -162,13 +162,13 @@ export async function tryFrontmatterFastPath(
   const candidate = buildCandidate(frontmatter, rawFields, schemaFields);
 
   let outputHash: CasRef;
-  let node: ReturnType<Store["get"]>;
+  let node: ReturnType<Store["cas"]["get"]>;
 
   try {
-    outputHash = await store.put(outputSchema, candidate);
-    node = store.get(outputHash);
-  } catch {
-    log("2KMQT7NR", "failed to store frontmatter candidate in CAS");
+    outputHash = await store.cas.put(outputSchema, candidate);
+    node = store.cas.get(outputHash);
+  } catch (e) {
+    log("2KMQT7NR", `failed to store frontmatter candidate in CAS: ${e}`);
     return null;
   }
 

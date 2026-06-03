@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -156,13 +156,13 @@ export function loadHermesSessionFromDb(
   try {
     db = new Database(resolvedPath, { readonly: true });
     const session = db
-      .query("SELECT id, model, started_at FROM sessions WHERE id = ?")
+      .prepare("SELECT id, model, started_at FROM sessions WHERE id = ?")
       .get(sessionId) as DbSessionRow | null;
     if (session === null) {
       return null;
     }
     const rows = db
-      .query(
+      .prepare(
         "SELECT role, content, reasoning, tool_calls FROM messages WHERE session_id = ? ORDER BY id",
       )
       .all(sessionId) as DbMessageRow[];
@@ -285,7 +285,7 @@ export async function storeHermesSessionDetail(
     if (turn === null) {
       continue;
     }
-    const hash = await store.put(schemas.turn, turn);
+    const hash = await store.cas.put(schemas.turn, turn);
     turnHashes.push(hash);
     turnIndex += 1;
   }
@@ -297,12 +297,12 @@ export async function storeHermesSessionDetail(
     turnCount: turnHashes.length,
     turns: turnHashes,
   };
-  const detailHash = await store.put(schemas.detail, detail);
+  const detailHash = await store.cas.put(schemas.detail, detail);
   const output = extractLastAssistantContent(session.messages);
   return { detailHash, output };
 }
 
 export async function storeHermesRawOutput(store: Store, rawOutput: string): Promise<string> {
   const schemas = await registerHermesSchemas(store);
-  return store.put(schemas.rawOutput, { text: rawOutput });
+  return store.cas.put(schemas.rawOutput, { text: rawOutput });
 }

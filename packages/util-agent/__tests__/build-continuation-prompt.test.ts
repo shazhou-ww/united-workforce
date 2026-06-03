@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import type { StepContext } from "@united-workforce/protocol";
 import { buildContinuationPrompt } from "../src/build-continuation-prompt.js";
 

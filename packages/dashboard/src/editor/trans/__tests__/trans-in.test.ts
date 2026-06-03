@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from 'vitest';
 import { transIn } from "../trans-in.js";
 import type { WorkFlowStep } from "../type.js";
 

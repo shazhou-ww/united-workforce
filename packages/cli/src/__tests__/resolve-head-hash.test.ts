@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,7 +23,7 @@ describe("resolveHeadHash", () => {
   test("returns head hash from variable store for active thread", async () => {
     const threadId = "01JTEST0000000000000000001" as ThreadId;
     const uwf = await createUwfStore(tmpDir);
-    const headHash = (await uwf.store.put(uwf.schemas.text, "active")) as CasRef;
+    const headHash = (await uwf.store.cas.put(uwf.schemas.text, "active")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash as CasRef));
 
     const result = await resolveHeadHash(tmpDir, threadId);
@@ -36,7 +36,7 @@ describe("resolveHeadHash", () => {
     const workflowHash = "workflow_hash_789" as CasRef;
 
     const uwf = await createUwfStore(tmpDir);
-    const headHash = (await uwf.store.put(uwf.schemas.text, "completed-head")) as CasRef;
+    const headHash = (await uwf.store.cas.put(uwf.schemas.text, "completed-head")) as CasRef;
     addHistoryEntry(uwf.varStore, {
       thread: threadId,
       workflow: workflowHash,
@@ -59,8 +59,8 @@ describe("resolveHeadHash", () => {
     const workflowHash = "workflow_hash_xyz" as CasRef;
 
     const uwf = await createUwfStore(tmpDir);
-    const activeHead = (await uwf.store.put(uwf.schemas.text, "active-v2")) as CasRef;
-    const historicalHash = (await uwf.store.put(uwf.schemas.text, "historical-v1")) as CasRef;
+    const activeHead = (await uwf.store.cas.put(uwf.schemas.text, "active-v2")) as CasRef;
+    const historicalHash = (await uwf.store.cas.put(uwf.schemas.text, "historical-v1")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(activeHead));
     addHistoryEntry(uwf.varStore, {
       thread: threadId,
@@ -82,9 +82,9 @@ describe("resolveHeadHash", () => {
     const threadId3 = "01JTEST0000000000000000007" as ThreadId;
     const workflowHash = "workflow_hash_abc" as CasRef;
     const uwf = await createUwfStore(tmpDir);
-    const hash1 = (await uwf.store.put(uwf.schemas.text, "hash-thread1")) as CasRef;
-    const hash2 = (await uwf.store.put(uwf.schemas.text, "hash-thread2")) as CasRef;
-    const hash3 = (await uwf.store.put(uwf.schemas.text, "hash-thread3")) as CasRef;
+    const hash1 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread1")) as CasRef;
+    const hash2 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread2")) as CasRef;
+    const hash3 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread3")) as CasRef;
     addHistoryEntry(uwf.varStore, {
       thread: threadId1,
       workflow: workflowHash,

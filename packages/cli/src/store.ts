@@ -4,9 +4,8 @@ import { access, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { BootstrapCapableStore, Hash } from "@ocas/core";
-import { createVariableStore, type VariableStore } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { bootstrap, type Hash, type Store, type VarStore } from "@ocas/core";
+import { createFsStore, createSqliteVarStore } from "@ocas/fs";
 import type {
   CasRef,
   ThreadId,
@@ -168,17 +167,19 @@ export type ThreadHistoryLine = ThreadListItem & {
 
 export type UwfStore = {
   storageRoot: string;
-  store: BootstrapCapableStore;
+  store: Store;
   schemas: UwfSchemaHashes;
-  varStore: VariableStore;
+  varStore: VarStore;
 };
 
 export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = getGlobalCasDir();
   await mkdir(casDir, { recursive: true });
-  const store = createFsStore(casDir);
+  const cas = createFsStore(casDir);
+  const { var: varStore, tag } = createSqliteVarStore(join(casDir, "vars"), cas);
+  const store: Store = { cas, var: varStore, tag };
+  bootstrap(store);
   const schemas = await registerUwfSchemas(store);
-  const varStore = createVariableStore(join(casDir, "variables.db"), store);
   await migrateWorkflowRegistryIfNeeded(storageRoot, varStore);
   await migrateThreadsIndexIfNeeded(storageRoot, varStore);
   await migrateHistoryIfNeeded(storageRoot, varStore);
@@ -204,7 +205,7 @@ async function loadWorkflowRegistryFromYaml(storageRoot: string): Promise<Workfl
 /** One-time migration: `~/.uwf/workflows.yaml` → `@uwf/registry/*` variables. */
 export async function migrateWorkflowRegistryIfNeeded(
   storageRoot: string,
-  varStore: VariableStore,
+  varStore: VarStore,
 ): Promise<void> {
   const path = getRegistryPath(storageRoot);
   if (!existsSync(path)) {
@@ -219,7 +220,7 @@ export async function migrateWorkflowRegistryIfNeeded(
   await rename(path, `${path}.migrated`);
 }
 
-export function loadWorkflowRegistry(varStore: VariableStore): WorkflowRegistry {
+export function loadWorkflowRegistry(varStore: VarStore): WorkflowRegistry {
   const vars = varStore.list({ namePrefix: REGISTRY_VAR_PREFIX });
   const registry: WorkflowRegistry = {};
   for (const v of vars) {
@@ -229,7 +230,7 @@ export function loadWorkflowRegistry(varStore: VariableStore): WorkflowRegistry 
   return registry;
 }
 
-export function saveWorkflowRegistry(varStore: VariableStore, name: string, hash: CasRef): void {
+export function saveWorkflowRegistry(varStore: VarStore, name: string, hash: CasRef): void {
   varStore.set(`${REGISTRY_VAR_PREFIX}${name}`, hash);
 }
 
@@ -280,7 +281,7 @@ async function loadThreadsIndexFromYaml(storageRoot: string): Promise<ThreadsInd
 /** One-time migration: `~/.uwf/threads.yaml` → `@uwf/thread/*` variables. */
 export async function migrateThreadsIndexIfNeeded(
   storageRoot: string,
-  varStore: VariableStore,
+  varStore: VarStore,
 ): Promise<void> {
   const path = getThreadsPath(storageRoot);
   if (!existsSync(path)) {
@@ -308,7 +309,7 @@ function entryFromVariable(v: { value: string; tags: Record<string, string> }): 
 }
 
 /** Load all active threads (equivalent to legacy `loadThreadsIndex`). */
-export function loadAllThreads(varStore: VariableStore): ThreadsIndex {
+export function loadAllThreads(varStore: VarStore): ThreadsIndex {
   const vars = varStore.list({ namePrefix: THREAD_VAR_PREFIX });
   const index: ThreadsIndex = {};
   for (const v of vars) {
@@ -319,7 +320,7 @@ export function loadAllThreads(varStore: VariableStore): ThreadsIndex {
 }
 
 /** Get a single active thread entry, or null if not found. */
-export function getThread(varStore: VariableStore, threadId: ThreadId): ThreadIndexEntry | null {
+export function getThread(varStore: VarStore, threadId: ThreadId): ThreadIndexEntry | null {
   const vars = varStore.list({ exactName: threadVarName(threadId) });
   const v = vars[0];
   if (v === undefined) {
@@ -330,7 +331,7 @@ export function getThread(varStore: VariableStore, threadId: ThreadId): ThreadIn
 
 /** Set or update a single active thread entry. */
 export function setThread(
-  varStore: VariableStore,
+  varStore: VarStore,
   threadId: ThreadId,
   entry: ThreadIndexEntry,
 ): void {
@@ -348,7 +349,7 @@ export function setThread(
 }
 
 /** Remove an active thread entry (on complete/cancel). */
-export function deleteThread(varStore: VariableStore, threadId: ThreadId): void {
+export function deleteThread(varStore: VarStore, threadId: ThreadId): void {
   varStore.remove(threadVarName(threadId));
 }
 
@@ -389,7 +390,7 @@ function parseHistoryJsonlLine(trimmed: string): ThreadHistoryLine | null {
 /** One-time migration: `~/.uwf/history.jsonl` → `@uwf/history/*` variables. */
 export async function migrateHistoryIfNeeded(
   storageRoot: string,
-  varStore: VariableStore,
+  varStore: VarStore,
 ): Promise<void> {
   const path = join(storageRoot, "history.jsonl");
   if (!existsSync(path)) {
@@ -411,7 +412,7 @@ export async function migrateHistoryIfNeeded(
   await rename(path, `${path}.migrated`);
 }
 
-export function loadAllHistory(varStore: VariableStore): ThreadHistoryLine[] {
+export function loadAllHistory(varStore: VarStore): ThreadHistoryLine[] {
   const vars = varStore.list({ namePrefix: HISTORY_VAR_PREFIX });
   return vars.map((v) => ({
     thread: v.name.slice(HISTORY_VAR_PREFIX.length) as ThreadId,
@@ -423,7 +424,7 @@ export function loadAllHistory(varStore: VariableStore): ThreadHistoryLine[] {
 }
 
 export function findHistoryEntry(
-  varStore: VariableStore,
+  varStore: VarStore,
   threadId: ThreadId,
 ): ThreadHistoryLine | null {
   const vars = varStore.list({ namePrefix: `${HISTORY_VAR_PREFIX}${threadId}` });
@@ -440,7 +441,7 @@ export function findHistoryEntry(
   };
 }
 
-export function addHistoryEntry(varStore: VariableStore, entry: ThreadHistoryLine): void {
+export function addHistoryEntry(varStore: VarStore, entry: ThreadHistoryLine): void {
   varStore.set(`${HISTORY_VAR_PREFIX}${entry.thread}`, entry.head, {
     tags: {
       workflow: entry.workflow,

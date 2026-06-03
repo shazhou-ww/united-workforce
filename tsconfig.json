@@ -15,7 +15,7 @@
     "sourceMap": true,
     "composite": true,
     "outDir": "dist",
-    "types": ["bun-types", "node"]
+    "types": ["node"]
   },
   "references": [
     { "path": "packages/util" },

@@ -1,10 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
 import { registerUwfSchemas } from "../schemas.js";
 import { seedThreads } from "./thread-test-helpers.js";
@@ -38,12 +40,12 @@ describe("C1: adapter JSON round-trip integration", () => {
     // 1. Set up CAS store with workflow, start node, and output schema
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
 
     const outputSchemaHash = await putSchema(store, OUTPUT_SCHEMA);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-roundtrip",
       description: "roundtrip integration test",
       roles: {
@@ -62,7 +64,7 @@ describe("C1: adapter JSON round-trip integration", () => {
       },
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test round-trip task",
     });
@@ -73,18 +75,18 @@ describe("C1: adapter JSON round-trip integration", () => {
     await seedThreads(tmpDir, { [threadId]: startHash });
 
     // 2. Pre-create CAS nodes that the mock agent would produce
-    const outputHash = await store.put(outputSchemaHash, {
+    const outputHash = await store.cas.put(outputSchemaHash, {
       $status: "done",
       result: "test-ok",
     });
 
     // Use text schema for detail (simple placeholder)
-    const detailHash = await store.put(schemas.text, "mock detail");
+    const detailHash = await store.cas.put(schemas.text, "mock detail");
 
     const startedAtMs = 1716600000000;
     const completedAtMs = 1716600001500;
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -119,15 +121,15 @@ describe("C1: adapter JSON round-trip integration", () => {
     );
 
     // 5. Run CLI with agent override pointing to our mock
-    const cliPath = join(import.meta.dirname, "..", "cli.js");
+    const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
     let stdout: string;
     let stderr: string;
     let exitCode: number;
 
     try {
       stdout = execFileSync(
-        "bun",
-        ["run", cliPath, "thread", "exec", threadId, "--agent", mockAgentPath],
+        process.execPath,
+        [cliPath, "thread", "exec", threadId, "--agent", mockAgentPath],
         {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
@@ -165,8 +167,8 @@ describe("C1: adapter JSON round-trip integration", () => {
     expect(cliOutput.head).toMatch(/^[0-9A-HJ-NP-TV-Z]{13}$/);
 
     // Verify the CAS step node exists and has correct metadata
-    const storeAfter = createFsStore(casDir);
-    const stepNode = storeAfter.get(cliOutput.head as CasRef);
+    const storeAfter = await openStore(casDir);
+    const stepNode = storeAfter.cas.get(cliOutput.head as CasRef);
     expect(stepNode).not.toBeNull();
 
     const payload = stepNode!.payload as StepNodePayload;

@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef } from "@united-workforce/protocol";
 import { cmdStepRead } from "../commands/step.js";
 import { registerUwfSchemas } from "../schemas.js";
@@ -48,7 +48,7 @@ const DETAIL_SCHEMA = {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
+async function registerDetailSchemas(store: Awaited<ReturnType<typeof openStore>>) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
     putSchema(store, TURN_SCHEMA),
@@ -92,11 +92,11 @@ describe("step read", () => {
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -113,12 +113,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -130,7 +130,7 @@ describe("step read", () => {
     const turnHashes: CasRef[] = [];
     for (let i = 1; i <= 3; i++) {
       const content = `Turn ${i} content with some text to make it readable.`;
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: i - 1,
         role: "assistant",
         content,
@@ -140,7 +140,7 @@ describe("step read", () => {
       turnHashes.push(turnHash);
     }
 
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
@@ -148,7 +148,7 @@ describe("step read", () => {
       turns: turnHashes,
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -180,11 +180,11 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -201,12 +201,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -218,7 +218,7 @@ describe("step read", () => {
     const turnHashes: CasRef[] = [];
     for (let i = 1; i <= 4; i++) {
       const content = generateContent(300, `Turn${i}`);
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: i - 1,
         role: "assistant",
         content,
@@ -228,7 +228,7 @@ describe("step read", () => {
       turnHashes.push(turnHash);
     }
 
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
@@ -236,7 +236,7 @@ describe("step read", () => {
       turns: turnHashes,
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -266,11 +266,11 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -287,12 +287,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -302,7 +302,7 @@ describe("step read", () => {
 
     // Create 1 turn of 500 chars
     const content = generateContent(500, "LongTurn");
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content,
@@ -310,7 +310,7 @@ describe("step read", () => {
       reasoning: null,
     });
 
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
@@ -318,7 +318,7 @@ describe("step read", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -343,10 +343,10 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -363,12 +363,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -376,7 +376,7 @@ describe("step read", () => {
       graph: {},
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -404,11 +404,11 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -425,12 +425,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -451,11 +451,11 @@ describe("step read", () => {
 
     await bootstrap(store);
     const simpleDetailType = await putSchema(store, SIMPLE_DETAIL_SCHEMA);
-    const detailHash = await store.put(simpleDetailType, {
+    const detailHash = await store.cas.put(simpleDetailType, {
       sessionId: "session-1",
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -482,11 +482,11 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -503,12 +503,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -516,7 +516,7 @@ describe("step read", () => {
       graph: {},
     });
 
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: "",
@@ -524,7 +524,7 @@ describe("step read", () => {
       reasoning: null,
     });
 
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
@@ -532,7 +532,7 @@ describe("step read", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -556,11 +556,11 @@ describe("step read", () => {
     process.env.OCAS_DIR = casDir;
     await mkdir(casDir, { recursive: true });
     process.env.OCAS_DIR = casDir;
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -577,12 +577,12 @@ describe("step read", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -592,7 +592,7 @@ describe("step read", () => {
 
     // Create turn with special markdown characters
     const content = "This has `backticks`, **bold**, *italic*, and [links](http://example.com)";
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content,
@@ -600,7 +600,7 @@ describe("step read", () => {
       reasoning: null,
     });
 
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
@@ -608,7 +608,7 @@ describe("step read", () => {
       turns: [turnHash],
     });
 
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",

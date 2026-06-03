@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,7 +82,7 @@ graph:
     const headHash = getThread(uwf.varStore, result.thread as ThreadId)!.head;
     expect(headHash).toBeDefined();
 
-    const startNode = uwf.store.get(headHash as CasRef);
+    const startNode = uwf.store.cas.get(headHash as CasRef);
     expect(startNode).not.toBe(null);
     expect(startNode?.type).toBe(uwf.schemas.startNode);
 
@@ -175,7 +175,7 @@ graph:
     const uwf = await createUwfStore(storageRoot);
     const headHash = getThread(uwf.varStore, result.thread as ThreadId)!.head;
 
-    const startNode = uwf.store.get(headHash as CasRef);
+    const startNode = uwf.store.cas.get(headHash as CasRef);
     const startPayload = startNode?.payload as StartNodePayload;
 
     // Should default to process.cwd()

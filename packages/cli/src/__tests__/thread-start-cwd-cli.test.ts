@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
 import { execFileSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -78,7 +78,7 @@ graph:
     const headHash = entry!.head;
     expect(headHash).toBeDefined();
 
-    const startNode = uwf.store.get(headHash as CasRef);
+    const startNode = uwf.store.cas.get(headHash as CasRef);
     expect(startNode).not.toBe(null);
     expect(startNode?.type).toBe(uwf.schemas.startNode);
 
@@ -136,14 +136,14 @@ graph:
     const uwfBin = join(process.cwd(), "dist", "cli.js");
 
     // Register the workflow
-    execFileSync("bun", [uwfBin, "workflow", "add", workflowPath], {
+    execFileSync(process.execPath, [uwfBin, "workflow", "add", workflowPath], {
       env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },
       encoding: "utf8",
     });
 
     // Verify CLI accepts --cwd option (no error thrown)
     const output = execFileSync(
-      "bun",
+      process.execPath,
       [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
       {
         env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },

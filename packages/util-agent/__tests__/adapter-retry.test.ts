@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { createMemoryStore, putSchema } from "@ocas/core";
+import { describe, expect, test } from 'vitest';
+import { createMemoryStore, putSchema, bootstrap } from "@ocas/core";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 
@@ -18,6 +18,7 @@ const PLANNER_SCHEMA = {
 describe("adapter-stdout: A4 retry loop survives JSON output", () => {
   test("A4. first extraction fails, second succeeds — final result has correct data", async () => {
     const store = createMemoryStore();
+    bootstrap(store);
     const schemaHash = await putSchema(store, PLANNER_SCHEMA);
 
     // Simulate the retry loop from createAgent (run.ts lines 163-173):
@@ -56,6 +57,7 @@ describe("adapter-stdout: A4 retry loop survives JSON output", () => {
 
   test("A4. all retries fail — extraction returns null on every attempt", async () => {
     const store = createMemoryStore();
+    bootstrap(store);
     const schemaHash = await putSchema(store, PLANNER_SCHEMA);
 
     const MAX_RETRIES = 2;

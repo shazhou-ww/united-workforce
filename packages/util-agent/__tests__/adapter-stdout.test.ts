@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { createMemoryStore, putSchema } from "@ocas/core";
+import { describe, expect, test } from 'vitest';
+import { createMemoryStore, putSchema, bootstrap } from "@ocas/core";
 
 import { tryFrontmatterFastPath } from "../src/frontmatter.js";
 
@@ -31,6 +31,7 @@ const FRONTMATTER_SCHEMA = {
 describe("adapter-stdout: FrontmatterFastPathResult includes frontmatter", () => {
   test("A2. frontmatter field contains the parsed YAML frontmatter object", async () => {
     const store = createMemoryStore();
+    bootstrap(store);
     const schemaHash = await putSchema(store, PLANNER_SCHEMA);
 
     const raw = `---\n$status: ready\nplan: abc123\n---\nSome body text`;
@@ -42,6 +43,7 @@ describe("adapter-stdout: FrontmatterFastPathResult includes frontmatter", () =>
 
   test("A3. body field contains the markdown body after frontmatter", async () => {
     const store = createMemoryStore();
+    bootstrap(store);
     const schemaHash = await putSchema(store, PLANNER_SCHEMA);
 
     const raw = `---\n$status: ready\nplan: hash123\n---\nHere is the body.\n\nWith multiple paragraphs.`;
@@ -53,6 +55,7 @@ describe("adapter-stdout: FrontmatterFastPathResult includes frontmatter", () =>
 
   test("A1. result contains outputHash as valid CasRef", async () => {
     const store = createMemoryStore();
+    bootstrap(store);
     const schemaHash = await putSchema(store, FRONTMATTER_SCHEMA);
 
     const raw = `---\nstatus: done\nnext: null\nconfidence: 0.9\nartifacts: []\nscope: test\n---\nBody`;

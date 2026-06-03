@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
-import type { VariableStore } from "@ocas/core";
+import type { VarStore } from "@ocas/core";
 import { validate } from "@ocas/core";
 import type {
   AgentAlias,
@@ -139,7 +139,7 @@ function resolveSuspendFieldsForShow(
 }
 
 async function ensureThreadSuspendMetadata(
-  varStore: VariableStore,
+  varStore: VarStore,
   threadId: ThreadId,
   entry: ThreadIndexEntry,
   suspendedRole: string,
@@ -352,8 +352,8 @@ async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promis
   }
 
   const materialized = await materializeWorkflowPayload(uwf, payload);
-  const hash = await uwf.store.put(uwf.schemas.workflow, materialized);
-  const stored = uwf.store.get(hash);
+  const hash = await uwf.store.cas.put(uwf.schemas.workflow, materialized);
+  const stored = uwf.store.cas.get(hash);
   if (stored === null || !validate(uwf.store, stored)) {
     fail("stored local workflow failed schema validation");
   }
@@ -374,7 +374,7 @@ async function resolveWorkflowCasRef(
 
   // Strategy 1: Direct CAS hash
   if (isCasRef(trimmed)) {
-    const node = uwf.store.get(trimmed);
+    const node = uwf.store.cas.get(trimmed);
     if (node === null) {
       fail(`CAS node not found: ${trimmed}`);
     }
@@ -402,7 +402,7 @@ async function resolveWorkflowCasRef(
   if (!isCasRef(hash)) {
     fail(`workflow not found: ${trimmed}`);
   }
-  const node = uwf.store.get(hash);
+  const node = uwf.store.cas.get(hash);
   if (node === null) {
     fail(`CAS node not found: ${hash}`);
   }
@@ -413,7 +413,7 @@ async function resolveWorkflowCasRef(
 }
 
 function resolveWorkflowFromHead(uwf: UwfStore, head: CasRef): CasRef | null {
-  const node = uwf.store.get(head);
+  const node = uwf.store.cas.get(head);
   if (node === null) {
     return null;
   }
@@ -428,7 +428,7 @@ function resolveWorkflowFromHead(uwf: UwfStore, head: CasRef): CasRef | null {
     return null;
   }
 
-  const startNode = uwf.store.get(payload.start);
+  const startNode = uwf.store.cas.get(payload.start);
   if (startNode === null || startNode.type !== uwf.schemas.startNode) {
     return null;
   }
@@ -462,8 +462,8 @@ export async function cmdThreadStart(
     cwd,
   };
 
-  const headHash = await uwf.store.put(uwf.schemas.startNode, startPayload);
-  const node = uwf.store.get(headHash);
+  const headHash = await uwf.store.cas.put(uwf.schemas.startNode, startPayload);
+  const node = uwf.store.cas.get(headHash);
   if (node === null || !validate(uwf.store, node)) {
     fail("stored StartNode failed schema validation");
   }
@@ -594,7 +594,7 @@ async function collectActiveThreads(
 }
 
 function collectCompletedThreads(
-  varStore: VariableStore,
+  varStore: VarStore,
   activeIds: Set<ThreadId>,
 ): ThreadListItemWithStatus[] {
   const items: ThreadListItemWithStatus[] = [];
@@ -691,7 +691,7 @@ export async function cmdThreadList(
 }
 
 export function extractLastAssistantContent(uwf: UwfStore, detailRef: CasRef): string | null {
-  const detailNode = uwf.store.get(detailRef);
+  const detailNode = uwf.store.cas.get(detailRef);
   if (detailNode === null) {
     return null;
   }
@@ -705,7 +705,7 @@ export function extractLastAssistantContent(uwf: UwfStore, detailRef: CasRef): s
     if (typeof turnRef !== "string") {
       continue;
     }
-    const turnNode = uwf.store.get(turnRef as CasRef);
+    const turnNode = uwf.store.cas.get(turnRef as CasRef);
     if (turnNode === null) {
       continue;
     }
@@ -940,7 +940,7 @@ function resolveEvaluateArgs(
 }
 
 function loadWorkflowPayload(uwf: UwfStore, workflowRef: CasRef): WorkflowPayload {
-  const node = uwf.store.get(workflowRef);
+  const node = uwf.store.cas.get(workflowRef);
   if (node === null) {
     fail(`workflow CAS node not found: ${workflowRef}`);
   }
@@ -1436,7 +1436,7 @@ async function cmdThreadStepOnce(
   plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
 
   const uwfAfter = await createUwfStore(storageRoot);
-  const newNode = uwfAfter.store.get(newHead);
+  const newNode = uwfAfter.store.cas.get(newHead);
   if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
     failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
   }

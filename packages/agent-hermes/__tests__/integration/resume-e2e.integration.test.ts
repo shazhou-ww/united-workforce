@@ -1,5 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
-
+import { afterEach, describe, expect, it } from 'vitest';
 import { HermesAcpClient } from "../../src/acp-client.js";
 
 /**

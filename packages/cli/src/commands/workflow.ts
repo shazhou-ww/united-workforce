@@ -150,8 +150,8 @@ export async function cmdWorkflowAdd(
   const uwf = await createUwfStore(storageRoot);
   const materialized = await materializeWorkflowPayload(uwf, payload);
 
-  const hash = await uwf.store.put(uwf.schemas.workflow, materialized);
-  const node = uwf.store.get(hash);
+  const hash = await uwf.store.cas.put(uwf.schemas.workflow, materialized);
+  const node = uwf.store.cas.get(hash);
   if (node === null || !validate(uwf.store, node)) {
     fail("stored workflow failed schema validation");
   }
@@ -169,7 +169,7 @@ export async function cmdWorkflowShow(
   const registry = loadWorkflowRegistry(uwf.varStore);
   const hash = resolveWorkflowHash(registry, id);
 
-  const node = uwf.store.get(hash);
+  const node = uwf.store.cas.get(hash);
   if (node === null) {
     fail(`CAS node not found: ${hash}`);
   }

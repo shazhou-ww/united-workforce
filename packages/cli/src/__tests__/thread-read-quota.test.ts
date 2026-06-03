@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema } from "@ocas/core";
-import { createFsStore } from "@ocas/fs";
+import { openStore } from "@ocas/fs";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { cmdThreadRead } from "../commands/thread.js";
 import { registerUwfSchemas } from "../schemas.js";
@@ -49,7 +49,7 @@ const DETAIL_SCHEMA = {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-async function registerDetailSchemas(store: ReturnType<typeof createFsStore>) {
+async function registerDetailSchemas(store: Awaited<ReturnType<typeof openStore>>) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
     putSchema(store, TURN_SCHEMA),
@@ -91,11 +91,11 @@ describe("thread read --quota flag", () => {
   test("test 1: basic quota enforcement with 3 steps", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -112,12 +112,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -129,21 +129,21 @@ describe("thread read --quota flag", () => {
     const steps: CasRef[] = [];
     for (let i = 1; i <= 3; i++) {
       const content = generateContent(500, `Step${i}`);
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: 0,
         role: "assistant",
         content,
         toolCalls: null,
         reasoning: null,
       });
-      const detailHash = await store.put(detailSchemas.detail, {
+      const detailHash = await store.cas.put(detailSchemas.detail, {
         sessionId: `session-${i}`,
         model: "test-model",
         duration: 1000,
         turnCount: 1,
         turns: [turnHash],
       });
-      const stepHash = await store.put(schemas.stepNode, {
+      const stepHash = await store.cas.put(schemas.stepNode, {
         start: startHash,
         prev: steps[i - 2] ?? null,
         role: "worker",
@@ -176,11 +176,11 @@ describe("thread read --quota flag", () => {
   test("test 2: quota check order - verifies bug is fixed", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -197,12 +197,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -212,21 +212,21 @@ describe("thread read --quota flag", () => {
 
     // Create 2 steps: first=300 chars, second=600 chars
     const step1Content = generateContent(300, "First");
-    const step1TurnHash = await store.put(detailSchemas.turn, {
+    const step1TurnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: step1Content,
       toolCalls: null,
       reasoning: null,
     });
-    const step1DetailHash = await store.put(detailSchemas.detail, {
+    const step1DetailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
       turnCount: 1,
       turns: [step1TurnHash],
     });
-    const step1Hash = await store.put(schemas.stepNode, {
+    const step1Hash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -239,21 +239,21 @@ describe("thread read --quota flag", () => {
     });
 
     const step2Content = generateContent(600, "Second");
-    const step2TurnHash = await store.put(detailSchemas.turn, {
+    const step2TurnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content: step2Content,
       toolCalls: null,
       reasoning: null,
     });
-    const step2DetailHash = await store.put(detailSchemas.detail, {
+    const step2DetailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-2",
       model: "test-model",
       duration: 1000,
       turnCount: 1,
       turns: [step2TurnHash],
     });
-    const step2Hash = await store.put(schemas.stepNode, {
+    const step2Hash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: step1Hash,
       role: "worker",
@@ -287,11 +287,11 @@ describe("thread read --quota flag", () => {
   test("test 3: quota with --start section", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -308,12 +308,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task with a moderately long prompt to test quota accounting",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -325,21 +325,21 @@ describe("thread read --quota flag", () => {
     const steps: CasRef[] = [];
     for (let i = 1; i <= 2; i++) {
       const content = generateContent(400, `Step${i}`);
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: 0,
         role: "assistant",
         content,
         toolCalls: null,
         reasoning: null,
       });
-      const detailHash = await store.put(detailSchemas.detail, {
+      const detailHash = await store.cas.put(detailSchemas.detail, {
         sessionId: `session-${i}`,
         model: "test-model",
         duration: 1000,
         turnCount: 1,
         turns: [turnHash],
       });
-      const stepHash = await store.put(schemas.stepNode, {
+      const stepHash = await store.cas.put(schemas.stepNode, {
         start: startHash,
         prev: steps[i - 2] ?? null,
         role: "worker",
@@ -370,11 +370,11 @@ describe("thread read --quota flag", () => {
   test("test 5a: quota edge case - minimal quota", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -391,12 +391,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -405,21 +405,21 @@ describe("thread read --quota flag", () => {
     });
 
     const content = generateContent(500, "Test");
-    const turnHash = await store.put(detailSchemas.turn, {
+    const turnHash = await store.cas.put(detailSchemas.turn, {
       index: 0,
       role: "assistant",
       content,
       toolCalls: null,
       reasoning: null,
     });
-    const detailHash = await store.put(detailSchemas.detail, {
+    const detailHash = await store.cas.put(detailSchemas.detail, {
       sessionId: "session-1",
       model: "test-model",
       duration: 1000,
       turnCount: 1,
       turns: [turnHash],
     });
-    const stepHash = await store.put(schemas.stepNode, {
+    const stepHash = await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: null,
       role: "worker",
@@ -445,11 +445,11 @@ describe("thread read --quota flag", () => {
   test("test 5b: quota edge case - very large quota", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -466,12 +466,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -483,21 +483,21 @@ describe("thread read --quota flag", () => {
     const steps: CasRef[] = [];
     for (let i = 1; i <= 3; i++) {
       const content = generateContent(300, `Step${i}`);
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: 0,
         role: "assistant",
         content,
         toolCalls: null,
         reasoning: null,
       });
-      const detailHash = await store.put(detailSchemas.detail, {
+      const detailHash = await store.cas.put(detailSchemas.detail, {
         sessionId: `session-${i}`,
         model: "test-model",
         duration: 1000,
         turnCount: 1,
         turns: [turnHash],
       });
-      const stepHash = await store.put(schemas.stepNode, {
+      const stepHash = await store.cas.put(schemas.stepNode, {
         start: startHash,
         prev: steps[i - 2] ?? null,
         role: "worker",
@@ -527,11 +527,11 @@ describe("thread read --quota flag", () => {
   test("test 6: quota with --before parameter", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const store = createFsStore(casDir);
+    const store = await openStore(casDir);
     const schemas = await registerUwfSchemas(store);
     const detailSchemas = await registerDetailSchemas(store);
 
-    const workflowHash = await store.put(schemas.workflow, {
+    const workflowHash = await store.cas.put(schemas.workflow, {
       name: "test-wf",
       description: "desc",
       roles: {
@@ -548,12 +548,12 @@ describe("thread read --quota flag", () => {
       graph: {},
     });
 
-    const startHash = await store.put(schemas.startNode, {
+    const startHash = await store.cas.put(schemas.startNode, {
       workflow: workflowHash,
       prompt: "Test task",
     });
 
-    const outputHash = await store.put(schemas.workflow, {
+    const outputHash = await store.cas.put(schemas.workflow, {
       name: "out",
       description: "",
       roles: {},
@@ -565,21 +565,21 @@ describe("thread read --quota flag", () => {
     const steps: CasRef[] = [];
     for (let i = 1; i <= 5; i++) {
       const content = generateContent(300, `Step${i}`);
-      const turnHash = await store.put(detailSchemas.turn, {
+      const turnHash = await store.cas.put(detailSchemas.turn, {
         index: 0,
         role: "assistant",
         content,
         toolCalls: null,
         reasoning: null,
       });
-      const detailHash = await store.put(detailSchemas.detail, {
+      const detailHash = await store.cas.put(detailSchemas.detail, {
         sessionId: `session-${i}`,
         model: "test-model",
         duration: 1000,
         turnCount: 1,
         turns: [turnHash],
       });
-      const stepHash = await store.put(schemas.stepNode, {
+      const stepHash = await store.cas.put(schemas.stepNode, {
         start: startHash,
         prev: steps[i - 2] ?? null,
         role: "worker",

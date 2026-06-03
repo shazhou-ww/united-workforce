@@ -1,4 +1,4 @@
-import type { BootstrapCapableStore } from "@ocas/core";
+import type { CasStore } from "@ocas/core";
 import type {
   CasRef,
   StartEntry,
@@ -42,7 +42,7 @@ export async function cmdStepList(
   const uwf = await createUwfStore(storageRoot);
   const chain = walkChain(uwf, headHash);
 
-  const startNode = uwf.store.get(chain.startHash);
+  const startNode = uwf.store.cas.get(chain.startHash);
   if (startNode === null) {
     fail(`StartNode not found: ${chain.startHash}`);
   }
@@ -81,7 +81,7 @@ export async function cmdStepList(
  */
 export async function cmdStepShow(storageRoot: string, stepHash: CasRef): Promise<unknown> {
   const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
+  const node = uwf.store.cas.get(stepHash);
   if (node === null) {
     fail(`CAS node not found: ${stepHash}`);
   }
@@ -103,7 +103,7 @@ export async function cmdStepFork(
   stepHash: CasRef,
 ): Promise<ThreadForkOutput> {
   const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
+  const node = uwf.store.cas.get(stepHash);
   if (node === null) {
     fail(`CAS node not found: ${stepHash}`);
   }
@@ -129,7 +129,7 @@ export async function cmdStepFork(
 /**
  * Load and validate step detail node from CAS store
  */
-function loadStepDetail(store: BootstrapCapableStore, detailRef: CasRef): Record<string, unknown> {
+function loadStepDetail(store: CasStore, detailRef: CasRef): Record<string, unknown> {
   const detailNode = store.get(detailRef);
   if (detailNode === null) {
     fail(`detail node not found: ${detailRef}`);
@@ -178,7 +178,7 @@ function formatTurnBody(turn: TurnData): string {
 }
 
 function parseSingleTurn(
-  store: BootstrapCapableStore,
+  store: CasStore,
   turnRef: unknown,
   fallbackIndex: number,
 ): TurnData | null {
@@ -206,7 +206,7 @@ function parseSingleTurn(
 /**
  * Load all turn nodes from CAS store and extract display fields
  */
-function loadTurnData(store: BootstrapCapableStore, turns: unknown): TurnData[] {
+function loadTurnData(store: CasStore, turns: unknown): TurnData[] {
   if (!Array.isArray(turns) || turns.length === 0) {
     return [];
   }
@@ -294,7 +294,7 @@ export async function cmdStepRead(
   showPrompt: boolean,
 ): Promise<string> {
   const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.get(stepHash);
+  const node = uwf.store.cas.get(stepHash);
   if (node === null) {
     fail(`CAS node not found: ${stepHash}`);
   }
@@ -309,7 +309,7 @@ export async function cmdStepRead(
     if (typeof promptRef !== "string") {
       return `# Step ${stepHash}\n\n_Prompt not recorded (legacy step)._`;
     }
-    const promptNode = uwf.store.get(promptRef as CasRef);
+    const promptNode = uwf.store.cas.get(promptRef as CasRef);
     if (promptNode === null) {
       return `# Step ${stepHash}\n\n_Prompt CAS node not found: ${promptRef}_`;
     }
@@ -324,8 +324,8 @@ export async function cmdStepRead(
     return formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);
   }
 
-  const detail = loadStepDetail(uwf.store, payload.detail);
-  const turnData = loadTurnData(uwf.store, detail.turns);
+  const detail = loadStepDetail(uwf.store.cas, payload.detail);
+  const turnData = loadTurnData(uwf.store.cas, detail.turns);
 
   if (turnData.length === 0) {
     return formatStepMarkdown(stepHash, payload.role, payload.agent, [], []);

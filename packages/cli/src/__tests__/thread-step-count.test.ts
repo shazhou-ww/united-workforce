@@ -1,8 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'vitest';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
-const CLI_PATH = join(import.meta.dirname, "..", "cli.js");
+const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "cli.js");
 
 function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
