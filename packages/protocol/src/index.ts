@@ -5,6 +5,7 @@ export {
 } from "./schemas.js";
 export {
   createThreadIndexEntry,
+  markThreadCompleted,
   markThreadSuspended,
   normalizeThreadIndexEntry,
   parseThreadsIndex,

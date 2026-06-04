@@ -15,10 +15,14 @@ export function normalizeThreadIndexEntry(raw: unknown): ThreadIndexEntry | null
   }
   const suspendedRole = rec.suspendedRole;
   const suspendMessage = rec.suspendMessage;
+  const status = rec.status;
+  const completedAt = rec.completedAt;
   return {
     head: head as CasRef,
     suspendedRole: typeof suspendedRole === "string" ? suspendedRole : null,
     suspendMessage: typeof suspendMessage === "string" ? suspendMessage : null,
+    status: typeof status === "string" ? (status as "idle" | "running" | "suspended" | "completed" | "cancelled") : "idle",
+    completedAt: typeof completedAt === "number" ? completedAt : null,
   };
 }
 
@@ -27,6 +31,8 @@ export function createThreadIndexEntry(head: CasRef): ThreadIndexEntry {
     head,
     suspendedRole: null,
     suspendMessage: null,
+    status: "idle",
+    completedAt: null,
   };
 }
 
@@ -35,6 +41,8 @@ export function updateThreadHead(_entry: ThreadIndexEntry, head: CasRef): Thread
     head,
     suspendedRole: null,
     suspendMessage: null,
+    status: "idle",
+    completedAt: null,
   };
 }
 
@@ -47,21 +55,58 @@ export function markThreadSuspended(
     head: entry.head,
     suspendedRole,
     suspendMessage,
+    status: "suspended",
+    completedAt: null,
+  };
+}
+
+export function markThreadCompleted(
+  entry: ThreadIndexEntry,
+  status: "completed" | "cancelled",
+  now: number,
+): ThreadIndexEntry {
+  return {
+    head: entry.head,
+    suspendedRole: null,
+    suspendMessage: null,
+    status,
+    completedAt: now,
   };
 }
 
 /** Serialize for variable store — compact string when not suspended. */
 export function serializeThreadIndexEntry(
   entry: ThreadIndexEntry,
-): string | Record<string, string> {
-  if (entry.suspendedRole === null || entry.suspendMessage === null) {
+): string | Record<string, string | number> {
+  // Compact string only for idle status with no suspend metadata
+  if (entry.status === "idle" && entry.suspendedRole === null && entry.suspendMessage === null && entry.completedAt === null) {
     return entry.head;
   }
-  return {
+
+  // Build object representation
+  const obj: Record<string, string | number> = {
     head: entry.head,
-    suspendedRole: entry.suspendedRole,
-    suspendMessage: entry.suspendMessage,
   };
+
+  // Include suspend metadata if present
+  if (entry.suspendedRole !== null) {
+    obj.suspendedRole = entry.suspendedRole;
+  }
+  if (entry.suspendMessage !== null) {
+    obj.suspendMessage = entry.suspendMessage;
+  }
+
+  // Always include status if not idle
+  if (entry.status !== "idle") {
+    obj.status = entry.status;
+  }
+
+  // Include completedAt if present
+  if (entry.completedAt !== null) {
+    obj.completedAt = entry.completedAt;
+  }
+
+  return obj;
 }
 
 export function parseThreadsIndex(raw: unknown): ThreadsIndex {
@@ -80,8 +125,8 @@ export function parseThreadsIndex(raw: unknown): ThreadsIndex {
 
 export function serializeThreadsIndex(
   index: ThreadsIndex,
-): Record<string, string | Record<string, string>> {
-  const out: Record<string, string | Record<string, string>> = {};
+): Record<string, string | Record<string, string | number>> {
+  const out: Record<string, string | Record<string, string | number>> = {};
   for (const [threadId, entry] of Object.entries(index)) {
     out[threadId] = serializeThreadIndexEntry(entry);
   }
