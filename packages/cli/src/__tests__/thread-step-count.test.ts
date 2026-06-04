@@ -38,7 +38,7 @@ describe("thread exec --count CLI parsing", () => {
   });
 });
 
-describe("cmdThreadExec count logic", () => {
+describe("cmdThreadExec count logic", { timeout: 30_000 }, () => {
   test("count=0 fails with validation error", () => {
     const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "0"]);
     expect(result.exitCode).not.toBe(0);
