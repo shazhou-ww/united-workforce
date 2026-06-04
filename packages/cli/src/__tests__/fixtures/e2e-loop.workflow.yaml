@@ -1,0 +1,36 @@
+name: test-loop
+description: Branching test where the reviewer can reject and loop back to the developer
+roles:
+  developer:
+    description: Implements changes
+    goal: Implement the change
+    capabilities: []
+    procedure: Write code
+    output: Summarize the change and set $status to review_needed
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: review_needed }
+          required: [$status]
+  reviewer:
+    description: Reviews changes
+    goal: Review the change
+    capabilities: []
+    procedure: Review code
+    output: Approve or reject; set $status to approved or rejected
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: rejected }
+          required: [$status]
+        - properties:
+            $status: { const: approved }
+          required: [$status]
+graph:
+  $START:
+    _: { role: developer, prompt: 'Implement the change' }
+  developer:
+    review_needed: { role: reviewer, prompt: 'Review the change' }
+  reviewer:
+    rejected: { role: developer, prompt: 'Fix the issues and resubmit' }
+    approved: { role: '$END', prompt: 'Approved, done' }

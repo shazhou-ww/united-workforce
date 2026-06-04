@@ -1,0 +1,16 @@
+# Reuses the test-linear workflow. The moderator routes step 0 -> planner and
+# step 1 -> worker, but step[1].role below is "planner", so the mock agent must
+# detect the role mismatch on the second step and exit with an error.
+steps:
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      ---
+      Planning complete.
+  - role: planner
+    output: |
+      ---
+      $status: done
+      ---
+      This step claims to be planner, but the moderator routes to worker.

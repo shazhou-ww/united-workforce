@@ -1,0 +1,25 @@
+steps:
+  - role: developer
+    output: |
+      ---
+      $status: review_needed
+      ---
+      First implementation.
+  - role: reviewer
+    output: |
+      ---
+      $status: rejected
+      ---
+      Needs changes, sending back.
+  - role: developer
+    output: |
+      ---
+      $status: review_needed
+      ---
+      Second implementation addressing feedback.
+  - role: reviewer
+    output: |
+      ---
+      $status: approved
+      ---
+      Looks good, approved.
