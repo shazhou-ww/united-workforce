@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { Store } from "@ocas/core";
+import type { Usage } from "@united-workforce/protocol";
 import { createLogger } from "@united-workforce/util";
 import {
   type AgentContext,
@@ -145,7 +146,14 @@ async function processClaudeOutput(
       );
     }
 
-    return { output, detailHash, sessionId, assembledPrompt, usage: null };
+    const usage: Usage = {
+      turns: parsed.numTurns,
+      inputTokens: parsed.usage.inputTokens,
+      outputTokens: parsed.usage.outputTokens,
+      duration: Math.round(parsed.durationMs / 1000),
+    };
+
+    return { output, detailHash, sessionId, assembledPrompt, usage };
   }
 
   // Truly unparseable output - provide enhanced error message
