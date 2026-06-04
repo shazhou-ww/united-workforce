@@ -103,7 +103,7 @@ export function createMockAgent(mockDataPath: string): () => Promise<void> {
       detailHash,
       sessionId,
       assembledPrompt: "",
-      usage: null,
+      usage: { turns: 1, inputTokens: 0, outputTokens: 0, duration: 0 },
     };
     lastResult = result;
     return result;

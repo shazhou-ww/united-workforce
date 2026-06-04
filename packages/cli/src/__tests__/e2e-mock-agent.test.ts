@@ -229,6 +229,10 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(getStatus(store, s1.output)).toBe("ready");
     expect(getStatus(store, s2.output)).toBe("done");
 
+    // Mock agent reports usage stats in step nodes.
+    expect(s1.usage).toEqual({ turns: 1, inputTokens: 0, outputTokens: 0, duration: 0 });
+    expect(s2.usage).toEqual({ turns: 1, inputTokens: 0, outputTokens: 0, duration: 0 });
+
     // The start node points at the registered workflow.
     const startNode = store.cas.get(startHash as CasRef);
     expect((startNode!.payload as StartNodePayload).workflow).toBe(workflowHash);
