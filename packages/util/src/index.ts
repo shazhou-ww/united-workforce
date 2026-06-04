@@ -1,11 +1,9 @@
 export { generateActorReference } from "./actor-reference.js";
-export { generateAdapterReference } from "./adapter-reference.js";
+export { generateAdapterDevelopingReference } from "./adapter-developing-reference.js";
 export { generateArchitectureReference } from "./architecture-reference.js";
-export { generateAuthorReference } from "./author-reference.js";
 export { encodeUint64AsCrockford } from "./base32.js";
 export { generateBootstrapReference } from "./bootstrap-reference.js";
 export { generateCliReference } from "./cli-reference.js";
-export { generateDeveloperReference } from "./developer-reference.js";
 export { env } from "./env.js";
 export type {
   AgentFrontmatter,
@@ -35,5 +33,7 @@ export {
 } from "./storage-root.js";
 export type { LogFn, Result } from "./types.js";
 export { extractUlidTimestamp, generateUlid } from "./ulid.js";
-export { generateUserReference } from "./user-reference.js";
+export { generateUsageReference } from "./usage-reference.js";
+export { VERSION } from "./version.js";
+export { generateWorkflowAuthoringReference } from "./workflow-authoring-reference.js";
 export { generateYamlReference } from "./yaml-reference.js";

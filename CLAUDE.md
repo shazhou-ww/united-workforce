@@ -266,7 +266,7 @@ node scripts/publish-all.mjs --dry-run    # preview without publishing
 
 - `workspace:^` dependencies resolve to `^x.y.z` on publish
 - Publish order defined in `scripts/publish-all.mjs` (dependency order)
-- Changesets config: `.changeset/config.json` (fixed mode, public access)
+- Changesets config: `.changeset/config.json` (independent versioning, public access)
 
 ### End-to-end: Author → Register → Run
 

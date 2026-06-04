@@ -1,24 +1,21 @@
 import {
-  generateAdapterReference,
-  generateAuthorReference,
+  generateAdapterDevelopingReference,
   generateBootstrapReference,
-  generateDeveloperReference,
-  generateUserReference,
+  generateUsageReference,
+  generateWorkflowAuthoringReference,
 } from "@united-workforce/util";
 
 export {
-  generateAdapterReference as cmdPromptAdapter,
-  generateAuthorReference as cmdPromptAuthor,
+  generateAdapterDevelopingReference as cmdPromptAdapterDeveloping,
   generateBootstrapReference as cmdPromptBootstrap,
-  generateDeveloperReference as cmdPromptDeveloper,
-  generateUserReference as cmdPromptUser,
+  generateUsageReference as cmdPromptUsageReference,
+  generateWorkflowAuthoringReference as cmdPromptWorkflowAuthoring,
 };
 
 const PROMPT_ENTRIES: ReadonlyArray<{ name: string; generate: () => string }> = [
-  { name: "user", generate: generateUserReference },
-  { name: "author", generate: generateAuthorReference },
-  { name: "developer", generate: generateDeveloperReference },
-  { name: "adapter", generate: generateAdapterReference },
+  { name: "usage", generate: generateUsageReference },
+  { name: "workflow-authoring", generate: generateWorkflowAuthoringReference },
+  { name: "adapter-developing", generate: generateAdapterDevelopingReference },
   { name: "bootstrap", generate: generateBootstrapReference },
 ];
 
@@ -27,7 +24,9 @@ export function cmdPromptList(): ReadonlyArray<string> {
 }
 
 export function cmdPromptUsage(): string {
-  return PROMPT_ENTRIES.map((e) => e.generate()).join("\n\n---\n\n");
+  return PROMPT_ENTRIES.filter((e) => e.name !== "bootstrap")
+    .map((e) => e.generate())
+    .join("\n\n---\n\n");
 }
 
 export function cmdPromptSetup(): string {
@@ -42,7 +41,7 @@ so that you know how to use the \`uwf\` CLI for workflow orchestration.
    \`\`\`bash
    uwf --help
    \`\`\`
-   If not installed: \`bun add -g @united-workforce/cli\`
+   If not installed: \`npm install -g @united-workforce/cli\`
 
 2. **Clean up old versions of the skill** (if any exist):
    - Look for any existing uwf/workflow skill files in your skill directories
@@ -51,43 +50,24 @@ so that you know how to use the \`uwf\` CLI for workflow orchestration.
    - If the version matches the current CLI version (\`uwf --version\`), you're done — no update needed.
    - If the version is older, **delete the old skill file** before proceeding.
 
-3. **Get the usage skill content:**
+3. **Install the bootstrap skill:**
    \`\`\`bash
-   uwf prompt usage
+   uwf prompt bootstrap > ~/.hermes/skills/uwf/SKILL.md
    \`\`\`
+   The bootstrap prompt already includes complete YAML frontmatter — no editing needed.
 
-4. **Create a SKILL.md file** in your skill directory (e.g. \`~/.hermes/skills/uwf/SKILL.md\`).
-   The output of \`uwf prompt usage\` is the skill body WITHOUT frontmatter.
-   You must prepend the following YAML frontmatter:
-
-   \`\`\`yaml
-   ---
-   name: uwf
-   description: "Use when orchestrating multi-agent workflows with uwf (United Workforce). Covers CLI usage, workflow YAML authoring, moderator logic, and agent development."
-   version: <VERSION>
-   author: United Workforce
-   license: MIT
-   metadata:
-     hermes:
-       tags: [workflow, agents, orchestration, cli, yaml]
-   ---
-   \`\`\`
-
-   Replace \`<VERSION>\` with the installed CLI version (from \`uwf --version\`).
-
-5. **Verify** the skill is loadable by your agent framework.
+4. **Verify** the skill is loadable by your agent framework.
 
 ## Individual prompts
 
-You can also get individual reference sections:
+Each prompt outputs a complete SKILL.md with frontmatter — pipe directly to a file:
 
 \`\`\`bash
-uwf prompt list                # list available prompt names
-uwf prompt user                # user reference (CLI guide + typical workflows)
-uwf prompt author              # author reference (workflow YAML design guide)
-uwf prompt developer           # developer reference (coding conventions + architecture)
-uwf prompt adapter             # adapter reference (building agent adapters)
-uwf prompt bootstrap           # bootstrap skill YAML for Hermes agents
+uwf prompt list                                              # list available prompt names
+uwf prompt usage > ~/.hermes/skills/uwf-usage/SKILL.md      # CLI usage guide
+uwf prompt workflow-authoring > ~/.hermes/skills/uwf-workflow-authoring/SKILL.md
+uwf prompt adapter-developing > ~/.hermes/skills/uwf-adapter-developing/SKILL.md
+uwf prompt bootstrap > ~/.hermes/skills/uwf/SKILL.md        # bootstrap skill
 \`\`\`
 
 ## Notes
