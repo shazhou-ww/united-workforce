@@ -2,5 +2,5 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
   "include": ["src"],
-  "references": [{ "path": "../util-agent" }]
+  "references": [{ "path": "../protocol" }, { "path": "../util-agent" }]
 }
