@@ -12,15 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - run: bun install
+      - run: corepack enable && pnpm install
 
       - name: Build
-        run: bun run build
+        run: pnpm run build
 
       - name: Lint
-        run: bun run check
+        run: pnpm run check
 
       - name: Test
-        run: bun run test:ci
+        run: pnpm run test:ci
