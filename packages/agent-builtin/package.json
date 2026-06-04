@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "bin": {
-    "uwf-builtin": "./src/cli.ts"
+    "uwf-builtin": "./dist/cli.js"
   },
   "exports": {
     ".": {
