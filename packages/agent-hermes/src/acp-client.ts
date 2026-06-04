@@ -72,6 +72,11 @@ export class HermesAcpClient {
     return sessionId;
   }
 
+  /** Return the current session ID, or null if not connected. */
+  getSessionId(): string | null {
+    return this.sessionId;
+  }
+
   /** Send prompt and collect final assistant text from ACP stream chunks. */
   async prompt(text: string): Promise<AcpPromptResult> {
     if (this.sessionId === null) {

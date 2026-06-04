@@ -106,7 +106,7 @@ function parseSessionJson(raw: unknown): HermesSessionJson | null {
       messages.push(msg);
     }
   }
-  return { session_id, model, session_start, messages };
+  return { session_id, model, session_start, messages, inputTokens: 0, outputTokens: 0 };
 }
 
 export function getHermesDbPath(): string {
@@ -117,6 +117,8 @@ type DbSessionRow = {
   id: string;
   model: string;
   started_at: number;
+  input_tokens: number;
+  output_tokens: number;
 };
 
 type DbMessageRow = {
@@ -156,7 +158,9 @@ export function loadHermesSessionFromDb(
   try {
     db = new DatabaseSync(resolvedPath, { readOnly: true });
     const session = db
-      .prepare("SELECT id, model, started_at FROM sessions WHERE id = ?")
+      .prepare(
+        "SELECT id, model, started_at, input_tokens, output_tokens FROM sessions WHERE id = ?",
+      )
       .get(sessionId) as DbSessionRow | null;
     if (session === null) {
       return null;
@@ -181,6 +185,8 @@ export function loadHermesSessionFromDb(
       model: session.model,
       session_start: new Date(session.started_at * 1000).toISOString(),
       messages,
+      inputTokens: session.input_tokens ?? 0,
+      outputTokens: session.output_tokens ?? 0,
     };
   } catch {
     return null;

@@ -40,4 +40,6 @@ export type HermesSessionJson = {
   model: string;
   session_start: string;
   messages: HermesSessionMessage[];
+  inputTokens: number;
+  outputTokens: number;
 };
