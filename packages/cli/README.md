@@ -216,7 +216,6 @@ src/
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `OCAS_DIR` | Override the global CAS directory location | `~/.ocas` |
-| `UWF_STORAGE_ROOT` | Internal override for workflow metadata storage | `~/.uwf` |
-| `WORKFLOW_STORAGE_ROOT` | User override for workflow metadata storage | `~/.uwf` |
+| `OCAS_HOME` | Override the global CAS directory location | `~/.ocas` |
+| `UWF_HOME` | Override the workflow metadata storage root | `~/.uwf` |
 

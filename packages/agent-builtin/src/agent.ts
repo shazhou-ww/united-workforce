@@ -6,7 +6,6 @@ import {
   createAgent,
   loadWorkflowConfig,
   resolveModel,
-  resolveStorageRoot,
 } from "@united-workforce/util-agent";
 
 import { storeBuiltinDetail } from "./detail.js";
@@ -40,6 +39,7 @@ type SessionRecord = {
   model: string;
   startedAtMs: number;
   messages: ChatMessage[];
+  storageRoot: string;
 };
 
 const sessions = new Map<string, SessionRecord>();
@@ -103,7 +103,7 @@ async function runBuiltinWithMessages(
 }
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
-  const storageRoot = resolveStorageRoot();
+  const storageRoot = ctx.storageRoot;
   const config = await loadWorkflowConfig(storageRoot);
   const provider = resolveModel(config, config.defaultModel);
 
@@ -116,6 +116,7 @@ async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
     model: provider.model,
     startedAtMs: Date.now(),
     messages,
+    storageRoot,
   };
   sessions.set(sessionId, session);
 
@@ -136,7 +137,7 @@ async function continueBuiltin(
   store: Store,
 ): Promise<AgentRunResult> {
   const session = getSession(sessionId);
-  const storageRoot = resolveStorageRoot();
+  const storageRoot = session.storageRoot;
   const config = await loadWorkflowConfig(storageRoot);
   const provider = resolveModel(config, config.defaultModel);
 

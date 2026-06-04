@@ -29,6 +29,8 @@ function minimalContext(overrides: Partial<AgentContext> = {}): AgentContext {
     outputFormatInstruction: "---\nstatus: done\n---",
     edgePrompt: "Implement the fix described in the plan.",
     isFirstVisit: true,
+    storageRoot: "/tmp/uwf-test",
+    casDir: "/tmp/ocas-test",
     ...overrides,
   };
 }

@@ -37,7 +37,7 @@ uwf setup --provider <name> --base-url <url> \\
            [--agent <name>]                         # optional default agent
 \`\`\`
 
-Config is stored at \`~/.uwf/config.yaml\`. Override storage root with \`UWF_STORAGE_ROOT\` (or \`WORKFLOW_STORAGE_ROOT\`).
+Config is stored at \`~/.uwf/config.yaml\`. Override storage root with \`UWF_HOME\`.
 
 ## Workflow Commands
 

@@ -12,7 +12,7 @@ beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-resolve-head-"));
   const casDir = join(tmpDir, "cas");
   await mkdir(casDir, { recursive: true });
-  process.env.OCAS_DIR = casDir;
+  process.env.OCAS_HOME = casDir;
 });
 
 afterEach(async () => {

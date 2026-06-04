@@ -21,9 +21,9 @@ describe("thread start --cwd CLI option", () => {
     await mkdir(storageRoot, { recursive: true });
     await mkdir(casDir, { recursive: true });
 
-    // Set OCAS_DIR for this test
-    originalEnv = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    // Set OCAS_HOME for this test
+    originalEnv = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
   }
 
   async function teardown() {
@@ -32,9 +32,9 @@ describe("thread start --cwd CLI option", () => {
     }
     // Restore original environment
     if (originalEnv === undefined) {
-      delete process.env.OCAS_DIR;
+      delete process.env.OCAS_HOME;
     } else {
-      process.env.OCAS_DIR = originalEnv;
+      process.env.OCAS_HOME = originalEnv;
     }
   }
 
@@ -139,7 +139,7 @@ graph:
 
     // Register the workflow
     execFileSync(process.execPath, [uwfBin, "workflow", "add", workflowPath], {
-      env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },
+      env: { ...process.env, UWF_HOME: storageRoot, OCAS_HOME: casDir },
       encoding: "utf8",
     });
 
@@ -148,7 +148,7 @@ graph:
       process.execPath,
       [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
       {
-        env: { ...process.env, UWF_STORAGE_ROOT: storageRoot, OCAS_DIR: casDir },
+        env: { ...process.env, UWF_HOME: storageRoot, OCAS_HOME: casDir },
         encoding: "utf8",
       },
     );

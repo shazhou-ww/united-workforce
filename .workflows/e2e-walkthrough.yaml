@@ -17,7 +17,7 @@ roles:
          docker run -d --name uwf-e2e-$$ \
            -v "$(pwd):/workspace:ro" \
            -e HOME=/root \
-           -e UWF_STORAGE_ROOT=/tmp/uwf-e2e-storage \
+           -e UWF_HOME=/tmp/uwf-e2e-storage \
            --add-host=host.docker.internal:host-gateway \
            -w /workspace \
            node:22-bookworm \
@@ -39,7 +39,7 @@ roles:
            export PATH="$HOME/.bun/bin:$PATH"
 
            # Isolated storage
-           mkdir -p $UWF_STORAGE_ROOT
+           mkdir -p $UWF_HOME
 
            # Install workspace deps
            cd /root/workflow && bun install
@@ -62,9 +62,9 @@ roles:
          ```
          docker cp ~/.uwf/config.yaml uwf-e2e-$$:/tmp/uwf-e2e-storage/config.yaml 2>/dev/null || true
          docker exec uwf-e2e-$$ bash -c '
-           if [ -f $UWF_STORAGE_ROOT/config.yaml ]; then
+           if [ -f $UWF_HOME/config.yaml ]; then
              sed -i "s|localhost|host.docker.internal|g; s|127\.0\.0\.1|host.docker.internal|g" \
-               $UWF_STORAGE_ROOT/config.yaml
+               $UWF_HOME/config.yaml
            fi
          '
          ```
@@ -95,7 +95,7 @@ roles:
       All commands use `uwf` (installed via `bun link` inside the container).
       Remember to set env vars in each exec:
         export PATH="$HOME/.bun/bin:$PATH"
-        export UWF_STORAGE_ROOT=/tmp/uwf-e2e-storage
+        export UWF_HOME=/tmp/uwf-e2e-storage
 
       Config tests:
       1. `uwf config list` — verify it returns valid JSON
@@ -133,7 +133,7 @@ roles:
     procedure: |
       Use the container (containerName) and workflow (workflowName) from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_STORAGE_ROOT=/tmp/uwf-e2e-storage
+      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
 
       1. `uwf thread start <workflowName> -p 'E2E test: what is 2+2?'` — capture thread ID from JSON output
       2. `uwf thread list` — verify the thread appears in the list
@@ -166,7 +166,7 @@ roles:
     procedure: |
       Use the container (containerName) and threadId from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_STORAGE_ROOT=/tmp/uwf-e2e-storage
+      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
 
       Step inspection:
       1. `uwf step list <threadId>` — verify steps array has length > 1
@@ -208,7 +208,7 @@ roles:
     procedure: |
       Use containerName, threadId, lastStepHash, and workflowName from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_STORAGE_ROOT=/tmp/uwf-e2e-storage
+      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
 
       Cancel:
       1. Start a second thread: `uwf thread start <workflowName> -p 'E2E cancel test'`

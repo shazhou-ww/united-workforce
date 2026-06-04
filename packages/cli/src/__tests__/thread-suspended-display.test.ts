@@ -33,8 +33,8 @@ describe("suspended thread display", () => {
   test("thread list shows [suspended] marker for suspended threads", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const originalCasDir = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    const originalCasDir = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const uwf = await createUwfStore(tmpDir);
@@ -131,9 +131,9 @@ describe("suspended thread display", () => {
       expect(idleItem!.statusDisplay).toBe("idle");
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });
@@ -141,8 +141,8 @@ describe("suspended thread display", () => {
   test("thread show displays suspend info and resume hint", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const originalCasDir = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    const originalCasDir = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const uwf = await createUwfStore(tmpDir);
@@ -219,9 +219,9 @@ describe("suspended thread display", () => {
       );
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });
@@ -229,8 +229,8 @@ describe("suspended thread display", () => {
   test("non-suspended threads do not show suspend markers or hints", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const originalCasDir = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    const originalCasDir = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const uwf = await createUwfStore(tmpDir);
@@ -278,9 +278,9 @@ describe("suspended thread display", () => {
       expect(threadItem!.statusDisplay).toBe("idle");
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });

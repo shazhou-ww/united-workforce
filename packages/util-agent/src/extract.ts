@@ -1,7 +1,7 @@
 import { getSchema, validate } from "@ocas/core";
 
 import type { CasRef, ModelAlias, WorkflowConfig } from "@united-workforce/protocol";
-import { createAgentStore, resolveStorageRoot } from "./storage.js";
+import { createAgentStore } from "./storage.js";
 
 export type ResolvedLlmProvider = {
   baseUrl: string;
@@ -135,10 +135,10 @@ export async function extract(
   rawOutput: string,
   outputSchema: CasRef,
   config: WorkflowConfig,
+  storageRoot: string,
+  casDir: string,
 ): Promise<ExtractResult> {
-  const storageRoot = resolveStorageRoot();
-
-  const { store } = await createAgentStore(storageRoot);
+  const { store } = await createAgentStore(storageRoot, casDir);
   const schema = getSchema(store, outputSchema);
   if (schema === null) {
     throw new Error(`output schema not found in CAS: ${outputSchema}`);

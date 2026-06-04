@@ -35,8 +35,8 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
   test("thread exec records suspend step in CAS and suspend metadata in threads.yaml", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const originalCasDir = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    const originalCasDir = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const store = await openStore(casDir);
@@ -128,8 +128,8 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
           stdio: ["ignore", "pipe", "pipe"],
           env: {
             ...process.env,
-            WORKFLOW_STORAGE_ROOT: tmpDir,
-            OCAS_DIR: casDir,
+            UWF_HOME: tmpDir,
+            OCAS_HOME: casDir,
           },
           cwd: tmpDir,
           timeout: 30000,
@@ -170,9 +170,9 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       expect(showResult.suspendedRole).toBe("worker");
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });

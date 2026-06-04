@@ -50,10 +50,19 @@ Agent CLIs call `createAgent(...)` and invoke the returned function as `main()`.
 ### Context
 
 ```typescript
-function buildContext(threadId: ThreadId, role: string): Promise<AgentContext>
+function buildContext(
+  threadId: ThreadId,
+  role: string,
+  edgePrompt: string,
+  storageRoot: string,
+  casDir: string,
+): Promise<AgentContext>
 function buildContextWithMeta(
   threadId: ThreadId,
   role: string,
+  edgePrompt: string,
+  storageRoot: string,
+  casDir: string,
 ): Promise<AgentContext & { meta: BuildContextMeta }>
 
 type AgentContext = ModeratorContext & {
@@ -64,6 +73,8 @@ type AgentContext = ModeratorContext & {
   outputFormatInstruction: string;
   edgePrompt: string;
   isFirstVisit: boolean;
+  storageRoot: string;
+  casDir: string;
 };
 
 type BuildContextMeta = {
@@ -99,6 +110,8 @@ function extract(
   rawOutput: string,
   outputSchema: CasRef,
   config: WorkflowConfig,
+  storageRoot: string,
+  casDir: string,
 ): Promise<ExtractResult>
 
 type ResolvedLlmProvider = { baseUrl: string; apiKey: string; model: string };
@@ -120,11 +133,18 @@ type FrontmatterFastPathResult = { body: string; outputHash: CasRef };
 ### Session cache
 
 ```typescript
-function getCachedSessionId(threadId: ThreadId, role: string): Promise<string | null>
+function getCachedSessionId(
+  agentName: string,
+  threadId: ThreadId,
+  role: string,
+  storageRoot: string,
+): Promise<string | null>
 function setCachedSessionId(
+  agentName: string,
   threadId: ThreadId,
   role: string,
   sessionId: string,
+  storageRoot: string,
 ): Promise<void>
 ```
 
@@ -133,7 +153,7 @@ function setCachedSessionId(
 ```typescript
 function getConfigPath(storageRoot: string): string
 function getEnvPath(storageRoot: string): string
-function resolveStorageRoot(): string
+function resolveStorageRoot(override: string | null): string
 function loadWorkflowConfig(storageRoot: string): Promise<WorkflowConfig>
 ```
 

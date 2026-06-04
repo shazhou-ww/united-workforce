@@ -2,5 +2,6 @@
 
 import { createClaudeCodeAgent } from "./claude-code.js";
 
-const main = createClaudeCodeAgent();
+const model = process.env.CLAUDE_MODEL ?? null;
+const main = createClaudeCodeAgent(model);
 void main();
