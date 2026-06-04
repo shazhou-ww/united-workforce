@@ -1051,40 +1051,84 @@ export async function cmdThreadResume(
   const chain = walkChain(uwf, headHash);
   const workflowHash = chain.start.workflow;
 
-  const status = await resolveActiveThreadStatus(
-    storageRoot,
-    threadId,
-    uwf,
-    headHash,
-    workflowHash,
-  );
-  if (status !== "suspended") {
-    fail(`thread is not suspended: ${threadId} (status: ${status})`);
+  // Check entry.status first for completed/cancelled (like in cmdThreadShow)
+  let status: ThreadStatus;
+  if (entry.status === "completed" || entry.status === "cancelled") {
+    status = entry.status;
+  } else {
+    status = await resolveActiveThreadStatus(
+      storageRoot,
+      threadId,
+      uwf,
+      headHash,
+      workflowHash,
+    );
   }
 
-  const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, headHash, workflowHash);
-  if (suspendFields.suspendedRole === null) {
-    fail(`thread is suspended but suspendedRole is missing: ${threadId}`);
-  }
-  if (suspendFields.suspendMessage === null) {
-    fail(`thread is suspended but suspendMessage is missing: ${threadId}`);
+  if (status !== "suspended" && status !== "completed") {
+    fail(`thread cannot be resumed: ${threadId} (status: ${status})`);
   }
 
-  const resumePrompt = buildResumePrompt(suspendFields.suspendMessage, supplement);
   const plog = createProcessLogger({
     storageRoot,
     context: { thread: threadId, workflow: workflowHash },
   });
 
+  if (status === "suspended") {
+    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, headHash, workflowHash);
+    if (suspendFields.suspendedRole === null) {
+      fail(`thread is suspended but suspendedRole is missing: ${threadId}`);
+    }
+    if (suspendFields.suspendMessage === null) {
+      fail(`thread is suspended but suspendMessage is missing: ${threadId}`);
+    }
+
+    const resumePrompt = buildResumePrompt(suspendFields.suspendMessage, supplement);
+
+    plog.log(
+      PL_THREAD_RESUME,
+      `resume role=${suspendFields.suspendedRole} supplement=${supplement !== null}`,
+      null,
+    );
+
+    return cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog, {
+      role: suspendFields.suspendedRole,
+      prompt: resumePrompt,
+    });
+  }
+
+  // status === "completed"
+  const workflow = loadWorkflowPayload(uwf, workflowHash);
+  const startResult = evaluate(workflow.graph, START_ROLE, {});
+  if (!startResult.ok) {
+    fail(`failed to evaluate $START: ${startResult.error.message}`);
+  }
+  if (isSuspendResult(startResult.value)) {
+    fail("workflow cannot start with $SUSPEND");
+  }
+  if (startResult.value.role === END_ROLE) {
+    fail("workflow cannot start with $END");
+  }
+
+  const startRole = startResult.value.role;
+  const completedPromptPrefix = "Previous run completed. Resuming with additional context.";
+  const completedResumePrompt =
+    supplement !== null && supplement !== ""
+      ? `${completedPromptPrefix}\n\n${supplement}`
+      : completedPromptPrefix;
+
+  const updatedEntry = { ...entry, status: "idle" as const, completedAt: null };
+  setThread(uwf.varStore, threadId, updatedEntry);
+
   plog.log(
     PL_THREAD_RESUME,
-    `resume role=${suspendFields.suspendedRole} supplement=${supplement !== null}`,
+    `resume completed role=${startRole} supplement=${supplement !== null}`,
     null,
   );
 
   return cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog, {
-    role: suspendFields.suspendedRole,
-    prompt: resumePrompt,
+    role: startRole,
+    prompt: completedResumePrompt,
   });
 }
 
