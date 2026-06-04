@@ -12,8 +12,44 @@ import {
 import { HermesAcpClient } from "./acp-client.js";
 import { getCachedSessionId, setCachedSessionId } from "./session-cache.js";
 import { loadHermesSession, storeHermesSessionDetail } from "./session-detail.js";
+import type { HermesSessionJson } from "./types.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
+
+/** Snapshot of session metrics taken before and after a prompt call. */
+type UsageSnapshot = {
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+const ZERO_SNAPSHOT: UsageSnapshot = { turns: 0, inputTokens: 0, outputTokens: 0 };
+
+/** Extract usage metrics from a session. Returns zeros for null sessions. */
+export function snapshotUsage(session: HermesSessionJson | null): UsageSnapshot {
+  if (session === null) {
+    return ZERO_SNAPSHOT;
+  }
+  return {
+    turns: session.messages.filter((m) => m.role === "assistant").length,
+    inputTokens: session.inputTokens,
+    outputTokens: session.outputTokens,
+  };
+}
+
+/** Compute the delta between two snapshots (after minus before). Floors at 0. */
+export function computeUsageDelta(
+  before: UsageSnapshot,
+  after: UsageSnapshot,
+  durationSec: number,
+): Usage {
+  return {
+    turns: Math.max(0, after.turns - before.turns) || 1,
+    inputTokens: Math.max(0, after.inputTokens - before.inputTokens),
+    outputTokens: Math.max(0, after.outputTokens - before.outputTokens),
+    duration: Math.round(durationSec),
+  };
+}
 
 /** Assemble system prompt, task, and prior step outputs for Hermes. */
 export function buildHermesPrompt(ctx: AgentContext): string {
@@ -109,7 +145,11 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
     void client.close();
   });
 
-  async function runPrompt(ctx: AgentContext, useContinuation: boolean): Promise<AgentRunResult> {
+  async function runPrompt(
+    ctx: AgentContext,
+    useContinuation: boolean,
+    beforeSnapshot: UsageSnapshot,
+  ): Promise<AgentRunResult> {
     const effectiveCtx = useContinuation ? ctx : { ...ctx, isFirstVisit: true };
     const fullPrompt = buildHermesPrompt(effectiveCtx);
     const startMs = Date.now();
@@ -121,16 +161,9 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
       await setCachedSessionId(ctx.threadId, ctx.role, sessionId, ctx.storageRoot);
     }
 
-    const session = await loadHermesSession(sessionId);
-    const turns =
-      session !== null ? session.messages.filter((m) => m.role === "assistant").length : 1;
-
-    const usage: Usage = {
-      turns,
-      inputTokens: session !== null ? session.inputTokens : 0,
-      outputTokens: session !== null ? session.outputTokens : 0,
-      duration: Math.round(durationSec),
-    };
+    const afterSession = await loadHermesSession(sessionId);
+    const afterSnapshot = snapshotUsage(afterSession);
+    const usage = computeUsageDelta(beforeSnapshot, afterSnapshot, durationSec);
 
     return { output: text, detailHash, sessionId, assembledPrompt: fullPrompt, usage };
   }
@@ -139,8 +172,17 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
     const cwd = process.cwd();
     const attempt = await prepareSession(client, ctx, cwd, resumeDisabled);
 
+    // Snapshot before prompt: for resumed sessions, captures cumulative state
+    // so we can compute the delta. For new sessions, this is ZERO_SNAPSHOT.
+    const currentSessionId = client.getSessionId();
+    const beforeSession =
+      attempt.resumed && currentSessionId !== null
+        ? await loadHermesSession(currentSessionId)
+        : null;
+    const beforeSnapshot = snapshotUsage(beforeSession);
+
     try {
-      return await runPrompt(ctx, attempt.useContinuation);
+      return await runPrompt(ctx, attempt.useContinuation, beforeSnapshot);
     } catch (error) {
       if (!attempt.resumed) {
         throw error;
@@ -150,7 +192,8 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
       log("8FQW2R6N", `continuation prompt failed, retrying with initial prompt: ${message}`);
       await client.close();
       await client.connect(cwd);
-      return runPrompt(ctx, false);
+      // Fresh session after retry — reset snapshot to zero
+      return runPrompt(ctx, false, ZERO_SNAPSHOT);
     }
   }
 
@@ -161,17 +204,20 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
   ): Promise<AgentRunResult> {
     // Client is already connected from runHermes — same ACP session,
     // so the agent sees the full conversation history (crucial for retries).
+    // Snapshot before the continuation prompt for delta computation.
+    const currentSessionId = client.getSessionId();
+    const beforeSession =
+      currentSessionId !== null ? await loadHermesSession(currentSessionId) : null;
+    const beforeSnapshot = snapshotUsage(beforeSession);
+
     const startMs = Date.now();
     const { text, sessionId } = await client.prompt(message);
     const durationSec = (Date.now() - startMs) / 1000;
     const { detailHash } = await storePromptResult(store, sessionId);
 
-    const usage: Usage = {
-      turns: 1,
-      inputTokens: 0,
-      outputTokens: 0,
-      duration: Math.round(durationSec),
-    };
+    const afterSession = await loadHermesSession(sessionId);
+    const afterSnapshot = snapshotUsage(afterSession);
+    const usage = computeUsageDelta(beforeSnapshot, afterSnapshot, durationSec);
 
     return { output: text, detailHash, sessionId, assembledPrompt: "", usage };
   }

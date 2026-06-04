@@ -1,2 +1,7 @@
 export { HermesAcpClient } from "./acp-client.js";
-export { buildHermesPrompt, createHermesAgent } from "./hermes.js";
+export {
+  buildHermesPrompt,
+  computeUsageDelta,
+  createHermesAgent,
+  snapshotUsage,
+} from "./hermes.js";
