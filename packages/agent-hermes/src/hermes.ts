@@ -127,8 +127,8 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
 
     const usage: Usage = {
       turns,
-      inputTokens: 0,
-      outputTokens: 0,
+      inputTokens: session !== null ? session.inputTokens : 0,
+      outputTokens: session !== null ? session.outputTokens : 0,
       duration: Math.round(durationSec),
     };
 

@@ -140,7 +140,9 @@ function createTestDb(dbPath: string): TestDb {
   db.exec(`CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     model TEXT NOT NULL,
-    started_at INTEGER NOT NULL
+    started_at INTEGER NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0
   )`);
   db.exec(`CREATE TABLE messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
