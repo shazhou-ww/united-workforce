@@ -14,3 +14,4 @@ packages/workflow-template-develop/develop.esm.js
 .claude
 tmp.worktrees/
 .worktrees/
+false/

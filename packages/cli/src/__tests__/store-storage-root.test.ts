@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { getDefaultStorageRoot, getGlobalCasDir, resolveStorageRoot } from "../store.js";
 
 describe("Storage root resolution", () => {

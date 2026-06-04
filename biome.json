@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
   "files": {
     "includes": [
       "**",
@@ -9,7 +9,9 @@
       "!**/legacy-packages",
       "!scripts",
       "!packages/workflow/workflow",
-      "!xiaoju/scripts/bundle.ts"
+      "!xiaoju/scripts/bundle.ts",
+      "!false",
+      "!.pnpm-approved-builds.json"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },

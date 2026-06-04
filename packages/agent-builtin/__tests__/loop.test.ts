@@ -1,12 +1,15 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
-const { mockChatCompletionWithTools, mockAppendSessionTurn, mockExecuteBuiltinTool } = vi.hoisted(() => ({
-  mockChatCompletionWithTools: vi.fn(async () => ({
-    content: "---\nstatus: done\n---",
-    toolCalls: [],
-  })),
-  mockAppendSessionTurn: vi.fn(async () => {}),
-  mockExecuteBuiltinTool: vi.fn(async () => "tool-result"),
-}));
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const { mockChatCompletionWithTools, mockAppendSessionTurn, mockExecuteBuiltinTool } = vi.hoisted(
+  () => ({
+    mockChatCompletionWithTools: vi.fn(async () => ({
+      content: "---\nstatus: done\n---",
+      toolCalls: [],
+    })),
+    mockAppendSessionTurn: vi.fn(async () => {}),
+    mockExecuteBuiltinTool: vi.fn(async () => "tool-result"),
+  }),
+);
 
 vi.mock("../src/llm/index.js", () => ({
   chatCompletionWithTools: mockChatCompletionWithTools,

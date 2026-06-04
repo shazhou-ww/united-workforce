@@ -1,9 +1,9 @@
-import { describe, expect, test } from 'vitest';
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {

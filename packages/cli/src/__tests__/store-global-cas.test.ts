@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createThreadIndexEntry, type ThreadId } from "@united-workforce/protocol";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   createUwfStore,
   getCasDir,

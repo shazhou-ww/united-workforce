@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'vitest';
 import type { ThreadId } from "@united-workforce/protocol";
 import type { AgentContext } from "@united-workforce/util-agent";
+import { describe, expect, test } from "vitest";
 import { buildClaudeCodePrompt } from "../src/claude-code.js";
 
 function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {

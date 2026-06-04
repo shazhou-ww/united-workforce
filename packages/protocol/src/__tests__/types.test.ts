@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from "vitest";
 import type { StartNodePayload, StepRecord, Target } from "../types.js";
 
 describe("Protocol types for thread/edge location", () => {

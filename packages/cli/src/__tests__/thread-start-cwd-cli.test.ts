@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'vitest';
 import { execFileSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { CasRef, StartNodePayload, ThreadId } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { cmdThreadStart } from "../commands/thread.js";
 import { createUwfStore, getThread } from "../store.js";
 
@@ -133,7 +134,8 @@ graph:
 
     const workflowPath = await createTestWorkflow();
     const testCwd = "/test/cli/path";
-    const uwfBin = join(process.cwd(), "dist", "cli.js");
+    const pkgRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+    const uwfBin = join(pkgRoot, "dist", "cli.js");
 
     // Register the workflow
     execFileSync(process.execPath, [uwfBin, "workflow", "add", workflowPath], {

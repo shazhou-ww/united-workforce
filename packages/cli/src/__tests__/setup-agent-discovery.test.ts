@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { parse } from "yaml";
 import { _agentNameFromBinary, _printAgentMenu, cmdSetup } from "../commands/setup.js";
 
@@ -80,7 +80,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("defaults to hermes agent when no agent specified", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await cmdSetup(baseArgs());
 
@@ -91,7 +93,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("writes specified agent as default", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await cmdSetup({ ...baseArgs(), agent: "claude-code" });
 
@@ -102,7 +106,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("preserves existing agents when adding new one", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     // First setup with hermes
     await cmdSetup(baseArgs());
@@ -116,7 +122,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("updates defaultAgent on re-run with different agent", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     await cmdSetup(baseArgs());
     const config1 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -128,7 +136,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("normalizes agent name with uwf- prefix to bare name", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await cmdSetup({ ...baseArgs(), agent: "uwf-hermes" });
 
@@ -141,7 +151,9 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("normalizes uwf-claude-code to claude-code", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await cmdSetup({ ...baseArgs(), agent: "uwf-claude-code" });
 

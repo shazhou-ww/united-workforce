@@ -1,8 +1,7 @@
-import { describe, expect, test } from 'vitest';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
 
 const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "cli.js");
 

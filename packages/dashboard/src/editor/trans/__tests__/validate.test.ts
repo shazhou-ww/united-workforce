@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 import type { AnyWorkEdge, AnyWorkNode } from "../../type.js";
 import { validate } from "../validate.js";
 

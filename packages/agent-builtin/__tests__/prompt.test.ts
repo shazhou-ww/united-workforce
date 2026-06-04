@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
 import type { AgentContext } from "@united-workforce/util-agent";
+import { describe, expect, test } from "vitest";
 
 import { buildBuiltinMessages } from "../src/prompt.js";
 

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
 import type { RoleDefinition } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { buildRolePrompt } from "../src/build-role-prompt.js";
 
 describe("buildRolePrompt", () => {

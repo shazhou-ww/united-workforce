@@ -1,9 +1,8 @@
-import { describe, expect, test } from 'vitest';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { WorkflowPayload } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { parse } from "yaml";
 
 /**
