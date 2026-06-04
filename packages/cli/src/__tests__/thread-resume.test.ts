@@ -539,9 +539,7 @@ describe("uwf thread resume - completed threads", () => {
     const { createUwfStore, getThread } = await import("../store.js");
     const verifyUwf = await createUwfStore(tmpDir);
     const verifyEntry = getThread(verifyUwf.varStore, THREAD_ID);
-    // biome-ignore lint/suspicious/noConsole: test debugging
     console.log("Seeded entry status:", verifyEntry?.status);
-    // biome-ignore lint/suspicious/noConsole: test debugging
     console.log("Seeded entry:", JSON.stringify(verifyEntry, null, 2));
 
     const promptCapturePath = join(tmpDir, "captured-prompt-completed.txt");
@@ -601,7 +599,6 @@ echo '${adapterJson}'
     );
 
     if (result.status !== 0) {
-      // biome-ignore lint/suspicious/noConsole: test debugging
       console.error("Command failed:", result.stderr);
     }
 
