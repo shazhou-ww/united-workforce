@@ -1,0 +1,34 @@
+name: test-mustache
+description: Planner emits template variables consumed by the worker edge prompt
+roles:
+  planner:
+    description: Plans work and emits branch + repo path
+    goal: Plan the task
+    capabilities: []
+    procedure: Decide the branch and repo path
+    output: Set $status to ready and emit branch and repoPath
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: ready }
+            branch: { type: string }
+            repoPath: { type: string }
+          required: [$status, branch, repoPath]
+  worker:
+    description: Works on the planned branch
+    goal: Do the work
+    capabilities: []
+    procedure: Do it
+    output: Output the result and set $status to done
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: done }
+          required: [$status]
+graph:
+  $START:
+    _: { role: planner, prompt: 'Plan the task' }
+  planner:
+    ready: { role: worker, prompt: 'Work on branch {{{branch}}} in {{{repoPath}}}' }
+  worker:
+    done: { role: '$END', prompt: 'Complete' }

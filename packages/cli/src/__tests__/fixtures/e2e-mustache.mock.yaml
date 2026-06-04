@@ -1,0 +1,15 @@
+steps:
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      branch: fix/42-auth
+      repoPath: /tmp/my-repo
+      ---
+      Planned the work.
+  - role: worker
+    output: |
+      ---
+      $status: done
+      ---
+      Work complete.

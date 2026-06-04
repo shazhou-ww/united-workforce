@@ -1,0 +1,14 @@
+steps:
+  - role: planner
+    output: |
+      ---
+      $status: insufficient_info
+      reason: missing requirements
+      ---
+      I need more information before I can plan this.
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      ---
+      I now have what I need. Ready to proceed.

@@ -1,0 +1,45 @@
+name: test-count
+description: 3-step linear pipeline (analyst -> developer -> reviewer -> $END)
+roles:
+  analyst:
+    description: Analyzes the task
+    goal: Analyze the task
+    capabilities: []
+    procedure: Analyze it
+    output: Output the analysis and set $status to analyzed
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: analyzed }
+          required: [$status]
+  developer:
+    description: Implements the change
+    goal: Implement the change
+    capabilities: []
+    procedure: Write code
+    output: Output the implementation and set $status to implemented
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: implemented }
+          required: [$status]
+  reviewer:
+    description: Reviews the change
+    goal: Review the change
+    capabilities: []
+    procedure: Review code
+    output: Approve and set $status to approved
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: approved }
+          required: [$status]
+graph:
+  $START:
+    _: { role: analyst, prompt: 'Analyze the task' }
+  analyst:
+    analyzed: { role: developer, prompt: 'Implement the change' }
+  developer:
+    implemented: { role: reviewer, prompt: 'Review the change' }
+  reviewer:
+    approved: { role: '$END', prompt: 'Done' }
