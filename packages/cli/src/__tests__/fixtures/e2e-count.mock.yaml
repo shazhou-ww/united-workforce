@@ -1,0 +1,19 @@
+steps:
+  - role: analyst
+    output: |
+      ---
+      $status: analyzed
+      ---
+      Analysis complete.
+  - role: developer
+    output: |
+      ---
+      $status: implemented
+      ---
+      Implementation complete.
+  - role: reviewer
+    output: |
+      ---
+      $status: approved
+      ---
+      Approved.

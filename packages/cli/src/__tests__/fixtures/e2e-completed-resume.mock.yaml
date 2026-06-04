@@ -1,0 +1,15 @@
+steps:
+  # Step 0: planner → ready → $END (thread completes)
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      ---
+      Initial plan complete.
+  # Step 1: after resume, planner runs again from $START → ready → $END again
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      ---
+      Revised plan after resume.

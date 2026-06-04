@@ -106,9 +106,13 @@ async function addWorkflow(workflowFixture: string, workflowName: string): Promi
 
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
-function runExec(threadId: string): ExecResult {
+function runExec(threadId: string, count: number | null = null): ExecResult {
+  const args = [CLI_PATH, "thread", "exec", threadId];
+  if (count !== null) {
+    args.push("--count", String(count));
+  }
   try {
-    const stdout = execFileSync(process.execPath, [CLI_PATH, "thread", "exec", threadId], {
+    const stdout = execFileSync(process.execPath, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, UWF_HOME: uwfHome, OCAS_HOME: casDir },
@@ -126,11 +130,38 @@ function runExec(threadId: string): ExecResult {
   }
 }
 
+/** Invoke `uwf thread resume <threadId> -p <prompt>` through the built CLI. */
+function runResume(threadId: string, prompt: string): ExecResult {
+  try {
+    const stdout = execFileSync(
+      process.execPath,
+      [CLI_PATH, "thread", "resume", threadId, "-p", prompt],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, UWF_HOME: uwfHome, OCAS_HOME: casDir },
+        cwd: tmpDir,
+        timeout: 30000,
+      },
+    );
+    return { stdout, stderr: "", exitCode: 0 };
+  } catch (e: unknown) {
+    const err = e as NodeJS.ErrnoException & {
+      stdout?: string;
+      stderr?: string;
+      status?: number;
+    };
+    return { stdout: err.stdout ?? "", stderr: err.stderr ?? "", exitCode: err.status ?? 1 };
+  }
+}
+
 type StepOutputJson = {
   thread: string;
   head: string;
   status: string;
   currentRole: string | null;
+  suspendedRole: string | null;
+  suspendMessage: string | null;
   done: boolean;
 };
 
@@ -292,5 +323,160 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(entry).not.toBeNull();
     expect(entry!.status).not.toBe("completed");
     expect(entry!.head).toBe(step1.head);
+  });
+
+  test("4. planner $SUSPEND then resume re-runs planner and reaches $END", async () => {
+    await writeMockConfig("e2e-suspend.mock.yaml");
+    const workflowHash = await addWorkflow("e2e-suspend.workflow.yaml", "test-suspend");
+
+    const start = await cmdThreadStart(uwfHome, workflowHash, "Analyze the task", uwfHome, tmpDir);
+    const threadId = start.thread;
+
+    // Step 1 → planner emits insufficient_info → thread suspends.
+    const step1 = execStep(threadId);
+    expect(step1.status).toBe("suspended");
+    expect(step1.done).toBe(false);
+    expect(step1.currentRole).toBeNull();
+    expect(step1.suspendedRole).toBe("planner");
+    expect(step1.suspendMessage).toBe("Need more info: missing requirements");
+
+    // Thread index entry reflects the suspension with rendered metadata.
+    const suspendedEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);
+    expect(suspendedEntry).not.toBeNull();
+    expect(suspendedEntry!.status).toBe("suspended");
+    expect(suspendedEntry!.suspendedRole).toBe("planner");
+    expect(suspendedEntry!.suspendMessage).toBe("Need more info: missing requirements");
+
+    // Resume re-runs the planner role; the second scripted step is `ready` → $END.
+    const resume = runResume(threadId, "Here are the requirements");
+    expect(resume.exitCode).toBe(0);
+    const resumeOut = JSON.parse(resume.stdout.trim()) as StepOutputJson;
+    expect(resumeOut.status).toBe("completed");
+    expect(resumeOut.done).toBe(true);
+    expect(resumeOut.currentRole).toBeNull();
+    expect(resumeOut.suspendedRole).toBeNull();
+
+    // CAS chain: suspended planner step → resumed planner step.
+    const store = await openStore(casDir);
+    const s1 = getStepNode(store, step1.head);
+    const s2 = getStepNode(store, resumeOut.head);
+    expect(s1.role).toBe("planner");
+    expect(s2.role).toBe("planner");
+    expect(s2.prev).toBe(step1.head);
+    expect(getStatus(store, s1.output)).toBe("insufficient_info");
+    expect(getStatus(store, s2.output)).toBe("ready");
+
+    const finalEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);
+    expect(finalEntry).not.toBeNull();
+    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.head).toBe(resumeOut.head);
+  });
+
+  test("5. --count 3 runs the whole linear pipeline in one invocation", async () => {
+    await writeMockConfig("e2e-count.mock.yaml");
+    const workflowHash = await addWorkflow("e2e-count.workflow.yaml", "test-count");
+
+    const start = await cmdThreadStart(uwfHome, workflowHash, "Ship the feature", uwfHome, tmpDir);
+    const threadId = start.thread;
+
+    // Single invocation with --count 3 → moderator drives analyst → developer → reviewer → $END.
+    const { stdout, stderr, exitCode } = runExec(threadId, 3);
+    expect(exitCode, `stderr: ${stderr}`).toBe(0);
+
+    // Multi-step exec emits a JSON array (one entry per executed step).
+    const results = JSON.parse(stdout.trim()) as StepOutputJson[];
+    expect(Array.isArray(results)).toBe(true);
+    expect(results).toHaveLength(3);
+
+    expect(results[0].status).toBe("idle");
+    expect(results[0].currentRole).toBe("developer");
+    expect(results[1].status).toBe("idle");
+    expect(results[1].currentRole).toBe("reviewer");
+    expect(results[2].status).toBe("completed");
+    expect(results[2].done).toBe(true);
+
+    // Verify the CAS chain holds 3 step nodes in the correct order.
+    const store = await openStore(casDir);
+    const n1 = getStepNode(store, results[0].head);
+    const n2 = getStepNode(store, results[1].head);
+    const n3 = getStepNode(store, results[2].head);
+    expect([n1.role, n2.role, n3.role]).toEqual(["analyst", "developer", "reviewer"]);
+    expect(n1.prev).toBeNull();
+    expect(n2.prev).toBe(results[0].head);
+    expect(n3.prev).toBe(results[1].head);
+    expect(new Set([n1.start, n2.start, n3.start]).size).toBe(1);
+
+    const finalEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);
+    expect(finalEntry).not.toBeNull();
+    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.head).toBe(results[2].head);
+  });
+
+  test("6. mustache edge prompt renders planner variables into the worker step", async () => {
+    await writeMockConfig("e2e-mustache.mock.yaml");
+    const workflowHash = await addWorkflow("e2e-mustache.workflow.yaml", "test-mustache");
+
+    const start = await cmdThreadStart(uwfHome, workflowHash, "Plan the task", uwfHome, tmpDir);
+    const threadId = start.thread;
+
+    // Step 1 → planner emits branch + repoPath.
+    const step1 = execStep(threadId);
+    expect(step1.status).toBe("idle");
+    expect(step1.currentRole).toBe("worker");
+
+    // Step 2 → worker; the moderator renders the templated edge prompt before spawning it.
+    const step2 = execStep(threadId);
+    expect(step2.done).toBe(true);
+    expect(step2.status).toBe("completed");
+
+    const store = await openStore(casDir);
+    const plannerStep = getStepNode(store, step1.head);
+    expect(getStatus(store, plannerStep.output)).toBe("ready");
+
+    // The worker step's edgePrompt is the mustache-rendered template.
+    const workerStep = getStepNode(store, step2.head);
+    expect(workerStep.role).toBe("worker");
+    expect(workerStep.edgePrompt).toContain("fix/42-auth");
+    expect(workerStep.edgePrompt).toContain("/tmp/my-repo");
+    expect(workerStep.edgePrompt).toBe("Work on branch fix/42-auth in /tmp/my-repo");
+  });
+
+  test("7. completed thread can be resumed (衔尾蛇: end → start)", async () => {
+    // Reuse the suspend workflow (planner with ready → $END), but mock data
+    // goes straight to ready on first run, then ready again after resume.
+    await writeMockConfig("e2e-completed-resume.mock.yaml");
+    const workflowHash = await addWorkflow("e2e-suspend.workflow.yaml", "test-suspend");
+
+    const start = await cmdThreadStart(uwfHome, workflowHash, "Do the work", uwfHome, tmpDir);
+    const threadId = start.thread;
+
+    // Step 1: planner outputs ready → $END → thread completed.
+    const step1 = execStep(threadId);
+    expect(step1.done).toBe(true);
+    expect(step1.status).toBe("completed");
+
+    const uwf1 = await createUwfStore(uwfHome);
+    const entry1 = getThread(uwf1.varStore, threadId);
+    expect(entry1).not.toBeNull();
+    expect(entry1!.status).toBe("completed");
+
+    // Resume the completed thread — should re-evaluate $START → planner.
+    const resumeResult = runResume(threadId, "Additional context for round 2");
+    expect(resumeResult.exitCode).toBe(0);
+
+    // After resume step, planner ran again (step index 1 in mock) → ready → $END.
+    const uwf2 = await createUwfStore(uwfHome);
+    const entry2 = getThread(uwf2.varStore, threadId);
+    expect(entry2).not.toBeNull();
+    expect(entry2!.status).toBe("completed");
+    // Head should have advanced (not the same as step1).
+    expect(entry2!.head).not.toBe(step1.head);
+
+    // CAS chain: step2.prev === step1 head (chain is preserved across resume).
+    const store = await openStore(casDir);
+    const resumeOutput = JSON.parse(resumeResult.stdout.trim());
+    const step2Node = getStepNode(store, resumeOutput.head);
+    expect(step2Node.role).toBe("planner");
+    expect(step2Node.prev).toBe(step1.head);
   });
 });

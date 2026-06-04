@@ -1,0 +1,24 @@
+name: test-suspend
+description: Planner can suspend for more info or finish when ready
+roles:
+  planner:
+    description: Plans work and may request more info
+    goal: Analyze the task
+    capabilities: []
+    procedure: Analyze the task and decide if more info is needed
+    output: Set $status to insufficient_info (with reason) or ready
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: insufficient_info }
+            reason: { type: string }
+          required: [$status, reason]
+        - properties:
+            $status: { const: ready }
+          required: [$status]
+graph:
+  $START:
+    _: { role: planner, prompt: 'Analyze the task' }
+  planner:
+    insufficient_info: { role: '$SUSPEND', prompt: 'Need more info: {{{reason}}}' }
+    ready: { role: '$END', prompt: 'Done' }
