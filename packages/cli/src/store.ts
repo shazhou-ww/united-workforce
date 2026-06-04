@@ -26,8 +26,6 @@ export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 /** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
 export const THREAD_VAR_PREFIX = "@uwf/thread/";
 
-/** Variable name prefix for completed/cancelled thread history (`@uwf/history/<thread-id>`). */
-export const HISTORY_VAR_PREFIX = "@uwf/history/";
 
 /** A workflow entry discovered from the project-local .workflows/ directory. */
 export type ProjectWorkflowEntry = {
@@ -160,10 +158,6 @@ export function getThreadsPath(storageRoot: string): string {
   return join(storageRoot, "threads.yaml");
 }
 
-export type ThreadHistoryLine = ThreadListItem & {
-  completedAt: number;
-  reason: "completed" | "cancelled" | null;
-};
 
 export type UwfStore = {
   storageRoot: string;
@@ -183,6 +177,7 @@ export async function createUwfStore(storageRoot: string): Promise<UwfStore> {
   await migrateWorkflowRegistryIfNeeded(storageRoot, varStore);
   await migrateThreadsIndexIfNeeded(storageRoot, varStore);
   await migrateHistoryIfNeeded(storageRoot, varStore);
+  migrateHistoryVarsToThreadVars(varStore);
   return { storageRoot, store, schemas, varStore };
 }
 
@@ -303,8 +298,10 @@ function threadVarName(threadId: ThreadId): string {
 function entryFromVariable(v: { value: string; tags: Record<string, string> }): ThreadIndexEntry {
   return {
     head: v.value as CasRef,
+    status: (v.tags.status ?? "idle") as ThreadIndexEntry["status"],
     suspendedRole: v.tags.suspendedRole ?? null,
     suspendMessage: v.tags.suspendMessage ?? null,
+    completedAt: v.tags.completedAt !== undefined ? Number(v.tags.completedAt) : null,
   };
 }
 
@@ -335,21 +332,75 @@ export function setThread(varStore: VarStore, threadId: ThreadId, entry: ThreadI
   // Head CAS nodes may use different schemas (StartNode vs StepNode) — clear all variants first.
   varStore.remove(name);
   const tags: Record<string, string> = {};
+  if (entry.status !== "idle") {
+    tags.status = entry.status;
+  }
   if (entry.suspendedRole !== null) {
     tags.suspendedRole = entry.suspendedRole;
   }
   if (entry.suspendMessage !== null) {
     tags.suspendMessage = entry.suspendMessage;
   }
+  if (entry.completedAt !== null) {
+    tags.completedAt = String(entry.completedAt);
+  }
   varStore.set(name, entry.head, { tags });
 }
 
-/** Remove an active thread entry (on complete/cancel). */
-export function deleteThread(varStore: VarStore, threadId: ThreadId): void {
-  varStore.remove(threadVarName(threadId));
+/** Load only active threads (status not in completed/cancelled). */
+export function loadActiveThreads(varStore: VarStore): ThreadsIndex {
+  const all = loadAllThreads(varStore);
+  const active: ThreadsIndex = {};
+  for (const [threadId, entry] of Object.entries(all)) {
+    if (entry.status !== "completed" && entry.status !== "cancelled") {
+      active[threadId as ThreadId] = entry;
+    }
+  }
+  return active;
 }
 
-function parseHistoryJsonlLine(trimmed: string): ThreadHistoryLine | null {
+/** Load only completed/cancelled threads (history). */
+export function loadHistoryThreads(varStore: VarStore): ThreadsIndex {
+  const all = loadAllThreads(varStore);
+  const history: ThreadsIndex = {};
+  for (const [threadId, entry] of Object.entries(all)) {
+    if (entry.status === "completed" || entry.status === "cancelled") {
+      history[threadId as ThreadId] = entry;
+    }
+  }
+  return history;
+}
+
+/** Complete a thread by marking it completed or cancelled. */
+export function completeThread(
+  varStore: VarStore,
+  threadId: ThreadId,
+  reason: "completed" | "cancelled",
+): void {
+  const entry = getThread(varStore, threadId);
+  if (entry === null) {
+    return;
+  }
+  const completed = {
+    head: entry.head,
+    status: reason,
+    suspendedRole: null,
+    suspendMessage: null,
+    completedAt: Date.now(),
+  } as ThreadIndexEntry;
+  setThread(varStore, threadId, completed);
+}
+
+
+type LegacyHistoryEntry = {
+  thread: ThreadId;
+  workflow: CasRef;
+  head: CasRef;
+  completedAt: number;
+  reason: "completed" | "cancelled" | null;
+};
+
+function parseLegacyHistoryJsonlLine(trimmed: string): LegacyHistoryEntry | null {
   let raw: unknown;
   try {
     raw = JSON.parse(trimmed) as unknown;
@@ -383,7 +434,7 @@ function parseHistoryJsonlLine(trimmed: string): ThreadHistoryLine | null {
   return null;
 }
 
-/** One-time migration: `~/.uwf/history.jsonl` → `@uwf/history/*` variables. */
+/** One-time migration: `~/.uwf/history.jsonl` → `@uwf/thread/*` variables with status tags. */
 export async function migrateHistoryIfNeeded(
   storageRoot: string,
   varStore: VarStore,
@@ -399,47 +450,43 @@ export async function migrateHistoryIfNeeded(
     if (trimmed === "") {
       continue;
     }
-    const entry = parseHistoryJsonlLine(trimmed);
+    const entry = parseLegacyHistoryJsonlLine(trimmed);
     if (entry !== null) {
-      addHistoryEntry(varStore, entry);
+      const status = entry.reason === "cancelled" ? "cancelled" : "completed";
+      const threadEntry: ThreadIndexEntry = {
+        head: entry.head,
+        status: status as ThreadIndexEntry["status"],
+        suspendedRole: null,
+        suspendMessage: null,
+        completedAt: entry.completedAt,
+      };
+      setThread(varStore, entry.thread, threadEntry);
     }
   }
 
   await rename(path, `${path}.migrated`);
 }
 
-export function loadAllHistory(varStore: VarStore): ThreadHistoryLine[] {
-  const vars = varStore.list({ namePrefix: HISTORY_VAR_PREFIX });
-  return vars.map((v) => ({
-    thread: v.name.slice(HISTORY_VAR_PREFIX.length) as ThreadId,
-    workflow: v.tags.workflow ?? "",
-    head: v.value as CasRef,
-    completedAt: Number(v.tags.completedAt ?? "0"),
-    reason: v.tags.reason === "completed" || v.tags.reason === "cancelled" ? v.tags.reason : null,
-  }));
-}
+/** Migrate `@uwf/history/*` variables to `@uwf/thread/*` with status tags. */
+export function migrateHistoryVarsToThreadVars(varStore: VarStore): void {
+  const LEGACY_HISTORY_VAR_PREFIX = "@uwf/history/";
+  const vars = varStore.list({ namePrefix: LEGACY_HISTORY_VAR_PREFIX });
 
-export function findHistoryEntry(varStore: VarStore, threadId: ThreadId): ThreadHistoryLine | null {
-  const vars = varStore.list({ namePrefix: `${HISTORY_VAR_PREFIX}${threadId}` });
-  const v = vars.find((entry) => entry.name === `${HISTORY_VAR_PREFIX}${threadId}`);
-  if (v === undefined) {
-    return null;
+  for (const v of vars) {
+    const threadId = v.name.slice(LEGACY_HISTORY_VAR_PREFIX.length) as ThreadId;
+    const reason = v.tags.reason;
+    const status = reason === "cancelled" ? "cancelled" : "completed";
+    const completedAt = Number(v.tags.completedAt ?? Date.now());
+
+    const threadEntry: ThreadIndexEntry = {
+      head: v.value as CasRef,
+      status: status as ThreadIndexEntry["status"],
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt,
+    };
+
+    setThread(varStore, threadId, threadEntry);
+    varStore.remove(v.name);
   }
-  return {
-    thread: threadId,
-    workflow: v.tags.workflow ?? "",
-    head: v.value as CasRef,
-    completedAt: Number(v.tags.completedAt ?? "0"),
-    reason: v.tags.reason === "completed" || v.tags.reason === "cancelled" ? v.tags.reason : null,
-  };
-}
-
-export function addHistoryEntry(varStore: VarStore, entry: ThreadHistoryLine): void {
-  varStore.set(`${HISTORY_VAR_PREFIX}${entry.thread}`, entry.head, {
-    tags: {
-      workflow: entry.workflow,
-      completedAt: String(entry.completedAt),
-      reason: entry.reason ?? "completed",
-    },
-  });
 }

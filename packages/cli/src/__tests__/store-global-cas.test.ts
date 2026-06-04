@@ -226,19 +226,15 @@ describe("Global CAS directory", () => {
     const uwf = await createUwfStore(storageRoot);
     const threadId = "thread-123" as ThreadId;
     const headHash = await uwf.store.cas.put(uwf.schemas.text, "history-head");
-    const { addHistoryEntry, findHistoryEntry } = await import("../store.js");
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: "workflow-456",
-      head: headHash,
-      completedAt: Date.now(),
-      reason: "completed",
-    });
+    const { completeThread, setThread, getThread } = await import("../store.js");
+    const { createThreadIndexEntry } = await import("@united-workforce/protocol");
 
-    const entry = findHistoryEntry(uwf.varStore, threadId);
-    expect(entry?.thread).toBe(threadId);
-    expect(entry?.workflow).toBe("workflow-456");
+    setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
+    completeThread(uwf.varStore, threadId, "completed");
+
+    const entry = getThread(uwf.varStore, threadId);
     expect(entry?.head).toBe(headHash);
+    expect(entry?.status).toBe("completed");
 
     const { access } = await import("node:fs/promises");
     await access(join(globalCasDir, "vars"));
@@ -274,15 +270,12 @@ describe("Global CAS directory", () => {
     );
 
     const uwf = await createUwfStore(storageRoot);
-    const { findHistoryEntry } = await import("../store.js");
-    const entry = findHistoryEntry(uwf.varStore, threadId);
-    expect(entry).toEqual({
-      thread: threadId,
-      workflow: workflowHash,
-      head: headHash,
-      completedAt,
-      reason: "cancelled",
-    });
+    const { getThread } = await import("../store.js");
+    const entry = getThread(uwf.varStore, threadId);
+    expect(entry).not.toBeNull();
+    expect(entry?.head).toBe(headHash);
+    expect(entry?.status).toBe("cancelled");
+    expect(entry?.completedAt).toBe(completedAt);
 
     await expect(access(historyPath)).rejects.toThrow();
     const migratedContent = await readFile(`${historyPath}.migrated`, "utf8");

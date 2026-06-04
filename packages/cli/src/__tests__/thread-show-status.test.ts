@@ -7,9 +7,8 @@ import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {
-  addHistoryEntry,
+  completeThread,
   createUwfStore,
-  deleteThread,
   loadAllThreads,
   setThread,
 } from "../store.js";
@@ -118,7 +117,13 @@ async function insertStepNode(
     assembledPrompt: null,
   })) as CasRef;
 
-  setThread(uwf.varStore, threadId, { head: stepHash, suspendedRole: null, suspendMessage: null });
+  setThread(uwf.varStore, threadId, {
+    head: stepHash,
+    status: "idle",
+    suspendedRole: null,
+    suspendMessage: null,
+    completedAt: null,
+  });
 }
 
 describe("thread show status field", () => {
@@ -208,15 +213,7 @@ describe("thread show status field", () => {
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    deleteThread(uwfForIndex.varStore, threadId);
-
-    addHistoryEntry(uwfForIndex.varStore, {
-      thread: threadId,
-      workflow,
-      head,
-      completedAt: Date.now(),
-      reason: "completed",
-    });
+    completeThread(uwfForIndex.varStore, threadId, "completed");
 
     const result = await cmdThreadShow(storageRoot, threadId);
 
@@ -245,15 +242,7 @@ describe("thread show status field", () => {
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    deleteThread(uwfForIndex.varStore, threadId);
-
-    addHistoryEntry(uwfForIndex.varStore, {
-      thread: threadId,
-      workflow,
-      head,
-      completedAt: Date.now(),
-      reason: "cancelled",
-    });
+    completeThread(uwfForIndex.varStore, threadId, "cancelled");
 
     const result = await cmdThreadShow(storageRoot, threadId);
 
@@ -282,15 +271,7 @@ describe("thread show status field", () => {
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    deleteThread(uwfForIndex.varStore, threadId);
-
-    addHistoryEntry(uwfForIndex.varStore, {
-      thread: threadId,
-      workflow,
-      head,
-      completedAt: Date.now(),
-      reason: null,
-    });
+    completeThread(uwfForIndex.varStore, threadId, "completed");
 
     const result = await cmdThreadShow(storageRoot, threadId);
 

@@ -114,8 +114,10 @@ export async function cmdStepFork(
   const newThreadId = generateUlid(Date.now()) as ThreadId;
   setThread(uwf.varStore, newThreadId, {
     head: stepHash,
+    status: "idle",
     suspendedRole: null,
     suspendMessage: null,
+    completedAt: null,
   });
 
   return {

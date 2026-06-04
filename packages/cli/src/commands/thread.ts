@@ -38,17 +38,14 @@ import { createMarker, deleteMarker, isThreadRunning } from "../background/index
 import { createIncludeTag } from "../include.js";
 import { evaluate, isSuspendResult } from "../moderator/index.js";
 import {
-  addHistoryEntry,
+  completeThread,
   createUwfStore,
-  deleteThread,
-  findHistoryEntry,
   getThread,
-  loadAllHistory,
-  loadAllThreads,
+  loadActiveThreads,
+  loadHistoryThreads,
   loadWorkflowRegistry,
   resolveWorkflowHash,
   setThread,
-  type ThreadHistoryLine,
   type UwfStore,
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
@@ -485,61 +482,55 @@ export async function cmdThreadShow(
 ): Promise<ThreadShowOutput> {
   const uwf = await createUwfStore(storageRoot);
   const entry = getThread(uwf.varStore, threadId);
-  if (entry !== null) {
-    const activeHead = entry.head;
-    const workflow = resolveWorkflowFromHead(uwf, activeHead);
-    if (workflow === null) {
-      fail(`failed to resolve workflow from head: ${activeHead}`);
-    }
+  if (entry === null) {
+    fail(`thread not found: ${threadId}`);
+  }
 
-    const status = await resolveActiveThreadStatus(
-      storageRoot,
-      threadId,
-      uwf,
-      activeHead,
-      workflow,
-    );
-    const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
-    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
+  const activeHead = entry.head;
+  const workflow = resolveWorkflowFromHead(uwf, activeHead);
+  if (workflow === null) {
+    fail(`failed to resolve workflow from head: ${activeHead}`);
+  }
 
-    const hint =
-      status === "suspended"
-        ? `Thread is suspended. Resume with: uwf thread resume ${threadId}`
-        : null;
-
+  // Determine if this is a completed/cancelled thread
+  if (entry.status === "completed" || entry.status === "cancelled") {
+    const hint = null;
     return {
       workflow,
       thread: threadId,
       head: activeHead,
-      status,
-      currentRole,
-      suspendedRole: suspendFields.suspendedRole,
-      suspendMessage: suspendFields.suspendMessage,
-      done: false,
-      background: null,
-      hint,
-    };
-  }
-
-  const hist = findHistoryEntry(uwf.varStore, threadId);
-  if (hist !== null) {
-    const status: ThreadStatus = hist.reason === "cancelled" ? "cancelled" : "completed";
-
-    return {
-      workflow: hist.workflow,
-      thread: threadId,
-      head: hist.head,
-      status,
+      status: entry.status,
       currentRole: null,
       suspendedRole: null,
       suspendMessage: null,
       done: true,
       background: null,
-      hint: null,
+      hint,
     };
   }
 
-  fail(`thread not found: ${threadId}`);
+  // Active thread
+  const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, activeHead, workflow);
+  const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
+  const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
+
+  const hint =
+    status === "suspended"
+      ? `Thread is suspended. Resume with: uwf thread resume ${threadId}`
+      : null;
+
+  return {
+    workflow,
+    thread: threadId,
+    head: activeHead,
+    status,
+    currentRole,
+    suspendedRole: suspendFields.suspendedRole,
+    suspendMessage: suspendFields.suspendMessage,
+    done: false,
+    background: null,
+    hint,
+  };
 }
 
 export type ThreadListItemWithStatus = ThreadListItem & {
@@ -598,15 +589,15 @@ function collectCompletedThreads(
   activeIds: Set<ThreadId>,
 ): ThreadListItemWithStatus[] {
   const items: ThreadListItemWithStatus[] = [];
-  const history = loadAllHistory(varStore);
+  const history = loadHistoryThreads(varStore);
   const seen = new Set<ThreadId>(); // Deduplication (issue #470)
-  for (const entry of history) {
-    if (!activeIds.has(entry.thread) && !seen.has(entry.thread)) {
-      seen.add(entry.thread);
-      const status = entry.reason === "cancelled" ? "cancelled" : "completed";
+  for (const [threadId, entry] of Object.entries(history)) {
+    if (!activeIds.has(threadId as ThreadId) && !seen.has(threadId as ThreadId)) {
+      seen.add(threadId as ThreadId);
+      const status = entry.status;
       items.push({
-        thread: entry.thread,
-        workflow: entry.workflow,
+        thread: threadId as ThreadId,
+        workflow: "", // Will be resolved later if needed
         head: entry.head,
         status,
         currentRole: null,
@@ -659,7 +650,7 @@ export async function cmdThreadList(
   take: number | null,
 ): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
-  const index = loadAllThreads(uwf.varStore);
+  const index = loadActiveThreads(uwf.varStore);
 
   // Collect active threads
   let items = await collectActiveThreads(storageRoot, uwf, index);
@@ -1035,15 +1026,8 @@ function spawnAgent(
   return obj as unknown as AdapterOutput;
 }
 
-function archiveThread(uwf: UwfStore, threadId: ThreadId, workflow: CasRef, head: CasRef): void {
-  deleteThread(uwf.varStore, threadId);
-  addHistoryEntry(uwf.varStore, {
-    thread: threadId,
-    workflow,
-    head,
-    completedAt: Date.now(),
-    reason: "completed",
-  });
+function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _head: CasRef): void {
+  completeThread(uwf.varStore, threadId, "completed");
 }
 
 export async function cmdThreadResume(
@@ -1450,10 +1434,6 @@ async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise
   if (entry !== null) {
     return entry.head;
   }
-  const hist = findHistoryEntry(uwf.varStore, threadId);
-  if (hist !== null) {
-    return hist.head;
-  }
   fail(`thread not found: ${threadId}`);
 }
 
@@ -1533,7 +1513,6 @@ export async function cmdThreadCancel(
   if (entry === null) {
     fail(`thread not active: ${threadId}`);
   }
-  const head = entry.head;
 
   // Check if thread is running in background and terminate it
   const runningMarker = await isThreadRunning(storageRoot, threadId);
@@ -1546,21 +1525,7 @@ export async function cmdThreadCancel(
     await deleteMarker(storageRoot, threadId);
   }
 
-  const workflow = resolveWorkflowFromHead(uwf, head);
-  if (workflow === null) {
-    fail(`failed to resolve workflow from head: ${head}`);
-  }
-
-  deleteThread(uwf.varStore, threadId);
-
-  const historyEntry: ThreadHistoryLine = {
-    thread: threadId,
-    workflow,
-    head,
-    completedAt: Date.now(),
-    reason: "cancelled",
-  };
-  addHistoryEntry(uwf.varStore, historyEntry);
+  completeThread(uwf.varStore, threadId, "cancelled");
 
   return { thread: threadId, cancelled: true };
 }

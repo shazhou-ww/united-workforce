@@ -118,8 +118,10 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
   await seedThreads(tmpDir, {
     [THREAD_ID]: {
       head: stepHash,
+      status: "suspended",
       suspendedRole: "worker",
       suspendMessage: SUSPEND_MESSAGE,
+      completedAt: null,
     },
   });
 
@@ -347,8 +349,10 @@ describe("uwf thread resume", () => {
       const uwfAfterFirst = await createUwfStore(tmpDir);
       expect(getThread(uwfAfterFirst.varStore, THREAD_ID)).toEqual({
         head: firstResume.head,
+        status: "suspended",
         suspendedRole: "worker",
         suspendMessage: SUSPEND_MESSAGE,
+        completedAt: null,
       });
 
       const { mockAgentPath: okMockAgentPath } = await setupOkMockAgent(

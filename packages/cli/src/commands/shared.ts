@@ -6,7 +6,7 @@ import type {
   StepNodePayload,
   ThreadId,
 } from "@united-workforce/protocol";
-import { createUwfStore, findHistoryEntry, getThread, type UwfStore } from "../store.js";
+import { createUwfStore, getThread, type UwfStore } from "../store.js";
 
 type ChainState = {
   startHash: CasRef;
@@ -206,10 +206,6 @@ async function resolveHeadHash(storageRoot: string, threadId: ThreadId): Promise
   const entry = getThread(uwf.varStore, threadId);
   if (entry !== null) {
     return entry.head;
-  }
-  const hist = findHistoryEntry(uwf.varStore, threadId);
-  if (hist !== null) {
-    return hist.head;
   }
   fail(`thread not found: ${threadId}`);
 }
