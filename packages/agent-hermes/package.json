@@ -19,7 +19,7 @@
   "scripts": {
     "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
     "test": "vitest run __tests__/",
-    "test:ci": "vitest run __tests__/"
+    "test:ci": "vitest run __tests__/ --exclude __tests__/integration/"
   },
   "dependencies": {
     "@ocas/core": "^0.3.0",
