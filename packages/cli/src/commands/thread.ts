@@ -1128,6 +1128,12 @@ export async function cmdThreadResume(
   });
 }
 
+export function validateCount(count: number): void {
+  if (count < 1 || !Number.isInteger(count)) {
+    throw new Error(`--count must be a positive integer, got: ${count}`);
+  }
+}
+
 export async function cmdThreadExec(
   storageRoot: string,
   threadId: ThreadId,
@@ -1136,9 +1142,7 @@ export async function cmdThreadExec(
   background: boolean,
   backgroundWorker: boolean,
 ): Promise<StepOutput[]> {
-  if (count < 1 || !Number.isInteger(count)) {
-    fail(`--count must be a positive integer, got: ${count}`);
-  }
+  validateCount(count);
 
   // Check if thread is already running in background (unless we ARE the background worker)
   if (!backgroundWorker) {

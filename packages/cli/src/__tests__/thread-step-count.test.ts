@@ -2,10 +2,15 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { validateCount } from "../commands/thread.js";
 
 const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
 
-function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
+function runCli(args: string[]): {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+} {
   try {
     const stdout = execFileSync("node", [CLI_PATH, ...args], {
       encoding: "utf8",
@@ -14,7 +19,11 @@ function runCli(args: string[]): { stdout: string; stderr: string; exitCode: num
     });
     return { stdout, stderr: "", exitCode: 0 };
   } catch (e: unknown) {
-    const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string; status?: number };
+    const err = e as NodeJS.ErrnoException & {
+      stdout?: string;
+      stderr?: string;
+      status?: number;
+    };
     return {
       stdout: err.stdout ?? "",
       stderr: err.stderr ?? "",
@@ -23,52 +32,39 @@ function runCli(args: string[]): { stdout: string; stderr: string; exitCode: num
   }
 }
 
-describe("thread exec --count CLI parsing", () => {
-  test("--help shows -c/--count option", { timeout: 30_000 }, () => {
+describe("thread exec --count CLI parsing", { timeout: 30_000 }, () => {
+  test("--help shows -c/--count option", () => {
     const result = runCli(["thread", "exec", "--help"]);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain("--count");
     expect(combined).toContain("-c");
   });
 
-  test("description says 'one or more steps'", { timeout: 30_000 }, () => {
+  test("description says 'one or more steps'", () => {
     const result = runCli(["thread", "exec", "--help"]);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain("one or more steps");
   });
 });
 
-describe("cmdThreadExec count logic", { timeout: 30_000 }, () => {
-  test("count=0 fails with validation error", () => {
-    const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "0"]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("positive integer");
+describe("validateCount", () => {
+  test("count=0 throws validation error", () => {
+    expect(() => validateCount(0)).toThrow("positive integer");
   });
 
-  test("negative count fails with validation error", () => {
-    const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "-1"]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("positive integer");
+  test("negative count throws validation error", () => {
+    expect(() => validateCount(-1)).toThrow("positive integer");
   });
 
-  test("non-integer count fails with validation error", () => {
-    const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "1.5"]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("positive integer");
+  test("non-integer count throws validation error", () => {
+    expect(() => validateCount(1.5)).toThrow("positive integer");
   });
 
-  test("count=1 is the default (no -c flag)", () => {
-    // Without -c, it should attempt to run 1 step (failing on missing thread, not on count validation)
-    const result = runCli(["thread", "exec", "FAKE_THREAD_ID"]);
-    expect(result.exitCode).not.toBe(0);
-    // Should NOT contain "positive integer" error — should fail on thread lookup instead
-    expect(result.stderr).not.toContain("positive integer");
+  test("count=1 passes validation", () => {
+    expect(() => validateCount(1)).not.toThrow();
   });
 
-  test("count=3 passes validation (fails on thread lookup)", () => {
-    const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "3"]);
-    expect(result.exitCode).not.toBe(0);
-    // Should NOT contain "positive integer" error — should fail on thread/storage lookup
-    expect(result.stderr).not.toContain("positive integer");
+  test("count=3 passes validation", () => {
+    expect(() => validateCount(3)).not.toThrow();
   });
 });
