@@ -324,7 +324,7 @@ describe("currentRole field", () => {
     try {
       const wf = join(tmpDir, "test-current-role.yaml");
       await writeFile(wf, SIMPLE_WORKFLOW_YAML, "utf8");
-      const { thread } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
+      const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
       await createMarker(storageRoot, {
