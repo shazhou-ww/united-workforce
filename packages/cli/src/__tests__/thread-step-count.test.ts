@@ -3,11 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
-const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "cli.js");
+const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
 
 function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync("npx", ["tsx", CLI_PATH, ...args], {
+    const stdout = execFileSync("node", [CLI_PATH, ...args], {
       encoding: "utf8",
       env: { ...process.env, UWF_HOME: "/tmp/uwf-test-nonexistent" },
       stdio: ["ignore", "pipe", "pipe"],
