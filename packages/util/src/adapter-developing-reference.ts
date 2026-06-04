@@ -1,5 +1,14 @@
-export function generateAdapterReference(): string {
-  return `# Adapter Reference
+import { VERSION } from "./version.js";
+
+export function generateAdapterDevelopingReference(): string {
+  return `---
+name: uwf-adapter-developing
+description: "Guide for building a new agent adapter (CLI binary) for the workflow engine."
+version: ${VERSION}
+tags: [uwf, adapter, agent, development]
+---
+
+# Adapter Developing Reference
 
 Guide for building a new agent adapter (CLI binary) for the workflow engine.
 

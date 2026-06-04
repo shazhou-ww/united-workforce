@@ -1,5 +1,14 @@
-export function generateAuthorReference(): string {
-  return `# Author Reference
+import { VERSION } from "./version.js";
+
+export function generateWorkflowAuthoringReference(): string {
+  return `---
+name: uwf-workflow-authoring
+description: "Guide for designing and writing workflow YAML definitions."
+version: ${VERSION}
+tags: [uwf, workflow, yaml, authoring]
+---
+
+# Workflow Authoring Reference
 
 Guide for designing and writing workflow YAML definitions.
 

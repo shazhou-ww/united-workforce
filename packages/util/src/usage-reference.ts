@@ -1,5 +1,14 @@
-export function generateUserReference(): string {
-  return `# User Reference
+import { VERSION } from "./version.js";
+
+export function generateUsageReference(): string {
+  return `---
+name: uwf-usage
+description: "Guide for using the uwf CLI to manage workflows and threads."
+version: ${VERSION}
+tags: [uwf, workflow, cli, usage]
+---
+
+# Usage Reference
 
 Guide for using the uwf CLI to manage workflows and threads.
 
@@ -123,14 +132,13 @@ uwf --format <json|yaml>           # output format (default: json)
 uwf -V, --version                  # print version
 \`\`\`
 
-## Other Skill References
+## Other Prompt References
 
-For specific scenarios, run the corresponding \`uwf skill\` command:
+For specific scenarios, run the corresponding \`uwf prompt\` command:
 
 | Scenario | Command | When to use |
 |----------|---------|-------------|
-| Writing workflow YAML | \`uwf skill author\` | Designing roles, conditions, graphs, and edge prompts |
-| Contributing to the engine | \`uwf skill developer\` | Modifying the workflow engine codebase itself |
-| Building a new agent adapter | \`uwf skill adapter\` | Creating a new \`uwf-<name>\` CLI adapter |
+| Writing workflow YAML | \`uwf prompt workflow-authoring\` | Designing roles, conditions, graphs, and edge prompts |
+| Building a new agent adapter | \`uwf prompt adapter-developing\` | Creating a new \`uwf-<name>\` CLI adapter |
 `;
 }

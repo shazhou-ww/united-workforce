@@ -5,14 +5,13 @@ import { Command } from "commander";
 import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
 import {
-  cmdPromptAdapter,
-  cmdPromptAuthor,
+  cmdPromptAdapterDeveloping,
   cmdPromptBootstrap,
-  cmdPromptDeveloper,
   cmdPromptList,
   cmdPromptSetup,
   cmdPromptUsage,
-  cmdPromptUser,
+  cmdPromptUsageReference,
+  cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
@@ -523,31 +522,24 @@ prompt
   });
 
 prompt
-  .command("adapter")
-  .description("Print the adapter reference (building agent adapters)")
+  .command("usage-reference")
+  .description("Print the usage reference (CLI guide + typical workflows)")
   .action(() => {
-    console.log(cmdPromptAdapter());
+    console.log(cmdPromptUsageReference());
   });
 
 prompt
-  .command("author")
-  .description("Print the author reference (workflow YAML design guide)")
+  .command("workflow-authoring")
+  .description("Print the workflow authoring reference (YAML design guide)")
   .action(() => {
-    console.log(cmdPromptAuthor());
+    console.log(cmdPromptWorkflowAuthoring());
   });
 
 prompt
-  .command("developer")
-  .description("Print the developer reference (coding conventions + architecture)")
+  .command("adapter-developing")
+  .description("Print the adapter developing reference (building agent adapters)")
   .action(() => {
-    console.log(cmdPromptDeveloper());
-  });
-
-prompt
-  .command("user")
-  .description("Print the user reference (CLI guide + typical workflows)")
-  .action(() => {
-    console.log(cmdPromptUser());
+    console.log(cmdPromptAdapterDeveloping());
   });
 
 prompt
