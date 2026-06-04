@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "bin": {
-    "uwf-claude-code": "./src/cli.ts"
+    "uwf-claude-code": "./dist/cli.js"
   },
   "exports": {
     ".": {

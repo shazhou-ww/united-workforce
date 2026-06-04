@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "bin": {
-    "uwf-hermes": "./src/cli.ts"
+    "uwf-hermes": "./dist/cli.js"
   },
   "exports": {
     ".": {
