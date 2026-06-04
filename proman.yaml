@@ -23,6 +23,10 @@ packages:
     path: packages/agent-builtin
     type: cli
 
+  - name: "@united-workforce/agent-mock"
+    path: packages/agent-mock
+    type: cli
+
   - name: "@united-workforce/cli"
     path: packages/cli
     type: cli

@@ -23,6 +23,7 @@
     { "path": "packages/util-agent" },
     { "path": "packages/agent-hermes" },
     { "path": "packages/agent-builtin" },
+    { "path": "packages/agent-mock" },
     { "path": "packages/agent-claude-code" },
     { "path": "packages/cli" }
   ]
