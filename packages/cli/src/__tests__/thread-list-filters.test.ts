@@ -10,9 +10,8 @@ import { cmdThreadList } from "../commands/thread.js";
 import { parseTimeInput } from "../commands/thread-time-parser.js";
 import type { UwfStore } from "../store.js";
 import {
-  addHistoryEntry,
+  completeThread as completeThreadInStore,
   createUwfStore,
-  deleteThread,
   loadAllThreads,
   setThread,
 } from "../store.js";
@@ -77,14 +76,7 @@ async function completeThread(
   headHash: CasRef,
 ) {
   const uwfIdx = await createUwfStore(storageRoot);
-  deleteThread(uwfIdx.varStore, threadId);
-  addHistoryEntry(uwfIdx.varStore, {
-    thread: threadId,
-    workflow: workflowHash,
-    head: headHash,
-    completedAt: Date.now(),
-    reason: null,
-  });
+  completeThreadInStore(uwfIdx.varStore, threadId, "completed");
 }
 
 // ── test setup ────────────────────────────────────────────────────────────────
@@ -500,8 +492,10 @@ describe("edge cases", () => {
     )) as CasRef;
     index["INVALID_ULID_FORMAT_HERE" as ThreadId] = {
       head: placeholderHead,
+      status: "idle",
       suspendedRole: null,
       suspendMessage: null,
+      completedAt: null,
     };
     for (const [tid, ent] of Object.entries(index)) {
       setThread(uwfIdx.varStore, tid as ThreadId, ent);

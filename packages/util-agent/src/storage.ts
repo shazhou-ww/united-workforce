@@ -82,8 +82,10 @@ export async function getActiveThreadEntry(
   }
   return {
     head: v.value as CasRef,
+    status: (v.tags.status ?? "idle") as ThreadIndexEntry["status"],
     suspendedRole: v.tags.suspendedRole ?? null,
     suspendMessage: v.tags.suspendMessage ?? null,
+    completedAt: v.tags.completedAt !== undefined ? Number(v.tags.completedAt) : null,
   };
 }
 

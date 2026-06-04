@@ -7,10 +7,9 @@ import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadList, cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import {
-  addHistoryEntry,
+  completeThread,
   createUwfStore,
-  deleteThread,
-  loadAllThreads,
+  loadActiveThreads,
   setThread,
 } from "../store.js";
 
@@ -175,7 +174,7 @@ async function insertStepNode(
   outputPayload: Record<string, unknown>,
 ): Promise<void> {
   const uwf = await createUwfStore(storageRoot);
-  const index = loadAllThreads(uwf.varStore);
+  const index = loadActiveThreads(uwf.varStore);
   const headEntry = index[threadId];
   if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
   const head = headEntry.head;
@@ -206,7 +205,13 @@ async function insertStepNode(
     assembledPrompt: null,
   })) as CasRef;
 
-  setThread(uwf.varStore, threadId, { head: stepHash, suspendedRole: null, suspendMessage: null });
+  setThread(uwf.varStore, threadId, {
+    head: stepHash,
+    status: "idle",
+    suspendedRole: null,
+    suspendMessage: null,
+    completedAt: null,
+  });
 }
 
 describe("currentRole field", () => {
@@ -286,15 +291,8 @@ describe("currentRole field", () => {
       const tid = thread as ThreadId;
 
       const uwfForIndex = await createUwfStore(storageRoot);
-      const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
-      deleteThread(uwfForIndex.varStore, tid);
-      addHistoryEntry(uwfForIndex.varStore, {
-        thread: tid,
-        workflow,
-        head,
-        completedAt: Date.now(),
-        reason: "completed",
-      });
+      const head = loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
+      completeThread(uwfForIndex.varStore, tid, "completed");
 
       const result = await cmdThreadShow(storageRoot, tid);
       expect(result.status).toBe("completed");
@@ -314,15 +312,8 @@ describe("currentRole field", () => {
       const tid = thread as ThreadId;
 
       const uwfForIndex = await createUwfStore(storageRoot);
-      const head = loadAllThreads(uwfForIndex.varStore)[tid]!.head;
-      deleteThread(uwfForIndex.varStore, tid);
-      addHistoryEntry(uwfForIndex.varStore, {
-        thread: tid,
-        workflow,
-        head,
-        completedAt: Date.now(),
-        reason: "cancelled",
-      });
+      const head = loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
+      completeThread(uwfForIndex.varStore, tid, "cancelled");
 
       const result = await cmdThreadShow(storageRoot, tid);
       expect(result.status).toBe("cancelled");
@@ -375,15 +366,8 @@ describe("currentRole field", () => {
       const comp = await cmdThreadStart(storageRoot, wf, "completed", tmpDir);
       const compId = comp.thread as ThreadId;
       const uwfForIndex = await createUwfStore(storageRoot);
-      const compHead = loadAllThreads(uwfForIndex.varStore)[compId]!.head;
-      deleteThread(uwfForIndex.varStore, compId);
-      addHistoryEntry(uwfForIndex.varStore, {
-        thread: compId,
-        workflow: comp.workflow,
-        head: compHead,
-        completedAt: Date.now(),
-        reason: "completed",
-      });
+      const compHead = loadActiveThreads(uwfForIndex.varStore)[compId]!.head;
+      completeThread(uwfForIndex.varStore, compId, "completed");
 
       const list = await cmdThreadList(storageRoot, null, null, null, 0, 100);
 

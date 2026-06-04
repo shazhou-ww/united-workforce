@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
-import { addHistoryEntry, createUwfStore, loadAllHistory } from "../store.js";
+import {
+  completeThread,
+  createUwfStore,
+  getThread,
+  loadHistoryThreads,
+  setThread,
+} from "../store.js";
 
 async function makeUwfStore(storageRoot: string) {
   const casDir = join(storageRoot, "cas");
@@ -20,88 +26,113 @@ async function seedHistoryHead(
 }
 
 describe("thread cancel status", () => {
-  test("cancelled history entry has reason 'cancelled'", async () => {
+  test("cancelled thread has status 'cancelled'", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const threadId = "01JTEST000000000000CANCEL1" as ThreadId;
     const uwf = await makeUwfStore(tmpDir);
     const head = await seedHistoryHead(uwf, "cancelled-head");
 
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: "test-workflow",
+    setThread(uwf.varStore, threadId, {
       head,
-      completedAt: Date.now(),
-      reason: "cancelled",
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
     });
 
-    const history = loadAllHistory(uwf.varStore);
-    expect(history).toHaveLength(1);
-    expect(history[0]?.reason).toBe("cancelled");
+    completeThread(uwf.varStore, threadId, "cancelled");
+
+    const entry = getThread(uwf.varStore, threadId);
+    expect(entry).not.toBeNull();
+    expect(entry?.status).toBe("cancelled");
   });
 
-  test("completed history entry has reason 'completed'", async () => {
+  test("completed thread has status 'completed'", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const threadId = "01JTEST000000000000CANCEL2" as ThreadId;
     const uwf = await makeUwfStore(tmpDir);
     const head = await seedHistoryHead(uwf, "completed-head");
 
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: "test-workflow",
+    setThread(uwf.varStore, threadId, {
       head,
-      completedAt: Date.now(),
-      reason: "completed",
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
     });
 
-    const history = loadAllHistory(uwf.varStore);
-    expect(history).toHaveLength(1);
-    expect(history[0]?.reason).toBe("completed");
+    completeThread(uwf.varStore, threadId, "completed");
+
+    const entry = getThread(uwf.varStore, threadId);
+    expect(entry).not.toBeNull();
+    expect(entry?.status).toBe("completed");
   });
 
-  test("history entry with null reason is stored as completed", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
-    const threadId = "01JTEST000000000000CANCEL3" as ThreadId;
-    const uwf = await makeUwfStore(tmpDir);
-    const head = await seedHistoryHead(uwf, "legacy-head");
-
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: "test-workflow",
-      head,
-      completedAt: Date.now(),
-      reason: null,
-    });
-
-    const history = loadAllHistory(uwf.varStore);
-    expect(history).toHaveLength(1);
-    expect(history[0]?.reason).toBe("completed");
-  });
-
-  test("mixed completed and cancelled entries preserve distinct reasons", async () => {
+  test("loadHistoryThreads returns completed and cancelled", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const head1 = await seedHistoryHead(uwf, "head1");
     const head2 = await seedHistoryHead(uwf, "head2");
 
-    addHistoryEntry(uwf.varStore, {
-      thread: "01JTEST000000000000CANCEL4" as ThreadId,
-      workflow: "test-workflow",
+    const threadId1 = "01JTEST000000000000CANCEL4" as ThreadId;
+    setThread(uwf.varStore, threadId1, {
       head: head1,
-      completedAt: Date.now(),
-      reason: "completed",
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
     });
+    completeThread(uwf.varStore, threadId1, "completed");
 
-    addHistoryEntry(uwf.varStore, {
-      thread: "01JTEST000000000000CANCEL5" as ThreadId,
-      workflow: "test-workflow",
+    const threadId2 = "01JTEST000000000000CANCEL5" as ThreadId;
+    setThread(uwf.varStore, threadId2, {
       head: head2,
-      completedAt: Date.now(),
-      reason: "cancelled",
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
     });
+    completeThread(uwf.varStore, threadId2, "cancelled");
 
-    const history = loadAllHistory(uwf.varStore);
-    expect(history).toHaveLength(2);
-    const reasons = history.map((entry) => entry.reason).sort();
-    expect(reasons).toEqual(["cancelled", "completed"]);
+    const history = loadHistoryThreads(uwf.varStore);
+    expect(Object.keys(history)).toHaveLength(2);
+    const statuses = Object.values(history)
+      .map((entry) => entry.status)
+      .sort();
+    expect(statuses).toEqual(["cancelled", "completed"]);
+  });
+
+  test("mixed completed and cancelled entries preserve distinct statuses", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
+    const uwf = await makeUwfStore(tmpDir);
+    const head1 = await seedHistoryHead(uwf, "head1");
+    const head2 = await seedHistoryHead(uwf, "head2");
+
+    const threadId1 = "01JTEST000000000000CANCEL6" as ThreadId;
+    setThread(uwf.varStore, threadId1, {
+      head: head1,
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
+    });
+    completeThread(uwf.varStore, threadId1, "completed");
+
+    const threadId2 = "01JTEST000000000000CANCEL7" as ThreadId;
+    setThread(uwf.varStore, threadId2, {
+      head: head2,
+      status: "idle",
+      suspendedRole: null,
+      suspendMessage: null,
+      completedAt: null,
+    });
+    completeThread(uwf.varStore, threadId2, "cancelled");
+
+    const history = loadHistoryThreads(uwf.varStore);
+    expect(Object.keys(history)).toHaveLength(2);
+    const statuses = Object.values(history)
+      .map((entry) => entry.status)
+      .sort();
+    expect(statuses).toEqual(["cancelled", "completed"]);
   });
 });

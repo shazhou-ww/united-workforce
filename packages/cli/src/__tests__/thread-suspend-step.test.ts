@@ -160,8 +160,10 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       const threadEntry = getThread(uwf.varStore, threadId);
       expect(threadEntry).toEqual({
         head: stepHash,
+        status: "suspended",
         suspendedRole: "worker",
         suspendMessage: "Please clarify: Which API?",
+        completedAt: null,
       });
 
       const showResult = await cmdThreadShow(tmpDir, threadId);

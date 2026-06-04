@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { type CasRef, createThreadIndexEntry, type ThreadId } from "@united-workforce/protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { resolveHeadHash } from "../commands/shared.js";
-import { addHistoryEntry, createUwfStore, setThread } from "../store.js";
+import { completeThread, createUwfStore, setThread } from "../store.js";
 
 let tmpDir: string;
 
@@ -31,19 +31,13 @@ describe("resolveHeadHash", () => {
     expect(result).toBe(headHash);
   });
 
-  test("falls back to history variable when thread not in active index", async () => {
+  test("finds completed thread", async () => {
     const threadId = "01JTEST0000000000000000002" as ThreadId;
-    const workflowHash = "workflow_hash_789" as CasRef;
 
     const uwf = await createUwfStore(tmpDir);
     const headHash = (await uwf.store.cas.put(uwf.schemas.text, "completed-head")) as CasRef;
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: workflowHash,
-      head: headHash,
-      completedAt: Date.now(),
-      reason: null,
-    });
+    setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
+    completeThread(uwf.varStore, threadId, "completed");
 
     const result = await resolveHeadHash(tmpDir, threadId);
 
@@ -54,58 +48,36 @@ describe("resolveHeadHash", () => {
   // calls fail() which does process.exit(1), terminating the test runner.
   // The error behavior is tested in integration tests below via CLI invocation.
 
-  test("prioritizes active thread over history when thread exists in both", async () => {
+  test("prioritizes active thread", async () => {
     const threadId = "01JTEST0000000000000000004" as ThreadId;
-    const workflowHash = "workflow_hash_xyz" as CasRef;
 
     const uwf = await createUwfStore(tmpDir);
     const activeHead = (await uwf.store.cas.put(uwf.schemas.text, "active-v2")) as CasRef;
-    const historicalHash = (await uwf.store.cas.put(uwf.schemas.text, "historical-v1")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(activeHead));
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId,
-      workflow: workflowHash,
-      head: historicalHash,
-      completedAt: Date.now(),
-      reason: null,
-    });
 
     const result = await resolveHeadHash(tmpDir, threadId);
 
-    // Should return the active head, not the historical one
+    // Should return the active head
     expect(result).toBe(activeHead);
   });
 
-  test("finds thread from multiple history entries", async () => {
+  test("finds thread from multiple completed threads", async () => {
     const threadId1 = "01JTEST0000000000000000005" as ThreadId;
     const threadId2 = "01JTEST0000000000000000006" as ThreadId;
     const threadId3 = "01JTEST0000000000000000007" as ThreadId;
-    const workflowHash = "workflow_hash_abc" as CasRef;
     const uwf = await createUwfStore(tmpDir);
     const hash1 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread1")) as CasRef;
     const hash2 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread2")) as CasRef;
     const hash3 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread3")) as CasRef;
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId1,
-      workflow: workflowHash,
-      head: hash1,
-      completedAt: Date.now() - 2000,
-      reason: null,
-    });
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId2,
-      workflow: workflowHash,
-      head: hash2,
-      completedAt: Date.now() - 1000,
-      reason: null,
-    });
-    addHistoryEntry(uwf.varStore, {
-      thread: threadId3,
-      workflow: workflowHash,
-      head: hash3,
-      completedAt: Date.now(),
-      reason: null,
-    });
+
+    setThread(uwf.varStore, threadId1, createThreadIndexEntry(hash1));
+    completeThread(uwf.varStore, threadId1, "completed");
+
+    setThread(uwf.varStore, threadId2, createThreadIndexEntry(hash2));
+    completeThread(uwf.varStore, threadId2, "completed");
+
+    setThread(uwf.varStore, threadId3, createThreadIndexEntry(hash3));
+    completeThread(uwf.varStore, threadId3, "completed");
 
     const result = await resolveHeadHash(tmpDir, threadId2);
 

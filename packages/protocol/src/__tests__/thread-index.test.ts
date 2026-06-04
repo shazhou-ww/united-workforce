@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   createThreadIndexEntry,
+  markThreadCompleted,
   markThreadSuspended,
   normalizeThreadIndexEntry,
   parseThreadsIndex,
@@ -16,6 +17,8 @@ describe("thread-index", () => {
       head: "0123456789ABC",
       suspendedRole: null,
       suspendMessage: null,
+      status: "idle",
+      completedAt: null,
     });
   });
 
@@ -29,6 +32,40 @@ describe("thread-index", () => {
       head: "0123456789ABC",
       suspendedRole: "worker",
       suspendMessage: "Please clarify: Which API?",
+      status: "idle",
+      completedAt: null,
+    });
+  });
+
+  test("normalizeThreadIndexEntry preserves status and completedAt from new data", () => {
+    const entry = normalizeThreadIndexEntry({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "completed",
+      completedAt: 1234567890,
+    });
+    expect(entry).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "completed",
+      completedAt: 1234567890,
+    });
+  });
+
+  test("normalizeThreadIndexEntry defaults status=idle, completedAt=null for old data", () => {
+    const entry = normalizeThreadIndexEntry({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+    });
+    expect(entry).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "idle",
+      completedAt: null,
     });
   });
 
@@ -47,10 +84,24 @@ describe("thread-index", () => {
       head: "0123456789ABC",
       suspendedRole: "worker",
       suspendMessage: "Please clarify: Which API?",
+      status: "suspended",
     });
   });
 
-  test("updateThreadHead clears suspend metadata", () => {
+  test("serialize completed entry as object", () => {
+    const entry = markThreadCompleted(
+      createThreadIndexEntry("0123456789ABC"),
+      "completed",
+      1234567890,
+    );
+    expect(serializeThreadIndexEntry(entry)).toEqual({
+      head: "0123456789ABC",
+      status: "completed",
+      completedAt: 1234567890,
+    });
+  });
+
+  test("updateThreadHead clears suspend metadata and resets status to idle", () => {
     const suspended = markThreadSuspended(
       createThreadIndexEntry("OLDHEAD0123456"),
       "worker",
@@ -61,6 +112,44 @@ describe("thread-index", () => {
       head: "NEWHEAD01234567",
       suspendedRole: null,
       suspendMessage: null,
+      status: "idle",
+      completedAt: null,
+    });
+  });
+
+  test("markThreadSuspended sets status to suspended", () => {
+    const entry = createThreadIndexEntry("0123456789ABC");
+    const suspended = markThreadSuspended(entry, "worker", "Waiting for input");
+    expect(suspended).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: "worker",
+      suspendMessage: "Waiting for input",
+      status: "suspended",
+      completedAt: null,
+    });
+  });
+
+  test("markThreadCompleted sets status and completedAt", () => {
+    const entry = createThreadIndexEntry("0123456789ABC");
+    const completed = markThreadCompleted(entry, "completed", 1234567890);
+    expect(completed).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "completed",
+      completedAt: 1234567890,
+    });
+  });
+
+  test("markThreadCompleted with cancelled status", () => {
+    const entry = createThreadIndexEntry("0123456789ABC");
+    const cancelled = markThreadCompleted(entry, "cancelled", 9876543210);
+    expect(cancelled).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "cancelled",
+      completedAt: 9876543210,
     });
   });
 
@@ -71,6 +160,7 @@ describe("thread-index", () => {
         head: "HEAD00000000002",
         suspendedRole: "reviewer",
         suspendMessage: "Need input",
+        status: "suspended",
       },
     };
     const parsed = parseThreadsIndex(raw);

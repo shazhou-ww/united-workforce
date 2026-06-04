@@ -118,6 +118,8 @@ export type ThreadIndexEntry = {
   head: CasRef;
   suspendedRole: string | null;
   suspendMessage: string | null;
+  status: ThreadStatus;
+  completedAt: number | null;
 };
 
 /** uwf thread steps — single step entry */
