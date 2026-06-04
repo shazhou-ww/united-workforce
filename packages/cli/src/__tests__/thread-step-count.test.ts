@@ -9,7 +9,7 @@ function runCli(args: string[]): { stdout: string; stderr: string; exitCode: num
   try {
     const stdout = execFileSync("npx", ["tsx", CLI_PATH, ...args], {
       encoding: "utf8",
-      env: { ...process.env, WORKFLOW_STORAGE_ROOT: "/tmp/uwf-test-nonexistent" },
+      env: { ...process.env, UWF_HOME: "/tmp/uwf-test-nonexistent" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     return { stdout, stderr: "", exitCode: 0 };

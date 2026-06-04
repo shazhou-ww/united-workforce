@@ -28,17 +28,12 @@ export function getDefaultStorageRoot(): string {
 }
 
 /**
- * Resolve storage root.
- * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
+ * Resolve storage root from an explicit override (e.g. the `UWF_HOME` value
+ * read by the CLI entry point).  Library code must not read `process.env`.
  */
-export function resolveStorageRoot(): string {
-  const primary = process.env.UWF_STORAGE_ROOT;
-  if (primary !== undefined && primary !== "") {
-    return primary;
-  }
-  const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
-  if (userOverride !== undefined && userOverride !== "") {
-    return userOverride;
+export function resolveStorageRoot(override: string | null): string {
+  if (override !== null && override !== "") {
+    return override;
   }
   return getDefaultStorageRoot();
 }
@@ -58,13 +53,13 @@ export function getEnvPath(storageRoot: string): string {
 const THREAD_VAR_PREFIX = "@uwf/thread/";
 
 /**
- * Global CAS directory (same as uwf CLI).
- * Priority: `OCAS_DIR` → default ~/.ocas
+ * Resolve the global CAS directory from an explicit override (e.g. the
+ * `OCAS_HOME` value read by the CLI entry point).  Library code must not read
+ * `process.env`.  Defaults to `~/.ocas`.
  */
-export function getGlobalCasDir(): string {
-  const primary = process.env.OCAS_DIR;
-  if (primary !== undefined && primary !== "") {
-    return primary;
+export function getGlobalCasDir(override: string | null): string {
+  if (override !== null && override !== "") {
+    return override;
   }
   return join(homedir(), ".ocas");
 }
@@ -75,10 +70,9 @@ function threadVarName(threadId: ThreadId): string {
 
 /** Read active thread head + suspend metadata from ocas variable store. */
 export async function getActiveThreadEntry(
-  _storageRoot: string,
+  casDir: string,
   threadId: ThreadId,
 ): Promise<ThreadIndexEntry | null> {
-  const casDir = getGlobalCasDir();
   const cas = createFsStore(casDir);
   const { var: varStore } = createSqliteVarStore(join(casDir, "vars"), cas);
   const vars = varStore.list({ exactName: threadVarName(threadId) });
@@ -99,8 +93,7 @@ export type AgentStore = {
   schemas: Awaited<ReturnType<typeof registerAgentSchemas>>;
 };
 
-export async function createAgentStore(storageRoot: string): Promise<AgentStore> {
-  const casDir = getGlobalCasDir();
+export async function createAgentStore(storageRoot: string, casDir: string): Promise<AgentStore> {
   const cas = createFsStore(casDir);
   const { var: varSub, tag } = createSqliteVarStore(join(casDir, "vars"), cas);
   const store: Store = { cas, var: varSub, tag };

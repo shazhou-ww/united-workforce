@@ -7,7 +7,7 @@ import type {
   ThreadId,
 } from "@united-workforce/protocol";
 import type { AgentStore } from "./storage.js";
-import { createAgentStore, getActiveThreadEntry, resolveStorageRoot } from "./storage.js";
+import { createAgentStore, getActiveThreadEntry } from "./storage.js";
 import type { AgentContext } from "./types.js";
 
 type ChainState = {
@@ -157,12 +157,13 @@ export async function buildContext(
   threadId: ThreadId,
   role: string,
   edgePrompt: string,
+  storageRoot: string,
+  casDir: string,
 ): Promise<AgentContext> {
-  const storageRoot = resolveStorageRoot();
-  const agentStore = await createAgentStore(storageRoot);
+  const agentStore = await createAgentStore(storageRoot, casDir);
   const { store, schemas } = agentStore;
 
-  const entry = await getActiveThreadEntry(storageRoot, threadId);
+  const entry = await getActiveThreadEntry(casDir, threadId);
   if (entry === null) {
     fail(`thread not found in active thread index: ${threadId}`);
   }
@@ -187,6 +188,8 @@ export async function buildContext(
     outputFormatInstruction: "",
     edgePrompt,
     isFirstVisit,
+    storageRoot,
+    casDir,
   };
 }
 
@@ -205,12 +208,13 @@ export async function buildContextWithMeta(
   threadId: ThreadId,
   role: string,
   edgePrompt: string,
+  storageRoot: string,
+  casDir: string,
 ): Promise<AgentContext & { meta: BuildContextMeta }> {
-  const storageRoot = resolveStorageRoot();
-  const agentStore = await createAgentStore(storageRoot);
+  const agentStore = await createAgentStore(storageRoot, casDir);
   const { store, schemas } = agentStore;
 
-  const entry = await getActiveThreadEntry(storageRoot, threadId);
+  const entry = await getActiveThreadEntry(casDir, threadId);
   if (entry === null) {
     fail(`thread not found in active thread index: ${threadId}`);
   }
@@ -235,6 +239,8 @@ export async function buildContextWithMeta(
     outputFormatInstruction: "",
     edgePrompt,
     isFirstVisit,
+    storageRoot,
+    casDir,
     meta: { storageRoot, store, schemas, headHash: entry.head, chain },
   };
 }

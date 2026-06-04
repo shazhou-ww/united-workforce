@@ -5,7 +5,7 @@ import { buildOutputFormatInstruction } from "./build-output-format-instruction.
 import { buildContextWithMeta } from "./context.js";
 import { tryFrontmatterFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
-import { getEnvPath, resolveStorageRoot } from "./storage.js";
+import { getEnvPath, getGlobalCasDir, resolveStorageRoot } from "./storage.js";
 import type { AdapterOutput, AgentOptions } from "./types.js";
 
 const MAX_FRONTMATTER_RETRIES = 2;
@@ -135,13 +135,27 @@ async function persistStep(options: {
   });
 }
 
+/**
+ * Resolve uwf storage root + global CAS directory from the process env.
+ * This is the agent CLI entry point — the only place in this package allowed
+ * to read `process.env` for these settings.
+ */
+function resolveAgentDirs(): { storageRoot: string; casDir: string } {
+  return {
+    storageRoot: resolveStorageRoot(process.env.UWF_HOME ?? null),
+    casDir: getGlobalCasDir(process.env.OCAS_HOME ?? null),
+  };
+}
+
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
     const { threadId, role, prompt } = parseArgv(process.argv);
-    const storageRoot = resolveStorageRoot();
+    const { storageRoot, casDir } = resolveAgentDirs();
     loadDotenv({ path: getEnvPath(storageRoot) });
 
-    const ctx = await runWithMessage("context", () => buildContextWithMeta(threadId, role, prompt));
+    const ctx = await runWithMessage("context", () =>
+      buildContextWithMeta(threadId, role, prompt, storageRoot, casDir),
+    );
 
     const roleDef = ctx.workflow.roles[role];
     if (roleDef === undefined) {

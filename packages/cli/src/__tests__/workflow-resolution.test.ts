@@ -13,7 +13,7 @@ import { createUwfStore, saveWorkflowRegistry } from "../store.js";
 async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  process.env.OCAS_DIR = casDir;
+  process.env.OCAS_HOME = casDir;
   return createUwfStore(storageRoot);
 }
 

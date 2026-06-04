@@ -118,16 +118,12 @@ export function getDefaultStorageRoot(): string {
 
 /**
  * Resolve storage root.
- * Priority: `UWF_STORAGE_ROOT` → `WORKFLOW_STORAGE_ROOT` → default.
+ * Priority: `UWF_HOME` → default.
  */
 export function resolveStorageRoot(): string {
-  const primary = process.env.UWF_STORAGE_ROOT;
+  const primary = process.env.UWF_HOME;
   if (primary !== undefined && primary !== "") {
     return primary;
-  }
-  const userOverride = process.env.WORKFLOW_STORAGE_ROOT;
-  if (userOverride !== undefined && userOverride !== "") {
-    return userOverride;
   }
   return getDefaultStorageRoot();
 }
@@ -142,10 +138,10 @@ export function getCasDir(storageRoot: string): string {
 
 /**
  * Returns the global CAS directory shared by all uwf and ocas tools.
- * Priority: `OCAS_DIR` → default ~/.ocas
+ * Priority: `OCAS_HOME` → default ~/.ocas
  */
 export function getGlobalCasDir(): string {
-  const primary = process.env.OCAS_DIR;
+  const primary = process.env.OCAS_HOME;
   if (primary !== undefined && primary !== "") {
     return primary;
   }

@@ -89,7 +89,7 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
     cwd: tmpDir,
   });
 
-  process.env.OCAS_DIR = casDir;
+  process.env.OCAS_HOME = casDir;
   await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
   const outputHash = await store.cas.put(outputSchemaHash, {
@@ -189,8 +189,8 @@ function runUwf(
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,
-        WORKFLOW_STORAGE_ROOT: tmpDir,
-        OCAS_DIR: casDir,
+        UWF_HOME: tmpDir,
+        OCAS_HOME: casDir,
       },
       cwd: tmpDir,
       timeout: 30000,
@@ -242,7 +242,7 @@ describe("uwf thread resume", () => {
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
     await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
     const result = runUwf(["thread", "resume", THREAD_ID], casDir);
@@ -251,9 +251,9 @@ describe("uwf thread resume", () => {
   });
 
   test("resume suspended thread executes step and becomes idle", async () => {
-    const originalCasDir = process.env.OCAS_DIR;
+    const originalCasDir = process.env.OCAS_HOME;
     const { casDir, mockAgentPath } = await setupSuspendedThread("ok");
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const result = runUwf(["thread", "resume", THREAD_ID, "--agent", mockAgentPath], casDir);
@@ -279,17 +279,17 @@ describe("uwf thread resume", () => {
       expect(showResult.suspendMessage).toBeNull();
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });
 
   test("resume without -p uses suspend message as agent prompt", async () => {
-    const originalCasDir = process.env.OCAS_DIR;
+    const originalCasDir = process.env.OCAS_HOME;
     const { casDir, mockAgentPath, promptCapturePath } = await setupSuspendedThread("ok");
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const result = runUwf(["thread", "resume", THREAD_ID, "--agent", mockAgentPath], casDir);
@@ -299,17 +299,17 @@ describe("uwf thread resume", () => {
       expect(capturedPrompt).toBe(SUSPEND_MESSAGE);
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });
 
   test("resume with -p appends supplementary info to agent prompt", async () => {
-    const originalCasDir = process.env.OCAS_DIR;
+    const originalCasDir = process.env.OCAS_HOME;
     const { casDir, mockAgentPath, promptCapturePath } = await setupSuspendedThread("ok");
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const supplement = "Use the REST API.";
@@ -323,17 +323,17 @@ describe("uwf thread resume", () => {
       expect(capturedPrompt).toBe(`${SUSPEND_MESSAGE}\n\n${supplement}`);
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });
 
   test("multiple suspend/resume cycles", async () => {
-    const originalCasDir = process.env.OCAS_DIR;
+    const originalCasDir = process.env.OCAS_HOME;
     const { casDir, mockAgentPath, promptCapturePath } = await setupSuspendedThread("suspend");
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const firstResult = runUwf(["thread", "resume", THREAD_ID, "--agent", mockAgentPath], casDir);
@@ -371,9 +371,9 @@ describe("uwf thread resume", () => {
       expect(capturedPrompt).toBe(SUSPEND_MESSAGE);
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
     }
   });

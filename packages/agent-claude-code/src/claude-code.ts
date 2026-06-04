@@ -17,7 +17,6 @@ const log = createLogger({ sink: { kind: "stderr" } });
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? null;
 
 /** Assemble system prompt, task, and prior step outputs for Claude Code. */
 export function buildClaudeCodePrompt(ctx: AgentContext): string {
@@ -85,6 +84,7 @@ function spawnClaude(
 
 function spawnClaudeRun(
   prompt: string,
+  model: string | null,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
@@ -96,8 +96,8 @@ function spawnClaudeRun(
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
   ];
-  if (CLAUDE_MODEL !== null) {
-    args.push("--model", CLAUDE_MODEL);
+  if (model !== null) {
+    args.push("--model", model);
   }
   return spawnClaude(args);
 }
@@ -105,6 +105,7 @@ function spawnClaudeRun(
 function spawnClaudeResume(
   sessionId: string,
   message: string,
+  model: string | null,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
@@ -118,8 +119,8 @@ function spawnClaudeResume(
     "--max-turns",
     String(CLAUDE_MAX_TURNS),
   ];
-  if (CLAUDE_MODEL !== null) {
-    args.push("--model", CLAUDE_MODEL);
+  if (model !== null) {
+    args.push("--model", model);
   }
   return spawnClaude(args);
 }
@@ -157,20 +158,35 @@ async function processClaudeOutput(
   );
 }
 
-async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
+async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<AgentRunResult> {
   const fullPrompt = buildClaudeCodePrompt(ctx);
 
   log("K7R2M4N8", `prompt for role=${ctx.role} (length=${fullPrompt.length}):\n${fullPrompt}`);
 
   // Try resuming a cached session for re-entry scenarios (e.g. reviewer reject → developer re-entry).
   if (!ctx.isFirstVisit) {
-    const cachedSessionId = await getCachedSessionId("claude-code", ctx.threadId, ctx.role);
+    const cachedSessionId = await getCachedSessionId(
+      "claude-code",
+      ctx.threadId,
+      ctx.role,
+      ctx.storageRoot,
+    );
     if (cachedSessionId !== null) {
       try {
-        const { stdout, stderr, exitCode } = await spawnClaudeResume(cachedSessionId, fullPrompt);
+        const { stdout, stderr, exitCode } = await spawnClaudeResume(
+          cachedSessionId,
+          fullPrompt,
+          model,
+        );
         const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
         if (result.sessionId !== undefined && result.sessionId !== "") {
-          await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
+          await setCachedSessionId(
+            "claude-code",
+            ctx.threadId,
+            ctx.role,
+            result.sessionId,
+            ctx.storageRoot,
+          );
         }
         return result;
       } catch (err) {
@@ -182,10 +198,16 @@ async function runClaudeCode(ctx: AgentContext): Promise<AgentRunResult> {
     }
   }
 
-  const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt);
+  const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt, model);
   const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
   if (result.sessionId !== undefined && result.sessionId !== "") {
-    await setCachedSessionId("claude-code", ctx.threadId, ctx.role, result.sessionId);
+    await setCachedSessionId(
+      "claude-code",
+      ctx.threadId,
+      ctx.role,
+      result.sessionId,
+      ctx.storageRoot,
+    );
   }
   return result;
 }
@@ -194,16 +216,17 @@ async function continueClaudeCode(
   sessionId: string,
   message: string,
   store: Store,
+  model: string | null,
 ): Promise<AgentRunResult> {
-  const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message);
+  const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message, model);
   return processClaudeOutput(stdout, stderr, exitCode, store, "");
 }
 
 /** Agent CLI factory: parses argv, runs Claude Code, extracts output, writes StepNode. */
-export function createClaudeCodeAgent(): () => Promise<void> {
+export function createClaudeCodeAgent(model: string | null): () => Promise<void> {
   return createAgent({
     name: "claude-code",
-    run: runClaudeCode,
-    continue: continueClaudeCode,
+    run: (ctx) => runClaudeCode(ctx, model),
+    continue: (sessionId, message, store) => continueClaudeCode(sessionId, message, store, model),
   });
 }

@@ -19,9 +19,9 @@ describe("Thread and edge location integration", () => {
     await mkdir(storageRoot, { recursive: true });
     await mkdir(casDir, { recursive: true });
 
-    // Set OCAS_DIR for this test
-    originalEnv = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    // Set OCAS_HOME for this test
+    originalEnv = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
   }
 
   async function teardown() {
@@ -30,9 +30,9 @@ describe("Thread and edge location integration", () => {
     }
     // Restore original environment
     if (originalEnv === undefined) {
-      delete process.env.OCAS_DIR;
+      delete process.env.OCAS_HOME;
     } else {
-      process.env.OCAS_DIR = originalEnv;
+      process.env.OCAS_HOME = originalEnv;
     }
   }
 

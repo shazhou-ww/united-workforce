@@ -27,6 +27,8 @@ function makeCtx(overrides: Partial<AgentContext> = {}): AgentContext {
     steps: [],
     store: {} as AgentContext["store"],
     outputFormatInstruction: "Use YAML frontmatter",
+    storageRoot: "/tmp/uwf-test",
+    casDir: "/tmp/ocas-test",
     ...overrides,
   };
 }

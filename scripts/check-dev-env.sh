@@ -89,7 +89,7 @@ echo ""
 echo "=== Config ==="
 
 # Check workflow config exists
-CONFIG_DIR="${UWF_STORAGE_ROOT:-$HOME/.shazhou/united-workforce}"
+CONFIG_DIR="${UWF_HOME:-$HOME/.shazhou/united-workforce}"
 check "config.yaml exists" \
   "[ -f '$CONFIG_DIR/config.yaml' ]" \
   "Run: uwf setup"

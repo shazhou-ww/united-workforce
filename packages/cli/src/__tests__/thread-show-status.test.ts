@@ -305,8 +305,8 @@ describe("thread show status field", () => {
     await setupTestEnv();
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
-    const originalCasDir = process.env.OCAS_DIR;
-    process.env.OCAS_DIR = casDir;
+    const originalCasDir = process.env.OCAS_HOME;
+    process.env.OCAS_HOME = casDir;
 
     try {
       const workflowPath = join(tmpDir, "test-suspend-status.yaml");
@@ -331,9 +331,9 @@ describe("thread show status field", () => {
       expect(result.thread).toBe(threadId);
     } finally {
       if (originalCasDir === undefined) {
-        delete process.env.OCAS_DIR;
+        delete process.env.OCAS_HOME;
       } else {
-        process.env.OCAS_DIR = originalCasDir;
+        process.env.OCAS_HOME = originalCasDir;
       }
       await teardown();
     }

@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   resolveStorageRoot,
   getDefaultStorageRoot,
@@ -26,42 +26,16 @@ describe("getDefaultStorageRoot", () => {
 });
 
 describe("resolveStorageRoot", () => {
-  const saved: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    saved.UWF_STORAGE_ROOT = process.env.UWF_STORAGE_ROOT;
-    saved.WORKFLOW_STORAGE_ROOT = process.env.WORKFLOW_STORAGE_ROOT;
+  it("uses the override when provided", () => {
+    expect(resolveStorageRoot("/tmp/uwf1")).toBe("/tmp/uwf1");
   });
 
-  afterEach(() => {
-    for (const k of ["UWF_STORAGE_ROOT", "WORKFLOW_STORAGE_ROOT"] as const) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
+  it("falls back to default when override is null", () => {
+    expect(resolveStorageRoot(null)).toBe(getDefaultStorageRoot());
   });
 
-  it("uses UWF_STORAGE_ROOT first", () => {
-    process.env.UWF_STORAGE_ROOT = "/tmp/uwf1";
-    process.env.WORKFLOW_STORAGE_ROOT = "/tmp/uwf2";
-    expect(resolveStorageRoot()).toBe("/tmp/uwf1");
-  });
-
-  it("falls back to WORKFLOW_STORAGE_ROOT", () => {
-    delete process.env.UWF_STORAGE_ROOT;
-    process.env.WORKFLOW_STORAGE_ROOT = "/tmp/uwf2";
-    expect(resolveStorageRoot()).toBe("/tmp/uwf2");
-  });
-
-  it("falls back to default when both unset", () => {
-    delete process.env.UWF_STORAGE_ROOT;
-    delete process.env.WORKFLOW_STORAGE_ROOT;
-    expect(resolveStorageRoot()).toBe(getDefaultStorageRoot());
-  });
-
-  it("ignores empty UWF_STORAGE_ROOT", () => {
-    process.env.UWF_STORAGE_ROOT = "";
-    process.env.WORKFLOW_STORAGE_ROOT = "/tmp/uwf2";
-    expect(resolveStorageRoot()).toBe("/tmp/uwf2");
+  it("ignores empty override", () => {
+    expect(resolveStorageRoot("")).toBe(getDefaultStorageRoot());
   });
 });
 
@@ -72,21 +46,16 @@ describe("path helpers", () => {
 });
 
 describe("getGlobalCasDir", () => {
-  const saved = { OCAS_DIR: process.env.OCAS_DIR };
-
-  afterEach(() => {
-    if (saved.OCAS_DIR === undefined) delete process.env.OCAS_DIR;
-    else process.env.OCAS_DIR = saved.OCAS_DIR;
+  it("uses the override when provided", () => {
+    expect(getGlobalCasDir("/tmp/ocas")).toBe("/tmp/ocas");
   });
 
-  it("uses OCAS_DIR when set", () => {
-    process.env.OCAS_DIR = "/tmp/ocas";
-    expect(getGlobalCasDir()).toBe("/tmp/ocas");
+  it("defaults to ~/.ocas when override is null", () => {
+    expect(getGlobalCasDir(null)).toBe(join(homedir(), ".ocas"));
   });
 
-  it("defaults to ~/.ocas", () => {
-    delete process.env.OCAS_DIR;
-    expect(getGlobalCasDir()).toBe(join(homedir(), ".ocas"));
+  it("ignores empty override", () => {
+    expect(getGlobalCasDir("")).toBe(join(homedir(), ".ocas"));
   });
 });
 

@@ -4,12 +4,10 @@ import { dirname, join } from "node:path";
 
 import type { ThreadId } from "@united-workforce/protocol";
 
-import { resolveStorageRoot } from "./storage.js";
-
 type SessionCache = Record<string, string>;
 
-export function getCachePath(agentName: string): string {
-  return join(resolveStorageRoot(), "cache", `${agentName}-sessions.json`);
+export function getCachePath(agentName: string, storageRoot: string): string {
+  return join(storageRoot, "cache", `${agentName}-sessions.json`);
 }
 
 function cacheKey(threadId: ThreadId, role: string): string {
@@ -20,8 +18,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function readCache(agentName: string): Promise<SessionCache> {
-  const path = getCachePath(agentName);
+async function readCache(agentName: string, storageRoot: string): Promise<SessionCache> {
+  const path = getCachePath(agentName, storageRoot);
   try {
     const text = await readFile(path, "utf8");
     const raw = JSON.parse(text) as unknown;
@@ -48,8 +46,12 @@ async function readCache(agentName: string): Promise<SessionCache> {
   }
 }
 
-async function writeCache(agentName: string, cache: SessionCache): Promise<void> {
-  const path = getCachePath(agentName);
+async function writeCache(
+  agentName: string,
+  storageRoot: string,
+  cache: SessionCache,
+): Promise<void> {
+  const path = getCachePath(agentName, storageRoot);
   const dir = dirname(path);
   await mkdir(dir, { recursive: true });
   // Atomic write: write to temp file then rename to avoid partial reads on concurrent access.
@@ -65,8 +67,9 @@ export async function getCachedSessionId(
   agentName: string,
   threadId: ThreadId,
   role: string,
+  storageRoot: string,
 ): Promise<string | null> {
-  const cache = await readCache(agentName);
+  const cache = await readCache(agentName, storageRoot);
   const sessionId = cache[cacheKey(threadId, role)];
   return sessionId ?? null;
 }
@@ -77,8 +80,9 @@ export async function setCachedSessionId(
   threadId: ThreadId,
   role: string,
   sessionId: string,
+  storageRoot: string,
 ): Promise<void> {
-  const cache = await readCache(agentName);
+  const cache = await readCache(agentName, storageRoot);
   cache[cacheKey(threadId, role)] = sessionId;
-  await writeCache(agentName, cache);
+  await writeCache(agentName, storageRoot, cache);
 }

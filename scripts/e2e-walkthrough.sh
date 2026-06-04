@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # E2E walkthrough for shazhou/united-workforce.
-# Runs inside Docker with isolated UWF_STORAGE_ROOT.
+# Runs inside Docker with isolated UWF_HOME.
 # Exercises: setup → workflow add → thread start/exec → cancel/fork → read/inspect.
 #
 # Usage:
@@ -70,8 +70,8 @@ cat > "$E2E_DIR/run.sh" << 'INNER_SCRIPT'
 set -euo pipefail
 
 # Isolated storage — never touches host's ~/.uwf
-export UWF_STORAGE_ROOT="/tmp/uwf-e2e-storage"
-mkdir -p "$UWF_STORAGE_ROOT"
+export UWF_HOME="/tmp/uwf-e2e-storage"
+mkdir -p "$UWF_HOME"
 
 REPO_DIR="$1"
 AGENT="$2"
@@ -157,7 +157,7 @@ if [ -n "$PROVIDER" ] && [ -n "$MODEL" ] && [ -n "$API_KEY" ]; then
 else
   # Copy host config if available
   if [ -f "$HOME/.shazhou/united-workforce/config.yaml" ]; then
-    cp "$HOME/.shazhou/united-workforce/config.yaml" "$UWF_STORAGE_ROOT/config.yaml"
+    cp "$HOME/.shazhou/united-workforce/config.yaml" "$UWF_HOME/config.yaml"
     echo "  Copied host config.yaml" >&2
   fi
 fi

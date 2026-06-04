@@ -9,7 +9,7 @@ import {
 } from "@united-workforce/util-agent";
 
 import { HermesAcpClient } from "./acp-client.js";
-import { getCachedSessionId, isResumeDisabled, setCachedSessionId } from "./session-cache.js";
+import { getCachedSessionId, setCachedSessionId } from "./session-cache.js";
 import { loadHermesSession, storeHermesSessionDetail } from "./session-detail.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
@@ -66,13 +66,14 @@ async function prepareSession(
   client: HermesAcpClient,
   ctx: AgentContext,
   cwd: string,
+  resumeDisabled: boolean,
 ): Promise<PromptAttempt> {
-  if (ctx.isFirstVisit || isResumeDisabled()) {
+  if (ctx.isFirstVisit || resumeDisabled) {
     await client.connect(cwd);
     return { useContinuation: false, resumed: false };
   }
 
-  const cachedSessionId = await getCachedSessionId(ctx.threadId, ctx.role);
+  const cachedSessionId = await getCachedSessionId(ctx.threadId, ctx.role, ctx.storageRoot);
   if (cachedSessionId === null) {
     log("6RWK3N8Q", `no cached session for ${ctx.threadId}:${ctx.role}, starting new session`);
     await client.connect(cwd);
@@ -99,7 +100,7 @@ async function prepareSession(
  * frontmatter retry loops keep the same Hermes session context.  The client
  * is closed once the agent process exits (via process.on("exit")).
  */
-export function createHermesAgent(): () => Promise<void> {
+export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> {
   const client = new HermesAcpClient();
 
   // Ensure cleanup regardless of how the process exits.
@@ -113,8 +114,8 @@ export function createHermesAgent(): () => Promise<void> {
     const { text, sessionId } = await client.prompt(fullPrompt);
     const { detailHash } = await storePromptResult(ctx.store, sessionId);
 
-    if (!isResumeDisabled()) {
-      await setCachedSessionId(ctx.threadId, ctx.role, sessionId);
+    if (!resumeDisabled) {
+      await setCachedSessionId(ctx.threadId, ctx.role, sessionId, ctx.storageRoot);
     }
 
     return { output: text, detailHash, sessionId, assembledPrompt: fullPrompt };
@@ -122,7 +123,7 @@ export function createHermesAgent(): () => Promise<void> {
 
   async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
     const cwd = process.cwd();
-    const attempt = await prepareSession(client, ctx, cwd);
+    const attempt = await prepareSession(client, ctx, cwd, resumeDisabled);
 
     try {
       return await runPrompt(ctx, attempt.useContinuation);

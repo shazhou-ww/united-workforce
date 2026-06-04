@@ -21,6 +21,10 @@ export type AgentContext = ModeratorContext & {
    * True when the current role has not appeared in steps history before this invocation.
    */
   isFirstVisit: boolean;
+  /** Resolved uwf storage root (from `UWF_HOME`), threaded from the CLI entry point. */
+  storageRoot: string;
+  /** Resolved global CAS directory (from `OCAS_HOME`), threaded from the CLI entry point. */
+  casDir: string;
 };
 
 export type AgentRunResult = {
