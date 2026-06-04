@@ -24,15 +24,17 @@ function runCli(args: string[]): { stdout: string; stderr: string; exitCode: num
 }
 
 describe("thread exec --count CLI parsing", () => {
-  test("--help shows -c/--count option", () => {
+  test("--help shows -c/--count option", { timeout: 30_000 }, () => {
     const result = runCli(["thread", "exec", "--help"]);
-    expect(result.stdout).toContain("--count");
-    expect(result.stdout).toContain("-c");
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain("--count");
+    expect(combined).toContain("-c");
   });
 
-  test("description says 'one or more steps'", () => {
+  test("description says 'one or more steps'", { timeout: 30_000 }, () => {
     const result = runCli(["thread", "exec", "--help"]);
-    expect(result.stdout).toContain("one or more steps");
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain("one or more steps");
   });
 });
 

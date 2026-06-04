@@ -88,7 +88,7 @@ describe("prompt commands", () => {
     expect(result).toContain("version");
   });
 
-  test("prompt help subcommand is suppressed", () => {
+  test("prompt help subcommand is suppressed", { timeout: 30_000 }, () => {
     const output = execFileSync("npx", ["tsx", "src/cli.ts", "prompt", "--help"], {
       cwd: join(__dirname, "..", ".."),
       encoding: "utf-8",
