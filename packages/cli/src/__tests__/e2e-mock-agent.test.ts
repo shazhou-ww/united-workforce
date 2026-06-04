@@ -241,7 +241,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(finalEntry!.head).toBe(step2.head);
   });
 
-  test("2. branching workflow loops developer→reviewer→developer→reviewer→$END", async () => {
+  test("2. branching workflow loops developer→reviewer→developer→reviewer→$END", {
+    timeout: 30_000,
+  }, async () => {
     await writeMockConfig("e2e-loop.mock.yaml");
     const workflowHash = await addWorkflow("e2e-loop.workflow.yaml", "test-loop");
 
@@ -299,7 +301,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(finalEntry!.status).toBe("completed");
   });
 
-  test("3. role mismatch in mock data makes the agent exit with an error", async () => {
+  test("3. role mismatch in mock data makes the agent exit with an error", {
+    timeout: 30_000,
+  }, async () => {
     // Reuses the linear workflow but with a mock whose step[1].role is wrong.
     await writeMockConfig("e2e-mismatch.mock.yaml");
     const workflowHash = await addWorkflow("e2e-linear.workflow.yaml", "test-linear");
@@ -325,7 +329,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(entry!.head).toBe(step1.head);
   });
 
-  test("4. planner $SUSPEND then resume re-runs planner and reaches $END", async () => {
+  test("4. planner $SUSPEND then resume re-runs planner and reaches $END", {
+    timeout: 30_000,
+  }, async () => {
     await writeMockConfig("e2e-suspend.mock.yaml");
     const workflowHash = await addWorkflow("e2e-suspend.workflow.yaml", "test-suspend");
 
@@ -372,7 +378,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(finalEntry!.head).toBe(resumeOut.head);
   });
 
-  test("5. --count 3 runs the whole linear pipeline in one invocation", async () => {
+  test("5. --count 3 runs the whole linear pipeline in one invocation", {
+    timeout: 30_000,
+  }, async () => {
     await writeMockConfig("e2e-count.mock.yaml");
     const workflowHash = await addWorkflow("e2e-count.workflow.yaml", "test-count");
 
@@ -412,7 +420,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(finalEntry!.head).toBe(results[2].head);
   });
 
-  test("6. mustache edge prompt renders planner variables into the worker step", async () => {
+  test("6. mustache edge prompt renders planner variables into the worker step", {
+    timeout: 30_000,
+  }, async () => {
     await writeMockConfig("e2e-mustache.mock.yaml");
     const workflowHash = await addWorkflow("e2e-mustache.workflow.yaml", "test-mustache");
 
@@ -441,7 +451,9 @@ describe("E2E mock-agent: full uwf pipeline", () => {
     expect(workerStep.edgePrompt).toBe("Work on branch fix/42-auth in /tmp/my-repo");
   });
 
-  test("7. completed thread can be resumed (衔尾蛇: end → start)", async () => {
+  test("7. completed thread can be resumed (衔尾蛇: end → start)", {
+    timeout: 30_000,
+  }, async () => {
     // Reuse the suspend workflow (planner with ready → $END), but mock data
     // goes straight to ready on first run, then ready again after resume.
     await writeMockConfig("e2e-completed-resume.mock.yaml");

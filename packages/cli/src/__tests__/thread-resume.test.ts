@@ -491,7 +491,7 @@ describe("uwf thread resume - completed threads", () => {
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     const workerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
     const reviewerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
@@ -539,9 +539,7 @@ describe("uwf thread resume - completed threads", () => {
     const { createUwfStore, getThread } = await import("../store.js");
     const verifyUwf = await createUwfStore(tmpDir);
     const verifyEntry = getThread(verifyUwf.varStore, THREAD_ID);
-    // biome-ignore lint/suspicious/noConsole: test debugging
     console.log("Seeded entry status:", verifyEntry?.status);
-    // biome-ignore lint/suspicious/noConsole: test debugging
     console.log("Seeded entry:", JSON.stringify(verifyEntry, null, 2));
 
     const promptCapturePath = join(tmpDir, "captured-prompt-completed.txt");
@@ -601,7 +599,6 @@ echo '${adapterJson}'
     );
 
     if (result.status !== 0) {
-      // biome-ignore lint/suspicious/noConsole: test debugging
       console.error("Command failed:", result.stderr);
     }
 
@@ -654,7 +651,7 @@ echo '${adapterJson}'
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
     await seedThreads(tmpDir, {
       [THREAD_ID]: {
         head: startHash,
@@ -702,7 +699,7 @@ echo '${adapterJson}'
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
     await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
     const result = runUwf(["thread", "resume", THREAD_ID], casDir);

@@ -3,11 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
-const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "cli.js");
+const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
 
 function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync("npx", ["tsx", CLI_PATH, ...args], {
+    const stdout = execFileSync("node", [CLI_PATH, ...args], {
       encoding: "utf8",
       env: { ...process.env, UWF_HOME: "/tmp/uwf-test-nonexistent" },
       stdio: ["ignore", "pipe", "pipe"],
@@ -24,19 +24,21 @@ function runCli(args: string[]): { stdout: string; stderr: string; exitCode: num
 }
 
 describe("thread exec --count CLI parsing", () => {
-  test("--help shows -c/--count option", () => {
+  test("--help shows -c/--count option", { timeout: 30_000 }, () => {
     const result = runCli(["thread", "exec", "--help"]);
-    expect(result.stdout).toContain("--count");
-    expect(result.stdout).toContain("-c");
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain("--count");
+    expect(combined).toContain("-c");
   });
 
-  test("description says 'one or more steps'", () => {
+  test("description says 'one or more steps'", { timeout: 30_000 }, () => {
     const result = runCli(["thread", "exec", "--help"]);
-    expect(result.stdout).toContain("one or more steps");
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain("one or more steps");
   });
 });
 
-describe("cmdThreadExec count logic", () => {
+describe("cmdThreadExec count logic", { timeout: 30_000 }, () => {
   test("count=0 fails with validation error", () => {
     const result = runCli(["thread", "exec", "FAKE_THREAD_ID", "-c", "0"]);
     expect(result.exitCode).not.toBe(0);

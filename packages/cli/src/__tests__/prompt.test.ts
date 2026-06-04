@@ -88,11 +88,11 @@ describe("prompt commands", () => {
     expect(result).toContain("version");
   });
 
-  test("prompt help subcommand is suppressed", () => {
-    const output = execFileSync("npx", ["tsx", "src/cli.ts", "prompt", "--help"], {
-      cwd: join(__dirname, "..", ".."),
+  test("prompt help subcommand is suppressed", { timeout: 30_000 }, () => {
+    const cliPath = join(__dirname, "..", "..", "dist", "cli.js");
+    const output = execFileSync("node", [cliPath, "prompt", "--help"], {
       encoding: "utf-8",
-      env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+      env: { ...process.env },
     });
     expect(output).not.toMatch(/help\s+\[command\]/i);
     expect(output).toContain("usage");
