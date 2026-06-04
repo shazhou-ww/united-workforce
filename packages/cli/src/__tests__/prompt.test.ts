@@ -89,7 +89,7 @@ describe("prompt commands", () => {
   });
 
   test("prompt help subcommand is suppressed", () => {
-    const output = execFileSync("bun", ["src/cli.ts", "prompt", "--help"], {
+    const output = execFileSync("npx", ["tsx", "src/cli.ts", "prompt", "--help"], {
       cwd: join(__dirname, "..", ".."),
       encoding: "utf-8",
       env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },

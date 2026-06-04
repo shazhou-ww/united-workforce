@@ -19,8 +19,8 @@
     "test:ci": "vitest run __tests__/ src/__tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.2.2",
-    "@ocas/fs": "^0.2.2",
+    "@ocas/core": "^0.3.0",
+    "@ocas/fs": "^0.3.0",
     "@united-workforce/protocol": "workspace:^",
     "@united-workforce/util": "workspace:^",
     "dotenv": "^16.6.1",

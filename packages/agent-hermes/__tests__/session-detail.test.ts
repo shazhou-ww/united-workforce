@@ -1,8 +1,8 @@
-import Database from "better-sqlite3";
 import { describe, expect, test } from 'vitest';
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { createMemoryStore, refs, validate, walk } from "@ocas/core";
 
 import {
@@ -133,10 +133,10 @@ describe("storeHermesSessionDetail", () => {
 
 // ── SQLite fallback tests ──────────────────────────────────────────
 
-type TestDb = InstanceType<typeof Database>;
+type TestDb = DatabaseSync;
 
 function createTestDb(dbPath: string): TestDb {
-  const db = new Database(dbPath);
+  const db = new DatabaseSync(dbPath);
   db.exec(`CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     model TEXT NOT NULL,
