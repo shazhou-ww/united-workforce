@@ -1,4 +1,11 @@
+import type { Store, VarStore } from "@ocas/core";
 import type { CasRef } from "@united-workforce/protocol";
+
+/** Handle to the OCAS store used for eval persistence. */
+export type EvalStore = {
+  store: Store;
+  varStore: VarStore;
+};
 
 /** A single judge result within an eval run. */
 export type EvalJudgeRecord = {

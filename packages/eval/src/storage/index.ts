@@ -5,4 +5,5 @@ export {
   EVAL_JUDGE_UPSTREAM_SCHEMA,
   EVAL_RUN_SCHEMA,
 } from "./schemas.js";
-export type { EvalJudgeRecord, EvalRunConfig, EvalRunPayload } from "./types.js";
+export { createEvalStore, setEvalLatest } from "./store.js";
+export type { EvalJudgeRecord, EvalRunConfig, EvalRunPayload, EvalStore } from "./types.js";
