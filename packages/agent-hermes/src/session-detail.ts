@@ -1,7 +1,7 @@
-import Database from "better-sqlite3";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { bootstrap, putSchema, type Store } from "@ocas/core";
 
@@ -152,9 +152,9 @@ export function loadHermesSessionFromDb(
   dbPath: string | null = null,
 ): HermesSessionJson | null {
   const resolvedPath = dbPath ?? getHermesDbPath();
-  let db: InstanceType<typeof Database> | null = null;
+  let db: DatabaseSync | null = null;
   try {
-    db = new Database(resolvedPath, { readonly: true });
+    db = new DatabaseSync(resolvedPath, { readOnly: true });
     const session = db
       .prepare("SELECT id, model, started_at FROM sessions WHERE id = ?")
       .get(sessionId) as DbSessionRow | null;

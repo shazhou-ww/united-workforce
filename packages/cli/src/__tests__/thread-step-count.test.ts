@@ -8,7 +8,7 @@ const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "cli.js");
 
 function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync("bun", ["run", CLI_PATH, ...args], {
+    const stdout = execFileSync("npx", ["tsx", CLI_PATH, ...args], {
       encoding: "utf8",
       env: { ...process.env, WORKFLOW_STORAGE_ROOT: "/tmp/uwf-test-nonexistent" },
       stdio: ["ignore", "pipe", "pipe"],

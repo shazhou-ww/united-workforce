@@ -19,8 +19,8 @@
     "test:ci": "vitest run src/__tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.2.2",
-    "@ocas/fs": "^0.2.2"
+    "@ocas/core": "^0.3.0",
+    "@ocas/fs": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

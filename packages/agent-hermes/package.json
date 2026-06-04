@@ -22,14 +22,12 @@
     "test:ci": "vitest run __tests__/"
   },
   "dependencies": {
-    "@ocas/core": "^0.2.2",
+    "@ocas/core": "^0.3.0",
     "@united-workforce/protocol": "workspace:^",
     "@united-workforce/util": "workspace:^",
-    "@united-workforce/util-agent": "workspace:^",
-    "better-sqlite3": "^12.10.0"
+    "@united-workforce/util-agent": "workspace:^"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "typescript": "^5.8.3"
   },
   "publishConfig": {
