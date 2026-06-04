@@ -585,19 +585,20 @@ async function collectActiveThreads(
 }
 
 function collectCompletedThreads(
-  varStore: VarStore,
+  uwf: UwfStore,
   activeIds: Set<ThreadId>,
 ): ThreadListItemWithStatus[] {
   const items: ThreadListItemWithStatus[] = [];
-  const history = loadHistoryThreads(varStore);
+  const history = loadHistoryThreads(uwf.varStore);
   const seen = new Set<ThreadId>(); // Deduplication (issue #470)
   for (const [threadId, entry] of Object.entries(history)) {
     if (!activeIds.has(threadId as ThreadId) && !seen.has(threadId as ThreadId)) {
       seen.add(threadId as ThreadId);
       const status = entry.status;
+      const workflow = resolveWorkflowFromHead(uwf, entry.head);
       items.push({
         thread: threadId as ThreadId,
-        workflow: "", // Will be resolved later if needed
+        workflow: workflow ?? "",
         head: entry.head,
         status,
         currentRole: null,
@@ -662,7 +663,7 @@ export async function cmdThreadList(
     statusFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
-    const completedItems = collectCompletedThreads(uwf.varStore, activeIds);
+    const completedItems = collectCompletedThreads(uwf, activeIds);
     items = items.concat(completedItems);
   }
 
