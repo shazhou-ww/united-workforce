@@ -25,6 +25,7 @@
     { "path": "packages/agent-builtin" },
     { "path": "packages/agent-mock" },
     { "path": "packages/agent-claude-code" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "packages/eval" }
   ]
 }
