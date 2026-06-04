@@ -96,6 +96,7 @@ export function checkWorkflowFilenameConsistency(
 }
 
 /** Validate YAML-parsed workflow document shape (outputSchema may be inline JSON Schema). */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: validation function with many field checks
 export function parseWorkflowPayload(raw: unknown): WorkflowPayload | null {
   if (!isRecord(raw)) {
     return null;

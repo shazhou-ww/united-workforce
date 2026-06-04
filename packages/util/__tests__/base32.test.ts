@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   CROCKFORD_BASE32_ALPHABET,
-  encodeCrockfordBase32Bits,
   decodeCrockfordBase32Bits,
-  encodeUint64AsCrockford,
   decodeCrockfordToUint64,
+  encodeCrockfordBase32Bits,
+  encodeUint64AsCrockford,
 } from "../src/base32.js";
 
 describe("CROCKFORD_BASE32_ALPHABET", () => {
@@ -105,7 +105,7 @@ describe("encodeUint64AsCrockford / decodeCrockfordToUint64", () => {
   });
 
   it("roundtrips arbitrary value", () => {
-    const value = 0xDEAD_BEEF_CAFE_BABEn;
+    const value = 0xdead_beef_cafe_baben;
     const encoded = encodeUint64AsCrockford(value);
     const decoded = decodeCrockfordToUint64(encoded);
     expect(decoded).toEqual({ ok: true, value });

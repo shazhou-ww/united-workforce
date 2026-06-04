@@ -6,13 +6,7 @@ import { join } from "node:path";
 
 import { bootstrap, type Hash, type Store, type VarStore } from "@ocas/core";
 import { createFsStore, createSqliteVarStore } from "@ocas/fs";
-import type {
-  CasRef,
-  ThreadId,
-  ThreadIndexEntry,
-  ThreadListItem,
-  ThreadsIndex,
-} from "@united-workforce/protocol";
+import type { CasRef, ThreadId, ThreadIndexEntry, ThreadsIndex } from "@united-workforce/protocol";
 import { parseThreadsIndex } from "@united-workforce/protocol";
 import { parse } from "yaml";
 
@@ -25,7 +19,6 @@ export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 
 /** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
 export const THREAD_VAR_PREFIX = "@uwf/thread/";
-
 
 /** A workflow entry discovered from the project-local .workflows/ directory. */
 export type ProjectWorkflowEntry = {
@@ -153,7 +146,6 @@ export function getRegistryPath(storageRoot: string): string {
 export function getThreadsPath(storageRoot: string): string {
   return join(storageRoot, "threads.yaml");
 }
-
 
 export type UwfStore = {
   storageRoot: string;
@@ -386,7 +378,6 @@ export function completeThread(
   } as ThreadIndexEntry;
   setThread(varStore, threadId, completed);
 }
-
 
 type LegacyHistoryEntry = {
   thread: ThreadId;

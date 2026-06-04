@@ -72,8 +72,8 @@ async function markThreadRunning(storageRoot: string, threadId: ThreadId, workfl
 async function completeThread(
   storageRoot: string,
   threadId: ThreadId,
-  workflowHash: CasRef,
-  headHash: CasRef,
+  _workflowHash: CasRef,
+  _headHash: CasRef,
 ) {
   const uwfIdx = await createUwfStore(storageRoot);
   completeThreadInStore(uwfIdx.varStore, threadId, "completed");

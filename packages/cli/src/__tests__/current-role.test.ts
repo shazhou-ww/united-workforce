@@ -6,12 +6,7 @@ import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadList, cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
-import {
-  completeThread,
-  createUwfStore,
-  loadActiveThreads,
-  setThread,
-} from "../store.js";
+import { completeThread, createUwfStore, loadActiveThreads, setThread } from "../store.js";
 
 const OUTPUT_SCHEMA = {
   type: "object" as const,
@@ -287,11 +282,11 @@ describe("currentRole field", () => {
     try {
       const wf = join(tmpDir, "test-current-role.yaml");
       await writeFile(wf, SIMPLE_WORKFLOW_YAML, "utf8");
-      const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
+      const { thread } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
       const uwfForIndex = await createUwfStore(storageRoot);
-      const head = loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
+      loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
       completeThread(uwfForIndex.varStore, tid, "completed");
 
       const result = await cmdThreadShow(storageRoot, tid);
@@ -308,11 +303,11 @@ describe("currentRole field", () => {
     try {
       const wf = join(tmpDir, "test-current-role.yaml");
       await writeFile(wf, SIMPLE_WORKFLOW_YAML, "utf8");
-      const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
+      const { thread } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
       const uwfForIndex = await createUwfStore(storageRoot);
-      const head = loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
+      loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
       completeThread(uwfForIndex.varStore, tid, "cancelled");
 
       const result = await cmdThreadShow(storageRoot, tid);
@@ -329,7 +324,7 @@ describe("currentRole field", () => {
     try {
       const wf = join(tmpDir, "test-current-role.yaml");
       await writeFile(wf, SIMPLE_WORKFLOW_YAML, "utf8");
-      const { thread, workflow } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
+      const { thread } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
       const tid = thread as ThreadId;
 
       await createMarker(storageRoot, {
@@ -366,7 +361,7 @@ describe("currentRole field", () => {
       const comp = await cmdThreadStart(storageRoot, wf, "completed", tmpDir);
       const compId = comp.thread as ThreadId;
       const uwfForIndex = await createUwfStore(storageRoot);
-      const compHead = loadActiveThreads(uwfForIndex.varStore)[compId]!.head;
+      const _compHead = loadActiveThreads(uwfForIndex.varStore)[compId]!.head;
       completeThread(uwfForIndex.varStore, compId, "completed");
 
       const list = await cmdThreadList(storageRoot, null, null, null, 0, 100);

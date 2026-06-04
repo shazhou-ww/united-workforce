@@ -6,12 +6,7 @@ import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
-import {
-  completeThread,
-  createUwfStore,
-  loadAllThreads,
-  setThread,
-} from "../store.js";
+import { completeThread, createUwfStore, loadAllThreads, setThread } from "../store.js";
 
 const OUTPUT_SCHEMA = {
   type: "object" as const,
@@ -205,7 +200,7 @@ describe("thread show status field", () => {
     // Create a thread
     const startResult = await cmdThreadStart(storageRoot, workflowPath, "test prompt", tmpDir);
     const threadId = startResult.thread as ThreadId;
-    const workflow = startResult.workflow;
+    const _workflow = startResult.workflow;
 
     // Get the head hash before moving to history
     const uwfForIndex = await createUwfStore(storageRoot);
@@ -234,7 +229,7 @@ describe("thread show status field", () => {
     // Create a thread
     const startResult = await cmdThreadStart(storageRoot, workflowPath, "test prompt", tmpDir);
     const threadId = startResult.thread as ThreadId;
-    const workflow = startResult.workflow;
+    const _workflow = startResult.workflow;
 
     // Get the head hash before moving to history
     const uwfForIndex = await createUwfStore(storageRoot);
@@ -263,7 +258,7 @@ describe("thread show status field", () => {
     // Create a thread
     const startResult = await cmdThreadStart(storageRoot, workflowPath, "test prompt", tmpDir);
     const threadId = startResult.thread as ThreadId;
-    const workflow = startResult.workflow;
+    const _workflow = startResult.workflow;
 
     // Get the head hash before moving to history
     const uwfForIndex = await createUwfStore(storageRoot);
