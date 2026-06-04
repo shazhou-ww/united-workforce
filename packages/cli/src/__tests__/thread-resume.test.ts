@@ -491,7 +491,7 @@ describe("uwf thread resume - completed threads", () => {
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
 
     const workerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
     const reviewerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
@@ -654,7 +654,7 @@ echo '${adapterJson}'
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
     await seedThreads(tmpDir, {
       [THREAD_ID]: {
         head: startHash,
@@ -702,7 +702,7 @@ echo '${adapterJson}'
       cwd: tmpDir,
     });
 
-    process.env.OCAS_DIR = casDir;
+    process.env.OCAS_HOME = casDir;
     await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
     const result = runUwf(["thread", "resume", THREAD_ID], casDir);

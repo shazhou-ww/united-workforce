@@ -15,7 +15,7 @@ import {
 async function makeUwfStore(storageRoot: string) {
   const casDir = join(storageRoot, "cas");
   await mkdir(casDir, { recursive: true });
-  process.env.OCAS_DIR = casDir;
+  process.env.OCAS_HOME = casDir;
   return createUwfStore(storageRoot);
 }
 
