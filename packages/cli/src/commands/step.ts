@@ -66,6 +66,7 @@ export async function cmdStepList(
       agent: item.payload.agent,
       timestamp: item.timestamp,
       durationMs: item.payload.completedAtMs - item.payload.startedAtMs,
+      usage: item.payload.usage ?? null,
     });
   }
 

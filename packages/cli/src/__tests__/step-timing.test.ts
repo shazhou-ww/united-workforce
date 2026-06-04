@@ -96,6 +96,7 @@ describe("protocol types", () => {
       completedAtMs: 2000,
       assembledPrompt: null,
       cwd: "/test/path",
+      usage: null,
     };
     expect(record.startedAtMs).toBe(1000);
     expect(record.completedAtMs).toBe(2000);
@@ -110,6 +111,7 @@ describe("protocol types", () => {
       agent: "uwf-test",
       timestamp: 123,
       durationMs: 5000,
+      usage: null,
     };
     expect(entry.durationMs).toBe(5000);
   });

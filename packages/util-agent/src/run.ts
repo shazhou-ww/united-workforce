@@ -1,5 +1,5 @@
 import { getSchema, validate } from "@ocas/core";
-import type { CasRef, StepNodePayload, ThreadId } from "@united-workforce/protocol";
+import type { CasRef, StepNodePayload, ThreadId, Usage } from "@united-workforce/protocol";
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";
@@ -65,6 +65,7 @@ async function writeStepNode(options: {
   startedAtMs: number;
   completedAtMs: number;
   assembledPromptHash: CasRef | null;
+  usage: Usage | null;
 }): Promise<CasRef> {
   const payload: StepNodePayload = {
     start: options.startHash,
@@ -78,6 +79,7 @@ async function writeStepNode(options: {
     completedAtMs: options.completedAtMs,
     cwd: process.cwd(),
     assembledPrompt: options.assembledPromptHash,
+    usage: options.usage,
   };
   const hash = await options.store.cas.put(options.schemas.stepNode, payload);
   const node = options.store.cas.get(hash);
@@ -117,6 +119,7 @@ async function persistStep(options: {
   startedAtMs: number;
   completedAtMs: number;
   assembledPromptHash: CasRef | null;
+  usage: Usage | null;
 }): Promise<CasRef> {
   const { store, schemas, chain, headHash } = options.ctx.meta;
   return writeStepNode({
@@ -132,6 +135,7 @@ async function persistStep(options: {
     startedAtMs: options.startedAtMs,
     completedAtMs: options.completedAtMs,
     assembledPromptHash: options.assembledPromptHash,
+    usage: options.usage,
   });
 }
 
@@ -200,6 +204,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       );
     }
     const completedAtMs = Date.now();
+    const usage = agentResult.usage;
 
     // Store the assembled prompt in CAS for later inspection via `step read --prompt`
     const promptText = agentResult.assembledPrompt;
@@ -220,6 +225,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       startedAtMs,
       completedAtMs,
       assembledPromptHash,
+      usage,
     });
 
     const adapterOutput: AdapterOutput = {
@@ -230,6 +236,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       body: extracted.body,
       startedAtMs,
       completedAtMs,
+      usage,
     };
     process.stdout.write(`${JSON.stringify(adapterOutput)}\n`);
   };

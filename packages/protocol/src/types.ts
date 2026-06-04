@@ -22,6 +22,17 @@ export type StepRecord = {
   cwd: string;
   /** CAS ref to the fully assembled prompt sent to the agent. null for legacy steps. */
   assembledPrompt: CasRef | null;
+  /** Token usage statistics reported by the agent adapter. null for legacy steps. */
+  usage: Usage | null;
+};
+
+/** Token usage statistics reported by agent adapters. */
+export type Usage = {
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  /** Wall-clock duration in seconds. */
+  duration: number;
 };
 
 // ── 4.2 Workflow 定义 ───────────────────────────────────────────────
@@ -131,6 +142,7 @@ export type StepEntry = {
   agent: string;
   timestamp: number;
   durationMs: number;
+  usage: Usage | null;
 };
 
 /** uwf thread steps — start entry */

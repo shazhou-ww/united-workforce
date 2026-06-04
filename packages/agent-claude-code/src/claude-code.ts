@@ -145,7 +145,7 @@ async function processClaudeOutput(
       );
     }
 
-    return { output, detailHash, sessionId, assembledPrompt };
+    return { output, detailHash, sessionId, assembledPrompt, usage: null };
   }
 
   // Truly unparseable output - provide enhanced error message

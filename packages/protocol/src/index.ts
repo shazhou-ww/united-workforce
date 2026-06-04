@@ -44,6 +44,7 @@ export type {
   ThreadStatus,
   ThreadStepsOutput,
   ThreadsIndex,
+  Usage,
   WorkflowConfig,
   WorkflowName,
   WorkflowPayload,

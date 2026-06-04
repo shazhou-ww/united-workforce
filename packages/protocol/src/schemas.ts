@@ -91,6 +91,22 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
     assembledPrompt: {
       anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
     },
+    usage: {
+      anyOf: [
+        {
+          type: "object",
+          required: ["turns", "inputTokens", "outputTokens", "duration"],
+          properties: {
+            turns: { type: "integer" },
+            inputTokens: { type: "integer" },
+            outputTokens: { type: "integer" },
+            duration: { type: "number" },
+          },
+          additionalProperties: false,
+        },
+        { type: "null" },
+      ],
+    },
   },
   additionalProperties: false,
 };

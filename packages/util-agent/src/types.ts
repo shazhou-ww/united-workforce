@@ -1,5 +1,10 @@
 import type { Store } from "@ocas/core";
-import type { ModeratorContext, ThreadId, WorkflowPayload } from "@united-workforce/protocol";
+import type {
+  ModeratorContext,
+  ThreadId,
+  Usage,
+  WorkflowPayload,
+} from "@united-workforce/protocol";
 
 export type AgentContext = ModeratorContext & {
   threadId: ThreadId;
@@ -33,6 +38,8 @@ export type AgentRunResult = {
   sessionId: string;
   /** The fully assembled prompt that was sent to the agent. */
   assembledPrompt: string;
+  /** Token usage statistics for this run. null when the adapter does not report usage. */
+  usage: Usage | null;
 };
 
 export type AgentContinueFn = (
@@ -51,6 +58,7 @@ export type AdapterOutput = {
   body: string;
   startedAtMs: number;
   completedAtMs: number;
+  usage: Usage | null;
 };
 
 export type AgentOptions = {
