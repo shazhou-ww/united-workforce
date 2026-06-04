@@ -17,7 +17,7 @@ The root README should have these sections in order:
 4. **Packages** — table with ALL packages from packages/ directory, columns: Package, Description, Type (cli/lib/agent/app)
 5. **Quick Start** — install, build, register workflow, start thread, run step
 6. **CLI Reference** — brief command list, detailed usage in cli README
-7. **Development** — bun install / build / check / test
+7. **Development** — pnpm install / build / check / test
 
 ## Per-Package README Structure
 
@@ -26,7 +26,7 @@ Each package README should have:
 1. **Title** — package name
 2. **One-line description** — matching package.json
 3. **Overview** — what it does, where it sits in the architecture, dependencies
-4. **Installation** — bun add (for libs) or "included as binary" (for cli/agents)
+4. **Installation** — pnpm add (for libs) or "included as binary" (for cli/agents)
 5. **API** (lib packages) — all exports from src/index.ts with type signatures, grouped by category, minimal usage examples
 6. **CLI Usage** (cli/agent packages) — command reference with examples
 7. **Internal Structure** — brief src/ file organization
@@ -56,7 +56,7 @@ For each package read:
 - All relative links work
 - Package names match package.json
 - No references to removed/renamed packages
-- bun run build still passes
+- pnpm run build still passes
 
 ## Guidelines
 
