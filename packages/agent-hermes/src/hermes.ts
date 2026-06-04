@@ -1,4 +1,5 @@
 import type { Store } from "@ocas/core";
+import type { Usage } from "@united-workforce/protocol";
 import { createLogger } from "@united-workforce/util";
 import {
   type AgentContext,
@@ -111,14 +112,27 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
   async function runPrompt(ctx: AgentContext, useContinuation: boolean): Promise<AgentRunResult> {
     const effectiveCtx = useContinuation ? ctx : { ...ctx, isFirstVisit: true };
     const fullPrompt = buildHermesPrompt(effectiveCtx);
+    const startMs = Date.now();
     const { text, sessionId } = await client.prompt(fullPrompt);
+    const durationSec = (Date.now() - startMs) / 1000;
     const { detailHash } = await storePromptResult(ctx.store, sessionId);
 
     if (!resumeDisabled) {
       await setCachedSessionId(ctx.threadId, ctx.role, sessionId, ctx.storageRoot);
     }
 
-    return { output: text, detailHash, sessionId, assembledPrompt: fullPrompt, usage: null };
+    const session = await loadHermesSession(sessionId);
+    const turns =
+      session !== null ? session.messages.filter((m) => m.role === "assistant").length : 1;
+
+    const usage: Usage = {
+      turns,
+      inputTokens: 0,
+      outputTokens: 0,
+      duration: Math.round(durationSec),
+    };
+
+    return { output: text, detailHash, sessionId, assembledPrompt: fullPrompt, usage };
   }
 
   async function runHermes(ctx: AgentContext): Promise<AgentRunResult> {
@@ -147,9 +161,19 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
   ): Promise<AgentRunResult> {
     // Client is already connected from runHermes — same ACP session,
     // so the agent sees the full conversation history (crucial for retries).
+    const startMs = Date.now();
     const { text, sessionId } = await client.prompt(message);
+    const durationSec = (Date.now() - startMs) / 1000;
     const { detailHash } = await storePromptResult(store, sessionId);
-    return { output: text, detailHash, sessionId, assembledPrompt: "", usage: null };
+
+    const usage: Usage = {
+      turns: 1,
+      inputTokens: 0,
+      outputTokens: 0,
+      duration: Math.round(durationSec),
+    };
+
+    return { output: text, detailHash, sessionId, assembledPrompt: "", usage };
   }
 
   const agentMain = createAgent({
