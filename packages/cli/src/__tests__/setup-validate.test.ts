@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { cmdSetup, validateModel } from "../commands/setup.js";
 
 describe("validateModel", () => {
@@ -14,9 +14,9 @@ describe("validateModel", () => {
   });
 
   test("success path — returns ok on 200", async () => {
-    const mockFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
+    const mockFetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     const result = await validateModel(BASE_URL, API_KEY, MODEL);
 
@@ -86,9 +86,9 @@ describe("validateModel", () => {
   });
 
   test("request body correctness", async () => {
-    const mockFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
+    const mockFetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     await validateModel(BASE_URL, API_KEY, "my-special-model");
 
@@ -122,7 +122,9 @@ describe("cmdSetup with validation", () => {
   });
 
   test("includes validation result on success", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
 
     const result = await cmdSetup(setupArgs());
 

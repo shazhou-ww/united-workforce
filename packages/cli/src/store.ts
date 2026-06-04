@@ -330,11 +330,7 @@ export function getThread(varStore: VarStore, threadId: ThreadId): ThreadIndexEn
 }
 
 /** Set or update a single active thread entry. */
-export function setThread(
-  varStore: VarStore,
-  threadId: ThreadId,
-  entry: ThreadIndexEntry,
-): void {
+export function setThread(varStore: VarStore, threadId: ThreadId, entry: ThreadIndexEntry): void {
   const name = threadVarName(threadId);
   // Head CAS nodes may use different schemas (StartNode vs StepNode) — clear all variants first.
   varStore.remove(name);
@@ -423,10 +419,7 @@ export function loadAllHistory(varStore: VarStore): ThreadHistoryLine[] {
   }));
 }
 
-export function findHistoryEntry(
-  varStore: VarStore,
-  threadId: ThreadId,
-): ThreadHistoryLine | null {
+export function findHistoryEntry(varStore: VarStore, threadId: ThreadId): ThreadHistoryLine | null {
   const vars = varStore.list({ namePrefix: `${HISTORY_VAR_PREFIX}${threadId}` });
   const v = vars.find((entry) => entry.name === `${HISTORY_VAR_PREFIX}${threadId}`);
   if (v === undefined) {

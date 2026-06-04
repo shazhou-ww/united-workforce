@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { HermesAcpClient } from "../src/acp-client.js";
 
 describe("handleSessionUpdate — text extraction", () => {

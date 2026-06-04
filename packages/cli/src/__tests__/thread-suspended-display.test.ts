@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import type { ThreadId } from "@united-workforce/protocol";
 import { createThreadIndexEntry, markThreadSuspended } from "@united-workforce/protocol";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { cmdThreadList, cmdThreadShow } from "../commands/thread.js";
 import { createUwfStore } from "../store.js";
 import { seedThreads } from "./thread-test-helpers.js";

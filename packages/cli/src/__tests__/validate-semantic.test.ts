@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
 import type { WorkflowPayload } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { validateWorkflow } from "../validate-semantic.js";
 
 /** Build a valid two-role workflow that passes all checks. */

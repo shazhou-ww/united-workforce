@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 import type { AgentFrontmatter } from "../src/index.js";
 import { parseFrontmatterMarkdown, validateFrontmatter } from "../src/index.js";
 

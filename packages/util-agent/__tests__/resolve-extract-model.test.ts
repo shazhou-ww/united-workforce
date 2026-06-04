@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
 import type { WorkflowConfig } from "@united-workforce/protocol";
+import { describe, expect, test } from "vitest";
 import { resolveExtractModelAlias } from "../src/extract.js";
 
 function baseConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {

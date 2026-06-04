@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 import { env } from "../src/env.js";
 
 describe("env", () => {

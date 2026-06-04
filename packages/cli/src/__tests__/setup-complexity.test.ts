@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   _discoverAgents,
   _isBackspace,

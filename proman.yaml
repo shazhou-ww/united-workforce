@@ -1,0 +1,38 @@
+packages:
+  - name: "@united-workforce/protocol"
+    path: packages/protocol
+    type: lib
+
+  - name: "@united-workforce/util"
+    path: packages/util
+    type: lib
+
+  - name: "@united-workforce/util-agent"
+    path: packages/util-agent
+    type: lib
+
+  - name: "@united-workforce/agent-hermes"
+    path: packages/agent-hermes
+    type: cli
+
+  - name: "@united-workforce/agent-claude-code"
+    path: packages/agent-claude-code
+    type: cli
+
+  - name: "@united-workforce/agent-builtin"
+    path: packages/agent-builtin
+    type: cli
+
+  - name: "@united-workforce/cli"
+    path: packages/cli
+    type: cli
+
+  - name: "@united-workforce/dashboard"
+    path: packages/dashboard
+    type: webui
+    private: true
+
+release:
+  registry: https://registry.npmjs.org
+  access: public
+  gitTagPrefix: v
