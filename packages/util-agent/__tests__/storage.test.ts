@@ -1,14 +1,14 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  resolveStorageRoot,
-  getDefaultStorageRoot,
   getCasDir,
   getConfigPath,
+  getDefaultStorageRoot,
   getEnvPath,
   getGlobalCasDir,
   normalizeWorkflowConfig,
+  resolveStorageRoot,
 } from "../src/storage.js";
 
 const VALID_CONFIG = {
@@ -79,28 +79,33 @@ describe("normalizeWorkflowConfig", () => {
   });
 
   it("throws when defaultAgent missing", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultAgent: undefined }))
-      .toThrow("defaultAgent and defaultModel");
+    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultAgent: undefined })).toThrow(
+      "defaultAgent and defaultModel",
+    );
   });
 
   it("throws when defaultModel missing", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultModel: 42 }))
-      .toThrow("defaultAgent and defaultModel");
+    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultModel: 42 })).toThrow(
+      "defaultAgent and defaultModel",
+    );
   });
 
   it("throws on invalid providers entry", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, providers: { bad: "string" } }))
-      .toThrow("config.providers.bad must be a mapping");
+    expect(() =>
+      normalizeWorkflowConfig({ ...VALID_CONFIG, providers: { bad: "string" } }),
+    ).toThrow("config.providers.bad must be a mapping");
   });
 
   it("throws on invalid models entry", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, models: { m: { provider: 123, name: "x" } } }))
-      .toThrow("config.models.m requires provider and name");
+    expect(() =>
+      normalizeWorkflowConfig({ ...VALID_CONFIG, models: { m: { provider: 123, name: "x" } } }),
+    ).toThrow("config.models.m requires provider and name");
   });
 
   it("throws on invalid agents entry", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, agents: "bad" }))
-      .toThrow("config.agents must be a mapping");
+    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, agents: "bad" })).toThrow(
+      "config.agents must be a mapping",
+    );
   });
 
   it("returns null for undefined modelOverrides", () => {

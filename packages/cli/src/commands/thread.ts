@@ -1031,6 +1031,7 @@ function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _he
   completeThread(uwf.varStore, threadId, "completed");
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: orchestration function with inherent branching
 export async function cmdThreadResume(
   storageRoot: string,
   threadId: ThreadId,
@@ -1057,13 +1058,7 @@ export async function cmdThreadResume(
   if (entry.status === "completed" || entry.status === "cancelled") {
     status = entry.status;
   } else {
-    status = await resolveActiveThreadStatus(
-      storageRoot,
-      threadId,
-      uwf,
-      headHash,
-      workflowHash,
-    );
+    status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, headHash, workflowHash);
   }
 
   if (status !== "suspended" && status !== "completed") {
@@ -1278,7 +1273,7 @@ function resolveResumeStepTarget(
 }
 
 async function resolveModeratorStepTarget(
-  storageRoot: string,
+  _storageRoot: string,
   threadId: ThreadId,
   entry: ThreadIndexEntry,
   headHash: CasRef,
@@ -1347,7 +1342,7 @@ async function resolveModeratorStepTarget(
 }
 
 async function finalizeAgentStep(
-  storageRoot: string,
+  _storageRoot: string,
   threadId: ThreadId,
   workflowHash: CasRef,
   workflow: WorkflowPayload,

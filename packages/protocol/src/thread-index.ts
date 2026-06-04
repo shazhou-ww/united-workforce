@@ -21,7 +21,10 @@ export function normalizeThreadIndexEntry(raw: unknown): ThreadIndexEntry | null
     head: head as CasRef,
     suspendedRole: typeof suspendedRole === "string" ? suspendedRole : null,
     suspendMessage: typeof suspendMessage === "string" ? suspendMessage : null,
-    status: typeof status === "string" ? (status as "idle" | "running" | "suspended" | "completed" | "cancelled") : "idle",
+    status:
+      typeof status === "string"
+        ? (status as "idle" | "running" | "suspended" | "completed" | "cancelled")
+        : "idle",
     completedAt: typeof completedAt === "number" ? completedAt : null,
   };
 }
@@ -79,7 +82,12 @@ export function serializeThreadIndexEntry(
   entry: ThreadIndexEntry,
 ): string | Record<string, string | number> {
   // Compact string only for idle status with no suspend metadata
-  if (entry.status === "idle" && entry.suspendedRole === null && entry.suspendMessage === null && entry.completedAt === null) {
+  if (
+    entry.status === "idle" &&
+    entry.suspendedRole === null &&
+    entry.suspendMessage === null &&
+    entry.completedAt === null
+  ) {
     return entry.head;
   }
 
