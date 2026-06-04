@@ -1,0 +1,32 @@
+name: test-linear
+description: Simple 2-step linear test (planner -> worker -> $END)
+roles:
+  planner:
+    description: Plans work
+    goal: Plan the task
+    capabilities: []
+    procedure: Plan it
+    output: Output a plan and set $status to ready
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: ready }
+          required: [$status]
+  worker:
+    description: Does work
+    goal: Do the work
+    capabilities: []
+    procedure: Do it
+    output: Output the result and set $status to done
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: done }
+          required: [$status]
+graph:
+  $START:
+    _: { role: planner, prompt: 'Plan the task' }
+  planner:
+    ready: { role: worker, prompt: 'Do the work' }
+  worker:
+    done: { role: '$END', prompt: 'Done' }

@@ -1,0 +1,18 @@
+steps:
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      plan: test-plan-hash
+      repoPath: /tmp/test-repo
+      ---
+      Plan: implement the feature.
+
+  - role: developer
+    output: |
+      ---
+      $status: done
+      branch: fix/1-test
+      worktree: /tmp/worktree
+      ---
+      Implemented the feature.

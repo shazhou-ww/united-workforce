@@ -93,6 +93,28 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
+  packages/agent-mock:
+    dependencies:
+      '@ocas/core':
+        specifier: ^0.3.0
+        version: 0.3.0
+      '@united-workforce/protocol':
+        specifier: workspace:^
+        version: link:../protocol
+      '@united-workforce/util':
+        specifier: workspace:^
+        version: link:../util
+      '@united-workforce/util-agent':
+        specifier: workspace:^
+        version: link:../util-agent
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   packages/cli:
     dependencies:
       '@ocas/core':

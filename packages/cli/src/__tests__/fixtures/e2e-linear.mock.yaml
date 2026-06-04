@@ -1,0 +1,13 @@
+steps:
+  - role: planner
+    output: |
+      ---
+      $status: ready
+      ---
+      Planning complete.
+  - role: worker
+    output: |
+      ---
+      $status: done
+      ---
+      Work complete.
