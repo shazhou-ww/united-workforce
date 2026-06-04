@@ -222,41 +222,42 @@ Test files (`__tests__/**`) are exempt.
 
 | Tool | Purpose |
 |------|---------|
-| **bun** | Package manager + runtime |
+| **pnpm** | Package manager |
 | **TypeScript** | Type checking (strict mode) |
 | **Biome** | Lint + format (replaces ESLint + Prettier) |
-| **vitest** | Test runner (`cli` uses vitest; other packages use `bun test`) |
+| **vitest** | Test runner (all packages) |
 
 ### Development Workflow
 
 ```bash
 # ── Setup ──
-bun install                 # install all workspace dependencies
+pnpm install                # install all workspace dependencies
 
 # ── Daily development ──
-bun run build               # tsc --build (all packages, dependency order)
-bun run check               # tsc --build + biome check + lint-log-tags
-bun run format              # biome format --write
-bun test                    # run tests across all packages
+pnpm run build              # build all packages (dependency order)
+pnpm run check              # biome check + lint-log-tags
+pnpm run typecheck          # tsc --build
+pnpm run test               # run tests across all packages
 
 # ── Before committing ──
-bun run check               # must pass — typecheck + lint + log tag validation
-bun test                    # must pass — all package tests
+pnpm run check              # must pass — lint + log tag validation
+pnpm run typecheck          # must pass — type checking
+pnpm run test               # must pass — all package tests
 ```
 
 ### Publishing
 
-All public `@united-workforce/*` packages are published to **npmjs.org** with **fixed mode** (all packages share the same version number).
+All public `@united-workforce/*` packages are published to **npmjs.org** with **independent versioning**.
 
 ```bash
 # 1. Add a changeset describing the change
-bun changeset
+npx changeset
 
-# 2. Bump all package versions + generate CHANGELOGs
-bun version
+# 2. Bump versions + generate CHANGELOGs
+proman bump
 
-# 3. Build, test, and publish (runs scripts/publish-all.mjs)
-bun release
+# 3. Build, test, and publish
+proman publish
 
 # Or publish manually with a tag:
 node scripts/publish-all.mjs --tag alpha

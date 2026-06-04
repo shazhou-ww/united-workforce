@@ -470,7 +470,7 @@ Use the `ocas` CLI for direct CAS operations (`~/.ocas/` store, shared with `uwf
 
 | Tool | Purpose |
 |------|---------|
-| **bun** | Package manager + runtime |
+| **pnpm** | Package manager |
 | **TypeScript** | Type checking (strict mode) |
 | **Biome** | Lint + format |
 | **vitest** | Test runner |
