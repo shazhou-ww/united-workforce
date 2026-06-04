@@ -82,7 +82,13 @@ async function runBuiltinWithMessages(
 
   if (loopResult.turnCount === 0) {
     log("5RWTK9NB", "no turns produced, returning empty output");
-    return { output: "", detailHash: "", sessionId: session.sessionId, assembledPrompt: "" };
+    return {
+      output: "",
+      detailHash: "",
+      sessionId: session.sessionId,
+      assembledPrompt: "",
+      usage: null,
+    };
   }
 
   // Read jsonl → persist turns to CAS → store detail
@@ -99,6 +105,7 @@ async function runBuiltinWithMessages(
     detailHash,
     sessionId: session.sessionId,
     assembledPrompt: "",
+    usage: null,
   };
 }
 

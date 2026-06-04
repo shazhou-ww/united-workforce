@@ -132,6 +132,7 @@ async function buildHistory(
       completedAtMs: step.completedAtMs,
       cwd: step.cwd ?? "",
       assembledPrompt: step.assembledPrompt ?? null,
+      usage: step.usage ?? null,
       content,
     });
   }

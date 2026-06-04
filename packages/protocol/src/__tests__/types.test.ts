@@ -27,6 +27,7 @@ describe("Protocol types for thread/edge location", () => {
         completedAtMs: Date.now() + 1000,
         assembledPrompt: null,
         cwd: "/home/user/project",
+        usage: null,
       };
 
       expect(record.cwd).toBe("/home/user/project");

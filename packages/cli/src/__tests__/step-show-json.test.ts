@@ -118,6 +118,7 @@ async function createTestStep(
     completedAtMs: Date.now() + 1000,
     assembledPrompt: null,
     cwd: "/tmp",
+    usage: null,
   };
   return store.cas.put(schemas.stepNode, stepPayload);
 }
