@@ -28,9 +28,13 @@ roles:
       $status: "ready"
     frontmatter:
       type: object
-      required: ["$status"]
-      properties:
-        $status: { type: string, enum: ["ready", "not-ready"] }
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+          required: ["$status"]
+        - properties:
+            $status: { const: "not-ready" }
+          required: ["$status"]
   roleB:
     description: Second role
     goal: Do B
@@ -42,7 +46,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string, enum: ["done"] }
+        $status: { const: "done" }
 graph:
   $START:
     new:
@@ -82,9 +86,13 @@ roles:
       $status: "pass"
     frontmatter:
       type: object
-      required: ["$status"]
-      properties:
-        $status: { type: string, enum: ["pass", "fail"] }
+      oneOf:
+        - properties:
+            $status: { const: "pass" }
+          required: ["$status"]
+        - properties:
+            $status: { const: "fail" }
+          required: ["$status"]
   roleB:
     description: Pass role
     goal: Do B
@@ -96,7 +104,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string, enum: ["done"] }
+        $status: { const: "done" }
   roleC:
     description: Fail role
     goal: Do C
@@ -108,7 +116,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string, enum: ["done"] }
+        $status: { const: "done" }
 graph:
   $START:
     new:
@@ -155,7 +163,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string, enum: ["done"] }
+        $status: { const: "done" }
 graph:
   $START:
     new:

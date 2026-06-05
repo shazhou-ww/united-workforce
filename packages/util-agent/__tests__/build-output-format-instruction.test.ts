@@ -143,7 +143,7 @@ describe("buildOutputFormatInstruction", () => {
         {
           type: "object",
           properties: {
-            $status: { type: "string", enum: ["approved"] },
+            $status: { const: "approved" },
             branch: { type: "string" },
           },
           required: ["$status"],
@@ -151,7 +151,7 @@ describe("buildOutputFormatInstruction", () => {
         {
           type: "object",
           properties: {
-            $status: { type: "string", enum: ["rejected"] },
+            $status: { const: "rejected" },
             comments: { type: "string" },
           },
           required: ["$status"],

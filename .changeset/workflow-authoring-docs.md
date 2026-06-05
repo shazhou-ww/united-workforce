@@ -1,10 +1,15 @@
 ---
+"@united-workforce/cli": patch
 "@united-workforce/util": patch
 ---
 
-fix: workflow-authoring docs — add type:object to oneOf examples, clarify const vs enum rules (#123)
+fix: unify $status to const-only, drop enum support (#123)
 
-- All frontmatter examples include `type: object` (both flat and oneOf)
-- Restructure $status section: "Multi-exit (oneOf)" vs "Single-exit (flat schema)"
-- Add "Important rules" box: type:object required, const only in oneOf, enum in flat
-- Restore "Custom Fields" subsection
+Breaking: `$status` in frontmatter now requires `const` everywhere.
+`enum` is no longer accepted and will be rejected by the validator.
+
+- Validator: `hasStatusConst()` / `getConstStatuses()` replace enum-based checks
+- Error message: "must define $status as const (or oneOf with const)"
+- workflow-authoring docs: all examples use `const`, enum explicitly noted as unsupported
+- bootstrap hello.yaml: `$status: { const: done }`
+- All test fixtures migrated from enum to const/oneOf

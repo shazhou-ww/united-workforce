@@ -90,23 +90,21 @@ frontmatter:
       required: [$status, error]
 \`\`\`
 
-**Single-exit (flat schema)** — use \`enum\` (not \`const\`):
+**Single-exit (flat schema)** — same syntax, just no \`oneOf\` wrapper:
 
 \`\`\`yaml
 frontmatter:
   type: object
   properties:
-    $status:
-      type: string
-      enum: [done]
+    $status: { const: "done" }
     summary: { type: string }
   required: [$status, summary]
 \`\`\`
 
 **Important rules:**
 - \`type: object\` is **required** at the top level of frontmatter (both flat and oneOf)
-- In flat schemas, \`$status\` must use \`enum: [value]\`, NOT \`const: "value"\` — the validator rejects \`const\` outside of \`oneOf\` variants
-- In \`oneOf\` schemas, each variant's \`$status\` must use \`const: "value"\`
+- \`$status\` always uses \`const: "value"\` — simple and consistent
+- \`enum\` is **not supported** for \`$status\` — the validator will reject it
 
 ### Custom Fields
 

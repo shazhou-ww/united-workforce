@@ -24,22 +24,22 @@ function isOneOfSchema(fm: unknown): fm is SchemaObj & { oneOf: SchemaObj[] } {
   return Array.isArray(obj.oneOf);
 }
 
-/** Check if a frontmatter schema declares "$status" as an enum (the required form for user roles). */
-function hasStatusEnum(fm: unknown): boolean {
+/** Check if a frontmatter schema declares "$status" as const (flat schema form). */
+function hasStatusConst(fm: unknown): boolean {
   if (typeof fm !== "object" || fm === null) return false;
   const obj = fm as SchemaObj;
   const props = obj.properties as Record<string, SchemaObj> | undefined;
   if (!props?.$status) return false;
-  return Array.isArray(props.$status.enum);
+  return typeof props.$status.const === "string";
 }
 
-/** Extract status values from an enum-based $status field. */
-function getEnumStatuses(fm: SchemaObj): string[] {
+/** Extract status values from a const-based $status field. */
+function getConstStatuses(fm: SchemaObj): string[] {
   const props = fm.properties as Record<string, SchemaObj> | undefined;
   if (!props?.$status) return [];
   const statusDef = props.$status;
-  if (!Array.isArray(statusDef.enum)) return [];
-  return statusDef.enum as string[];
+  if (typeof statusDef.const === "string") return [statusDef.const];
+  return [];
 }
 
 /** Get property names from a schema object. */
@@ -248,21 +248,21 @@ function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void 
       checkOneOfDiscriminant(roleName, variants, statuses, errors);
       checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
       checkMultiExitMustache(roleName, graphEntry, variants, errors);
-    } else if (hasStatusEnum(fm)) {
-      const statuses = getEnumStatuses(fm as SchemaObj);
+    } else if (hasStatusConst(fm)) {
+      const statuses = getConstStatuses(fm as SchemaObj);
       checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
-      // For enum-based schemas, mustache vars come from the flat properties
-      checkEnumMustache(roleName, graphEntry, fm as SchemaObj, errors);
+      // For const-based flat schemas, mustache vars come from the flat properties
+      checkFlatMustache(roleName, graphEntry, fm as SchemaObj, errors);
     } else {
       errors.push(
-        `role "${roleName}" must define "$status" as an enum (or oneOf const) in frontmatter`,
+        `role "${roleName}" must define "$status" as const (or oneOf with const) in frontmatter`,
       );
     }
   }
 }
 
 /** Check mustache vars in all edge prompts against flat schema properties. */
-function checkEnumMustache(
+function checkFlatMustache(
   roleName: string,
   graphEntry: Record<string, { role: string; prompt: string }>,
   fm: SchemaObj,

@@ -17,7 +17,7 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
         frontmatter: {
           type: "object",
           properties: {
-            $status: { enum: ["done"] },
+            $status: { const: "done" },
             plan: { type: "string" },
           },
           required: ["$status", "plan"],
@@ -85,7 +85,7 @@ describe("Suite 1: Role Reference Integrity", () => {
       output: "None",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["done"] } },
+        properties: { $status: { const: "done" } },
         required: ["$status"],
       } as unknown as string,
     };
@@ -187,7 +187,7 @@ describe("Suite 2: Graph Structure", () => {
       output: "Isolated",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["done"] } },
+        properties: { $status: { const: "done" } },
         required: ["$status"],
       } as unknown as string,
     };
@@ -272,8 +272,8 @@ describe("Suite 3: Status-Edge Consistency", () => {
   });
 });
 
-describe("Suite 3b: Enum-Based Multi-Exit", () => {
-  test("3b.1 enum multi-exit passes with matching graph keys", () => {
+describe("Suite 3b: Enum-Based $status is Rejected", () => {
+  test("3b.1 enum multi-exit is rejected (must use oneOf + const)", () => {
     const wf = makeWorkflow();
     wf.roles.reviewer = {
       ...wf.roles.reviewer,
@@ -291,52 +291,10 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
       rejected: { role: "writer", prompt: "Fix: {{{comments}}}", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(errors).toEqual([]);
+    expect(errors.some((e) => e.includes("must define") && e.includes("const"))).toBe(true);
   });
 
-  test("3b.2 enum multi-exit with extra graph key", () => {
-    const wf = makeWorkflow();
-    wf.roles.reviewer = {
-      ...wf.roles.reviewer,
-      frontmatter: {
-        type: "object",
-        properties: {
-          $status: { enum: ["approved", "rejected"] },
-          comments: { type: "string" },
-        },
-        required: ["$status", "comments"],
-      } as unknown as string,
-    };
-    wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done", location: null },
-      rejected: { role: "writer", prompt: "Fix", location: null },
-      timeout: { role: "$END", prompt: "Timed out", location: null },
-    };
-    const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("extra status keys: timeout"))).toBe(true);
-  });
-
-  test("3b.3 enum multi-exit with missing graph key", () => {
-    const wf = makeWorkflow();
-    wf.roles.reviewer = {
-      ...wf.roles.reviewer,
-      frontmatter: {
-        type: "object",
-        properties: {
-          $status: { enum: ["approved", "rejected"] },
-          comments: { type: "string" },
-        },
-        required: ["$status", "comments"],
-      } as unknown as string,
-    };
-    wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done", location: null },
-    };
-    const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("missing status keys: rejected"))).toBe(true);
-  });
-
-  test("3b.4 enum with single explicit value passes", () => {
+  test("3b.2 enum single-exit is rejected (must use const)", () => {
     const wf = makeWorkflow();
     wf.roles.writer = {
       ...wf.roles.writer,
@@ -351,28 +309,71 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
     };
     wf.graph.writer = { ready: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } };
     const errors = validateWorkflow(wf);
-    expect(errors).toEqual([]);
+    expect(errors.some((e) => e.includes("must define") && e.includes("const"))).toBe(true);
   });
+});
 
-  test("3b.5 enum multi-exit mustache var not in frontmatter", () => {
+describe("Suite 3c: Const-Based Flat Schema", () => {
+  test("3c.1 flat schema with const $status passes validation", () => {
     const wf = makeWorkflow();
-    wf.roles.reviewer = {
-      ...wf.roles.reviewer,
+    wf.roles.writer = {
+      ...wf.roles.writer,
       frontmatter: {
         type: "object",
         properties: {
-          $status: { enum: ["approved", "rejected"] },
-          comments: { type: "string" },
+          $status: { const: "done" },
+          plan: { type: "string" },
         },
-        required: ["$status", "comments"],
+        required: ["$status", "plan"],
       } as unknown as string,
     };
-    wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done: {{{nonexistent}}}", location: null },
-      rejected: { role: "writer", prompt: "Fix: {{{comments}}}", location: null },
+    const errors = validateWorkflow(wf);
+    expect(errors).toEqual([]);
+  });
+
+  test("3c.2 flat schema with const $status detects extra graph key", () => {
+    const wf = makeWorkflow();
+    wf.roles.writer = {
+      ...wf.roles.writer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { const: "done" },
+          plan: { type: "string" },
+        },
+        required: ["$status", "plan"],
+      } as unknown as string,
+    };
+    wf.graph.writer = {
+      done: { role: "reviewer", prompt: "Review.", location: null },
+      extra: { role: "$END", prompt: "Nope.", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("nonexistent") && e.includes("not found"))).toBe(true);
+    expect(errors.some((e) => e.includes("extra status keys") && e.includes("extra"))).toBe(true);
+  });
+
+  test("3c.3 flat schema with const $status validates mustache vars", () => {
+    const wf = makeWorkflow();
+    wf.roles.writer = {
+      ...wf.roles.writer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { const: "done" },
+          plan: { type: "string" },
+        },
+        required: ["$status", "plan"],
+      } as unknown as string,
+    };
+    wf.graph.writer = {
+      done: { role: "reviewer", prompt: "Review: {{{nonexistent}}}", location: null },
+    };
+    const errors = validateWorkflow(wf);
+    expect(
+      errors.some(
+        (e) => e.includes('prompt variable "nonexistent"') && e.includes('role "writer"'),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -480,7 +481,7 @@ describe("Suite 6: Multiple Errors Collection", () => {
       output: "None",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["done"] } },
+        properties: { $status: { const: "done" } },
         required: ["$status"],
       } as unknown as string,
     };
