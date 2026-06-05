@@ -9,31 +9,25 @@ import {
   cmdPromptAdapterDeveloping,
   cmdPromptBootstrap,
   cmdPromptList,
-  cmdPromptSetup,
   cmdPromptUsage,
-  cmdPromptUsageReference,
   cmdPromptWorkflowAuthoring,
 } from "../commands/prompt.js";
 
 describe("prompt commands", () => {
-  test("prompt list returns new prompt names", () => {
+  test("prompt list returns prompt names (no bootstrap)", () => {
     const result = cmdPromptList();
     expect(result).toBeInstanceOf(Array);
     expect(result).toContain("usage");
     expect(result).toContain("workflow-authoring");
     expect(result).toContain("adapter-developing");
-    expect(result).toContain("bootstrap");
-    expect(result).not.toContain("user");
-    expect(result).not.toContain("author");
-    expect(result).not.toContain("developer");
-    expect(result).not.toContain("adapter");
+    expect(result).not.toContain("bootstrap");
     for (const name of result) {
       expect(name).toMatch(/^\S+$/);
     }
   });
 
-  test("prompt usage-reference returns non-empty markdown string with frontmatter", () => {
-    const result = cmdPromptUsageReference();
+  test("prompt usage returns only the usage reference with frontmatter", () => {
+    const result = cmdPromptUsage();
     expect(typeof result).toBe("string");
     expect(result).toContain("uwf");
     expect(result).toContain("thread");
@@ -42,6 +36,9 @@ describe("prompt commands", () => {
     expect(result).toContain("---");
     expect(result).toContain("name:");
     expect(result).toContain("version:");
+    // Should NOT contain other references
+    expect(result).not.toContain("Workflow Authoring Reference");
+    expect(result).not.toContain("Adapter Developing Reference");
     expect(result.length).toBeGreaterThan(500);
   });
 
@@ -71,44 +68,19 @@ describe("prompt commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("prompt bootstrap returns non-empty skill with frontmatter", () => {
+  test("prompt bootstrap returns framework-agnostic setup instructions", () => {
     const result = cmdPromptBootstrap();
     expect(typeof result).toBe("string");
-    expect(result).toContain("uwf");
-    expect(result).toContain("---");
-    expect(result.length).toBeGreaterThan(100);
-  });
-
-  test("prompt usage combines remaining references (no developer)", () => {
-    const result = cmdPromptUsage();
-    expect(typeof result).toBe("string");
-    expect(result).toContain("Usage Reference");
-    expect(result).toContain("Workflow Authoring Reference");
-    expect(result).toContain("Adapter Developing Reference");
-    expect(result).not.toContain("Developer Reference");
-    expect(result).toContain("---");
-    expect(result.length).toBeGreaterThan(2000);
-  });
-
-  test("prompt setup returns simplified setup instructions", () => {
-    const result = cmdPromptSetup();
-    expect(typeof result).toBe("string");
-    expect(result).toContain("uwf Skill Setup");
-    expect(result).toContain("uwf prompt bootstrap");
-    expect(result).toContain("SKILL.md");
-    expect(result).toContain("version");
-    expect(result).not.toMatch(/\bbun (install|run|test|changeset|version|release)\b/);
-  });
-
-  test("prompt setup references new subcommand names", () => {
-    const result = cmdPromptSetup();
     expect(result).toContain("uwf prompt usage");
     expect(result).toContain("uwf prompt workflow-authoring");
     expect(result).toContain("uwf prompt adapter-developing");
-    expect(result).not.toContain("uwf prompt user");
-    expect(result).not.toContain("uwf prompt author");
-    expect(result).not.toContain("uwf prompt developer");
-    expect(result).not.toMatch(/uwf prompt adapter\b(?!-developing)/);
+    expect(result).toContain("uwf-usage");
+    expect(result).toContain("uwf-workflow-authoring");
+    expect(result).toContain("uwf-adapter-developing");
+    // Should NOT contain Hermes-specific paths
+    expect(result).not.toContain("~/.hermes/skills/");
+    expect(result).not.toContain("> ~/.hermes/");
+    expect(result.length).toBeGreaterThan(100);
   });
 
   test("prompt help subcommand is suppressed", { timeout: 30_000 }, () => {
@@ -119,11 +91,12 @@ describe("prompt commands", () => {
     });
     expect(output).not.toMatch(/help\s+\[command\]/i);
     expect(output).toContain("usage");
-    expect(output).toContain("setup");
+    expect(output).toContain("bootstrap");
     expect(output).toContain("workflow-authoring");
     expect(output).toContain("adapter-developing");
-    expect(output).toContain("bootstrap");
     expect(output).toContain("list");
-    expect(output).not.toContain("developer");
+    // Removed subcommands should not appear as command names
+    expect(output).not.toMatch(/^\s+setup\s/m);
+    expect(output).not.toContain("usage-reference");
   });
 });
