@@ -99,7 +99,7 @@ export function checkWorkflowFilenameConsistency(
 ): string | null {
   const expected = workflowNameFromPath(filePath);
   if (payload.name !== expected) {
-    return `workflow name mismatch: file "${basename(filePath)}" implies name "${expected}" but YAML declares name "${payload.name}"`;
+    return `workflow name mismatch: file "${basename(filePath)}" implies name "${expected}" but YAML declares name "${payload.name}". Either rename the file to "${payload.name}.yaml" or change the YAML \`name\` field to "${expected}"`;
   }
   return null;
 }

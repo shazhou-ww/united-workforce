@@ -43,6 +43,11 @@ Install an agent adapter (at least one is required):
 | uwf-claude-code | \`npm install -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
 | uwf-builtin | \`npm install -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
 
+**uwf-hermes** also requires the Hermes ACP plugin. After installing \`hermes-agent\`, run:
+\`\`\`bash
+pip install hermes-agent[acp]   # or: pip install -e .[acp] if installed from source
+\`\`\`
+
 Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).
 
 ### Step 2 — Configure provider and model
@@ -81,20 +86,43 @@ Verify skills are installed by listing them (e.g. \`skills_list()\`) and confirm
 
 ### Step 4 — Verify end-to-end
 
-Run a quick smoke test with the built-in eval workflow:
+Create a minimal workflow file to test your setup:
 
 \`\`\`bash
-# Start a thread with the example workflow
-uwf thread start examples/eval-simple.yaml -p "Hello, test run"
+cat > /tmp/hello.yaml << 'YAML'
+name: hello
+description: Minimal smoke test
+roles:
+  greeter:
+    description: "Greet the user"
+    goal: "Respond with a friendly greeting"
+    capabilities: []
+    procedure: "Write a short greeting based on the prompt."
+    output: "A greeting message."
+    frontmatter:
+      type: object
+      properties:
+        $status: { enum: [done] }
+        message: { type: string }
+      required: [$status, message]
+graph:
+  $START:
+    new: { role: greeter, prompt: "Say hello to the user." }
+    resume: { role: greeter, prompt: "Greet the user again." }
+  greeter:
+    done: { role: "$END", prompt: "Done." }
+YAML
+\`\`\`
 
-# Execute one step
+Then run:
+
+\`\`\`bash
+uwf thread start /tmp/hello.yaml -p "Hello, world!"
 uwf thread exec <thread-id>
-
-# Check result
 uwf thread show <thread-id>
 \`\`\`
 
-If the thread reaches \`$END\` or produces output, the setup is working.
+If the thread reaches \`$END\` with status \`completed\`, the setup is working.
 
 ## Scenario B: Upgrade from Previous Version
 
