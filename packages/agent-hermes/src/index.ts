@@ -1,7 +1,8 @@
+export type { AcpUsage } from "./acp-client.js";
 export { HermesAcpClient } from "./acp-client.js";
 export {
   buildHermesPrompt,
-  computeUsageDelta,
+  buildUsage,
   createHermesAgent,
-  snapshotUsage,
+  snapshotTurns,
 } from "./hermes.js";
