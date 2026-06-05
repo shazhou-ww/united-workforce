@@ -71,12 +71,22 @@ describe("prompt commands", () => {
   test("prompt bootstrap returns framework-agnostic setup instructions", () => {
     const result = cmdPromptBootstrap();
     expect(typeof result).toBe("string");
+    // Skills installation
     expect(result).toContain("uwf prompt usage");
     expect(result).toContain("uwf prompt workflow-authoring");
     expect(result).toContain("uwf prompt adapter-developing");
     expect(result).toContain("uwf-usage");
     expect(result).toContain("uwf-workflow-authoring");
     expect(result).toContain("uwf-adapter-developing");
+    // Fresh install scenario
+    expect(result).toContain("Fresh Install");
+    expect(result).toContain("uwf setup");
+    expect(result).toContain("--provider");
+    expect(result).toContain("--api-key");
+    expect(result).toContain("agent adapter");
+    // Upgrade scenario
+    expect(result).toContain("Upgrade");
+    expect(result).toContain("Migrate");
     // Should NOT contain Hermes-specific paths
     expect(result).not.toContain("~/.hermes/skills/");
     expect(result).not.toContain("> ~/.hermes/");

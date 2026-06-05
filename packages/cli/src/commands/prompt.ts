@@ -22,33 +22,126 @@ export function cmdPromptList(): ReadonlyArray<string> {
 }
 
 export function cmdPromptBootstrap(): string {
-  return `# uwf Skill Bootstrap
+  return `# uwf Bootstrap
 
-Install or update the uwf (United Workforce) skills for your agent.
+Set up or upgrade uwf (United Workforce) — from zero to running your first workflow.
 
-## Steps
+## Scenario A: Fresh Install
 
-1. **Check if uwf CLI is installed:**
-   \`\`\`bash
-   uwf --help
-   \`\`\`
-   If not installed: \`npm install -g @united-workforce/cli\`
-   Current version: ${VERSION}
+### Step 1 — Install CLI and agent adapter
 
-2. **Install the skills** by running each command below and creating a skill from its output:
-   - Run \`uwf prompt usage\` → create a skill named \`uwf-usage\`
-   - Run \`uwf prompt workflow-authoring\` → create a skill named \`uwf-workflow-authoring\`
-   - Run \`uwf prompt adapter-developing\` → create a skill named \`uwf-adapter-developing\`
+\`\`\`bash
+npm install -g @united-workforce/cli
+uwf --version   # should print ${VERSION}
+\`\`\`
 
-   Each command outputs a complete SKILL.md with YAML frontmatter — use your agent framework's skill creation API to save them.
+Install an agent adapter (at least one is required):
 
-3. **Verify** the skills are loadable by your agent framework.
+| Adapter | Install | When to use |
+|---------|---------|-------------|
+| uwf-hermes | \`npm install -g @united-workforce/agent-hermes\` | When your agent framework is Hermes Agent |
+| uwf-claude-code | \`npm install -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
+| uwf-builtin | \`npm install -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
 
-## Updating
+Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).
 
-When \`uwf\` is upgraded, re-run \`uwf prompt bootstrap\` and follow the steps again.
-The skill content is bundled with the CLI — always use \`uwf prompt <name>\` to get
-content matching your installed version.
+### Step 2 — Configure provider and model
+
+uwf needs an LLM provider to run agents. **Ask the user** for their provider, API key, and model, then run:
+
+\`\`\`bash
+uwf setup --provider <name> --base-url <url> --api-key <key> --model <model> [--agent <adapter>]
+\`\`\`
+
+Preset providers (base-url is auto-filled when using a preset name):
+openai, xai, openrouter, venice, dashscope, deepseek, siliconflow, volcengine, kimi, glm, stepfun, minimax, ollama
+
+Example:
+\`\`\`bash
+uwf setup --provider openrouter --api-key sk-or-... --model anthropic/claude-sonnet-4 --agent uwf-hermes
+\`\`\`
+
+If the user doesn't know what to choose, suggest \`openrouter\` with \`anthropic/claude-sonnet-4\` as a sensible default.
+
+Config is saved to \`~/.uwf/config.yaml\`. Verify with \`cat ~/.uwf/config.yaml\`.
+
+### Step 3 — Install skills
+
+Run each command and create a skill from its output:
+
+\`\`\`bash
+uwf prompt usage               # → save as skill "uwf-usage"
+uwf prompt workflow-authoring  # → save as skill "uwf-workflow-authoring"
+uwf prompt adapter-developing  # → save as skill "uwf-adapter-developing"
+\`\`\`
+
+Each command outputs a complete SKILL.md with YAML frontmatter. Use your agent framework's skill creation API to save them (e.g. \`skill_manage(action='create', name='uwf-usage', content=<output>)\`).
+
+Verify skills are installed by listing them (e.g. \`skills_list()\`) and confirming all three appear.
+
+### Step 4 — Verify end-to-end
+
+Run a quick smoke test with the built-in eval workflow:
+
+\`\`\`bash
+# Start a thread with the example workflow
+uwf thread start examples/eval-simple.yaml -p "Hello, test run"
+
+# Execute one step
+uwf thread exec <thread-id>
+
+# Check result
+uwf thread show <thread-id>
+\`\`\`
+
+If the thread reaches \`$END\` or produces output, the setup is working.
+
+## Scenario B: Upgrade from Previous Version
+
+### Step 1 — Update packages
+
+\`\`\`bash
+npm install -g @united-workforce/cli@latest
+uwf --version   # should print ${VERSION}
+
+# Also update your adapter(s)
+npm install -g @united-workforce/agent-hermes@latest
+\`\`\`
+
+### Step 2 — Regenerate skills
+
+Skill content is bundled with the CLI — always regenerate after upgrading:
+
+\`\`\`bash
+uwf prompt usage               # → update skill "uwf-usage"
+uwf prompt workflow-authoring  # → update skill "uwf-workflow-authoring"
+uwf prompt adapter-developing  # → update skill "uwf-adapter-developing"
+\`\`\`
+
+### Step 3 — Migrate workflow YAML files (if needed)
+
+Check the changelog for breaking changes. Known migrations:
+
+- **v0.2.0**: \`$START._\` → \`$START.new\` + \`$START.resume\`. All workflow YAML files must be updated:
+  \`\`\`yaml
+  # Before (v0.1.x)
+  $START:
+    _: { role: planner, prompt: "..." }
+
+  # After (v0.2.0+)
+  $START:
+    new: { role: planner, prompt: "..." }
+    resume: { role: planner, prompt: "Review previous run and continue." }
+  \`\`\`
+
+Update all \`.workflow/\` and \`.workflows/\` YAML files in your projects. \`uwf workflow add\` will reject files with the old \`_\` syntax.
+
+### Step 4 — Verify
+
+\`\`\`bash
+uwf thread start <your-workflow> -p "upgrade test"
+uwf thread exec <thread-id>
+\`\`\`
 
 ## Available prompts
 
@@ -57,6 +150,7 @@ uwf prompt list                # list available prompt names
 uwf prompt usage               # CLI usage guide
 uwf prompt workflow-authoring  # workflow YAML design guide
 uwf prompt adapter-developing  # building agent adapters
+uwf prompt bootstrap           # this guide
 \`\`\`
 `;
 }
