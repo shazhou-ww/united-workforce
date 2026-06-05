@@ -103,9 +103,16 @@ Install an agent adapter (at least one is required):
 | uwf-claude-code | \`pnpm add -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
 | uwf-builtin | \`pnpm add -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
 
-**uwf-hermes** also requires the Hermes ACP plugin. After installing \`hermes-agent\`, run:
+**uwf-hermes** also requires the Hermes ACP plugin:
 \`\`\`bash
-pip install hermes-agent[acp]   # or: pip install -e .[acp] if installed from source
+# Option A: install into hermes venv (recommended)
+source ~/.hermes/hermes-agent/.venv/bin/activate && pip install hermes-agent[acp]
+
+# Option B: pipx
+pipx install 'hermes-agent[acp]'
+
+# Option C: if installed from source
+pip install -e '.[acp]'
 \`\`\`
 
 Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).

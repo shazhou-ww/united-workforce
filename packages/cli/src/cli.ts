@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 
 import type { CasRef, ThreadId, ThreadStatus } from "@united-workforce/protocol";
 import { Command } from "commander";
@@ -542,7 +542,7 @@ prompt
 
 program
   .command("setup")
-  .description("Configure provider, model, and agent")
+  .description("Configure provider, model, and agent. Run without options for interactive wizard.")
   .option("--provider <name>", "Provider name")
   .option("--base-url <url>", "OpenAI-compatible API base URL")
   .option("--api-key <key>", "API key")
