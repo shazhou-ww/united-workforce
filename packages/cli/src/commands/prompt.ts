@@ -90,18 +90,39 @@ which hermes
 
 ### Step 1 — Install CLI and agent adapter
 
+Install the CLI using **either** pnpm or npm:
+
 \`\`\`bash
-pnpm add -g @united-workforce/cli    # or: npm install -g @united-workforce/cli
+# Using pnpm (recommended)
+pnpm add -g @united-workforce/cli
+
+# Using npm
+npm install -g @united-workforce/cli
+\`\`\`
+
+Verify the CLI is available:
+
+\`\`\`bash
 uwf --version   # should print ${CLI_VERSION}
 \`\`\`
 
-Install an agent adapter (at least one is required):
+If \`uwf\` is not found, your global bin directory is not in PATH — go back to Step 0 check #3.
 
-| Adapter | Install | When to use |
-|---------|---------|-------------|
-| uwf-hermes | \`pnpm add -g @united-workforce/agent-hermes\` | When your agent framework is Hermes Agent |
-| uwf-claude-code | \`pnpm add -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
-| uwf-builtin | \`pnpm add -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
+Next, install an agent adapter (**must be installed before running \`uwf setup --agent\`**):
+
+| Adapter | Install (pnpm / npm) | When to use |
+|---------|----------------------|-------------|
+| uwf-hermes | \`pnpm add -g @united-workforce/agent-hermes\` / \`npm i -g @united-workforce/agent-hermes\` | When your agent framework is Hermes Agent |
+| uwf-claude-code | \`pnpm add -g @united-workforce/agent-claude-code\` / \`npm i -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
+| uwf-builtin | \`pnpm add -g @united-workforce/agent-builtin\` / \`npm i -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
+
+Verify the adapter is installed:
+
+\`\`\`bash
+uwf-hermes --version   # (or uwf-claude-code / uwf-builtin)
+\`\`\`
+
+If the command is not found, check your global bin PATH (Step 0 check #3).
 
 **uwf-hermes** also requires the Hermes ACP plugin:
 \`\`\`bash
@@ -115,18 +136,35 @@ pipx install 'hermes-agent[acp]'
 pip install -e '.[acp]'
 \`\`\`
 
-Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).
-
 ### Step 2 — Configure provider and model
 
 uwf needs an LLM provider to run agents. **Ask the user** for their provider, API key, and model, then run:
 
 \`\`\`bash
-uwf setup --provider <name> --base-url <url> --api-key <key> --model <model> [--agent <adapter>]
+uwf setup --provider <name> --api-key <key> --model <model> --agent <adapter-command>
 \`\`\`
 
-Preset providers (base-url is auto-filled when using a preset name):
-openai, xai, openrouter, venice, dashscope, deepseek, siliconflow, volcengine, kimi, glm, stepfun, minimax, ollama
+**Note:** \`--agent\` takes the adapter **command name** (e.g. \`uwf-hermes\`), not the npm package name.
+
+**Preset providers** — when using a preset name, \`--base-url\` is auto-filled and can be omitted:
+
+| Provider | Name | Default base URL |
+|----------|------|-----------------|
+| OpenAI | \`openai\` | https://api.openai.com/v1 |
+| xAI | \`xai\` | https://api.x.ai/v1 |
+| OpenRouter | \`openrouter\` | https://openrouter.ai/api/v1 |
+| Venice | \`venice\` | https://api.venice.ai/api/v1 |
+| Dashscope | \`dashscope\` | https://dashscope.aliyuncs.com/compatible-mode/v1 |
+| DeepSeek | \`deepseek\` | https://api.deepseek.com/v1 |
+| SiliconFlow | \`siliconflow\` | https://api.siliconflow.cn/v1 |
+| VolcEngine | \`volcengine\` | https://ark.cn-beijing.volces.com/api/v3 |
+| Kimi (Moonshot) | \`kimi\` | https://api.moonshot.cn/v1 |
+| GLM (Zhipu AI) | \`glm\` | https://open.bigmodel.cn/api/paas/v4 |
+| StepFun | \`stepfun\` | https://api.stepfun.com/v1 |
+| MiniMax | \`minimax\` | https://api.minimax.io/v1 |
+| Ollama (local) | \`ollama\` | http://localhost:11434/v1 |
+
+For **non-preset providers**, you must specify \`--base-url\` manually.
 
 Example:
 \`\`\`bash
@@ -196,11 +234,25 @@ If the thread reaches \`$END\` with status \`completed\`, the setup is working.
 ### Step 1 — Update packages
 
 \`\`\`bash
-pnpm add -g @united-workforce/cli@latest    # or: npm install -g @united-workforce/cli@latest
-uwf --version   # should print ${CLI_VERSION}
+# Using pnpm
+pnpm add -g @united-workforce/cli@latest
 
-# Also update your adapter(s)
+# Using npm
+npm install -g @united-workforce/cli@latest
+\`\`\`
+
+\`\`\`bash
+uwf --version   # should print ${CLI_VERSION}
+\`\`\`
+
+Also update your adapter(s):
+
+\`\`\`bash
+# pnpm
 pnpm add -g @united-workforce/agent-hermes@latest
+
+# npm
+npm install -g @united-workforce/agent-hermes@latest
 \`\`\`
 
 ### Step 2 — Regenerate skills
