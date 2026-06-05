@@ -100,14 +100,6 @@ pnpm add -g @united-workforce/cli
 npm install -g @united-workforce/cli
 \`\`\`
 
-Verify the CLI is available:
-
-\`\`\`bash
-uwf --version   # should print ${CLI_VERSION}
-\`\`\`
-
-If \`uwf\` is not found, your global bin directory is not in PATH — go back to Step 0 check #3.
-
 Next, install an agent adapter (**must be installed before running \`uwf setup --agent\`**):
 
 | Adapter | Install (pnpm / npm) | When to use |
@@ -116,13 +108,25 @@ Next, install an agent adapter (**must be installed before running \`uwf setup -
 | uwf-claude-code | \`pnpm add -g @united-workforce/agent-claude-code\` / \`npm i -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
 | uwf-builtin | \`pnpm add -g @united-workforce/agent-builtin\` / \`npm i -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
 
-Verify the adapter is installed:
+**After installing, verify that \`uwf\` and the adapter command (e.g. \`uwf-hermes\`) are available in PATH.** Run:
 
 \`\`\`bash
+uwf --version          # should print ${CLI_VERSION}
 uwf-hermes --version   # (or uwf-claude-code / uwf-builtin)
 \`\`\`
 
-If the command is not found, check your global bin PATH (Step 0 check #3).
+If either command is not found, the global bin directory is not in the current shell's PATH. **You must fix this before continuing:**
+
+1. Find where the binary was installed:
+   \`\`\`bash
+   find ~/.local ~/.hermes /usr/local -name uwf -type f 2>/dev/null
+   npm prefix -g    # global prefix — bin is <prefix>/bin
+   \`\`\`
+2. Add the directory to PATH permanently by appending to the user's shell config (e.g. \`~/.bashrc\`, \`~/.zshrc\`, \`~/.profile\`, or fish config):
+   \`\`\`bash
+   export PATH="<global-bin-dir>:$PATH"
+   \`\`\`
+3. Source the updated config or open a new shell, then re-verify the commands work.
 
 **uwf-hermes** also requires the Hermes ACP plugin:
 \`\`\`bash
