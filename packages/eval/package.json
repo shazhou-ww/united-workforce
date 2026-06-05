@@ -1,0 +1,46 @@
+{
+  "name": "@united-workforce/eval",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "src",
+    "dist",
+    "package.json"
+  ],
+  "type": "module",
+  "bin": {
+    "uwf-eval": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
+    "test": "vitest run __tests__/",
+    "test:ci": "vitest run __tests__/"
+  },
+  "dependencies": {
+    "@ocas/core": "^0.3.0",
+    "@ocas/fs": "^0.3.0",
+    "@united-workforce/protocol": "workspace:^",
+    "@united-workforce/util": "workspace:^",
+    "commander": "^14.0.3",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.shazhou.work/shazhou/united-workforce.git",
+    "directory": "packages/eval"
+  },
+  "homepage": "https://git.shazhou.work/shazhou/united-workforce#readme",
+  "bugs": {
+    "url": "https://git.shazhou.work/shazhou/united-workforce/issues"
+  },
+  "license": "MIT"
+}
