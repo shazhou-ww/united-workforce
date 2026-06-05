@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 
 // eslint-disable-next-line -- dynamic import for version
 const pkg = await import("../package.json", { with: { type: "json" } });
