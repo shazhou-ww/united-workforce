@@ -48,6 +48,11 @@ Install an agent adapter (at least one is required):
 pip install hermes-agent[acp]   # or: pip install -e .[acp] if installed from source
 \`\`\`
 
+Verify \`hermes\` is in your PATH: \`which hermes\`. If Hermes is installed in a virtualenv (e.g. \`~/.hermes/hermes-agent/.venv/\`), activate it or add the bin directory to PATH:
+\`\`\`bash
+export PATH="$HOME/.hermes/hermes-agent/.venv/bin:$PATH"
+\`\`\`
+
 Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).
 
 ### Step 2 — Configure provider and model

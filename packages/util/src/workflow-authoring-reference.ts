@@ -92,15 +92,20 @@ Add any fields you need for data passing between roles. These are available in e
 
 ### Flat Schema (Single Status)
 
-When a role has only one outcome:
+When a role has only one outcome, use \`enum\` with a single value:
 
 \`\`\`yaml
 frontmatter:
+  type: object
   properties:
-    $status: { const: "done" }
+    $status:
+      type: string
+      enum: [done]
     summary: { type: string }
   required: [$status, summary]
 \`\`\`
+
+Note: \`$status: { const: "done" }\` is **not** valid in flat schemas — the validator requires \`enum\` or \`oneOf\` with \`const\`. Use \`const\` only inside \`oneOf\` variants.
 
 ## Graph Routing
 
