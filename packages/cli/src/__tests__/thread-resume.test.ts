@@ -70,7 +70,10 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
       },
     },
     graph: {
-      $START: { _: { role: "worker", prompt: "Start work", location: null } },
+      $START: {
+        new: { role: "worker", prompt: "Start work", location: null },
+        resume: { role: "worker", prompt: "Resume the work", location: null },
+      },
       worker: {
         needs_input: {
           role: "$SUSPEND",
@@ -233,7 +236,10 @@ describe("uwf thread resume", () => {
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "Start", location: null } },
+        $START: {
+          new: { role: "worker", prompt: "Start", location: null },
+          resume: { role: "worker", prompt: "Resume", location: null },
+        },
         worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
@@ -479,7 +485,10 @@ describe("uwf thread resume - completed threads", () => {
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "Start work", location: null } },
+        $START: {
+          new: { role: "worker", prompt: "Start work", location: null },
+          resume: { role: "worker", prompt: "Resume the work", location: null },
+        },
         worker: { done: { role: "reviewer", prompt: "Review the work", location: null } },
         reviewer: { done: { role: "$END", prompt: "Done", location: null } },
       },
@@ -610,7 +619,7 @@ echo '${adapterJson}'
     expect(cliOutput.done).toBe(false);
 
     const capturedPrompt = await readFile(promptCapturePath, "utf8");
-    expect(capturedPrompt).toContain("Previous run completed");
+    expect(capturedPrompt).toContain("Resume the work");
     expect(capturedPrompt).toContain("Additional context");
 
     const storeModule = await import("../store.js");
@@ -640,7 +649,10 @@ echo '${adapterJson}'
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "Start", location: null } },
+        $START: {
+          new: { role: "worker", prompt: "Start", location: null },
+          resume: { role: "worker", prompt: "Resume", location: null },
+        },
         worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
@@ -688,7 +700,10 @@ echo '${adapterJson}'
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "Start", location: null } },
+        $START: {
+          new: { role: "worker", prompt: "Start", location: null },
+          resume: { role: "worker", prompt: "Resume", location: null },
+        },
         worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });

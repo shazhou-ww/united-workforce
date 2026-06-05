@@ -53,7 +53,8 @@ roles:
       required: [$status, argument]
 graph:
   $START:
-    _: { role: "against", prompt: "Present your opening argument against the proposition." }
+    new: { role: "against", prompt: "Present your opening argument against the proposition." }
+    resume: { role: "against", prompt: "Review the previous debate output and continue the argument against the proposition." }
   against:
     conceded: { role: "$END", prompt: "The against side conceded. Debate over." }
     continue: { role: "for", prompt: "Counter the opposing argument: {{{argument}}}" }

@@ -18,7 +18,8 @@ roles:
           required: [$status]
 graph:
   $START:
-    _: { role: planner, prompt: 'Analyze the task' }
+    new: { role: planner, prompt: 'Analyze the task' }
+    resume: { role: planner, prompt: 'Review the previous run output and continue the work.' }
   planner:
     insufficient_info: { role: '$SUSPEND', prompt: 'Need more info: {{{reason}}}' }
     ready: { role: '$END', prompt: 'Done' }

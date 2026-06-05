@@ -264,7 +264,8 @@ roles:
 
 graph:
   $START:
-    _: { role: "bootstrap", prompt: "Set up the Docker container and verify uwf is runnable." }
+    new: { role: "bootstrap", prompt: "Set up the Docker container and verify uwf is runnable." }
+    resume: { role: "bootstrap", prompt: "Review the previous run output and continue the walkthrough." }
   bootstrap:
     pass: { role: "config-and-registry", prompt: "Container {{{containerName}}} is ready. Validate config and workflow registration." }
     fail: { role: "$END", prompt: "Bootstrap failed: {{{error}}}. No container was created." }

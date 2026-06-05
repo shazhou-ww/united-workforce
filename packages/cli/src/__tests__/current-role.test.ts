@@ -45,9 +45,13 @@ roles:
         $status: { type: string, enum: ["done"] }
 graph:
   $START:
-    _:
+    new:
       role: roleA
       prompt: "Do A"
+      location: null
+    resume:
+      role: roleA
+      prompt: "Resume A"
       location: null
   roleA:
     ready:
@@ -107,9 +111,13 @@ roles:
         $status: { type: string, enum: ["done"] }
 graph:
   $START:
-    _:
+    new:
       role: roleA
       prompt: "Do A"
+      location: null
+    resume:
+      role: roleA
+      prompt: "Resume A"
       location: null
   roleA:
     pass:
@@ -150,9 +158,13 @@ roles:
         $status: { type: string, enum: ["done"] }
 graph:
   $START:
-    _:
+    new:
       role: worker
       prompt: "Work"
+      location: null
+    resume:
+      role: worker
+      prompt: "Resume work"
       location: null
   worker:
     done:

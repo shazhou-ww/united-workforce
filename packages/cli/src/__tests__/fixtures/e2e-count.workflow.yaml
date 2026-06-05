@@ -36,7 +36,8 @@ roles:
           required: [$status]
 graph:
   $START:
-    _: { role: analyst, prompt: 'Analyze the task' }
+    new: { role: analyst, prompt: 'Analyze the task' }
+    resume: { role: analyst, prompt: 'Review the previous run output and continue the work.' }
   analyst:
     analyzed: { role: developer, prompt: 'Implement the change' }
   developer:

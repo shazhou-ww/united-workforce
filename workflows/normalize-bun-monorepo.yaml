@@ -21,9 +21,12 @@ graph:
       role: package-metadata
       prompt: Biome setup failed ({{{reason}}}), but continue. Standardize package metadata for repo at {{{repoPath}}}.
   $START:
-    _:
+    new:
       role: workspace
       prompt: Set up bun workspace structure for repo at {{{repoPath}}}.
+    resume:
+      role: workspace
+      prompt: Review the previous run output and continue setting up the bun workspace structure for repo at {{{repoPath}}}.
   release:
     done:
       role: testing

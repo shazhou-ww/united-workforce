@@ -911,7 +911,7 @@ function resolveEvaluateArgs(
   chain: ChainState,
 ): { lastRole: string; lastOutput: EvaluateLastOutput } {
   if (chain.headIsStart) {
-    return { lastRole: START_ROLE, lastOutput: { [STATUS_KEY]: "_" } };
+    return { lastRole: START_ROLE, lastOutput: { [STATUS_KEY]: "new" } };
   }
 
   const lastStep = chain.stepsNewestFirst[0];
@@ -1037,7 +1037,6 @@ function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _he
   completeThread(uwf.varStore, threadId, "completed");
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: orchestration function with inherent branching
 export async function cmdThreadResume(
   storageRoot: string,
   threadId: ThreadId,
@@ -1101,7 +1100,7 @@ export async function cmdThreadResume(
 
   // status === "completed"
   const workflow = loadWorkflowPayload(uwf, workflowHash);
-  const startResult = evaluate(workflow.graph, START_ROLE, {});
+  const startResult = evaluate(workflow.graph, START_ROLE, { [STATUS_KEY]: "resume" });
   if (!startResult.ok) {
     fail(`failed to evaluate $START: ${startResult.error.message}`);
   }
@@ -1113,11 +1112,7 @@ export async function cmdThreadResume(
   }
 
   const startRole = startResult.value.role;
-  const completedPromptPrefix = "Previous run completed. Resuming with additional context.";
-  const completedResumePrompt =
-    supplement !== null && supplement !== ""
-      ? `${completedPromptPrefix}\n\n${supplement}`
-      : completedPromptPrefix;
+  const completedResumePrompt = buildResumePrompt(startResult.value.prompt, supplement);
 
   const updatedEntry = { ...entry, status: "idle" as const, completedAt: null };
   setThread(uwf.varStore, threadId, updatedEntry);

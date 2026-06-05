@@ -25,6 +25,7 @@ roles:
       required: [$status, summary]
 graph:
   $START:
-    _: { role: "fixer", prompt: "Fix the code issue described in the task prompt." }
+    new: { role: "fixer", prompt: "Fix the code issue described in the task prompt." }
+    resume: { role: "fixer", prompt: "Review the previous run output and continue fixing the code issue." }
   fixer:
     done: { role: "$END", prompt: "Fix complete." }

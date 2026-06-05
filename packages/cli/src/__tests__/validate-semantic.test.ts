@@ -51,7 +51,10 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
       },
     },
     graph: {
-      $START: { _: { role: "writer", prompt: "Begin writing", location: null } },
+      $START: {
+        new: { role: "writer", prompt: "Begin writing", location: null },
+        resume: { role: "writer", prompt: "Review previous output and continue", location: null },
+      },
       writer: { done: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null } },
       reviewer: {
         approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
@@ -135,25 +138,36 @@ describe("Suite 2: Graph Structure", () => {
     expect(errors.some((e) => e.includes("$START must be defined in graph"))).toBe(true);
   });
 
-  test("2.2 $START has multiple status keys", () => {
+  test("2.2 $START missing resume edge", () => {
     const wf = makeWorkflow();
     wf.graph.$START = {
-      _: { role: "writer", prompt: "Begin", location: null },
-      other: { role: "reviewer", prompt: "Also", location: null },
+      new: { role: "writer", prompt: "Begin", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
-      errors.some((e) => e.includes('$START must have exactly one edge with status "_"')),
+      errors.some((e) => e.includes('$START must have edges with statuses "new" and "resume"')),
     ).toBe(true);
   });
 
-  test("2.3 $START edge uses non-_ status", () => {
+  test("2.3 $START missing new edge", () => {
     const wf = makeWorkflow();
-    wf.graph.$START = { ready: { role: "writer", prompt: "Begin", location: null } };
+    wf.graph.$START = {
+      resume: { role: "writer", prompt: "Resume", location: null },
+    };
     const errors = validateWorkflow(wf);
     expect(
-      errors.some((e) => e.includes('$START must have exactly one edge with status "_"')),
+      errors.some((e) => e.includes('$START must have edges with statuses "new" and "resume"')),
     ).toBe(true);
+  });
+
+  test("2.3b $START with new and resume passes", () => {
+    const wf = makeWorkflow();
+    wf.graph.$START = {
+      new: { role: "writer", prompt: "Begin", location: null },
+      resume: { role: "writer", prompt: "Resume", location: null },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("$START must have edges"))).toBe(false);
   });
 
   test("2.4 $END has outgoing edges", () => {
@@ -193,15 +207,18 @@ describe("Suite 2: Graph Structure", () => {
 });
 
 describe("Suite 3: Status-Edge Consistency", () => {
-  test("3.1 user role using _ graph key is rejected", () => {
+  test("3.1 user role using _ graph key is treated as an unknown status", () => {
+    // "_" is no longer special-cased — it's just a status key that does not
+    // match the role's $status enum, so it surfaces as extra/missing keys.
     const wf = makeWorkflow();
     wf.graph.writer = { _: { role: "reviewer", prompt: "Review", location: null } };
     const errors = validateWorkflow(wf);
-    expect(
-      errors.some((e) =>
-        e.includes('role "writer" must use explicit $status keys in graph, not "_"'),
-      ),
-    ).toBe(true);
+    expect(errors.some((e) => e.includes('role "writer" graph has extra status keys: _'))).toBe(
+      true,
+    );
+    expect(errors.some((e) => e.includes('role "writer" graph is missing status keys: done'))).toBe(
+      true,
+    );
   });
 
   test("3.2 user role graph key not matching $status enum", () => {
@@ -240,13 +257,16 @@ describe("Suite 3: Status-Edge Consistency", () => {
     ).toBe(true);
   });
 
-  test("3.5 multi-exit role with _ key", () => {
+  test("3.5 multi-exit role with _ key is treated as an unknown status", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = { _: { role: "$END", prompt: "Done", location: null } };
     const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes('role "reviewer" graph has extra status keys: _'))).toBe(
+      true,
+    );
     expect(
       errors.some((e) =>
-        e.includes('role "reviewer" must use explicit $status keys in graph, not "_"'),
+        e.includes('role "reviewer" graph is missing status keys: approved, rejected'),
       ),
     ).toBe(true);
   });

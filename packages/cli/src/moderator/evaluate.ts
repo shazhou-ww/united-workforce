@@ -6,10 +6,7 @@ import type { EvaluateResult, Result } from "./types.js";
 // Disable HTML escaping — prompts are plain text, not HTML.
 mustache.escape = (text: string) => text;
 
-const START_ROLE = "$START";
 const SUSPEND_ROLE = "$SUSPEND";
-// $START is a special entry node with no agent output — it always uses this key.
-const START_STATUS = "_";
 
 type LastOutput = Record<string, unknown>;
 
@@ -21,9 +18,7 @@ export function evaluate(
   lastOutput: LastOutput,
 ): Result<EvaluateResult, Error> {
   let status: string;
-  if (lastRole === START_ROLE) {
-    status = START_STATUS;
-  } else if (typeof lastOutput[STATUS_KEY] === "string") {
+  if (typeof lastOutput[STATUS_KEY] === "string") {
     status = lastOutput[STATUS_KEY] as string;
   } else {
     return {

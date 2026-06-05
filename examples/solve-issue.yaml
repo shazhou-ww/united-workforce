@@ -215,7 +215,8 @@ roles:
           required: [$status, error]
 graph:
   $START:
-    _: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
+    new: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
+    resume: { role: "planner", prompt: "Review the previous run output and continue the work." }
   planner:
     insufficient_info: { role: "$SUSPEND", prompt: "信息不足，需要补充：{{{reason}}}" }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }

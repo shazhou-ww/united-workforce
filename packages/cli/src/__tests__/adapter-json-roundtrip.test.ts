@@ -58,7 +58,10 @@ describe("C1: adapter JSON round-trip integration", () => {
         },
       },
       graph: {
-        $START: { _: { role: "worker", prompt: "Do the work", location: null } },
+        $START: {
+          new: { role: "worker", prompt: "Do the work", location: null },
+          resume: { role: "worker", prompt: "Resume the work", location: null },
+        },
         worker: { done: { role: "$END", prompt: "completed", location: null } },
       },
     });

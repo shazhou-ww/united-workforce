@@ -97,9 +97,9 @@ function checkGraphStructure(payload: WorkflowPayload, errors: string[]): void {
   if (!graphNodes.has("$START")) {
     errors.push("$START must be defined in graph");
   } else {
-    const startKeys = Object.keys(payload.graph.$START);
-    if (startKeys.length !== 1 || startKeys[0] !== "_") {
-      errors.push('$START must have exactly one edge with status "_"');
+    const startKeys = new Set(Object.keys(payload.graph.$START));
+    if (!startKeys.has("new") || !startKeys.has("resume")) {
+      errors.push('$START must have edges with statuses "new" and "resume"');
     }
   }
 
@@ -190,22 +190,13 @@ function checkOneOfDiscriminant(
   }
 }
 
-/** Check status-edge consistency for a user role. "_" is reserved for $START and rejected here. */
+/** Check status-edge consistency for a user role. */
 function checkStatusEdges(
   roleName: string,
   graphKeys: Set<string>,
   statusSet: Set<string>,
   errors: string[],
 ): void {
-  if (graphKeys.has("_")) {
-    errors.push(`role "${roleName}" must use explicit $status keys in graph, not "_"`);
-    return;
-  }
-  if (statusSet.has("_")) {
-    errors.push(`role "${roleName}" $status enum must use explicit values, not "_"`);
-    return;
-  }
-
   const extraKeys = [...graphKeys].filter((k) => !statusSet.has(k));
   const missingKeys = [...statusSet].filter((k) => !graphKeys.has(k));
   if (extraKeys.length > 0) {

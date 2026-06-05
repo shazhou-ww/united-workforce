@@ -5,7 +5,12 @@ import { evaluate } from "../moderator/evaluate.js";
 
 const solveIssueGraph: WorkflowPayload["graph"] = {
   $START: {
-    _: { role: "planner", prompt: "Start planning from the issue in the task.", location: null },
+    new: { role: "planner", prompt: "Start planning from the issue in the task.", location: null },
+    resume: {
+      role: "planner",
+      prompt: "Review the previous run output and continue the work.",
+      location: null,
+    },
   },
   planner: {
     planned: { role: "developer", prompt: "Implement the plan: {{plan}}", location: null },
@@ -20,13 +25,25 @@ const solveIssueGraph: WorkflowPayload["graph"] = {
 };
 
 describe("evaluate", () => {
-  test("$START → first role (unit status _)", () => {
-    const result = evaluate(solveIssueGraph, "$START", { $status: "_" });
+  test("$START → first role (status new)", () => {
+    const result = evaluate(solveIssueGraph, "$START", { $status: "new" });
     expect(result).toEqual({
       ok: true,
       value: {
         role: "planner",
         prompt: "Start planning from the issue in the task.",
+        location: null,
+      },
+    });
+  });
+
+  test("$START → first role (status resume)", () => {
+    const result = evaluate(solveIssueGraph, "$START", { $status: "resume" });
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        role: "planner",
+        prompt: "Review the previous run output and continue the work.",
         location: null,
       },
     });
@@ -95,7 +112,7 @@ describe("evaluate", () => {
   });
 
   test("missing role in graph → error", () => {
-    const result = evaluate(solveIssueGraph, "unknown-role", { $status: "_" });
+    const result = evaluate(solveIssueGraph, "unknown-role", { $status: "new" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe('no transitions defined for role "unknown-role"');
