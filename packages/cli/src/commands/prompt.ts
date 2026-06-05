@@ -28,10 +28,45 @@ Set up or upgrade uwf (United Workforce) — from zero to running your first wor
 
 ## Scenario A: Fresh Install
 
+### Step 0 — Environment pre-flight check
+
+Run ALL checks below BEFORE installing anything. If any check fails, fix it first — do NOT skip ahead.
+
+\`\`\`bash
+# 1. Node.js
+node --version   # need v20+
+# FIX: install via nvm (https://github.com/nvm-sh/nvm) or your OS package manager
+
+# 2. Package manager — pnpm (preferred) or npm
+pnpm --version || npm --version
+# FIX for pnpm: corepack enable pnpm   (Node 20+)
+#   or: npm install -g pnpm
+# If pnpm is not an option, npm works too — adjust install commands below
+
+# 3. Global bin directory is in PATH
+# For pnpm:
+pnpm root -g 2>/dev/null && pnpm bin -g
+# For npm:
+npm prefix -g
+# The "bin" directory printed above MUST be in your PATH.
+# Test: echo $PATH | tr ':' '\\n' | grep -E "(pnpm|npm|node)"
+# FIX: add the bin directory to ~/.profile or ~/.bashrc:
+#   export PATH="$(pnpm bin -g):$PATH"   # pnpm
+#   export PATH="$(npm prefix -g)/bin:$PATH"  # npm
+
+# 4. (uwf-hermes only) hermes CLI
+which hermes
+# FIX: if hermes is in a virtualenv, add it to PATH:
+#   export PATH="$HOME/.hermes/hermes-agent/.venv/bin:$PATH"
+#   or create a symlink: ln -s ~/.hermes/hermes-agent/.venv/bin/hermes ~/.local/bin/hermes
+\`\`\`
+
+**All checks must pass before continuing.** If you had to modify PATH, verify the change persists by opening a new shell or sourcing your profile.
+
 ### Step 1 — Install CLI and agent adapter
 
 \`\`\`bash
-npm install -g @united-workforce/cli
+pnpm add -g @united-workforce/cli    # or: npm install -g @united-workforce/cli
 uwf --version   # should print ${VERSION}
 \`\`\`
 
@@ -39,18 +74,13 @@ Install an agent adapter (at least one is required):
 
 | Adapter | Install | When to use |
 |---------|---------|-------------|
-| uwf-hermes | \`npm install -g @united-workforce/agent-hermes\` | When your agent framework is Hermes Agent |
-| uwf-claude-code | \`npm install -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
-| uwf-builtin | \`npm install -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
+| uwf-hermes | \`pnpm add -g @united-workforce/agent-hermes\` | When your agent framework is Hermes Agent |
+| uwf-claude-code | \`pnpm add -g @united-workforce/agent-claude-code\` | When using Claude Code CLI directly |
+| uwf-builtin | \`pnpm add -g @united-workforce/agent-builtin\` | Lightweight built-in agent (no external dependency) |
 
 **uwf-hermes** also requires the Hermes ACP plugin. After installing \`hermes-agent\`, run:
 \`\`\`bash
 pip install hermes-agent[acp]   # or: pip install -e .[acp] if installed from source
-\`\`\`
-
-Verify \`hermes\` is in your PATH: \`which hermes\`. If Hermes is installed in a virtualenv (e.g. \`~/.hermes/hermes-agent/.venv/\`), activate it or add the bin directory to PATH:
-\`\`\`bash
-export PATH="$HOME/.hermes/hermes-agent/.venv/bin:$PATH"
 \`\`\`
 
 Verify the adapter is installed: \`uwf-hermes --version\` (or whichever you chose).
@@ -134,11 +164,11 @@ If the thread reaches \`$END\` with status \`completed\`, the setup is working.
 ### Step 1 — Update packages
 
 \`\`\`bash
-npm install -g @united-workforce/cli@latest
+pnpm add -g @united-workforce/cli@latest    # or: npm install -g @united-workforce/cli@latest
 uwf --version   # should print ${VERSION}
 
 # Also update your adapter(s)
-npm install -g @united-workforce/agent-hermes@latest
+pnpm add -g @united-workforce/agent-hermes@latest
 \`\`\`
 
 ### Step 2 — Regenerate skills
