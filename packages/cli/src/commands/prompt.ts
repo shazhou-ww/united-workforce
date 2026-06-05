@@ -219,7 +219,7 @@ roles:
     frontmatter:
       type: object
       properties:
-        $status: { enum: [done] }
+        $status: { const: done }
         message: { type: string }
       required: [$status, message]
 graph:

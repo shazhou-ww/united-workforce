@@ -31,7 +31,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string, enum: ["ready"] }
+        $status: { const: "ready" }
 graph:
   $START:
     new:

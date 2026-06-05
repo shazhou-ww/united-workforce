@@ -31,7 +31,7 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
         frontmatter: {
           type: "object",
           properties: {
-            $status: { type: "string", enum: ["done"] },
+            $status: { const: "done" },
           },
           required: ["$status"],
         } as unknown as CasRef,
