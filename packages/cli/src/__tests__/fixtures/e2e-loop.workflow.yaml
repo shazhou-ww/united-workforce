@@ -28,7 +28,8 @@ roles:
           required: [$status]
 graph:
   $START:
-    _: { role: developer, prompt: 'Implement the change' }
+    new: { role: developer, prompt: 'Implement the change' }
+    resume: { role: developer, prompt: 'Review the previous run output and continue the work.' }
   developer:
     review_needed: { role: reviewer, prompt: 'Review the change' }
   reviewer:

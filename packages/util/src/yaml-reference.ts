@@ -32,7 +32,8 @@ roles:                     # named actors in the workflow
 
 graph:                     # status-based routing (nested map)
   $START:
-    _: { role: planner, prompt: "Analyze the issue." }
+    new: { role: planner, prompt: "Analyze the issue." }
+    resume: { role: planner, prompt: "Review the previous run output and continue." }
   planner:
     ready: { role: developer, prompt: "Implement plan {{{plan}}}." }
     insufficient_info: { role: $END, prompt: "Not enough info." }
@@ -70,10 +71,10 @@ Record<Role | "$START", Record<Status, { role: string, prompt: string }>>
 | Level | Key | Value |
 |-------|-----|-------|
 | Outer | Role name or \`$START\` | Status map for that role |
-| Inner | \`$status\` value (or \`_\` for unconditional) | Target: \`{ role, prompt }\` |
+| Inner | \`$status\` value | Target: \`{ role, prompt }\` |
 
 ### Special Nodes
-- \`$START\` — entry point; uses status key \`_\` (unconditional, no previous output)
+- \`$START\` — entry point; uses status keys \`new\` (first start) and \`resume\` (resuming a completed thread)
 - \`$END\` — terminal node; thread completes when reached
 
 ### Edge Prompts

@@ -55,7 +55,10 @@ describe("suspended thread display", () => {
           },
         },
         graph: {
-          $START: { _: { role: "worker", prompt: "Start work", location: null } },
+          $START: {
+            new: { role: "worker", prompt: "Start work", location: null },
+            resume: { role: "worker", prompt: "Resume work", location: null },
+          },
           worker: {
             needs_input: {
               role: "$SUSPEND",
@@ -162,7 +165,10 @@ describe("suspended thread display", () => {
           },
         },
         graph: {
-          $START: { _: { role: "worker", prompt: "Start work", location: null } },
+          $START: {
+            new: { role: "worker", prompt: "Start work", location: null },
+            resume: { role: "worker", prompt: "Resume work", location: null },
+          },
           worker: {
             needs_input: {
               role: "$SUSPEND",
@@ -248,7 +254,10 @@ describe("suspended thread display", () => {
           },
         },
         graph: {
-          $START: { _: { role: "worker", prompt: "Start work", location: null } },
+          $START: {
+            new: { role: "worker", prompt: "Start work", location: null },
+            resume: { role: "worker", prompt: "Resume work", location: null },
+          },
         },
       });
 

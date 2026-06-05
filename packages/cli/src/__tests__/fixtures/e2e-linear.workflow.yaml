@@ -25,7 +25,8 @@ roles:
           required: [$status]
 graph:
   $START:
-    _: { role: planner, prompt: 'Plan the task' }
+    new: { role: planner, prompt: 'Plan the task' }
+    resume: { role: planner, prompt: 'Review the previous run output and continue the work.' }
   planner:
     ready: { role: worker, prompt: 'Do the work' }
   worker:

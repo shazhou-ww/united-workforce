@@ -35,6 +35,7 @@ roles:
       required: [$status, thesis, keyPoints]
 graph:
   $START:
-    _: { role: "analyst", prompt: "Analyze the topic in the task and produce a structured summary with key points." }
+    new: { role: "analyst", prompt: "Analyze the topic in the task and produce a structured summary with key points." }
+    resume: { role: "analyst", prompt: "Review the previous analysis output and continue with additional context." }
   analyst:
     done: { role: "$END", prompt: "Analysis complete. Finish the workflow." }

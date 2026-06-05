@@ -16,7 +16,8 @@ The graph is a nested map: \`Record<Role | "$START", Record<Status, Target>>\`. 
 \`\`\`yaml
 graph:
   $START:
-    _: { role: planner, prompt: "Analyze the issue." }
+    new: { role: planner, prompt: "Analyze the issue." }
+    resume: { role: planner, prompt: "Review the previous run output and continue." }
   planner:
     ready: { role: developer, prompt: "Implement the plan (CAS hash: {{{plan}}})." }
     insufficient_info: { role: $END, prompt: "Not enough info." }
@@ -41,7 +42,7 @@ Edge prompts use triple-brace Mustache syntax (\`{{{field}}}\`) to interpolate v
 
 ## Special Nodes
 
-- \`$START\` — entry point; uses status key \`_\` (unconditional) since there is no previous output
+- \`$START\` — entry point; uses status keys \`new\` (first start) and \`resume\` (resuming a completed thread)
 - \`$END\` — terminal node; thread completes when reached and is moved to history
 
 ## Integration with Steps

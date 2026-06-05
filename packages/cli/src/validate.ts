@@ -57,13 +57,13 @@ function isGraph(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  return Object.entries(value).every(([node, statusMap]) => {
+  return Object.values(value).every((statusMap) => {
     if (!isRecord(statusMap)) {
       return false;
     }
     return Object.entries(statusMap).every(([status, target]) => {
-      // "_" is only valid as a status key for the $START entry node.
-      if (status === "_" && node !== "$START") {
+      // "_" is no longer a valid status key anywhere — $START uses "new"/"resume".
+      if (status === "_") {
         return false;
       }
       return isTarget(target);

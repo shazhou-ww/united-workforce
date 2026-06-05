@@ -40,7 +40,8 @@ roles:                         # named actors
 
 graph:                         # status-based routing
   $START:
-    _: { role: planner, prompt: "Analyze the issue." }
+    new: { role: planner, prompt: "Analyze the issue." }
+    resume: { role: planner, prompt: "Review the previous run output and continue." }
   planner:
     ready: { role: developer, prompt: "Implement {{{plan}}}." }
     failed: { role: $END, prompt: "Failed: {{{error}}}" }
@@ -113,7 +114,7 @@ graph[role][$status] → { role: nextRole, prompt: edgePrompt }
 
 | Node | Purpose |
 |------|---------|
-| \`$START\` | Entry point — status key is always \`_\` (unconditional) |
+| \`$START\` | Entry point — status keys \`new\` (first start) and \`resume\` (resuming a completed thread) |
 | \`$END\` | Terminal — thread completes and is archived |
 
 ### Edge Prompts
@@ -178,7 +179,7 @@ ocas get <output-hash>
 1. Every \`$status\` value in a role's frontmatter has a matching edge in the graph
 2. Every field referenced in edge prompts (\`{{{field}}}\`) exists in the source role's schema
 3. Every role referenced in the graph exists in \`roles\`
-4. \`$START\` has exactly one edge with key \`_\`
+4. \`$START\` has edges with keys \`new\` and \`resume\`
 5. At least one path leads to \`$END\`
 6. No orphan roles (defined but never routed to)
 

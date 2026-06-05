@@ -38,7 +38,10 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
       },
     },
     graph: {
-      $START: { _: { role: "worker", prompt: "start working", location: null } },
+      $START: {
+        new: { role: "worker", prompt: "start working", location: null },
+        resume: { role: "worker", prompt: "resume working", location: null },
+      },
       worker: { done: { role: "$END", prompt: "done", location: null } },
     },
   };

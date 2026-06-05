@@ -34,9 +34,13 @@ roles:
         $status: { type: string, enum: ["ready"] }
 graph:
   $START:
-    _:
+    new:
       role: planner
       prompt: "Plan the work"
+      location: null
+    resume:
+      role: planner
+      prompt: "Resume the work"
       location: null
   planner:
     ready:
@@ -66,9 +70,13 @@ roles:
             question: { type: string }
 graph:
   $START:
-    _:
+    new:
       role: worker
       prompt: "Start work"
+      location: null
+    resume:
+      role: worker
+      prompt: "Resume work"
       location: null
   worker:
     needs_input:

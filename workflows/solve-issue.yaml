@@ -283,9 +283,12 @@ roles:
         - error
 graph:
   $START:
-    _:
+    new:
       role: planner
       prompt: Analyze the issue and produce an implementation plan.
+    resume:
+      role: planner
+      prompt: Review the previous run output and continue the work.
   planner:
     insufficient_info:
       role: $SUSPEND
