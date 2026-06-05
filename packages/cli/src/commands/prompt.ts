@@ -1,9 +1,34 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   generateAdapterDevelopingReference,
   generateUsageReference,
   generateWorkflowAuthoringReference,
-  VERSION,
 } from "@united-workforce/util";
+
+// CLI package version (for bootstrap prompt — uwf --version prints this)
+// Walk up from __dirname to find the nearest package.json (works from both src/ and dist/)
+function _findCliVersion(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, "package.json");
+    try {
+      const pkg = JSON.parse(readFileSync(candidate, "utf-8")) as {
+        name?: string;
+        version?: string;
+      };
+      if (pkg.name === "@united-workforce/cli") {
+        return pkg.version ?? "0.0.0";
+      }
+    } catch {
+      // not found, keep walking
+    }
+    dir = dirname(dir);
+  }
+  return "0.0.0";
+}
+const CLI_VERSION = _findCliVersion();
 
 export {
   generateAdapterDevelopingReference as cmdPromptAdapterDeveloping,
@@ -45,14 +70,14 @@ pnpm --version || npm --version
 
 # 3. Global bin directory is in PATH
 # For pnpm:
-pnpm root -g 2>/dev/null && pnpm bin -g
+pnpm bin -g       # prints the global bin directory
 # For npm:
-npm prefix -g
-# The "bin" directory printed above MUST be in your PATH.
-# Test: echo $PATH | tr ':' '\\n' | grep -E "(pnpm|npm|node)"
-# FIX: add the bin directory to ~/.profile or ~/.bashrc:
-#   export PATH="$(pnpm bin -g):$PATH"   # pnpm
-#   export PATH="$(npm prefix -g)/bin:$PATH"  # npm
+npm prefix -g     # global prefix; bin is <prefix>/bin
+# The directory printed above MUST be in your PATH.
+# Test: echo \\$PATH | tr ':' '\\\\n'
+# FIX: add the missing directory to your shell's startup file
+#   (e.g. ~/.bashrc, ~/.zshrc, ~/.profile, or fish config):
+#   export PATH="<global-bin-dir>:$PATH"
 
 # 4. (uwf-hermes only) hermes CLI
 which hermes
@@ -61,13 +86,13 @@ which hermes
 #   or create a symlink: ln -s ~/.hermes/hermes-agent/.venv/bin/hermes ~/.local/bin/hermes
 \`\`\`
 
-**All checks must pass before continuing.** If you had to modify PATH, verify the change persists by opening a new shell or sourcing your profile.
+**All checks must pass before continuing.** If you had to modify PATH, verify the change persists by opening a new shell or sourcing your shell config.
 
 ### Step 1 — Install CLI and agent adapter
 
 \`\`\`bash
 pnpm add -g @united-workforce/cli    # or: npm install -g @united-workforce/cli
-uwf --version   # should print ${VERSION}
+uwf --version   # should print ${CLI_VERSION}
 \`\`\`
 
 Install an agent adapter (at least one is required):
@@ -165,7 +190,7 @@ If the thread reaches \`$END\` with status \`completed\`, the setup is working.
 
 \`\`\`bash
 pnpm add -g @united-workforce/cli@latest    # or: npm install -g @united-workforce/cli@latest
-uwf --version   # should print ${VERSION}
+uwf --version   # should print ${CLI_VERSION}
 
 # Also update your adapter(s)
 pnpm add -g @united-workforce/agent-hermes@latest

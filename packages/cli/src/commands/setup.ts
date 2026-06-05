@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
@@ -181,7 +182,6 @@ export async function _discoverAgents(): Promise<string[]> {
 
 async function _tryWhichDiscovery(): Promise<string[] | null> {
   try {
-    const { execFileSync } = await import("node:child_process");
     const text = execFileSync("which", ["-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -398,6 +398,37 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
 }
 
 /**
+ * Check if the configured adapter binary (and its dependencies) are in PATH.
+ * Returns warnings array — empty means all good.
+ */
+export function _checkAdapterAvailability(agentName: string): string[] {
+  const warnings: string[] = [];
+  const binary = `uwf-${agentName}`;
+
+  try {
+    execFileSync("which", [binary], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+  } catch {
+    warnings.push(
+      `${binary} not found in PATH. Install it: pnpm add -g @united-workforce/agent-${agentName}`,
+    );
+    return warnings; // skip dependency check if adapter itself is missing
+  }
+
+  // uwf-hermes depends on hermes CLI
+  if (agentName === "hermes") {
+    try {
+      execFileSync("which", ["hermes"], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+    } catch {
+      warnings.push(
+        'hermes CLI not found in PATH (required by uwf-hermes). Fix: export PATH="$HOME/.hermes/hermes-agent/.venv/bin:$PATH"',
+      );
+    }
+  }
+
+  return warnings;
+}
+
+/**
  * Non-interactive setup. All required args provided via CLI flags.
  */
 export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>> {
@@ -411,8 +442,18 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
 
   writeFileSync(configPath, stringify(merged, { indent: 2 }), "utf8");
 
+  // Print config path to stderr (stdout is reserved for JSON output)
+  console.error(`Config saved to ${configPath} ✓`);
+
   // Validate model connectivity
   const validation = await validateModel(args.baseUrl, args.apiKey, args.model);
+
+  // Check adapter availability
+  const agentName = _agentNameFromBinary(args.agent ?? "hermes");
+  const adapterWarnings = _checkAdapterAvailability(agentName);
+  for (const w of adapterWarnings) {
+    console.error(`⚠ ${w}`);
+  }
 
   return {
     configPath,
@@ -420,6 +461,7 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
     model: args.model,
     defaultAgent: merged.defaultAgent,
     validation,
+    adapterWarnings,
   };
 }
 

@@ -1001,9 +1001,21 @@ function spawnAgent(
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
       cwd,
+      env: {
+        ...process.env,
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, "--disable-warning=ExperimentalWarning"]
+          .filter(Boolean)
+          .join(" "),
+      },
     });
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string | null };
+    if (err.code === "ENOENT") {
+      failStep(
+        plog,
+        `"${agent.command}" not found in PATH. Install it or check your PATH config. Run: which ${agent.command}`,
+      );
+    }
     const stderr =
       err.stderr == null
         ? ""
@@ -1242,6 +1254,12 @@ async function cmdThreadStepBackground(
   const child = spawn(scriptPath, args, {
     detached: true,
     stdio: "ignore",
+    env: {
+      ...process.env,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, "--disable-warning=ExperimentalWarning"]
+        .filter(Boolean)
+        .join(" "),
+    },
   });
 
   child.unref();
