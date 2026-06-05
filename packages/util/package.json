@@ -14,7 +14,6 @@
     }
   },
   "scripts": {
-    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
     "test": "vitest run __tests__/ src/__tests__/",
     "test:ci": "vitest run __tests__/ src/__tests__/"
   },

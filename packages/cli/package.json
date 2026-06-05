@@ -22,7 +22,6 @@
     "yaml": "^2.8.4"
   },
   "scripts": {
-    "prepublishOnly": "echo 'Use pnpm run release from repo root' && exit 1",
     "test": "vitest run src/",
     "test:ci": "vitest run src/"
   },
