@@ -2,7 +2,6 @@ export { generateActorReference } from "./actor-reference.js";
 export { generateAdapterDevelopingReference } from "./adapter-developing-reference.js";
 export { generateArchitectureReference } from "./architecture-reference.js";
 export { encodeUint64AsCrockford } from "./base32.js";
-export { generateBootstrapReference } from "./bootstrap-reference.js";
 export { generateCliReference } from "./cli-reference.js";
 export { env } from "./env.js";
 export type {

@@ -8,9 +8,7 @@ import {
   cmdPromptAdapterDeveloping,
   cmdPromptBootstrap,
   cmdPromptList,
-  cmdPromptSetup,
   cmdPromptUsage,
-  cmdPromptUsageReference,
   cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
@@ -509,23 +507,16 @@ prompt.addHelpCommand(false);
 
 prompt
   .command("usage")
-  .description("Print the complete skill content (all references combined)")
+  .description("Print the usage reference (CLI guide + typical workflows)")
   .action(() => {
     console.log(cmdPromptUsage());
   });
 
 prompt
-  .command("setup")
-  .description("Print setup instructions for installing the uwf skill")
+  .command("bootstrap")
+  .description("Print setup instructions for installing uwf skills")
   .action(() => {
-    console.log(cmdPromptSetup());
-  });
-
-prompt
-  .command("usage-reference")
-  .description("Print the usage reference (CLI guide + typical workflows)")
-  .action(() => {
-    console.log(cmdPromptUsageReference());
+    console.log(cmdPromptBootstrap());
   });
 
 prompt
@@ -540,13 +531,6 @@ prompt
   .description("Print the adapter developing reference (building agent adapters)")
   .action(() => {
     console.log(cmdPromptAdapterDeveloping());
-  });
-
-prompt
-  .command("bootstrap")
-  .description("Print the bootstrap skill YAML for Hermes agents")
-  .action(() => {
-    console.log(cmdPromptBootstrap());
   });
 
 prompt
