@@ -133,25 +133,20 @@ describe("collect", () => {
     expect(tokenStats?.weight).toBe(0);
   });
 
-  test("builtin judges are skipped with placeholder score 0", async () => {
+  test("unknown builtin judge name throws via the default runner", async () => {
     const evalStore = makeEvalStore();
-    const manifest = makeManifest([makeJudge("frontmatter-compliance", 1.0, true)]);
+    const manifest = makeManifest([makeJudge("not-a-real-judge", 1.0, true)]);
 
-    // Use the default runner (no injected runner) → builtin skipped → score 0.
-    const result = await collect({
-      evalStore,
-      taskDir: "/tmp/task",
-      workDir: "/tmp/work",
-      threadId: "THREAD123",
-      manifest,
-      config: CONFIG,
-    });
-
-    expect(result.overall).toBe(0);
-    expect(result.judges[0]).toEqual({
-      name: "frontmatter-compliance",
-      score: 0,
-      weight: 1.0,
-    });
+    // Use the default runner (no injected runner) → builtin dispatch → unknown name throws.
+    await expect(
+      collect({
+        evalStore,
+        taskDir: "/tmp/task",
+        workDir: "/tmp/work",
+        threadId: "THREAD123",
+        manifest,
+        config: CONFIG,
+      }),
+    ).rejects.toThrow(/unknown builtin judge/);
   });
 });

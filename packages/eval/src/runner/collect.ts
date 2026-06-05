@@ -8,6 +8,12 @@ import type { CasRef } from "@united-workforce/protocol";
 import { createLogger } from "@united-workforce/util";
 
 import type { JudgeOutput } from "../judge/index.js";
+import {
+  runFrontmatterJudge,
+  runHallucinationJudge,
+  runTokenStatsJudge,
+  runUpstreamJudge,
+} from "../judge/index.js";
 import type { EvalJudgeRecord, EvalRunPayload } from "../storage/index.js";
 import { EVAL_RUN_SCHEMA, setEvalLatest } from "../storage/index.js";
 import type { JudgeEntry } from "../task/index.js";
@@ -89,13 +95,29 @@ async function loadSchema(path: string): Promise<JSONSchema> {
   return JSON.parse(text) as JSONSchema;
 }
 
+/** Dispatch a builtin judge by name. Throws on an unknown builtin name. */
+async function runBuiltinJudge(name: string, threadId: string): Promise<JudgeRunOutput> {
+  switch (name) {
+    case "frontmatter-compliance":
+      return runFrontmatterJudge(threadId);
+    case "upstream-consumption":
+      return runUpstreamJudge(threadId);
+    case "hallucination":
+      return runHallucinationJudge(threadId);
+    case "token-stats":
+      return runTokenStatsJudge(threadId);
+    default:
+      throw new Error(`unknown builtin judge "${name}"`);
+  }
+}
+
 /**
- * Default judge runner. Builtin judges are skipped for now (placeholder score 0
- * with empty data); task judges spawn their entry script.
+ * Default judge runner. Builtin judges are dispatched by name; task judges spawn
+ * their entry script.
  */
 const defaultJudgeRunner: JudgeRunner = async (taskDir, workDir, threadId, judge) => {
   if (judge.builtin) {
-    return { score: 0, data: {}, schema: GENERIC_DATA_SCHEMA };
+    return runBuiltinJudge(judge.name, threadId);
   }
   return runTaskJudge(taskDir, workDir, threadId, judge);
 };
