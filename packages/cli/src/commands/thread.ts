@@ -961,6 +961,12 @@ function resolveAgentConfig(
   agentOverride: string | null,
 ): AgentConfig {
   if (agentOverride !== null) {
+    // Try config alias first (e.g. "hermes" → config.agents.hermes),
+    // then fall back to raw command name (e.g. "uwf-hermes" or "/usr/bin/agent").
+    const fromAlias = config.agents[agentOverride as AgentAlias];
+    if (fromAlias !== undefined) {
+      return fromAlias;
+    }
     return parseAgentOverride(agentOverride);
   }
 
