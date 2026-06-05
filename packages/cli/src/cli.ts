@@ -11,7 +11,7 @@ import {
   cmdPromptUsage,
   cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
-import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
+import { cmdSetup, cmdSetupInteractive, resolvePresetBaseUrl } from "./commands/setup.js";
 import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
@@ -558,10 +558,14 @@ program
     }) => {
       const storageRoot = resolveStorageRoot();
       runAction(async () => {
-        if (opts.provider && opts.baseUrl && opts.apiKey && opts.model) {
+        // Resolve preset base-url when provider is known but --base-url is omitted
+        const resolvedBaseUrl =
+          opts.baseUrl ??
+          (opts.provider !== undefined ? resolvePresetBaseUrl(opts.provider) : null);
+        if (opts.provider && resolvedBaseUrl && opts.apiKey && opts.model) {
           const result = await cmdSetup({
             provider: opts.provider,
-            baseUrl: opts.baseUrl,
+            baseUrl: resolvedBaseUrl,
             apiKey: opts.apiKey,
             model: opts.model,
             agent: opts.agent ?? undefined,
@@ -572,7 +576,7 @@ program
           await cmdSetupInteractive(storageRoot);
         } else {
           throw new Error(
-            "Non-interactive setup requires all of: --provider, --base-url, --api-key, --model",
+            "Non-interactive setup requires: --provider, --api-key, --model (--base-url is optional for preset providers)",
           );
         }
       });

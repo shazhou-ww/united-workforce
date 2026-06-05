@@ -72,6 +72,12 @@ const PRESET_PROVIDERS = [
   { name: "ollama", label: "Ollama (local)", baseUrl: "http://localhost:11434/v1" },
 ] as const;
 
+/** Look up the base URL for a preset provider name. Returns null if not a preset. */
+export function resolvePresetBaseUrl(providerName: string): string | null {
+  const preset = PRESET_PROVIDERS.find((p) => p.name === providerName);
+  return preset !== undefined ? preset.baseUrl : null;
+}
+
 type SetupArgs = {
   provider: string;
   baseUrl: string;
