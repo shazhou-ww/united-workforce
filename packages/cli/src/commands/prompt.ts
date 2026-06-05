@@ -201,6 +201,8 @@ Each command outputs a complete SKILL.md with YAML frontmatter. Use your agent f
 
 Verify skills are installed by listing them (e.g. \`skills_list()\`) and confirming all three appear.
 
+**⚠ After saving all skills, start a new session** so the agent loads the updated skill content. Skills saved in the current session are not active until the next session.
+
 ### Step 4 — Verify end-to-end
 
 Create a minimal workflow file to test your setup:
@@ -277,6 +279,8 @@ uwf prompt workflow-authoring  # → update skill "uwf-workflow-authoring"
 uwf prompt adapter-developing  # → update skill "uwf-adapter-developing"
 \`\`\`
 
+**⚠ After updating skills, start a new session** to load the new skill content.
+
 ### Step 3 — Migrate workflow YAML files (if needed)
 
 Check the changelog for breaking changes. Known migrations:
@@ -294,6 +298,17 @@ Check the changelog for breaking changes. Known migrations:
   \`\`\`
 
 Update all \`.workflow/\` and \`.workflows/\` YAML files in your projects. \`uwf workflow add\` will reject files with the old \`_\` syntax.
+
+- **v0.2.1**: \`$status: { enum: [value] }\` → \`$status: { const: "value" }\`. The validator no longer accepts \`enum\` for \`$status\`. Update all workflow YAML files:
+  \`\`\`yaml
+  # Before (v0.2.0)
+  $status: { enum: [done] }
+  $status: { type: string, enum: ["ready", "failed"] }
+
+  # After (v0.2.1+)
+  $status: { const: "done" }
+  # For multi-exit, use oneOf with const (unchanged)
+  \`\`\`
 
 ### Step 4 — Verify
 
