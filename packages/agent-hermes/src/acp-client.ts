@@ -1,7 +1,16 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { VERSION } from "@united-workforce/util";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const OWN_VERSION = (
+  JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")) as {
+    version: string;
+  }
+).version;
 
 const HERMES_COMMAND = "hermes";
 const PROTOCOL_VERSION = 1;
@@ -300,7 +309,7 @@ export class HermesAcpClient {
   private async initialize(): Promise<void> {
     const initResponse = await this.sendRequest("initialize", {
       protocolVersion: PROTOCOL_VERSION,
-      clientInfo: { name: "uwf", version: VERSION },
+      clientInfo: { name: "uwf-hermes", version: OWN_VERSION },
       capabilities: {},
     });
 
