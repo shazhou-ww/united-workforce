@@ -8,7 +8,8 @@ mustache.escape = (text: string) => text;
 
 const START_ROLE = "$START";
 const SUSPEND_ROLE = "$SUSPEND";
-const UNIT_STATUS = "_";
+// $START is a special entry node with no agent output — it always uses this key.
+const START_STATUS = "_";
 
 type LastOutput = Record<string, unknown>;
 
@@ -19,12 +20,17 @@ export function evaluate(
   lastRole: string,
   lastOutput: LastOutput,
 ): Result<EvaluateResult, Error> {
-  const status =
-    lastRole === START_ROLE
-      ? UNIT_STATUS
-      : typeof lastOutput[STATUS_KEY] === "string"
-        ? (lastOutput[STATUS_KEY] as string)
-        : UNIT_STATUS;
+  let status: string;
+  if (lastRole === START_ROLE) {
+    status = START_STATUS;
+  } else if (typeof lastOutput[STATUS_KEY] === "string") {
+    status = lastOutput[STATUS_KEY] as string;
+  } else {
+    return {
+      ok: false,
+      error: new Error(`agent output for role "${lastRole}" is missing required "$status" string`),
+    };
+  }
 
   const roleTargets = graph[lastRole];
   if (roleTargets === undefined) {

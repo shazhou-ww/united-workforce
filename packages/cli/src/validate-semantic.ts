@@ -24,17 +24,13 @@ function isOneOfSchema(fm: unknown): fm is SchemaObj & { oneOf: SchemaObj[] } {
   return Array.isArray(obj.oneOf);
 }
 
-/** Check if a frontmatter schema uses enum-based multi-exit ($status with multiple enum values). */
-function isEnumMultiExit(fm: unknown): boolean {
+/** Check if a frontmatter schema declares "$status" as an enum (the required form for user roles). */
+function hasStatusEnum(fm: unknown): boolean {
   if (typeof fm !== "object" || fm === null) return false;
   const obj = fm as SchemaObj;
   const props = obj.properties as Record<string, SchemaObj> | undefined;
   if (!props?.$status) return false;
-  const statusDef = props.$status;
-  if (!Array.isArray(statusDef.enum)) return false;
-  // Filter out "_" (wildcard) — if remaining values > 1, it's multi-exit
-  const statuses = (statusDef.enum as string[]).filter((s) => s !== "_");
-  return statuses.length > 1;
+  return Array.isArray(props.$status.enum);
 }
 
 /** Extract status values from an enum-based $status field. */
@@ -43,7 +39,7 @@ function getEnumStatuses(fm: SchemaObj): string[] {
   if (!props?.$status) return [];
   const statusDef = props.$status;
   if (!Array.isArray(statusDef.enum)) return [];
-  return (statusDef.enum as string[]).filter((s) => s !== "_");
+  return statusDef.enum as string[];
 }
 
 /** Get property names from a schema object. */
@@ -194,15 +190,19 @@ function checkOneOfDiscriminant(
   }
 }
 
-/** Check status-edge consistency for a multi-exit role. */
-function checkMultiExitEdges(
+/** Check status-edge consistency for a user role. "_" is reserved for $START and rejected here. */
+function checkStatusEdges(
   roleName: string,
   graphKeys: Set<string>,
   statusSet: Set<string>,
   errors: string[],
 ): void {
   if (graphKeys.has("_")) {
-    errors.push(`role "${roleName}" is multi-exit but graph uses "_"`);
+    errors.push(`role "${roleName}" must use explicit $status keys in graph, not "_"`);
+    return;
+  }
+  if (statusSet.has("_")) {
+    errors.push(`role "${roleName}" $status enum must use explicit values, not "_"`);
     return;
   }
 
@@ -255,50 +255,23 @@ function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void 
       const statuses = getOneOfStatuses(variants);
 
       checkOneOfDiscriminant(roleName, variants, statuses, errors);
-      checkMultiExitEdges(roleName, graphKeys, new Set(statuses), errors);
+      checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
       checkMultiExitMustache(roleName, graphEntry, variants, errors);
-    } else if (isEnumMultiExit(fm)) {
+    } else if (hasStatusEnum(fm)) {
       const statuses = getEnumStatuses(fm as SchemaObj);
-      checkMultiExitEdges(roleName, graphKeys, new Set(statuses), errors);
+      checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
       // For enum-based schemas, mustache vars come from the flat properties
-      checkSingleExitMustache(roleName, graphEntry, fm as SchemaObj, errors);
+      checkEnumMustache(roleName, graphEntry, fm as SchemaObj, errors);
     } else {
-      checkSingleExitRole(roleName, graphKeys, graphEntry, fm as SchemaObj | null, errors);
-    }
-  }
-}
-
-/** Check single-exit role status and mustache. */
-function checkSingleExitRole(
-  roleName: string,
-  graphKeys: Set<string>,
-  graphEntry: Record<string, { role: string; prompt: string }>,
-  fm: SchemaObj | null,
-  errors: string[],
-): void {
-  if (graphKeys.size > 1 || (graphKeys.size === 1 && !graphKeys.has("_"))) {
-    if (!graphKeys.has("_")) {
-      errors.push(`role "${roleName}" is single-exit but graph has no "_" key`);
-    } else {
-      errors.push(`role "${roleName}" is single-exit but has status keys other than "_"`);
-    }
-  }
-
-  const singleTarget = graphEntry._;
-  if (!singleTarget) return;
-
-  const vars = extractMustacheVars(singleTarget.prompt);
-  const propNames = fm ? getPropertyNames(fm) : new Set<string>();
-  for (const v of vars) {
-    if (v === "$status") continue;
-    if (!propNames.has(v)) {
-      errors.push(`prompt variable "${v}" not found in role "${roleName}" frontmatter`);
+      errors.push(
+        `role "${roleName}" must define "$status" as an enum (or oneOf const) in frontmatter`,
+      );
     }
   }
 }
 
 /** Check mustache vars in all edge prompts against flat schema properties. */
-function checkSingleExitMustache(
+function checkEnumMustache(
   roleName: string,
   graphEntry: Record<string, { role: string; prompt: string }>,
   fm: SchemaObj,

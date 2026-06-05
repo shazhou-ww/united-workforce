@@ -254,7 +254,7 @@ describe("thread read timing", () => {
       },
       graph: {
         $START: { _: { role: "worker", prompt: "go", location: null } },
-        worker: { _: { role: "$END", prompt: "", location: null } },
+        worker: { done: { role: "$END", prompt: "", location: null } },
       },
     });
 
@@ -320,7 +320,7 @@ describe("thread read timing", () => {
       },
       graph: {
         $START: { _: { role: "worker", prompt: "go", location: null } },
-        worker: { _: { role: "$END", prompt: "", location: null } },
+        worker: { done: { role: "$END", prompt: "", location: null } },
       },
     });
 

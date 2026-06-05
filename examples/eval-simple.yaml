@@ -1,0 +1,30 @@
+name: eval-simple
+description: "Single-role eval workflow: fixer takes prompt, fixes code, done."
+roles:
+  fixer:
+    description: "Fixes the code based on the prompt"
+    goal: |
+      You are a code fixer. Read the prompt, understand the bug, fix it, and verify by running the tests.
+    capabilities:
+      - code-editing
+      - test-running
+    procedure: |
+      1. Read the prompt to understand what needs to be fixed
+      2. Fix the bug in the source code
+      3. Run the tests mentioned in the prompt to verify
+      4. Output $status=done when tests pass
+    output: "Describe what you fixed and confirm tests pass. Set $status to done."
+    frontmatter:
+      type: object
+      properties:
+        $status:
+          type: string
+          enum: [done]
+        summary:
+          type: string
+      required: [$status, summary]
+graph:
+  $START:
+    _: { role: "fixer", prompt: "Fix the code issue described in the task prompt." }
+  fixer:
+    done: { role: "$END", prompt: "Fix complete." }

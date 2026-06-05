@@ -17,7 +17,7 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
         frontmatter: {
           type: "object",
           properties: {
-            $status: { enum: ["_"] },
+            $status: { enum: ["done"] },
             plan: { type: "string" },
           },
           required: ["$status", "plan"],
@@ -52,7 +52,7 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
     },
     graph: {
       $START: { _: { role: "writer", prompt: "Begin writing", location: null } },
-      writer: { _: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null } },
+      writer: { done: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null } },
       reviewer: {
         approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
         rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
@@ -82,7 +82,7 @@ describe("Suite 1: Role Reference Integrity", () => {
       output: "None",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["_"] } },
+        properties: { $status: { enum: ["done"] } },
         required: ["$status"],
       } as unknown as string,
     };
@@ -173,11 +173,11 @@ describe("Suite 2: Graph Structure", () => {
       output: "Isolated",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["_"] } },
+        properties: { $status: { enum: ["done"] } },
         required: ["$status"],
       } as unknown as string,
     };
-    wf.graph.isolated = { _: { role: "$END", prompt: "done", location: null } };
+    wf.graph.isolated = { done: { role: "$END", prompt: "done", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('role "isolated" is not reachable from $START'))).toBe(
       true,
@@ -186,34 +186,34 @@ describe("Suite 2: Graph Structure", () => {
 
   test("2.6 edge target references invalid role", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "ghost", prompt: "Go to ghost", location: null } };
+    wf.graph.writer = { done: { role: "ghost", prompt: "Go to ghost", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes('unknown target role "ghost"'))).toBe(true);
   });
 });
 
 describe("Suite 3: Status-Edge Consistency", () => {
-  test("3.1 single-exit role with multiple graph keys", () => {
+  test("3.1 user role using _ graph key is rejected", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = {
-      _: { role: "reviewer", prompt: "Review", location: null },
-      extra: { role: "$END", prompt: "Done", location: null },
-    };
+    wf.graph.writer = { _: { role: "reviewer", prompt: "Review", location: null } };
     const errors = validateWorkflow(wf);
     expect(
       errors.some((e) =>
-        e.includes('role "writer" is single-exit but has status keys other than "_"'),
+        e.includes('role "writer" must use explicit $status keys in graph, not "_"'),
       ),
     ).toBe(true);
   });
 
-  test("3.2 single-exit role missing _ key", () => {
+  test("3.2 user role graph key not matching $status enum", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { done: { role: "reviewer", prompt: "Review", location: null } };
+    wf.graph.writer = { wrong: { role: "reviewer", prompt: "Review", location: null } };
     const errors = validateWorkflow(wf);
-    expect(
-      errors.some((e) => e.includes('role "writer" is single-exit but graph has no "_" key')),
-    ).toBe(true);
+    expect(errors.some((e) => e.includes('role "writer" graph has extra status keys: wrong'))).toBe(
+      true,
+    );
+    expect(errors.some((e) => e.includes('role "writer" graph is missing status keys: done'))).toBe(
+      true,
+    );
   });
 
   test("3.3 multi-exit role with extra statuses", () => {
@@ -244,9 +244,11 @@ describe("Suite 3: Status-Edge Consistency", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = { _: { role: "$END", prompt: "Done", location: null } };
     const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes('role "reviewer" is multi-exit but graph uses "_"'))).toBe(
-      true,
-    );
+    expect(
+      errors.some((e) =>
+        e.includes('role "reviewer" must use explicit $status keys in graph, not "_"'),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -314,20 +316,20 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
     expect(errors.some((e) => e.includes("missing status keys: rejected"))).toBe(true);
   });
 
-  test("3b.4 enum with single value (not multi-exit) treated as single-exit", () => {
+  test("3b.4 enum with single explicit value passes", () => {
     const wf = makeWorkflow();
     wf.roles.writer = {
       ...wf.roles.writer,
       frontmatter: {
         type: "object",
         properties: {
-          $status: { enum: ["_"] },
+          $status: { enum: ["ready"] },
           plan: { type: "string" },
         },
         required: ["$status", "plan"],
       } as unknown as string,
     };
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } };
+    wf.graph.writer = { ready: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
   });
@@ -355,13 +357,15 @@ describe("Suite 3b: Enum-Based Multi-Exit", () => {
 });
 
 describe("Suite 4: Mustache Template Variable Existence", () => {
-  test("4.1 prompt references nonexistent variable (single-exit)", () => {
+  test("4.1 prompt references nonexistent variable (enum status)", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Review: {{{branch}}}", location: null } };
+    wf.graph.writer = {
+      done: { role: "reviewer", prompt: "Review: {{{branch}}}", location: null },
+    };
     const errors = validateWorkflow(wf);
     expect(
-      errors.some((e) =>
-        e.includes('prompt variable "branch" not found in role "writer" frontmatter'),
+      errors.some(
+        (e) => e.includes('prompt variable "branch"') && e.includes('role "writer" frontmatter'),
       ),
     ).toBe(true);
   });
@@ -388,7 +392,7 @@ describe("Suite 4: Mustache Template Variable Existence", () => {
 
   test("4.4 $status variable is always valid", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { _: { role: "reviewer", prompt: "Status: {{$status}}", location: null } };
+    wf.graph.writer = { done: { role: "reviewer", prompt: "Status: {{$status}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
   });
@@ -456,14 +460,14 @@ describe("Suite 6: Multiple Errors Collection", () => {
       output: "None",
       frontmatter: {
         type: "object",
-        properties: { $status: { enum: ["_"] } },
+        properties: { $status: { enum: ["done"] } },
         required: ["$status"],
       } as unknown as string,
     };
     // unknown graph reference
-    wf.graph.nonexistent = { _: { role: "$END", prompt: "done", location: null } };
+    wf.graph.nonexistent = { done: { role: "$END", prompt: "done", location: null } };
     // bad mustache var
-    wf.graph.writer = { _: { role: "reviewer", prompt: "{{{badvar}}}", location: null } };
+    wf.graph.writer = { done: { role: "reviewer", prompt: "{{{badvar}}}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });
