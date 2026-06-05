@@ -91,6 +91,29 @@ describe("frontmatter-compliance judge", () => {
     const result = await runFrontmatterJudge("T4");
     expect(result.score).toBe(0);
   });
+
+  test("parsed object output with $status → score 1.0", async () => {
+    mockedReadSteps.mockReturnValue([
+      makeStep({ role: "a", output: { $status: "done", summary: "fixed" } as unknown as string }),
+      makeStep({ role: "b", output: { $status: "reviewed" } as unknown as string }),
+    ]);
+
+    const result = await runFrontmatterJudge("T5");
+    const data = result.data as { stepsTotal: number; stepsValid: number; invalidSteps: unknown[] };
+
+    expect(result.score).toBe(1.0);
+    expect(data.stepsTotal).toBe(2);
+    expect(data.stepsValid).toBe(2);
+  });
+
+  test("parsed object output missing $status → score 0", async () => {
+    mockedReadSteps.mockReturnValue([
+      makeStep({ role: "a", output: { summary: "no status field" } as unknown as string }),
+    ]);
+
+    const result = await runFrontmatterJudge("T6");
+    expect(result.score).toBe(0);
+  });
 });
 
 describe("token-stats judge", () => {

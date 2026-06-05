@@ -39,6 +39,16 @@ function extractFrontmatterYaml(output: unknown): string | null {
 
 /** Validate a single step's frontmatter, returning a list of errors (empty = valid). */
 function validateStepFrontmatter(output: unknown): string[] {
+  // CAS stores the extracted output as a JSON object after the extract pipeline.
+  // Accept both: parsed object (from step.output) or raw markdown string.
+  if (typeof output === "object" && output !== null && !Array.isArray(output)) {
+    const status = (output as Record<string, unknown>).$status;
+    if (typeof status !== "string" || status.trim() === "") {
+      return ["$status field is missing or not a non-empty string"];
+    }
+    return [];
+  }
+
   const yaml = extractFrontmatterYaml(output);
   if (yaml === null) {
     return ["output does not begin with a valid '---' frontmatter block"];
