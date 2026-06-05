@@ -7,12 +7,15 @@ import {
   registerRunCommand,
 } from "./commands/index.js";
 
+// eslint-disable-next-line -- dynamic import for version
+const pkg = await import("../package.json", { with: { type: "json" } });
+
 const program = new Command();
 
 program
   .name("uwf-eval")
   .description("Evaluate uwf workflow quality with real agents")
-  .version("0.1.0");
+  .version(pkg.default.version, "-V, --version");
 
 registerRunCommand(program);
 registerReportCommand(program);
