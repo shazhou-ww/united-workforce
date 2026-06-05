@@ -31,7 +31,7 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
         frontmatter: {
           type: "object",
           properties: {
-            $status: { type: "string" },
+            $status: { type: "string", enum: ["done"] },
           },
           required: ["$status"],
         } as unknown as CasRef,
@@ -39,7 +39,7 @@ function makeMinimalPayload(name: string, description: string): WorkflowPayload 
     },
     graph: {
       $START: { _: { role: "worker", prompt: "start working", location: null } },
-      worker: { _: { role: "$END", prompt: "done", location: null } },
+      worker: { done: { role: "$END", prompt: "done", location: null } },
     },
   };
 }

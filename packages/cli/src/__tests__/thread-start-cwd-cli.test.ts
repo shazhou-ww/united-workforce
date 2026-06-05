@@ -54,7 +54,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string }
+        $status: { type: string, enum: ["ready"] }
 graph:
   $START:
     _:
@@ -62,7 +62,7 @@ graph:
       prompt: "Plan the work"
       location: null
   planner:
-    _:
+    ready:
       role: $END
       prompt: "Done"
       location: null

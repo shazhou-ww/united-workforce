@@ -8,10 +8,10 @@ const solveIssueGraph: WorkflowPayload["graph"] = {
     _: { role: "planner", prompt: "Start planning from the issue in the task.", location: null },
   },
   planner: {
-    _: { role: "developer", prompt: "Implement the plan: {{plan}}", location: null },
+    planned: { role: "developer", prompt: "Implement the plan: {{plan}}", location: null },
   },
   developer: {
-    _: { role: "reviewer", prompt: "Review the changes: {{summary}}", location: null },
+    implemented: { role: "reviewer", prompt: "Review the changes: {{summary}}", location: null },
   },
   reviewer: {
     approved: { role: "$END", prompt: "Done.", location: null },
@@ -112,7 +112,7 @@ describe("evaluate", () => {
 
   test("mustache template rendering with simple fields", () => {
     const result = evaluate(solveIssueGraph, "planner", {
-      $status: "_",
+      $status: "planned",
       plan: "Add auth middleware",
     });
     expect(result).toEqual({
@@ -139,11 +139,11 @@ describe("evaluate", () => {
   test("triple mustache also works for unescaped output", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {
-        _: { role: "developer", prompt: "Fix: {{{comments}}}", location: null },
+        rejected: { role: "developer", prompt: "Fix: {{{comments}}}", location: null },
       },
     };
     const result = evaluate(graph, "reviewer", {
-      $status: "_",
+      $status: "rejected",
       comments: "<script>alert(1)</script>",
     });
     expect(result).toEqual({
@@ -152,24 +152,22 @@ describe("evaluate", () => {
     });
   });
 
-  test("missing $status defaults to _ (unit routing)", () => {
+  test("missing $status → error (no unit fallback)", () => {
     const result = evaluate(solveIssueGraph, "planner", {
       plan: "Add auth middleware",
     });
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        role: "developer",
-        prompt: "Implement the plan: Add auth middleware",
-        location: null,
-      },
-    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        'agent output for role "planner" is missing required "$status" string',
+      );
+    }
   });
 
   test("mustache template with nested object paths", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {
-        _: {
+        rejected: {
           role: "developer",
           prompt: "Address: {{review.comments}}",
           location: null,
@@ -177,7 +175,7 @@ describe("evaluate", () => {
       },
     };
     const result = evaluate(graph, "reviewer", {
-      $status: "_",
+      $status: "rejected",
       review: { comments: "refactor the handler" },
     });
     expect(result).toEqual({

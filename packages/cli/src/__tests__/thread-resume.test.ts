@@ -79,7 +79,7 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
         },
         ok: { role: "reviewer", prompt: "Review the work", location: null },
       },
-      reviewer: { _: { role: "$END", prompt: "Done", location: null } },
+      reviewer: { done: { role: "$END", prompt: "Done", location: null } },
     },
   });
 
@@ -234,7 +234,7 @@ describe("uwf thread resume", () => {
       },
       graph: {
         $START: { _: { role: "worker", prompt: "Start", location: null } },
-        worker: { _: { role: "$END", prompt: "Done", location: null } },
+        worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
 
@@ -480,8 +480,8 @@ describe("uwf thread resume - completed threads", () => {
       },
       graph: {
         $START: { _: { role: "worker", prompt: "Start work", location: null } },
-        worker: { _: { role: "reviewer", prompt: "Review the work", location: null } },
-        reviewer: { _: { role: "$END", prompt: "Done", location: null } },
+        worker: { done: { role: "reviewer", prompt: "Review the work", location: null } },
+        reviewer: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
 
@@ -493,8 +493,8 @@ describe("uwf thread resume - completed threads", () => {
 
     process.env.OCAS_HOME = casDir;
 
-    const workerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
-    const reviewerOutputHash = await store.cas.put(outputSchemaHash, { $status: "_" });
+    const workerOutputHash = await store.cas.put(outputSchemaHash, { $status: "done" });
+    const reviewerOutputHash = await store.cas.put(outputSchemaHash, { $status: "done" });
     const detailHash = await store.cas.put(schemas.text, "mock detail");
 
     const workerStepHash = await store.cas.put(schemas.stepNode, {
@@ -563,7 +563,7 @@ describe("uwf thread resume - completed threads", () => {
       stepHash: newWorkerStepHash,
       detailHash,
       role: "worker",
-      frontmatter: { $status: "_" },
+      frontmatter: { $status: "done" },
       body: "",
       startedAtMs: 1716600003000,
       completedAtMs: 1716600004000,
@@ -641,7 +641,7 @@ echo '${adapterJson}'
       },
       graph: {
         $START: { _: { role: "worker", prompt: "Start", location: null } },
-        worker: { _: { role: "$END", prompt: "Done", location: null } },
+        worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
 
@@ -689,7 +689,7 @@ echo '${adapterJson}'
       },
       graph: {
         $START: { _: { role: "worker", prompt: "Start", location: null } },
-        worker: { _: { role: "$END", prompt: "Done", location: null } },
+        worker: { done: { role: "$END", prompt: "Done", location: null } },
       },
     });
 

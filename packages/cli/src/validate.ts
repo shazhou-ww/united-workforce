@@ -57,9 +57,18 @@ function isGraph(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  return Object.values(value).every(
-    (statusMap) => isRecord(statusMap) && Object.values(statusMap).every((t) => isTarget(t)),
-  );
+  return Object.entries(value).every(([node, statusMap]) => {
+    if (!isRecord(statusMap)) {
+      return false;
+    }
+    return Object.entries(statusMap).every(([status, target]) => {
+      // "_" is only valid as a status key for the $START entry node.
+      if (status === "_" && node !== "$START") {
+        return false;
+      }
+      return isTarget(target);
+    });
+  });
 }
 
 /**

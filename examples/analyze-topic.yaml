@@ -23,7 +23,7 @@ roles:
       type: object
       properties:
         $status:
-          enum: ["_"]
+          enum: ["done"]
         thesis:
           type: string
         keyPoints:
@@ -37,4 +37,4 @@ graph:
   $START:
     _: { role: "analyst", prompt: "Analyze the topic in the task and produce a structured summary with key points." }
   analyst:
-    _: { role: "$END", prompt: "Analysis complete. Finish the workflow." }
+    done: { role: "$END", prompt: "Analysis complete. Finish the workflow." }

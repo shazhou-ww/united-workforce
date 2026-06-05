@@ -42,7 +42,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string }
+        $status: { type: string, enum: ["done"] }
 graph:
   $START:
     _:
@@ -59,7 +59,7 @@ graph:
       prompt: "Try again"
       location: null
   roleB:
-    _:
+    done:
       role: $END
       prompt: "Done"
       location: null
@@ -92,7 +92,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string }
+        $status: { type: string, enum: ["done"] }
   roleC:
     description: Fail role
     goal: Do C
@@ -104,7 +104,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string }
+        $status: { type: string, enum: ["done"] }
 graph:
   $START:
     _:
@@ -121,12 +121,12 @@ graph:
       prompt: "Do C (fail)"
       location: null
   roleB:
-    _:
+    done:
       role: $END
       prompt: "Done"
       location: null
   roleC:
-    _:
+    done:
       role: $END
       prompt: "Done"
       location: null
@@ -147,7 +147,7 @@ roles:
       type: object
       required: ["$status"]
       properties:
-        $status: { type: string }
+        $status: { type: string, enum: ["done"] }
 graph:
   $START:
     _:
@@ -155,7 +155,7 @@ graph:
       prompt: "Work"
       location: null
   worker:
-    _:
+    done:
       role: $END
       prompt: "Done"
       location: null
@@ -426,8 +426,8 @@ describe("currentRole field", () => {
       await writeFile(wf, SINGLE_ROLE_WORKFLOW_YAML, "utf8");
 
       const { thread } = await cmdThreadStart(storageRoot, wf, "test", tmpDir);
-      // worker → _ maps to $END
-      await insertStepNode(storageRoot, thread as ThreadId, "worker", {});
+      // worker → done maps to $END
+      await insertStepNode(storageRoot, thread as ThreadId, "worker", { $status: "done" });
 
       const result = await cmdThreadShow(storageRoot, thread as ThreadId);
       expect(result.currentRole).toBe(null);
