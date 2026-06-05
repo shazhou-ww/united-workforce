@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { VERSION } from "@united-workforce/util";
 
 const HERMES_COMMAND = "hermes";
 const PROTOCOL_VERSION = 1;
@@ -299,7 +300,7 @@ export class HermesAcpClient {
   private async initialize(): Promise<void> {
     const initResponse = await this.sendRequest("initialize", {
       protocolVersion: PROTOCOL_VERSION,
-      clientInfo: { name: "uwf", version: "0.1.0" },
+      clientInfo: { name: "uwf", version: VERSION },
       capabilities: {},
     });
 
