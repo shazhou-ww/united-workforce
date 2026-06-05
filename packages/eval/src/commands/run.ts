@@ -52,7 +52,7 @@ export function registerRunCommand(program: Command): void {
   program
     .command("run <task>")
     .description("Run eval on a task directory or tarball")
-    .option("--agent <name>", "agent adapter to use", "hermes")
+    .option("--agent <name>", "agent adapter to use", "uwf-hermes")
     .option("--model <model>", "model override")
     .option("--count <n>", "number of eval runs", "1")
     .action(async (task: string, opts: RunCliOptions) => {
