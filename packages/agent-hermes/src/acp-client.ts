@@ -17,9 +17,17 @@ type PendingRequest = {
   reject: (reason: Error) => void;
 };
 
+/** Token usage returned by ACP PromptResponse. */
+export type AcpUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
 export type AcpPromptResult = {
   text: string;
   sessionId: string;
+  usage: AcpUsage | null;
 };
 
 export class HermesAcpClient {
@@ -96,9 +104,25 @@ export class HermesAcpClient {
       );
     }
 
+    // Extract token usage from ACP PromptResponse.result.usage (camelCase wire format)
+    const result = (response as { result?: Record<string, unknown> }).result;
+    const rawUsage = result?.usage as Record<string, unknown> | undefined;
+    const usage: AcpUsage | null =
+      rawUsage !== undefined &&
+      typeof rawUsage.inputTokens === "number" &&
+      typeof rawUsage.outputTokens === "number" &&
+      typeof rawUsage.totalTokens === "number"
+        ? {
+            inputTokens: rawUsage.inputTokens,
+            outputTokens: rawUsage.outputTokens,
+            totalTokens: rawUsage.totalTokens,
+          }
+        : null;
+
     return {
       text: this.messageChunks.join(""),
       sessionId: this.sessionId,
+      usage,
     };
   }
 
