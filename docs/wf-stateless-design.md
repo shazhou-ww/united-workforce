@@ -200,7 +200,7 @@ payload:
 
 - `roles` — 内联定义，每个 role 的 `meta` 是独立的 ocas_ref（指向 ocas 内置 JSON Schema 节点）
 - `graph` — `Record<Role | "$START", Record<Status, Target>>`，每个 Target = `{ role, prompt }`
-- Status 来自上一个 role 输出的 `status` 字段，`$START` 用 `_` 作为初始 status
+- Status 来自上一个 role 输出的 `$status` 字段，`$START` 使用 `new`（首次启动）和 `resume`（恢复已完成的 thread）作为 status
 - Prompt 模板使用 Mustache 渲染，变量来自 lastOutput
 - 不含 agent binding — agent 配置在 `~/.uwf/config.yaml` 中管理
 
@@ -208,7 +208,7 @@ Moderator 的求值逻辑：
 
 ```typescript
 evaluate(graph, lastRole, lastOutput) → { role, prompt }
-// 1. status = lastRole === "$START" ? "_" : lastOutput.status
+// 1. status = lastOutput.$status (e.g. "new" for $START first run, "resume" for completed thread resume)
 // 2. target = graph[lastRole][status]
 // 3. prompt = mustache.render(target.prompt, lastOutput)
 ```
@@ -422,8 +422,8 @@ type StepNodePayload = StepRecord & {
 Moderator 使用 `evaluate(graph, lastRole, lastOutput)` 进行同步 status-based routing：
 
 ```typescript
-// graph[lastRole][lastOutput.status] → Target { role, prompt }
-// $START 角色使用 "_" 作为初始 status
+// graph[lastRole][lastOutput.$status] → Target { role, prompt }
+// $START 使用 "new"（首次启动）和 "resume"（恢复已完成 thread）作为 status
 // prompt 通过 Mustache 模板渲染，变量来自 lastOutput
 ```
 
