@@ -31,6 +31,10 @@ packages:
     path: packages/cli
     type: cli
 
+  - name: "@united-workforce/eval"
+    path: packages/eval
+    type: cli
+
   - name: "@united-workforce/dashboard"
     path: packages/dashboard
     type: webui
