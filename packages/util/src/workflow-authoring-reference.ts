@@ -28,6 +28,7 @@ roles:                         # named actors
       2. Do that
     output: "..."              # what the agent should produce
     frontmatter:               # JSON Schema for structured output
+      type: object
       oneOf:
         - properties:
             $status: { const: "ready" }
@@ -71,10 +72,13 @@ The \`frontmatter\` field is a standard JSON Schema. It defines the structured f
 
 ### \`$status\` Field
 
-\`$status\` is the only standard field. Its value determines which graph edge the moderator follows. Use \`const\` to constrain each variant:
+\`$status\` is the only standard field. Its value determines which graph edge the moderator follows.
+
+**Multi-exit (oneOf)** — use \`const\` to constrain each variant:
 
 \`\`\`yaml
 frontmatter:
+  type: object
   oneOf:
     - properties:
         $status: { const: "done" }
@@ -86,13 +90,7 @@ frontmatter:
       required: [$status, error]
 \`\`\`
 
-### Custom Fields
-
-Add any fields you need for data passing between roles. These are available in edge prompts via Mustache templates.
-
-### Flat Schema (Single Status)
-
-When a role has only one outcome, use \`enum\` with a single value:
+**Single-exit (flat schema)** — use \`enum\` (not \`const\`):
 
 \`\`\`yaml
 frontmatter:
@@ -105,7 +103,14 @@ frontmatter:
   required: [$status, summary]
 \`\`\`
 
-Note: \`$status: { const: "done" }\` is **not** valid in flat schemas — the validator requires \`enum\` or \`oneOf\` with \`const\`. Use \`const\` only inside \`oneOf\` variants.
+**Important rules:**
+- \`type: object\` is **required** at the top level of frontmatter (both flat and oneOf)
+- In flat schemas, \`$status\` must use \`enum: [value]\`, NOT \`const: "value"\` — the validator rejects \`const\` outside of \`oneOf\` variants
+- In \`oneOf\` schemas, each variant's \`$status\` must use \`const: "value"\`
+
+### Custom Fields
+
+Add any fields you need for data passing between roles. These are available in edge prompts via Mustache templates.
 
 ## Graph Routing
 
