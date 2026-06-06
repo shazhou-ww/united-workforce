@@ -6,7 +6,7 @@ import { formatList, selectEntries } from "./format.js";
 import { readEvalEntries } from "./read.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
-const LOG_LIST = "L5KX9R2B";
+const LOG_LIST = "H5KX9R2B";
 
 type ListCliOptions = {
   task: string | undefined;
