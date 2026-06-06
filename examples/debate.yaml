@@ -1,6 +1,23 @@
 name: debate
 description: "Multi-role structured debate with critical thinking framework and host summary."
 
+# Shared frontmatter schema for debater roles (YAML anchor)
+x-debater-frontmatter: &debater-frontmatter
+  type: object
+  oneOf:
+    - properties:
+        $status: { const: speak }
+        argument: { type: string }
+      required: [$status, argument]
+    - properties:
+        $status: { const: conceded }
+        reason: { type: string }
+      required: [$status, reason]
+    - properties:
+        $status: { const: final }
+        closing: { type: string }
+      required: [$status, closing]
+
 roles:
   proponent:
     description: "Argues FOR the proposition"
@@ -33,21 +50,7 @@ roles:
       4. Otherwise output $status: speak and counter the opponent's points.
       5. Be rigorous, cite evidence, stay concise.
     output: "Debate argument"
-    frontmatter:
-      type: object
-      oneOf:
-        - properties:
-            $status: { const: speak }
-            argument: { type: string }
-          required: [$status, argument]
-        - properties:
-            $status: { const: conceded }
-            reason: { type: string }
-          required: [$status, reason]
-        - properties:
-            $status: { const: final }
-            closing: { type: string }
-          required: [$status, closing]
+    frontmatter: *debater-frontmatter
 
   opponent:
     description: "Argues AGAINST the proposition"
@@ -80,21 +83,7 @@ roles:
       4. Otherwise output $status: speak and counter the proponent's points.
       5. Be rigorous, cite evidence, stay concise.
     output: "Debate argument"
-    frontmatter:
-      type: object
-      oneOf:
-        - properties:
-            $status: { const: speak }
-            argument: { type: string }
-          required: [$status, argument]
-        - properties:
-            $status: { const: conceded }
-            reason: { type: string }
-          required: [$status, reason]
-        - properties:
-            $status: { const: final }
-            closing: { type: string }
-          required: [$status, closing]
+    frontmatter: *debater-frontmatter
 
   host:
     description: "Debate moderator — delivers impartial summary and verdict"
