@@ -140,5 +140,18 @@ For specific scenarios, run the corresponding \`uwf prompt\` command:
 |----------|---------|-------------|
 | Writing workflow YAML | \`uwf prompt workflow-authoring\` | Designing roles, conditions, graphs, and edge prompts |
 | Building a new agent adapter | \`uwf prompt adapter-developing\` | Creating a new \`uwf-<name>\` CLI adapter |
+
+## Upgrading
+
+\`\`\`bash
+# Install the latest version
+pnpm add -g @united-workforce/cli@latest @united-workforce/agent-hermes@latest
+# or: npm install -g @united-workforce/cli@latest @united-workforce/agent-hermes@latest
+
+# Verify
+uwf --version
+
+# Then run uwf prompt bootstrap and follow the upgrade instructions
+\`\`\`
 `;
 }
