@@ -225,4 +225,34 @@ describe("buildOutputFormatInstruction", () => {
     const result = buildOutputFormatInstruction({});
     expect(result).toContain("Focus exclusively on YOUR role");
   });
+
+  test("renders const value as literal in flat schema example", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        $status: { type: "string", const: "greeted" },
+        message: { type: "string" },
+      },
+      required: ["$status", "message"],
+    };
+    const result = buildOutputFormatInstruction(schema);
+    expect(result).toContain("$status: greeted");
+    expect(result).toContain("fixed value");
+    expect(result).not.toContain("$status: <string>");
+  });
+
+  test("renders const value for non-string types", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        count: { type: "number", const: 42 },
+        done: { type: "boolean", const: true },
+      },
+      required: ["count", "done"],
+    };
+    const result = buildOutputFormatInstruction(schema);
+    expect(result).toContain("count: 42");
+    expect(result).toContain("done: true");
+    expect(result).toContain("fixed value");
+  });
 });
