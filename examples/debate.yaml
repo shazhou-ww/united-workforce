@@ -1,63 +1,142 @@
-name: "debate"
-description: "Structured debate between two sides. Tests cross-process session resume."
+name: debate
+description: "Multi-role structured debate with critical thinking framework and host summary."
+
 roles:
-  against:
-    description: "Argues against the proposition"
-    goal: |
-      You are a skilled debater arguing AGAINST the proposition.
-      Be logical, cite evidence, and directly address your opponent's points.
-      Keep each argument concise (under 200 words).
-    capabilities:
-      - argumentation
-      - critical-thinking
+  proponent:
+    description: "Argues FOR the proposition"
+    goal: "Build a compelling case for the proposition through logical reasoning and evidence"
+    capabilities: []
     procedure: |
-      1. If this is the opening, present your strongest argument against the proposition.
-      2. If responding to the other side, directly counter their points with evidence and logic.
-      3. If you find yourself genuinely convinced by the other side, you may concede.
-    output: |
-      Provide your argument in the frontmatter.
-      Set status to "conceded" ONLY if you are genuinely convinced and wish to stop debating.
-      Otherwise set status to "continue".
+      You are an experienced scholar arguing FOR the proposition.
+
+      ## Critical Thinking Framework (execute before every speech)
+
+      ### A. Pre-speech reflection (internal, do not output)
+      - Does every step in my argument chain hold? Any hidden assumptions or logical gaps?
+      - If I were my opponent, how would I attack this? Where am I weakest?
+      - Does my evidence actually support my claim, or could it backfire?
+      - Should I go on offense or defense this round?
+
+      ### B. Evidence discipline
+      - Verify key numbers — watch for order-of-magnitude errors
+      - Assess data freshness — fast-moving fields have short half-lives
+      - Distinguish primary data from secondary citations, expert opinion, and common assumptions
+
+      ### C. Anti-fragility
+      - Anticipate counterarguments; preemptively strengthen or strategically abandon weak points
+      - Catch logical gaps, data misuse, or outdated claims in your opponent's reasoning
+
+      ## Rules
+      1. Check Thread Progress to see how many times you have spoken.
+      2. On your 3rd speech, you MUST output $status: final (closing statement).
+      3. If genuinely convinced by the opponent, output $status: conceded.
+      4. Otherwise output $status: speak and counter the opponent's points.
+      5. Be rigorous, cite evidence, stay concise.
+    output: "Debate argument"
+    frontmatter:
+      type: object
+      oneOf:
+        - properties:
+            $status: { const: speak }
+            argument: { type: string }
+          required: [$status, argument]
+        - properties:
+            $status: { const: conceded }
+            reason: { type: string }
+          required: [$status, reason]
+        - properties:
+            $status: { const: final }
+            closing: { type: string }
+          required: [$status, closing]
+
+  opponent:
+    description: "Argues AGAINST the proposition"
+    goal: "Build a compelling case against the proposition through logical reasoning and evidence"
+    capabilities: []
+    procedure: |
+      You are an experienced scholar arguing AGAINST the proposition.
+
+      ## Critical Thinking Framework (execute before every speech)
+
+      ### A. Pre-speech reflection (internal, do not output)
+      - Does every step in my argument chain hold? Any hidden assumptions or logical gaps?
+      - If I were my opponent, how would I attack this? Where am I weakest?
+      - Does my evidence actually support my claim, or could it backfire?
+      - Should I go on offense or defense this round?
+
+      ### B. Evidence discipline
+      - Verify key numbers — watch for order-of-magnitude errors
+      - Assess data freshness — fast-moving fields have short half-lives
+      - Distinguish primary data from secondary citations, expert opinion, and common assumptions
+
+      ### C. Anti-fragility
+      - Anticipate counterarguments; preemptively strengthen or strategically abandon weak points
+      - Catch logical gaps, data misuse, or outdated claims in your opponent's reasoning
+
+      ## Rules
+      1. Check Thread Progress to see how many times you have spoken.
+      2. On your 3rd speech, or when the proponent has issued a final statement, you MUST output $status: final.
+      3. If genuinely convinced by the proponent, output $status: conceded.
+      4. Otherwise output $status: speak and counter the proponent's points.
+      5. Be rigorous, cite evidence, stay concise.
+    output: "Debate argument"
+    frontmatter:
+      type: object
+      oneOf:
+        - properties:
+            $status: { const: speak }
+            argument: { type: string }
+          required: [$status, argument]
+        - properties:
+            $status: { const: conceded }
+            reason: { type: string }
+          required: [$status, reason]
+        - properties:
+            $status: { const: final }
+            closing: { type: string }
+          required: [$status, closing]
+
+  host:
+    description: "Debate moderator — delivers impartial summary and verdict"
+    goal: "Objectively review the debate, analyze both sides, and deliver a verdict"
+    capabilities: []
+    procedure: |
+      You are an experienced academic debate moderator.
+
+      ## Task
+      1. Outline each side's core arguments
+      2. Evaluate reasoning quality and evidence use
+      3. Highlight the most impactful exchanges
+      4. Analyze the deeper significance of the topic
+      5. Deliver an overall verdict
+
+      ## Style
+      - Impartial but with independent judgment
+      - Substantive, not superficial
+    output: "Debate summary report"
     frontmatter:
       type: object
       properties:
-        $status:
-          enum: ["continue", "conceded"]
-        argument:
-          type: string
-      required: [$status, argument]
-  for:
-    description: "Argues for the proposition"
-    goal: |
-      You are a skilled debater arguing FOR the proposition.
-      Be logical, cite evidence, and directly address your opponent's points.
-      Keep each argument concise (under 200 words).
-    capabilities:
-      - argumentation
-      - critical-thinking
-    procedure: |
-      1. Read the opposing side's latest argument carefully.
-      2. Counter their points with evidence and logic.
-      3. If you find yourself genuinely convinced by the other side, you may concede.
-    output: |
-      Provide your argument in the frontmatter.
-      Set status to "conceded" ONLY if you are genuinely convinced and wish to stop debating.
-      Otherwise set status to "continue".
-    frontmatter:
-      type: object
-      properties:
-        $status:
-          enum: ["continue", "conceded"]
-        argument:
-          type: string
-      required: [$status, argument]
+        $status: { const: done }
+        summary: { type: string }
+        highlights: { type: string }
+        verdict: { type: string }
+      required: [$status, summary, highlights, verdict]
+
 graph:
   $START:
-    new: { role: "against", prompt: "Present your opening argument against the proposition." }
-    resume: { role: "against", prompt: "Review the previous debate output and continue the argument against the proposition." }
-  against:
-    conceded: { role: "$END", prompt: "The against side conceded. Debate over." }
-    continue: { role: "for", prompt: "Counter the opposing argument: {{{argument}}}" }
-  for:
-    conceded: { role: "$END", prompt: "The for side conceded. Debate over." }
-    continue: { role: "against", prompt: "Counter the opposing argument: {{{argument}}}" }
+    new: { role: proponent, prompt: "The debate begins. You are arguing FOR the proposition. Present your opening argument." }
+    resume: { role: proponent, prompt: "The debate continues." }
+
+  proponent:
+    speak: { role: opponent, prompt: "Proponent argues:\n\n{{{argument}}}\n\nYou are the opponent. Counter this argument." }
+    conceded: { role: host, prompt: "The proponent conceded: {{{reason}}}\n\nPlease summarize the debate." }
+    final: { role: opponent, prompt: "Proponent's closing statement:\n\n{{{closing}}}\n\nYou are the opponent. Deliver your final response." }
+
+  opponent:
+    speak: { role: proponent, prompt: "Opponent argues:\n\n{{{argument}}}\n\nYou are the proponent. Counter this argument." }
+    conceded: { role: host, prompt: "The opponent conceded: {{{reason}}}\n\nPlease summarize the debate." }
+    final: { role: host, prompt: "Opponent's closing statement:\n\n{{{closing}}}\n\nThe debate is over. Please summarize." }
+
+  host:
+    done: { role: "$END", prompt: "Summary complete." }

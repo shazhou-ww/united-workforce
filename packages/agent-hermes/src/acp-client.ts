@@ -12,7 +12,11 @@ const OWN_VERSION = (
   }
 ).version;
 
-const HERMES_COMMAND = "hermes";
+/** Resolve hermes binary: `UWF_HERMES_BIN` override → default `"hermes"` via PATH. */
+function resolveHermesCommand(): string {
+  const override = process.env.UWF_HERMES_BIN;
+  return override !== undefined && override !== "" ? override : "hermes";
+}
 const PROTOCOL_VERSION = 1;
 
 type JsonRpcResponse = {
@@ -271,7 +275,8 @@ export class HermesAcpClient {
       return;
     }
 
-    const child = spawn(HERMES_COMMAND, ["acp"], {
+    const hermesCommand = resolveHermesCommand();
+    const child = spawn(hermesCommand, ["acp"], {
       env: process.env,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
