@@ -74,6 +74,10 @@ function collectObjectSchemas(schema: JSONSchema): JSONSchema[] {
 }
 
 function resolvePropertySchema(prop: JSONSchema): JSONSchema {
+  if (prop.const !== undefined) {
+    return prop;
+  }
+
   if (Array.isArray(prop.enum) && prop.enum.length > 0) {
     return prop;
   }
@@ -111,6 +115,11 @@ function buildPropertyExampleLine(prop: SchemaProperty): string {
   const commentParts: string[] = [];
   if (prop.required) {
     commentParts.push("required");
+  }
+
+  if (resolved.const !== undefined) {
+    commentParts.push("fixed value");
+    return `${prop.name}: ${formatYamlScalar(resolved.const)}${buildPropertyComment(commentParts)}`;
   }
 
   if (Array.isArray(resolved.enum) && resolved.enum.length > 0) {
