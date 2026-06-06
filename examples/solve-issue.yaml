@@ -98,6 +98,18 @@ roles:
       10. Ensure `pnpm run build` passes with no errors
       11. Run `pnpm test` to verify all tests pass
 
+      After implementation, before reporting done:
+      12. Add a changeset file (`.changeset/<short-slug>.md`) with correct bump type:
+          - `patch` for bug fixes, internal refactors, test-only changes
+          - `minor` for new features, new CLI commands, new API surfaces
+          - `major` for breaking changes
+          List every affected package in the changeset frontmatter.
+      13. Update documentation if the change affects user-facing behavior:
+          - `README.md` — usage examples, feature descriptions
+          - `.cards/` — architecture decision records (if applicable)
+          - CLI prompt subcommand output (if CLI help text changes)
+          - CLI `--help` text (if flags/commands are added or changed)
+
       If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
       or repeated attempts fail), set $status=failed with a reason.
     output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or failed (with reason)."
@@ -135,6 +147,14 @@ roles:
       - Naming conventions, module boundaries, code style
       - No `console.log` in production code
       - No dynamic imports in production code
+
+      Documentation & changeset checks:
+      6. Changeset exists in `.changeset/` with correct bump type (`patch`/`minor`/`major`) and lists all affected packages
+      7. If the change is user-facing, documentation is updated:
+         - `README.md` reflects new/changed behavior
+         - `.cards/` architecture cards updated if design decisions changed
+         - CLI prompt subcommand output updated (if it generates skill/reference content)
+         - CLI `--help` text matches new flags/commands
 
       Only review standards compliance. Do NOT test functionality.
       If rejecting, you MUST explain the specific reason in your output.
