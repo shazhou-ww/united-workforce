@@ -23,7 +23,7 @@ roles:
       type: object
       properties:
         $status:
-          enum: ["done"]
+          const: done
         thesis:
           type: string
         keyPoints:

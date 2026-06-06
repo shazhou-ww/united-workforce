@@ -18,8 +18,7 @@ roles:
       type: object
       properties:
         $status:
-          type: string
-          enum: [done]
+          const: done
         summary:
           type: string
       required: [$status, summary]

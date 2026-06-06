@@ -1,5 +1,5 @@
 name: "solve-issue"
-description: "TDD-driven issue resolution for small, focused changes. Loop protection relies on engine maxRounds."
+description: "TDD-driven issue resolution for small, focused changes. Loop protection relies on engine maxRounds. Uses pnpm."
 roles:
   planner:
     description: "Analyzes issue and outputs a TDD test spec"
@@ -80,7 +80,7 @@ roles:
       2. `git fetch origin` to get latest refs
       3. First time (no existing branch):
          - `git worktree add .worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
-         - `cd .worktrees/fix/<issue-number>-<short-slug> && bun install`
+         - `cd .worktrees/fix/<issue-number>-<short-slug> && pnpm install`
       4. If continuing on existing branch (prompt says "Continue work on existing branch" or provides a worktree path):
          - cd directly into the worktree path provided in the prompt
          - `git fetch origin && git rebase origin/main`
@@ -95,8 +95,8 @@ roles:
       7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
       8. Write tests first based on the spec
       9. Implement the code to make tests pass
-      10. Ensure `bun run build` passes with no errors
-      11. Run `bun test` to verify all tests pass
+      10. Ensure `pnpm run build` passes with no errors
+      11. Run `pnpm test` to verify all tests pass
 
       If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
       or repeated attempts fail), set $status=failed with a reason.
@@ -127,8 +127,8 @@ roles:
 
       Then perform code review:
       Hard checks (must all pass):
-      3. `bun run build` — no build errors
-      4. `bunx biome check` — no lint violations
+      3. `pnpm run build` — no build errors
+      4. `pnpm run check` — no lint violations
       5. TypeScript strict mode — no type errors
 
       Soft checks (review against project conventions if CLAUDE.md / .cursor/rules exist):
@@ -159,7 +159,7 @@ roles:
     procedure: |
       The worktree path is provided in your task prompt. cd into it first.
 
-      1. Run `bun test` for automated test verification
+      1. Run `pnpm test` for automated test verification
       2. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner step in the thread history)
       3. Verify each scenario in the spec is covered and passing
       4. Determine outcome:
