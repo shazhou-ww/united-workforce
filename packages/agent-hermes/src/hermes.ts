@@ -6,6 +6,7 @@ import {
   type AgentRunResult,
   buildContinuationPrompt,
   buildRolePrompt,
+  buildThreadProgress,
   createAgent,
 } from "@united-workforce/util-agent";
 import type { AcpUsage } from "./acp-client.js";
@@ -59,6 +60,9 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   if (ctx.outputFormatInstruction !== "") {
     parts.push(ctx.outputFormatInstruction, "");
   }
+
+  // Inject thread progress so the agent knows step count and role visit count
+  parts.push(buildThreadProgress(ctx.steps, ctx.role), "");
 
   if (!ctx.isFirstVisit) {
     // Re-entry: show only steps since last visit, meta only

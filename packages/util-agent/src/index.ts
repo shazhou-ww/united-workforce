@@ -1,6 +1,7 @@
 export { buildContinuationPrompt } from "./build-continuation-prompt.js";
 export { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 export { buildRolePrompt } from "./build-role-prompt.js";
+export { buildThreadProgress } from "./build-thread-progress.js";
 export type { BuildContextMeta } from "./context.js";
 export { buildContext, buildContextWithMeta } from "./context.js";
 export type { ExtractResult, ResolvedLlmProvider } from "./extract.js";
