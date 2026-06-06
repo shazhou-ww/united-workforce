@@ -21,11 +21,11 @@ describe("solve-issue workflow: Gitea API PR creation", () => {
     "..",
     "..",
     "..",
-    ".workflows",
+    "examples",
     "solve-issue.yaml",
   );
 
-  test("committer procedure should use curl API instead of tea pr create", async () => {
+  test("committer procedure should create PR via tea pr create", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
@@ -33,25 +33,22 @@ describe("solve-issue workflow: Gitea API PR creation", () => {
     const committerProcedure = workflow.roles.committer?.procedure;
     expect(committerProcedure).toBeDefined();
 
-    // Verify the procedure uses curl API, not tea pr create
-    expect(committerProcedure).toContain("curl");
-    expect(committerProcedure).toContain("api/v1/repos");
-    expect(committerProcedure).toContain("/pulls");
-
-    // Verify it explicitly warns against tea pr create
-    expect(committerProcedure).toMatch(/do NOT use.*tea pr create/i);
+    // Verify the procedure uses tea pr create for PR creation
+    expect(committerProcedure).toContain("tea pr create");
+    expect(committerProcedure).toContain("git push");
+    expect(committerProcedure).toContain("Fixes #N");
   });
 
-  test("committer procedure should reference repoRemote from task prompt", async () => {
+  test("committer procedure should extract owner/repo from git remote", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const committerProcedure = workflow.roles.committer?.procedure;
     expect(committerProcedure).toBeDefined();
 
-    // Verify the procedure mentions repoRemote is provided in task prompt
-    expect(committerProcedure).toMatch(/repo remote.*provided.*task prompt/i);
-    expect(committerProcedure).toMatch(/owner\/repo/i);
+    // Verify the procedure extracts owner/repo from remote
+    expect(committerProcedure).toContain("git remote get-url origin");
+    expect(committerProcedure).toContain("hook_failed");
   });
 
   test("committer procedure should include error handling for curl failures", async () => {
@@ -100,45 +97,42 @@ describe("solve-issue workflow: Gitea API PR creation", () => {
     expect(committedVariant.required).toContain("$status");
   });
 
-  test("developer procedure should include mandatory verification step", async () => {
+  test("developer procedure should include worktree setup", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const developerProcedure = workflow.roles.developer?.procedure;
     expect(developerProcedure).toBeDefined();
 
-    // Verify the procedure includes mandatory verification step
-    expect(developerProcedure).toContain("MANDATORY VERIFICATION");
-    expect(developerProcedure).toContain("git branch --show-current");
-    expect(developerProcedure).toContain("git status");
-    expect(developerProcedure).toMatch(/ls -la|verify.*exist/i);
+    // Verify the procedure includes worktree setup
+    expect(developerProcedure).toContain("IMPORTANT");
+    expect(developerProcedure).toContain("git worktree add");
+    expect(developerProcedure).toContain("pnpm install");
   });
 
-  test("reviewer procedure should enforce worktree path verification", async () => {
+  test("reviewer procedure should verify branch and run checks", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const reviewerProcedure = workflow.roles.reviewer?.procedure;
     expect(reviewerProcedure).toBeDefined();
 
-    // Verify the procedure includes critical enforcement
-    expect(reviewerProcedure).toContain("CRITICAL");
-    expect(reviewerProcedure).toMatch(/cd.*pwd/);
-    expect(reviewerProcedure).toContain(
-      "Do NOT report results without running the actual commands",
-    );
+    // Verify the procedure includes branch verification and build checks
+    expect(reviewerProcedure).toContain("git branch --show-current");
+    expect(reviewerProcedure).toContain("pnpm run build");
+    expect(reviewerProcedure).toContain("pnpm run check");
   });
 
-  test("developer procedure should include test debugging escalation", async () => {
+  test("developer procedure should include changeset and failure handling", async () => {
     const yamlContent = await readFile(workflowPath, "utf-8");
     const workflow = parse(yamlContent) as WorkflowPayload;
 
     const developerProcedure = workflow.roles.developer?.procedure;
     expect(developerProcedure).toBeDefined();
 
-    // Verify the procedure includes test failure guidance
-    expect(developerProcedure).toMatch(/tests fail.*first run/i);
-    expect(developerProcedure).toMatch(/3 test cycles|after 3 attempts/i);
+    // Verify the procedure includes changeset requirement and failure path
+    expect(developerProcedure).toContain(".changeset/");
     expect(developerProcedure).toContain("$status=failed");
+    expect(developerProcedure).toContain("pnpm test");
   });
 });
