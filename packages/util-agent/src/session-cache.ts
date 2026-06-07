@@ -14,6 +14,10 @@ function cacheKey(threadId: ThreadId, role: string): string {
   return `${threadId}:${role}`;
 }
 
+function askCacheKey(stepHash: string): string {
+  return `${stepHash}:ask`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -84,5 +88,35 @@ export async function setCachedSessionId(
 ): Promise<void> {
   const cache = await readCache(agentName, storageRoot);
   cache[cacheKey(threadId, role)] = sessionId;
+  await writeCache(agentName, storageRoot, cache);
+}
+
+/**
+ * Read the cached ask-session ID for a stepHash.
+ *
+ * Ask sessions are forked side conversations spawned by `step ask` from a
+ * specific completed step. They share the per-agent cache file with exec
+ * sessions but use the `<stepHash>:ask` key shape so the two namespaces
+ * never collide.
+ */
+export async function getAskSessionId(
+  agentName: string,
+  stepHash: string,
+  storageRoot: string,
+): Promise<string | null> {
+  const cache = await readCache(agentName, storageRoot);
+  const sessionId = cache[askCacheKey(stepHash)];
+  return sessionId ?? null;
+}
+
+/** Write the ask-session ID for a stepHash into the cache. */
+export async function setAskSessionId(
+  agentName: string,
+  stepHash: string,
+  sessionId: string,
+  storageRoot: string,
+): Promise<void> {
+  const cache = await readCache(agentName, storageRoot);
+  cache[askCacheKey(stepHash)] = sessionId;
   await writeCache(agentName, storageRoot, cache);
 }

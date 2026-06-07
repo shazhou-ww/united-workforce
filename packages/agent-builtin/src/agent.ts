@@ -167,5 +167,7 @@ export function createBuiltinAgent(): () => Promise<void> {
     name: "builtin",
     run: runBuiltin,
     continue: continueBuiltin,
+    fork: null,
+    cleanup: null,
   });
 }

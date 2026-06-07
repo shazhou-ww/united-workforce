@@ -253,5 +253,7 @@ export function createClaudeCodeAgent(model: string | null): () => Promise<void>
     name: "claude-code",
     run: (ctx) => runClaudeCode(ctx, model),
     continue: (sessionId, message, store) => continueClaudeCode(sessionId, message, store, model),
+    fork: null,
+    cleanup: null,
   });
 }

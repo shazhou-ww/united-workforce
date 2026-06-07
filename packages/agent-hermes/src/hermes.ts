@@ -246,6 +246,8 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
     name: "hermes",
     run: runHermes,
     continue: continueHermes,
+    fork: null,
+    cleanup: null,
   });
 
   // Wrap to ensure ACP client is closed after agent completes,
