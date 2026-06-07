@@ -79,6 +79,7 @@ uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 | `uwf step show <step-hash>` | Show step metadata and frontmatter |
 | `uwf step read <step-hash> [--quota <chars>]` | Read a step's turns as human-readable markdown |
 | `uwf step fork <step-hash>` | Fork a thread from a specific step |
+| `uwf step ask <step-hash> -p <prompt> [--agent <cmd>] [--no-fork]` | Ask a follow-up question to a historical step's agent (read-only; no thread mutation) |
 
 Examples:
 
@@ -87,6 +88,8 @@ uwf step list 01ARZ3NDEKTSV4RRFFQ69G5FAV
 uwf step show 32GCDE899RRQ3
 uwf step read 32GCDE899RRQ3 --quota 2000
 uwf step fork 32GCDE899RRQ3
+uwf step ask 32GCDE899RRQ3 -p "Why did you choose this approach?"
+uwf step ask 32GCDE899RRQ3 -p "Summarise the key findings" --no-fork
 ```
 
 ### Workflow (Layer 1: Templates)

@@ -12,7 +12,7 @@ import {
   cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
 import { cmdSetup, cmdSetupInteractive, resolvePresetBaseUrl } from "./commands/setup.js";
-import { cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
+import { cmdStepAsk, cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
   cmdThreadExec,
@@ -389,6 +389,32 @@ step
       writeOutput(detail);
     });
   });
+
+step
+  .command("ask")
+  .description(
+    "Ask a follow-up question to a historical step's agent (read-only; no thread mutation)",
+  )
+  .argument("<step-hash>", "CAS hash of the StepNode to query")
+  .requiredOption("-p, --prompt <text>", "Question to ask the step's agent")
+  .option("--agent <cmd>", "Override agent command (defaults to the step's recorded agent)")
+  .option(
+    "--no-fork",
+    "Skip session-fork; spawn the agent in a fresh ask session and inject the step's detail ref for context",
+  )
+  .action(
+    (stepHash: string, opts: { prompt: string; agent: string | undefined; fork: boolean }) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        const stdout = await cmdStepAsk(storageRoot, stepHash as CasRef, {
+          prompt: opts.prompt,
+          agentOverride: opts.agent ?? null,
+          fork: opts.fork !== false,
+        });
+        process.stdout.write(stdout.endsWith("\n") ? stdout : `${stdout}\n`);
+      });
+    },
+  );
 
 step
   .command("read")
