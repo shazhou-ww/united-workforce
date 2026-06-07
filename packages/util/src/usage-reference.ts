@@ -94,9 +94,14 @@ start → exec (repeat) → thread reaches $END → auto-completed
 uwf step list <thread-id>         # list all steps
 uwf step show <step-hash>         # show step details
 uwf step fork <step-hash>         # fork thread from a step (branch)
+uwf step ask <step-hash> -p <prompt> [--agent <cmd>] [--no-fork]
+                                  # ask a follow-up question to the step's agent
+                                  # (read-only; no new step, no thread mutation)
 \`\`\`
 
 Forking creates a new thread that shares history up to the fork point — useful for retrying from a known-good state.
+
+\`step ask\` re-opens the agent session that produced \`<step-hash>\` and returns its answer on stdout. Subsequent asks reuse the same forked session via the per-agent ask-cache; \`--no-fork\` runs the agent fresh with the step's detail ref injected for context.
 
 ## CAS Commands
 
