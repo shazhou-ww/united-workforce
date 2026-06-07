@@ -6,6 +6,7 @@ import {
   type AgentContext,
   type AgentRunResult,
   buildContinuationPrompt,
+  buildFrontmatterRetryPrompt,
   buildRolePrompt,
   buildThreadProgress,
   createAgent,
@@ -176,8 +177,12 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
 
   log("K7R2M4N8", `prompt for role=${ctx.role} (length=${fullPrompt.length}):\n${fullPrompt}`);
 
-  // Try resuming a cached session for re-entry scenarios (e.g. reviewer reject → developer re-entry).
-  if (!ctx.isFirstVisit) {
+  // Try resuming a cached session.  This covers both normal re-entry
+  // (e.g. reviewer reject → developer re-entry) AND the case where a
+  // previous run completed but frontmatter validation failed — the step
+  // was never written to CAS so isFirstVisit is still true, but the
+  // session cache holds a valid session we should resume.
+  {
     const cachedSessionId = await getCachedSessionId(
       "claude-code",
       ctx.threadId,
@@ -185,13 +190,20 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
       ctx.storageRoot,
     );
     if (cachedSessionId !== null) {
+      // isFirstVisit + cache hit = previous run completed but frontmatter
+      // validation failed.  The session already has full context — send a
+      // minimal correction prompt instead of the full initial prompt.
+      const resumePrompt = ctx.isFirstVisit
+        ? buildFrontmatterRetryPrompt(ctx.outputFormatInstruction)
+        : fullPrompt;
+
       try {
         const { stdout, stderr, exitCode } = await spawnClaudeResume(
           cachedSessionId,
-          fullPrompt,
+          resumePrompt,
           model,
         );
-        const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
+        const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, resumePrompt);
         if (result.sessionId !== undefined && result.sessionId !== "") {
           await setCachedSessionId(
             "claude-code",
