@@ -2,21 +2,20 @@
 title: "Three Learning Carriers — Memory, Skill, Workflow"
 created: "2026-06-07"
 source: "openclaw-xiaomo"
-tags: [architecture, pattern]
-category: "architecture"
+tags: [architecture, concept]
+category: "product"
 links:
+  - vendor-vs-fte-who-defines-capability
   - agent-as-graduate
-  - skill-vs-workflow-different-layers
-  - when-skill-is-not-enough
-  - opc-why-fte-agents-matter-most
+  - switching-cost-process-knowledge-as-moat
 ---
 
-完整的 FTE agent 需要三层能力载体，缺一不可：
+FTE 型 agent 的能力积累依赖三个载体：
 
-- **记忆强化知识** — 事实性积累。"这个客户偏好什么"、"上次这个 API 出过什么问题"。让 agent 越来越懂你的业务上下文。
-- **Skill 强化技能** — 单个 session 内的方法论。"怎么做 code review"、"怎么写测试"。提升每个环节的执行质量。
-- **Workflow 强化纪律** — session 之间的协作结构。"做一个 feature 必须经过哪些步骤"。保证流程可靠性和多视角制衡。
+1. **Memory（记忆）**— 用户偏好、环境事实、历史上下文。跨 session 持久化，让 agent 不用每次从零开始。
+2. **Skill（技能）**— 可复用的操作程序。解决过的问题沉淀成步骤，下次直接调用。
+3. **Workflow / DW（流程）**— 多步骤协作模式。把复杂任务拆成角色和阶段，用流程纪律保障质量。
 
-三者互补：光有 workflow 没有 skill，每个环节执行质量差；光有 skill 没有 workflow，能力强但不守规矩；光有记忆没有前两者，知道很多但不会做事。
+三者的关系：memory 是"认识你"，skill 是"会做事"，workflow 是"知道怎么把事做好"。
 
-出厂能力同样重要——底座模型 + 技能包决定毕业生的起点。名校博士和高中毕业，出厂就不同。但出厂能力是必要不充分的，FTE 的长期价值靠三层载体的持续积累。
+OpenClaw、Claude Code、Hermes 都已具备这三个载体，但成熟度各异。差异在于：用户能多容易地往这三个载体里"灌"自己的知识。
