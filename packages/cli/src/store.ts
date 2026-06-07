@@ -82,6 +82,31 @@ async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
   return result;
 }
 
+/** Merge primary (.workflow/) and legacy (.workflows/) entries, primary wins on name collision. */
+function mergeWorkflowEntries(
+  primary: ProjectWorkflowEntry[],
+  legacy: ProjectWorkflowEntry[],
+): ProjectWorkflowEntry[] {
+  const seen = new Set(primary.map((e) => e.name));
+  const merged = [...primary];
+  for (const entry of legacy) {
+    if (!seen.has(entry.name)) {
+      merged.push(entry);
+    }
+  }
+  return merged;
+}
+
+/** Check if a directory contains a .git marker (directory or file). */
+async function hasGitMarker(dir: string): Promise<boolean> {
+  try {
+    await access(join(dir, ".git"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Discover project-local workflows by walking from `startDir` up through parent
  * directories. The nearest directory that contains a `.workflow/` or `.workflows/`
@@ -96,8 +121,9 @@ async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
  * `uwf thread start`, so `uwf workflow list` and `uwf thread start` agree on
  * what's discoverable from any given subdirectory.
  *
- * Returns an empty array if no `.workflow/` or `.workflows/` directory exists
- * anywhere from `startDir` up to the filesystem root.
+ * Traversal stops at the first `.git` boundary (directory or file) or the
+ * filesystem root. Returns an empty array if no `.workflow/` or `.workflows/`
+ * directory exists within that range.
  */
 export async function discoverProjectWorkflows(startDir: string): Promise<ProjectWorkflowEntry[]> {
   let currentDir = resolvePath(startDir);
@@ -108,14 +134,12 @@ export async function discoverProjectWorkflows(startDir: string): Promise<Projec
     const legacy = await scanWorkflowDir(join(currentDir, ".workflows"));
 
     if (primary.length > 0 || legacy.length > 0) {
-      const seen = new Set(primary.map((e) => e.name));
-      const merged = [...primary];
-      for (const entry of legacy) {
-        if (!seen.has(entry.name)) {
-          merged.push(entry);
-        }
-      }
-      return merged;
+      return mergeWorkflowEntries(primary, legacy);
+    }
+
+    // Stop at .git boundary (repo root)
+    if (await hasGitMarker(currentDir)) {
+      return [];
     }
 
     // Stop at filesystem root
