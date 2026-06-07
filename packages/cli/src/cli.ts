@@ -17,6 +17,7 @@ import {
   cmdThreadCancel,
   cmdThreadExec,
   cmdThreadList,
+  cmdThreadPoke,
   cmdThreadRead,
   cmdThreadResume,
   cmdThreadShow,
@@ -284,6 +285,26 @@ thread
         storageRoot,
         threadId as ThreadId,
         supplement,
+        agentOverride,
+      );
+      writeOutput(result);
+    });
+  });
+
+thread
+  .command("poke")
+  .description("Re-run the head step's agent with a supplementary prompt (replaces head step)")
+  .argument("<thread-id>", "Thread ULID")
+  .requiredOption("-p, --prompt <text>", "Supplementary prompt for the agent")
+  .option("--agent <cmd>", "Override agent command (defaults to head step's agent)")
+  .action((threadId: string, opts: { prompt: string; agent: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const agentOverride = opts.agent ?? null;
+      const result = await cmdThreadPoke(
+        storageRoot,
+        threadId as ThreadId,
+        opts.prompt,
         agentOverride,
       );
       writeOutput(result);
