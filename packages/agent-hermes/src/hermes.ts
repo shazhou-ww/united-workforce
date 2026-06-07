@@ -5,6 +5,7 @@ import {
   type AgentContext,
   type AgentRunResult,
   buildContinuationPrompt,
+  buildFrontmatterRetryPrompt,
   buildRolePrompt,
   buildThreadProgress,
   createAgent,
@@ -102,6 +103,8 @@ async function storePromptResult(store: Store, sessionId: string): Promise<{ det
 type PromptAttempt = {
   useContinuation: boolean;
   resumed: boolean;
+  /** True when resuming after a frontmatter-only failure (isFirstVisit + cache hit). */
+  frontmatterRetry: boolean;
 };
 
 async function prepareSession(
@@ -110,28 +113,36 @@ async function prepareSession(
   cwd: string,
   resumeDisabled: boolean,
 ): Promise<PromptAttempt> {
-  if (ctx.isFirstVisit || resumeDisabled) {
+  if (resumeDisabled) {
     await client.connect(cwd);
-    return { useContinuation: false, resumed: false };
+    return { useContinuation: false, resumed: false, frontmatterRetry: false };
   }
 
+  // Check session cache regardless of isFirstVisit.  A previous run may
+  // have completed and cached its session but failed frontmatter
+  // validation — the step never got written to CAS so isFirstVisit is
+  // still true, yet we should resume the existing session.
   const cachedSessionId = await getCachedSessionId(ctx.threadId, ctx.role, ctx.storageRoot);
   if (cachedSessionId === null) {
     log("6RWK3N8Q", `no cached session for ${ctx.threadId}:${ctx.role}, starting new session`);
     await client.connect(cwd);
-    return { useContinuation: false, resumed: false };
+    return { useContinuation: false, resumed: false, frontmatterRetry: false };
   }
 
   try {
     await client.resume(cachedSessionId, cwd);
     log("9MHT4V2P", `resumed hermes session ${cachedSessionId} for ${ctx.threadId}:${ctx.role}`);
-    return { useContinuation: true, resumed: true };
+    return {
+      useContinuation: !ctx.isFirstVisit,
+      resumed: true,
+      frontmatterRetry: ctx.isFirstVisit,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("3XPN7K4W", `session resume failed, falling back to new session: ${message}`);
     await client.close();
     await client.connect(cwd);
-    return { useContinuation: false, resumed: false };
+    return { useContinuation: false, resumed: false, frontmatterRetry: false };
   }
 }
 
@@ -154,9 +165,12 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
     ctx: AgentContext,
     useContinuation: boolean,
     beforeTurns: TurnsSnapshot,
+    frontmatterRetry: boolean,
   ): Promise<AgentRunResult> {
-    const effectiveCtx = useContinuation ? ctx : { ...ctx, isFirstVisit: true };
-    const fullPrompt = buildHermesPrompt(effectiveCtx);
+    // Frontmatter retry: session has full context, just re-output the format.
+    const fullPrompt = frontmatterRetry
+      ? buildFrontmatterRetryPrompt(ctx.outputFormatInstruction)
+      : buildHermesPrompt(useContinuation ? ctx : { ...ctx, isFirstVisit: true });
     const startMs = Date.now();
     const { text, sessionId, usage: acpUsage } = await client.prompt(fullPrompt);
     const durationSec = (Date.now() - startMs) / 1000;
@@ -188,7 +202,7 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
     const beforeTurns = snapshotTurns(beforeSession);
 
     try {
-      return await runPrompt(ctx, attempt.useContinuation, beforeTurns);
+      return await runPrompt(ctx, attempt.useContinuation, beforeTurns, attempt.frontmatterRetry);
     } catch (error) {
       if (!attempt.resumed) {
         throw error;
@@ -199,7 +213,7 @@ export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> 
       await client.close();
       await client.connect(cwd);
       // Fresh session after retry — reset snapshot to zero
-      return runPrompt(ctx, false, ZERO_TURNS);
+      return runPrompt(ctx, false, ZERO_TURNS, false);
     }
   }
 
