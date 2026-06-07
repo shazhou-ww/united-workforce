@@ -233,11 +233,12 @@ function parsePaginationOptions(
 
 thread
   .command("list")
-  .description("List threads")
+  .description("List threads (defaults to active: idle + running)")
   .option(
     "--status <status>",
     "Filter by status: idle, running, completed, cancelled, active (idle+running), or comma-separated values",
   )
+  .option("--all", "Show all threads regardless of status (overrides default active-only filter)")
   .option("--after <date>", "Filter threads created after this date (ISO or relative like '7d')")
   .option("--before <date>", "Filter threads created before this date (ISO or relative like '7d')")
   .option("--skip <n>", "Skip first n threads")
@@ -245,6 +246,7 @@ thread
   .action(
     (opts: {
       status: string | undefined;
+      all: boolean | undefined;
       after: string | undefined;
       before: string | undefined;
       skip: string | undefined;
@@ -256,6 +258,7 @@ thread
         const nowMs = Date.now();
         const { afterMs, beforeMs } = parseTimeFilters(opts.after, opts.before, nowMs);
         const { skip, take } = parsePaginationOptions(opts.skip, opts.take);
+        const showAll = opts.all === true;
 
         const result = await cmdThreadList(
           storageRoot,
@@ -264,6 +267,7 @@ thread
           beforeMs,
           skip,
           take,
+          showAll,
         );
         writeOutput(result);
       });

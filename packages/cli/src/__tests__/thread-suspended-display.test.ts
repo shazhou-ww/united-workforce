@@ -118,8 +118,8 @@ describe("suspended thread display", () => {
         [idleThreadId]: idleEntry,
       });
 
-      // Test thread list
-      const listResult = await cmdThreadList(tmpDir, null, null, null, null, null);
+      // Test thread list — pass showAll=true to include suspended threads
+      const listResult = await cmdThreadList(tmpDir, null, null, null, null, null, true);
 
       // Find the suspended and idle threads in results
       const suspendedItem = listResult.find((item) => item.thread === suspendedThreadId);

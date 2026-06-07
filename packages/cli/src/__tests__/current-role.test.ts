@@ -384,7 +384,7 @@ describe("currentRole field", () => {
       const _compHead = loadActiveThreads(uwfForIndex.varStore)[compId]!.head;
       completeThread(uwfForIndex.varStore, compId, "completed");
 
-      const list = await cmdThreadList(storageRoot, null, null, null, 0, 100);
+      const list = await cmdThreadList(storageRoot, null, null, null, 0, 100, true);
 
       const idleItem = list.find((i) => i.thread === idleId);
       expect(idleItem).toBeDefined();
