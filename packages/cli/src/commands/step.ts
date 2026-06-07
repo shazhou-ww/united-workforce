@@ -441,7 +441,7 @@ function spawnAskAgent(agent: AgentConfig, argv: string[], cwd: string): { stdou
     });
     return { stdout };
   } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string | null };
+    const err = e as NodeJS.ErrnoException & { stderr: Buffer | string | null };
     if (err.code === "ENOENT") {
       fail(
         `"${agent.command}" not found in PATH. Install it or check your PATH config. Run: which ${agent.command}`,
@@ -458,10 +458,7 @@ function spawnAskAgent(agent: AgentConfig, argv: string[], cwd: string): { stdou
   }
 }
 
-async function resolveAskWorkflow(
-  uwf: UwfStore,
-  payload: StepNodePayload,
-): Promise<WorkflowPayload | null> {
+function resolveAskWorkflow(uwf: UwfStore, payload: StepNodePayload): WorkflowPayload | null {
   const startNode = uwf.store.cas.get(payload.start);
   if (startNode === null) {
     return null;
@@ -529,7 +526,7 @@ export async function cmdStepAsk(
   const detailRef = payload.detail;
   const { sessionId: sourceSessionId } = loadDetailNode(uwf.store.cas, detailRef);
 
-  const workflow = await resolveAskWorkflow(uwf, payload);
+  const workflow = resolveAskWorkflow(uwf, payload);
   const config = await loadWorkflowConfig(storageRoot);
   const agent = resolveAskAgentConfig(
     config,
@@ -553,18 +550,14 @@ export async function cmdStepAsk(
       cwd,
     );
     const argv = ["--mode", "ask", "--session", askSessionId, "--prompt", options.prompt];
-    if (detailRef !== null) {
-      argv.push("--detail", detailRef);
-    }
+    argv.push("--detail", detailRef);
     const { stdout } = spawnAskAgent(agent, argv, cwd);
     return stdout;
   }
 
   // Fallback path: ask without forking; inject detail ref for context.
   const argv = ["--mode", "ask", "--prompt", options.prompt];
-  if (detailRef !== null) {
-    argv.push("--detail", detailRef);
-  }
+  argv.push("--detail", detailRef);
   const { stdout } = spawnAskAgent(agent, argv, cwd);
   return stdout;
 }
