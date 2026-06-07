@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
+import { dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
 import type { VarStore } from "@ocas/core";
 import { validate } from "@ocas/core";
 import type {
@@ -287,6 +287,16 @@ async function findWorkflowInDir(dir: string, name: string): Promise<string | nu
   return null;
 }
 
+/** Check if a directory contains a .git marker (directory or file). */
+async function hasGitMarker(dir: string): Promise<boolean> {
+  try {
+    await access(join(dir, ".git"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Traverse parent directories looking for `.workflow/<name>.yaml` or `.workflow/<name>.yml`.
  * Returns the absolute path if found, otherwise null.
@@ -300,6 +310,11 @@ async function findWorkflowInParents(startDir: string, name: string): Promise<st
     const found = await findWorkflowInDir(currentDir, name);
     if (found !== null) {
       return found;
+    }
+
+    // Stop at .git boundary (repo root)
+    if (await hasGitMarker(currentDir)) {
+      break;
     }
 
     // Stop at filesystem root

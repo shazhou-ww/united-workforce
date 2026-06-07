@@ -183,6 +183,122 @@ describe("discoverProjectWorkflows — parent traversal", () => {
   });
 });
 
+// ── discoverProjectWorkflows — .git boundary ─────────────────────────────────
+
+describe("discoverProjectWorkflows — .git boundary", () => {
+  test("G1: .git directory stops traversal", async () => {
+    // Setup: tmpDir/repo/.git/ (dir), tmpDir/.workflow/leak.yaml, start from tmpDir/repo/sub/deep/
+    const repoDir = join(tmpDir, "repo");
+    const gitDir = join(repoDir, ".git");
+    await mkdir(gitDir, { recursive: true });
+
+    // Workflow above repo root — should NOT be reachable
+    const leakDir = join(tmpDir, ".workflow");
+    await mkdir(leakDir, { recursive: true });
+    await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
+
+    const startFrom = join(repoDir, "sub", "deep");
+    await mkdir(startFrom, { recursive: true });
+
+    const entries = await discoverProjectWorkflows(startFrom);
+    expect(entries).toEqual([]);
+  });
+
+  test("G2: .git file (worktree) stops traversal", async () => {
+    // Setup: tmpDir/repo/.git as a FILE, tmpDir/.workflow/leak.yaml, start from tmpDir/repo/pkg/
+    const repoDir = join(tmpDir, "repo");
+    await mkdir(repoDir, { recursive: true });
+    await writeFile(join(repoDir, ".git"), "gitdir: /some/other/path/.git/worktrees/repo");
+
+    const leakDir = join(tmpDir, ".workflow");
+    await mkdir(leakDir, { recursive: true });
+    await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
+
+    const startFrom = join(repoDir, "pkg");
+    await mkdir(startFrom, { recursive: true });
+
+    const entries = await discoverProjectWorkflows(startFrom);
+    expect(entries).toEqual([]);
+  });
+
+  test("G3: workflow at .git boundary IS found", async () => {
+    // Setup: tmpDir/repo/.git/ (dir), tmpDir/repo/.workflow/local.yaml, start from tmpDir/repo/sub/
+    const repoDir = join(tmpDir, "repo");
+    const gitDir = join(repoDir, ".git");
+    await mkdir(gitDir, { recursive: true });
+
+    const wfDir = join(repoDir, ".workflow");
+    await mkdir(wfDir, { recursive: true });
+    await writeFile(join(wfDir, "local.yaml"), await createWorkflowYaml("local"));
+
+    const startFrom = join(repoDir, "sub");
+    await mkdir(startFrom, { recursive: true });
+
+    const entries = await discoverProjectWorkflows(startFrom);
+    expect(entries.map((e) => e.name)).toContain("local");
+  });
+
+  test("G4: workflow below .git is found, above is not", async () => {
+    // Setup: tmpDir/repo/.git/ + tmpDir/repo/.workflow/local.yaml + tmpDir/.workflow/leak.yaml
+    const repoDir = join(tmpDir, "repo");
+    const gitDir = join(repoDir, ".git");
+    await mkdir(gitDir, { recursive: true });
+
+    const localWfDir = join(repoDir, ".workflow");
+    await mkdir(localWfDir, { recursive: true });
+    await writeFile(join(localWfDir, "local.yaml"), await createWorkflowYaml("local"));
+
+    const leakDir = join(tmpDir, ".workflow");
+    await mkdir(leakDir, { recursive: true });
+    await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
+
+    const startFrom = join(repoDir, "sub");
+    await mkdir(startFrom, { recursive: true });
+
+    const entries = await discoverProjectWorkflows(startFrom);
+    expect(entries.map((e) => e.name)).toEqual(["local"]);
+  });
+});
+
+// ── findWorkflowInParents (via cmdThreadStart) — .git boundary ───────────────
+
+describe("findWorkflowInParents via cmdThreadStart — .git boundary", () => {
+  test("G5: .git stops traversal — workflow above boundary is not found", async () => {
+    await makeUwfStore(storageRoot);
+    const repoDir = join(tmpDir, "repo");
+    const gitDir = join(repoDir, ".git");
+    await mkdir(gitDir, { recursive: true });
+
+    // Workflow above .git boundary
+    const leakDir = join(tmpDir, ".workflow");
+    await mkdir(leakDir, { recursive: true });
+    await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
+
+    const startFrom = join(repoDir, "sub");
+    await mkdir(startFrom, { recursive: true });
+
+    // cmdThreadStart should fail — "leak" is above the .git boundary
+    await expect(cmdThreadStart(storageRoot, "leak", "prompt", startFrom)).rejects.toThrow();
+  });
+
+  test("G6: workflow at .git boundary IS found via cmdThreadStart", async () => {
+    await makeUwfStore(storageRoot);
+    const repoDir = join(tmpDir, "repo");
+    const gitDir = join(repoDir, ".git");
+    await mkdir(gitDir, { recursive: true });
+
+    const wfDir = join(repoDir, ".workflow");
+    await mkdir(wfDir, { recursive: true });
+    await writeFile(join(wfDir, "local.yaml"), await createWorkflowYaml("local"));
+
+    const startFrom = join(repoDir, "sub");
+    await mkdir(startFrom, { recursive: true });
+
+    const result = await cmdThreadStart(storageRoot, "local", "prompt", startFrom);
+    expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+  });
+});
+
 // ── cmdWorkflowList — parent traversal ───────────────────────────────────────
 
 describe("cmdWorkflowList — parent traversal", () => {
