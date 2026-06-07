@@ -1,5 +1,5 @@
 name: "e2e-walkthrough"
-description: "End-to-end walkthrough of uwf CLI. Dogfooding: uwf tests uwf. Each role validates a phase of the CLI surface inside an isolated Docker container."
+description: "End-to-end walkthrough of uwf CLI. Dogfooding: uwf tests uwf. Each role validates a phase of the CLI surface inside an isolated Docker container. Uses pnpm."
 roles:
   bootstrap:
     description: "Start Docker container with isolated storage, verify uwf is runnable"
@@ -27,34 +27,32 @@ roles:
          On macOS Docker Desktop, host.docker.internal is already available;
          --add-host ensures it also works on Linux Docker.
 
-      2. Inside the container, copy source to a writable location, install bun, install deps,
-         then `bun link` all packages so that `uwf`, `uwf-hermes`, `uwf-builtin` are on PATH:
+      2. Inside the container, copy source to a writable location, install pnpm, install deps,
+         then link all packages so that `uwf`, `uwf-hermes`, `uwf-builtin`, `uwf-claude-code` are on PATH:
          ```
          docker exec uwf-e2e-$$ bash -c '
            # Copy source to writable location (mount is read-only)
            cp -r /workspace /root/workflow
 
-           # Install bun
-           curl -fsSL https://bun.sh/install | bash
-           export PATH="$HOME/.bun/bin:$PATH"
+           # Install pnpm
+           npm install -g pnpm
 
            # Isolated storage
            mkdir -p $UWF_HOME
 
-           # Install workspace deps
-           cd /root/workflow && bun install
+           # Install workspace deps (pnpm links workspace packages automatically)
+           cd /root/workflow && pnpm install
 
-           # bun link each package that has a bin entry
-           cd packages/cli && bun link && cd ../..
-           cd packages/agent-hermes && bun link && cd ../..
-           cd packages/agent-builtin && bun link && cd ../..
+           # Build all packages
+           pnpm run build
          '
          ```
-      3. Verify all three commands are available inside the container:
+      3. Verify all four commands are available inside the container:
          ```
-         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf --version'
-         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-hermes --help'
-         docker exec uwf-e2e-$$ bash -c 'export PATH="$HOME/.bun/bin:$PATH" && uwf-builtin --help'
+         docker exec uwf-e2e-$$ bash -c 'uwf --version'
+         docker exec uwf-e2e-$$ bash -c 'uwf-hermes --help'
+         docker exec uwf-e2e-$$ bash -c 'uwf-builtin --help'
+         docker exec uwf-e2e-$$ bash -c 'uwf-claude-code --help'
          ```
       4. Copy host uwf config into the container's isolated storage.
          The host config contains provider credentials and model settings needed for LLM calls.
@@ -92,9 +90,8 @@ roles:
     procedure: |
       Use the container from the previous step (containerName is in your prompt).
       All commands run via: `docker exec <containerName> bash -c '...'`
-      All commands use `uwf` (installed via `bun link` inside the container).
+      All commands use `uwf` (installed via `pnpm install` inside the container).
       Remember to set env vars in each exec:
-        export PATH="$HOME/.bun/bin:$PATH"
         export UWF_HOME=/tmp/uwf-e2e-storage
 
       Config tests:
@@ -133,7 +130,7 @@ roles:
     procedure: |
       Use the container (containerName) and workflow (workflowName) from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
+      Set env: UWF_HOME=/tmp/uwf-e2e-storage
 
       1. `uwf thread start <workflowName> -p 'E2E test: what is 2+2?'` — capture thread ID from JSON output
       2. `uwf thread list` — verify the thread appears in the list
@@ -166,7 +163,7 @@ roles:
     procedure: |
       Use the container (containerName) and threadId from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
+      Set env: UWF_HOME=/tmp/uwf-e2e-storage
 
       Step inspection:
       1. `uwf step list <threadId>` — verify steps array has length > 1
@@ -208,9 +205,9 @@ roles:
     procedure: |
       Use containerName, threadId, lastStepHash, and workflowName from your prompt.
       All commands via: `docker exec <containerName> bash -c '...'`
-      Set env: PATH="$HOME/.bun/bin:$PATH" UWF_HOME=/tmp/uwf-e2e-storage
+      Set env: UWF_HOME=/tmp/uwf-e2e-storage
 
-      Cancel:
+      Use containerName, threadId, lastStepHash, and workflowName from your prompt.
       1. Start a second thread: `uwf thread start <workflowName> -p 'E2E cancel test'`
       2. Cancel it: `uwf thread cancel <secondThreadId>`
       3. Verify it appears in cancelled list: `uwf thread list --status cancelled`
