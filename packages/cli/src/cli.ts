@@ -409,7 +409,7 @@ step
         const stdout = await cmdStepAsk(storageRoot, stepHash as CasRef, {
           prompt: opts.prompt,
           agentOverride: opts.agent ?? null,
-          fork: opts.fork !== false,
+          fork: opts.fork,
         });
         process.stdout.write(stdout.endsWith("\n") ? stdout : `${stdout}\n`);
       });
