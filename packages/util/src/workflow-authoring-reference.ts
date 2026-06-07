@@ -159,6 +159,28 @@ graph:
     failed: { role: cleanup, prompt: "Clean up: {{{error}}}" }
 \`\`\`
 
+## Placement
+
+Drop your workflow YAML under a project-local \`.workflow/\` directory at (or above)
+your repo root:
+
+\`\`\`
+my-project/
+  .workflow/
+    solve-issue.yaml
+    review-code.yaml
+\`\`\`
+
+\`uwf thread start solve-issue\` will auto-discover \`.workflow/solve-issue.yaml\` by
+searching from cwd upward — you can run the command from any subdirectory of the
+project. \`uwf workflow list\` uses the same parent traversal, so its output
+matches what \`thread start\` can resolve. No workflow add registration needed —
+\`uwf workflow add\` is only required for global, cwd-independent registration.
+
+Folder-based layouts also work — \`.workflow/<name>/index.yaml\` (or \`index.yml\`) is
+discovered as workflow \`<name>\`. The legacy \`.workflows/\` directory remains
+supported as a fallback when \`.workflow/\` is absent.
+
 ## Self-Testing
 
 ### Step-by-Step Verification

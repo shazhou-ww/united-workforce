@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { existsSync } from "node:fs";
 import { access, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve as resolvePath } from "node:path";
 
 import { bootstrap, type Hash, type Store, type VarStore } from "@ocas/core";
 import { createFsStore, createSqliteVarStore } from "@ocas/fs";
@@ -83,23 +83,51 @@ async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
 }
 
 /**
- * Scan `<projectRoot>/.workflow/` (preferred) and `.workflows/` (legacy) for workflow entries.
- * .workflow/ takes priority: if a name is found in both, .workflow/ wins.
- * Returns an empty array if neither directory exists.
+ * Discover project-local workflows by walking from `startDir` up through parent
+ * directories. The nearest directory that contains a `.workflow/` or `.workflows/`
+ * directory wins — once a match is found, traversal stops (entries from more
+ * distant ancestors are NOT merged in).
+ *
+ * Within the winning directory:
+ * - `.workflow/` (preferred) takes priority over `.workflows/` (legacy).
+ * - If both exist in that directory, `.workflow/` entries win when names collide.
+ *
+ * This matches the resolution strategy of `findWorkflowInParents` used by
+ * `uwf thread start`, so `uwf workflow list` and `uwf thread start` agree on
+ * what's discoverable from any given subdirectory.
+ *
+ * Returns an empty array if no `.workflow/` or `.workflows/` directory exists
+ * anywhere from `startDir` up to the filesystem root.
  */
-export async function discoverProjectWorkflows(
-  projectRoot: string,
-): Promise<ProjectWorkflowEntry[]> {
-  const primary = await scanWorkflowDir(join(projectRoot, ".workflow"));
-  const legacy = await scanWorkflowDir(join(projectRoot, ".workflows"));
-  const seen = new Set(primary.map((e) => e.name));
-  const merged = [...primary];
-  for (const entry of legacy) {
-    if (!seen.has(entry.name)) {
-      merged.push(entry);
+export async function discoverProjectWorkflows(startDir: string): Promise<ProjectWorkflowEntry[]> {
+  let currentDir = resolvePath(startDir);
+  const root = resolvePath("/");
+
+  while (true) {
+    const primary = await scanWorkflowDir(join(currentDir, ".workflow"));
+    const legacy = await scanWorkflowDir(join(currentDir, ".workflows"));
+
+    if (primary.length > 0 || legacy.length > 0) {
+      const seen = new Set(primary.map((e) => e.name));
+      const merged = [...primary];
+      for (const entry of legacy) {
+        if (!seen.has(entry.name)) {
+          merged.push(entry);
+        }
+      }
+      return merged;
     }
+
+    // Stop at filesystem root
+    if (currentDir === root) {
+      return [];
+    }
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) {
+      return [];
+    }
+    currentDir = parentDir;
   }
-  return merged;
 }
 
 /** Default filesystem root for uwf data (`~/.uwf`). */

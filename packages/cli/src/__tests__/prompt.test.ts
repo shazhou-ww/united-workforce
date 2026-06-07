@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+import { generateCliReference } from "@united-workforce/util";
 import {
   cmdPromptAdapterDeveloping,
   cmdPromptBootstrap,
@@ -42,6 +43,24 @@ describe("prompt commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
+  test("prompt usage describes .workflow/ auto-discovery", () => {
+    const result = cmdPromptUsage();
+    expect(result).toContain(".workflow/");
+    expect(result).toContain("uwf thread start solve-issue");
+    expect(result.toLowerCase()).toContain("auto-discover");
+    expect(result.toLowerCase()).toContain("recommended");
+  });
+
+  test("prompt cli-reference describes .workflow/ auto-discovery", () => {
+    const ref = generateCliReference();
+    expect(ref).toContain(".workflow/");
+    expect(ref.toLowerCase()).toContain("cwd upward");
+    expect(ref).toContain("workflow list");
+    expect(ref).toMatch(/CAS hash/i);
+    expect(ref).toMatch(/file path/i);
+    expect(ref).toMatch(/registry/i);
+  });
+
   test("prompt workflow-authoring returns non-empty markdown string with frontmatter", () => {
     const result = cmdPromptWorkflowAuthoring();
     expect(typeof result).toBe("string");
@@ -54,6 +73,17 @@ describe("prompt commands", () => {
     expect(result).toContain("name:");
     expect(result).toContain("version:");
     expect(result.length).toBeGreaterThan(500);
+  });
+
+  test("prompt workflow-authoring documents .workflow/ Placement section", () => {
+    const result = cmdPromptWorkflowAuthoring();
+    expect(result).toContain("## Placement");
+    expect(result).toContain(".workflow/");
+    expect(result).toContain("solve-issue.yaml");
+    expect(result.toLowerCase()).toContain("auto-discover");
+    expect(result.toLowerCase()).toContain("no workflow add");
+    // Placement must appear before Self-Testing
+    expect(result.indexOf("## Placement")).toBeLessThan(result.indexOf("## Self-Testing"));
   });
 
   test("prompt adapter-developing returns non-empty markdown string with frontmatter", () => {

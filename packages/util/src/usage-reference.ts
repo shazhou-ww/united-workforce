@@ -18,11 +18,14 @@ Guide for using the uwf CLI to manage workflows and threads.
 # 1. Configure provider and model
 uwf setup
 
-# 2. Register a workflow
-uwf workflow add my-workflow.yaml
+# 2. Place a workflow under .workflow/ in your project (recommended)
+#    uwf thread start auto-discovers from .workflow/ by walking from cwd upward.
+#    No workflow add registration needed.
+mkdir -p .workflow
+cp my-workflow.yaml .workflow/solve-issue.yaml
 
-# 3. Start a thread (creates but does not execute)
-uwf thread start my-workflow -p "Build a login page"
+# 3. Start a thread by bare name (no file path)
+uwf thread start solve-issue -p "Build a login page"
 
 # 4. Execute the thread (runs moderator → agent → extract cycles)
 uwf thread exec <thread-id>          # one step
@@ -51,12 +54,16 @@ Config is stored at \`~/.uwf/config.yaml\`. Override storage root with \`UWF_HOM
 ## Workflow Commands
 
 \`\`\`
-uwf workflow add <file>            # register from YAML file
+uwf workflow add <file>            # register from YAML file (optional)
 uwf workflow show <id>             # show by name or CAS hash
-uwf workflow list                  # list all registered workflows
+uwf workflow list                  # list workflows (auto-discovers .workflow/ from cwd upward + global registry)
 \`\`\`
 
-You can also pass a file path directly to \`uwf thread start\` without registering first.
+Three placement strategies, in priority order:
+
+1. **Project-local \`.workflow/\` (recommended)** — drop \`<name>.yaml\` (or \`<name>/index.yaml\`) under \`<repo>/.workflow/\`. \`uwf thread start <name>\` and \`uwf workflow list\` both auto-discover by walking from cwd upward. No registration step is needed.
+2. **Explicit file path** — pass a relative or absolute \`.yaml\` path to \`uwf thread start ./path/to/workflow.yaml\`. Useful for one-off runs and testing.
+3. **Global registry** — \`uwf workflow add <file>\` stores the workflow hash under \`@uwf/registry/<name>\` so it is available system-wide, independent of cwd.
 
 ## Thread Lifecycle
 
