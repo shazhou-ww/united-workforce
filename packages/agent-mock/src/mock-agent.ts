@@ -125,5 +125,7 @@ export function createMockAgent(mockDataPath: string): () => Promise<void> {
     name: "mock",
     run,
     continue: continueRun,
+    fork: null,
+    cleanup: null,
   });
 }

@@ -50,6 +50,21 @@ export type AgentContinueFn = (
 
 export type AgentRunFn = (ctx: AgentContext) => Promise<AgentRunResult>;
 
+/**
+ * Fork an existing agent session, returning a new session ID that branches
+ * from the source session's state. Used by `step ask` (Phase 2a infrastructure)
+ * to spawn a side conversation from a completed step's session without
+ * polluting the original session's history.
+ */
+export type AgentForkFn = (sessionId: string, store: AgentContext["store"]) => Promise<string>;
+
+/**
+ * Clean up adapter-level resources (e.g. close ACP client, kill subprocesses).
+ * Invoked by the agent CLI factory after the run completes — regardless of
+ * success or failure — so adapters can release I/O handles deterministically.
+ */
+export type AgentCleanupFn = () => Promise<void>;
+
 export type AdapterOutput = {
   stepHash: string;
   detailHash: string;
@@ -65,4 +80,14 @@ export type AgentOptions = {
   name: string;
   run: AgentRunFn;
   continue: AgentContinueFn;
+  /**
+   * Optional session-fork hook. null means the adapter does not yet support
+   * `step ask` (Phase 2a placeholder — wired up in Phase 2b).
+   */
+  fork: AgentForkFn | null;
+  /**
+   * Optional cleanup hook invoked after the agent CLI completes. null means
+   * the adapter has no resources to release.
+   */
+  cleanup: AgentCleanupFn | null;
 };
