@@ -650,18 +650,25 @@ export async function cmdThreadList(
   beforeMs: number | null,
   skip: number | null,
   take: number | null,
+  showAll: boolean = false,
 ): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
   const index = loadActiveThreads(uwf.varStore);
+
+  // Resolve the effective filter:
+  //   - explicit --status wins (showAll has no effect)
+  //   - otherwise: --all → no filter; default → ["idle", "running"]
+  const effectiveFilter: ThreadStatus[] | null =
+    statusFilter !== null ? statusFilter : showAll ? null : ["idle", "running"];
 
   // Collect active threads
   let items = await collectActiveThreads(storageRoot, uwf, index);
 
   // Collect completed threads (if relevant for status filter)
   const includeCompleted =
-    statusFilter === null ||
-    statusFilter.includes("completed") ||
-    statusFilter.includes("cancelled");
+    effectiveFilter === null ||
+    effectiveFilter.includes("completed") ||
+    effectiveFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
     const completedItems = collectCompletedThreads(uwf, activeIds);
@@ -669,8 +676,8 @@ export async function cmdThreadList(
   }
 
   // Apply status filter
-  if (statusFilter !== null) {
-    items = items.filter((item) => statusFilter.includes(item.status));
+  if (effectiveFilter !== null) {
+    items = items.filter((item) => effectiveFilter.includes(item.status));
   }
 
   // Apply time range filters

@@ -29,8 +29,9 @@ uwf thread exec <thread-id>                       # execute one moderator→agen
                [-c, --count <number>]             # run multiple steps (default: 1)
                [--background]                     # run in background
 uwf thread show <thread-id>                       # show thread head pointer
-uwf thread list                                   # list threads
-               [--status <status>]                # filter: idle, running, or completed
+uwf thread list                                   # list active threads (idle + running)
+               [--all]                            # include completed/cancelled/suspended
+               [--status <status>]                # filter: idle, running, suspended, completed, cancelled, active
 uwf thread read <thread-id>                       # render thread context as markdown
                [--quota <chars>]                  # max output characters (default 32000)
                [--before <step-hash>]             # load steps before this hash (exclusive)

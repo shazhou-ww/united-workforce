@@ -167,7 +167,7 @@ describe("cmdThreadList status filter", () => {
     expect(result[0]?.status).toBe("completed");
   });
 
-  test("should return all threads when no status filter provided", async () => {
+  test("should return only active threads when no filter and no --all", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const workflowHash = await createTestWorkflow(uwf);
 
@@ -185,8 +185,290 @@ describe("cmdThreadList status filter", () => {
 
     const result = await cmdThreadList(tmpDir, null, null, null, null, null);
 
+    // Default behavior (issue #147): only active threads (idle + running)
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.thread).sort()).toEqual([thread1, thread2].sort());
+
+    // Clean up marker
+    await deleteMarker(tmpDir, thread2);
+  });
+
+  test("should return all threads when --all (showAll=true)", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const thread1 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    const thread2 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    const thread3 = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+
+    await markThreadRunning(tmpDir, thread2, workflowHash);
+
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
+    const thread3Head = index[thread3]!.head;
+    if (thread3Head === undefined) throw new Error("thread3 head not found");
+    await completeThread(tmpDir, thread3, workflowHash, thread3Head);
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, true);
+
     expect(result).toHaveLength(3);
     expect(result.map((r) => r.thread).sort()).toEqual([thread1, thread2, thread3].sort());
+
+    // Clean up marker
+    await deleteMarker(tmpDir, thread2);
+  });
+});
+
+// ── default behavior tests (issue #147) ───────────────────────────────────────
+
+describe("cmdThreadList default behavior (issue #147)", () => {
+  test("default returns only idle + running threads", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const threadA = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 4000);
+    const threadB = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    const threadC = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    const threadD = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+
+    await markThreadRunning(tmpDir, threadB, workflowHash);
+
+    const uwfIdx = await createUwfStore(tmpDir);
+    const index = loadAllThreads(uwfIdx.varStore);
+    const threadCHead = index[threadC]!.head;
+    if (threadCHead === undefined) throw new Error("threadC head not found");
+    await completeThread(tmpDir, threadC, workflowHash, threadCHead);
+
+    // Cancel threadD
+    const threadDHead = index[threadD]!.head;
+    if (threadDHead === undefined) throw new Error("threadD head not found");
+    const uwfCancel = await createUwfStore(tmpDir);
+    completeThreadInStore(uwfCancel.varStore, threadD, "cancelled");
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.thread).sort()).toEqual([threadA, threadB].sort());
+
+    await deleteMarker(tmpDir, threadB);
+  });
+
+  test("default excludes completed threads", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const idleThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 6000);
+    const completedThreads: ThreadId[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - (5 - i) * 1000);
+      completedThreads.push(t);
+      const uwfIdx = await createUwfStore(tmpDir);
+      const index = loadAllThreads(uwfIdx.varStore);
+      const head = index[t]!.head;
+      if (head === undefined) throw new Error("head not found");
+      await completeThread(tmpDir, t, workflowHash, head);
+    }
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.thread).toBe(idleThread);
+  });
+
+  test("default excludes cancelled threads", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const runningThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 4000);
+    await markThreadRunning(tmpDir, runningThread, workflowHash);
+
+    const cancelled: ThreadId[] = [];
+    for (let i = 0; i < 3; i++) {
+      const t = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - (3 - i) * 1000);
+      cancelled.push(t);
+      const uwfIdx = await createUwfStore(tmpDir);
+      completeThreadInStore(uwfIdx.varStore, t, "cancelled");
+    }
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.thread).toBe(runningThread);
+
+    await deleteMarker(tmpDir, runningThread);
+  });
+
+  test("--all (showAll=true) returns every status", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const idleThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 4000);
+    const runningThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    await markThreadRunning(tmpDir, runningThread, workflowHash);
+
+    const completedThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    const uwfIdx = await createUwfStore(tmpDir);
+    const idx = loadAllThreads(uwfIdx.varStore);
+    const ch = idx[completedThread]!.head;
+    if (ch === undefined) throw new Error("completedThread head not found");
+    await completeThread(tmpDir, completedThread, workflowHash, ch);
+
+    const cancelledThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+    completeThreadInStore(uwfIdx.varStore, cancelledThread, "cancelled");
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, true);
+
+    expect(result).toHaveLength(4);
+    expect(result.map((r) => r.thread).sort()).toEqual(
+      [idleThread, runningThread, completedThread, cancelledThread].sort(),
+    );
+
+    await deleteMarker(tmpDir, runningThread);
+  });
+
+  test("explicit --status overrides default (still returns just the filtered statuses)", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const _idleThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    const runningThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    await markThreadRunning(tmpDir, runningThread, workflowHash);
+
+    const completedThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+    const uwfIdx = await createUwfStore(tmpDir);
+    const idx = loadAllThreads(uwfIdx.varStore);
+    const ch = idx[completedThread]!.head;
+    if (ch === undefined) throw new Error("completedThread head not found");
+    await completeThread(tmpDir, completedThread, workflowHash, ch);
+
+    const result = await cmdThreadList(tmpDir, ["completed"], null, null, null, null);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.thread).toBe(completedThread);
+    expect(result[0]?.status).toBe("completed");
+
+    await deleteMarker(tmpDir, runningThread);
+  });
+
+  test("--status active keeps working", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const idleThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    const runningThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    await markThreadRunning(tmpDir, runningThread, workflowHash);
+
+    const completedThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+    const uwfIdx = await createUwfStore(tmpDir);
+    const idx = loadAllThreads(uwfIdx.varStore);
+    const ch = idx[completedThread]!.head;
+    if (ch === undefined) throw new Error("completedThread head not found");
+    await completeThread(tmpDir, completedThread, workflowHash, ch);
+
+    const result = await cmdThreadList(tmpDir, ["idle", "running"], null, null, null, null);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.thread).sort()).toEqual([idleThread, runningThread].sort());
+
+    await deleteMarker(tmpDir, runningThread);
+  });
+
+  test("--status + --all — explicit status wins", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const _idleThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 3000);
+    const runningThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 2000);
+    await markThreadRunning(tmpDir, runningThread, workflowHash);
+
+    const completedThread = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - 1000);
+    const uwfIdx = await createUwfStore(tmpDir);
+    const idx = loadAllThreads(uwfIdx.varStore);
+    const ch = idx[completedThread]!.head;
+    if (ch === undefined) throw new Error("completedThread head not found");
+    await completeThread(tmpDir, completedThread, workflowHash, ch);
+
+    const result = await cmdThreadList(tmpDir, ["completed"], null, null, null, null, true);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.thread).toBe(completedThread);
+
+    await deleteMarker(tmpDir, runningThread);
+  });
+
+  test("default returns empty when no threads", async () => {
+    await makeUwfStore(tmpDir);
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null);
+
+    expect(result).toHaveLength(0);
+  });
+
+  test("default + time range filter composes correctly", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    const ts1 = Date.UTC(2026, 4, 20, 0, 0, 0);
+    const ts2 = Date.UTC(2026, 4, 21, 0, 0, 0);
+    const ts3 = Date.UTC(2026, 4, 22, 0, 0, 0);
+    const ts4 = Date.UTC(2026, 4, 23, 0, 0, 0);
+    const ts5 = Date.UTC(2026, 4, 24, 0, 0, 0);
+
+    const _t1 = await createTestThread(uwf, tmpDir, workflowHash, ts1);
+    const t2 = await createTestThread(uwf, tmpDir, workflowHash, ts2);
+    const t3 = await createTestThread(uwf, tmpDir, workflowHash, ts3);
+    const t4 = await createTestThread(uwf, tmpDir, workflowHash, ts4);
+    const _t5 = await createTestThread(uwf, tmpDir, workflowHash, ts5);
+
+    // Mark t3 running
+    await markThreadRunning(tmpDir, t3, workflowHash);
+
+    // Complete t4 (should be excluded by default)
+    const uwfIdx = await createUwfStore(tmpDir);
+    const idx = loadAllThreads(uwfIdx.varStore);
+    const t4head = idx[t4]!.head;
+    if (t4head === undefined) throw new Error("t4 head not found");
+    await completeThread(tmpDir, t4, workflowHash, t4head);
+
+    // afterMs in middle of range to exclude _t1
+    const afterMs = Date.UTC(2026, 4, 20, 12, 0, 0);
+    const result = await cmdThreadList(tmpDir, null, afterMs, null, null, null);
+
+    // Expected: t2 (idle), t3 (running), _t5 (idle); excludes t4 (completed) and _t1 (filtered by time)
+    expect(result).toHaveLength(3);
+    const ids = result.map((r) => r.thread).sort();
+    expect(ids).toEqual([t2, t3, _t5].sort());
+
+    await deleteMarker(tmpDir, t3);
+  });
+
+  test("default + pagination composes correctly", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    // Create 10 idle threads + 5 completed threads
+    const idleThreads: ThreadId[] = [];
+    for (let i = 0; i < 10; i++) {
+      idleThreads.push(
+        await createTestThread(uwf, tmpDir, workflowHash, Date.now() - (15 - i) * 1000),
+      );
+    }
+    for (let i = 0; i < 5; i++) {
+      const t = await createTestThread(uwf, tmpDir, workflowHash, Date.now() - (5 - i) * 1000);
+      const uwfIdx = await createUwfStore(tmpDir);
+      const idx = loadAllThreads(uwfIdx.varStore);
+      const head = idx[t]!.head;
+      if (head === undefined) throw new Error("head not found");
+      await completeThread(tmpDir, t, workflowHash, head);
+    }
+
+    const result = await cmdThreadList(tmpDir, null, null, null, 2, 3);
+
+    expect(result).toHaveLength(3);
+    // All results should be idle (default excludes completed)
+    for (const r of result) {
+      expect(r.status).toBe("idle");
+    }
   });
 });
 

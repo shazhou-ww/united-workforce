@@ -67,8 +67,9 @@ uwf thread exec <thread-id>                        # execute one step
                [-c, --count <n>]                   # run n steps
                [--background]                      # run in background
 uwf thread show <thread-id>                        # show head pointer
-uwf thread list                                    # list all threads
-               [--status <filter>]                 # idle, running, completed, cancelled, active (comma-separated)
+uwf thread list                                    # list active threads (idle + running)
+               [--all]                             # include completed/cancelled/suspended
+               [--status <filter>]                 # idle, running, suspended, completed, cancelled, active (comma-separated)
                [--after <thread-id>]               # pagination: after this thread
                [--before <thread-id>]              # pagination: before this thread
                [--skip <n>]                        # skip first n results
