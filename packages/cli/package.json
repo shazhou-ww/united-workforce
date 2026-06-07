@@ -11,8 +11,8 @@
     "uwf": "./dist/cli.js"
   },
   "dependencies": {
-    "@ocas/core": "^0.3.0",
-    "@ocas/fs": "^0.3.0",
+    "@ocas/core": "^0.4.0",
+    "@ocas/fs": "^0.4.0",
     "@united-workforce/protocol": "workspace:^",
     "@united-workforce/util": "workspace:^",
     "@united-workforce/util-agent": "workspace:^",
