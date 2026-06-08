@@ -122,7 +122,7 @@ graph[role][$status] → { role: nextRole, prompt: edgePrompt }
 
 | Node | Purpose |
 |------|---------|
-| \`$START\` | Entry point — status keys \`new\` (first start) and \`resume\` (resuming a completed thread) |
+| \`$START\` | Entry point — status keys \`new\` (first start) and \`resume\` (resuming an ended thread) |
 | \`$END\` | Terminal — thread completes and is archived |
 
 ### Edge Prompts

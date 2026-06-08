@@ -76,8 +76,8 @@ uwf thread exec <thread-id>                        # execute one step
                [--background]                      # run in background
 uwf thread show <thread-id>                        # show head pointer
 uwf thread list                                    # list active threads (idle + running)
-               [--all]                             # include completed/cancelled/suspended
-               [--status <filter>]                 # idle, running, suspended, completed, cancelled, active (comma-separated)
+               [--all]                             # include end/cancelled/suspended
+               [--status <filter>]                 # idle, running, suspended, end, cancelled, active (comma-separated)
                [--after <thread-id>]               # pagination: after this thread
                [--before <thread-id>]              # pagination: before this thread
                [--skip <n>]                        # skip first n results
@@ -93,7 +93,7 @@ uwf thread cancel <thread-id>                      # cancel and archive thread
 ### Typical Lifecycle
 
 \`\`\`
-start → exec (repeat) → thread reaches $END → auto-completed
+start → exec (repeat) → thread reaches $END → auto-end
                        → or: cancel to abort
 \`\`\`
 

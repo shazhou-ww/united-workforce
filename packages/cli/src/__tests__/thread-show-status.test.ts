@@ -203,11 +203,11 @@ describe("thread show status field", () => {
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    completeThread(uwfForIndex.varStore, threadId, "completed");
+    completeThread(uwfForIndex.varStore, threadId, "end");
 
     const result = await cmdThreadShow(storageRoot, threadId);
 
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("end");
     expect(result.done).toBe(true);
     expect(result.background).toBe(null);
     expect(result.thread).toBe(threadId);
@@ -261,11 +261,11 @@ describe("thread show status field", () => {
     const head = index[threadId]!.head;
     if (!head) throw new Error("Thread not found in index");
 
-    completeThread(uwfForIndex.varStore, threadId, "completed");
+    completeThread(uwfForIndex.varStore, threadId, "end");
 
     const result = await cmdThreadShow(storageRoot, threadId);
 
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("end");
     expect(result.done).toBe(true);
     expect(result.background).toBe(null);
 

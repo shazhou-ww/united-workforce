@@ -76,7 +76,7 @@ async function completeThread(
   _headHash: CasRef,
 ) {
   const uwfIdx = await createUwfStore(storageRoot);
-  completeThreadInStore(uwfIdx.varStore, threadId, "completed");
+  completeThreadInStore(uwfIdx.varStore, threadId, "end");
 }
 
 // ── test setup ────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ describe("cmdThreadList status filter", () => {
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
-    const result = await cmdThreadList(tmpDir, ["idle", "completed"], null, null, null, null);
+    const result = await cmdThreadList(tmpDir, ["idle", "end"], null, null, null, null);
 
     // Clean up marker
     await deleteMarker(tmpDir, thread2);
@@ -160,11 +160,11 @@ describe("cmdThreadList status filter", () => {
     if (thread3Head === undefined) throw new Error("thread3 head not found");
     await completeThread(tmpDir, thread3, workflowHash, thread3Head);
 
-    const result = await cmdThreadList(tmpDir, ["completed"], null, null, null, null);
+    const result = await cmdThreadList(tmpDir, ["end"], null, null, null, null);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.thread).toBe(thread3);
-    expect(result[0]?.status).toBe("completed");
+    expect(result[0]?.status).toBe("end");
   });
 
   test("should return only active threads when no filter and no --all", async () => {
@@ -341,11 +341,11 @@ describe("cmdThreadList default behavior (issue #147)", () => {
     if (ch === undefined) throw new Error("completedThread head not found");
     await completeThread(tmpDir, completedThread, workflowHash, ch);
 
-    const result = await cmdThreadList(tmpDir, ["completed"], null, null, null, null);
+    const result = await cmdThreadList(tmpDir, ["end"], null, null, null, null);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.thread).toBe(completedThread);
-    expect(result[0]?.status).toBe("completed");
+    expect(result[0]?.status).toBe("end");
 
     await deleteMarker(tmpDir, runningThread);
   });
@@ -388,7 +388,7 @@ describe("cmdThreadList default behavior (issue #147)", () => {
     if (ch === undefined) throw new Error("completedThread head not found");
     await completeThread(tmpDir, completedThread, workflowHash, ch);
 
-    const result = await cmdThreadList(tmpDir, ["completed"], null, null, null, null, true);
+    const result = await cmdThreadList(tmpDir, ["end"], null, null, null, null, true);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.thread).toBe(completedThread);
@@ -664,11 +664,11 @@ describe("combined filters", () => {
       await completeThread(tmpDir, thread, workflowHash, headHash);
     }
 
-    const result = await cmdThreadList(tmpDir, ["completed"], null, null, 3, 5);
+    const result = await cmdThreadList(tmpDir, ["end"], null, null, 3, 5);
 
     expect(result).toHaveLength(5);
     for (const r of result) {
-      expect(r.status).toBe("completed");
+      expect(r.status).toBe("end");
     }
   });
 

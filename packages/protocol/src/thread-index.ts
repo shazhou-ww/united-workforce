@@ -23,7 +23,9 @@ export function normalizeThreadIndexEntry(raw: unknown): ThreadIndexEntry | null
     suspendMessage: typeof suspendMessage === "string" ? suspendMessage : null,
     status:
       typeof status === "string"
-        ? (status as "idle" | "running" | "suspended" | "completed" | "cancelled")
+        ? status === "completed"
+          ? "end"
+          : (status as "idle" | "running" | "suspended" | "end" | "cancelled")
         : "idle",
     completedAt: typeof completedAt === "number" ? completedAt : null,
   };
@@ -65,7 +67,7 @@ export function markThreadSuspended(
 
 export function markThreadCompleted(
   entry: ThreadIndexEntry,
-  status: "completed" | "cancelled",
+  status: "end" | "cancelled",
   now: number,
 ): ThreadIndexEntry {
   return {

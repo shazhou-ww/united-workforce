@@ -127,8 +127,10 @@ export type ModeratorContext = {
 
 // ── 4.5 CLI 输出 ────────────────────────────────────────────────────
 
-/** Thread status — unified status representation */
-export type ThreadStatus = "idle" | "running" | "suspended" | "completed" | "cancelled";
+/** Thread status — unified status representation.
+ * `end` means the workflow graph reached $END (neutral: success, failure, or guard-blocked).
+ * An ended thread can still be resumed via `thread resume`. */
+export type ThreadStatus = "idle" | "running" | "suspended" | "end" | "cancelled";
 
 /** uwf thread start */
 export type StartOutput = {

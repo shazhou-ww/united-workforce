@@ -37,7 +37,7 @@ describe("resolveHeadHash", () => {
     const uwf = await createUwfStore(tmpDir);
     const headHash = (await uwf.store.cas.put(uwf.schemas.text, "completed-head")) as CasRef;
     setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const result = await resolveHeadHash(tmpDir, threadId);
 
@@ -71,13 +71,13 @@ describe("resolveHeadHash", () => {
     const hash3 = (await uwf.store.cas.put(uwf.schemas.text, "hash-thread3")) as CasRef;
 
     setThread(uwf.varStore, threadId1, createThreadIndexEntry(hash1));
-    completeThread(uwf.varStore, threadId1, "completed");
+    completeThread(uwf.varStore, threadId1, "end");
 
     setThread(uwf.varStore, threadId2, createThreadIndexEntry(hash2));
-    completeThread(uwf.varStore, threadId2, "completed");
+    completeThread(uwf.varStore, threadId2, "end");
 
     setThread(uwf.varStore, threadId3, createThreadIndexEntry(hash3));
-    completeThread(uwf.varStore, threadId3, "completed");
+    completeThread(uwf.varStore, threadId3, "end");
 
     const result = await resolveHeadHash(tmpDir, threadId2);
 

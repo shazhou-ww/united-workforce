@@ -94,7 +94,7 @@ describe("completeThread clears failed-attempts lineage", () => {
     await seedFailedAttempt(uwf, threadId, "planner");
     expect(countFailedVars(uwf, threadId)).toBe(1);
 
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     expect(countFailedVars(uwf, threadId)).toBe(0);
   });

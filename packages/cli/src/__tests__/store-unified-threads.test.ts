@@ -46,7 +46,7 @@ describe("unified thread storage", () => {
 
     setThread(uwf.varStore, threadId2, {
       head: head2,
-      status: "completed",
+      status: "end",
       suspendedRole: null,
       suspendMessage: null,
       completedAt: Date.now(),
@@ -110,7 +110,7 @@ describe("unified thread storage", () => {
 
     setThread(uwf.varStore, threadId2, {
       head: head2,
-      status: "completed",
+      status: "end",
       suspendedRole: null,
       suspendMessage: null,
       completedAt: Date.now(),
@@ -145,11 +145,11 @@ describe("unified thread storage", () => {
       completedAt: null,
     });
 
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).not.toBeNull();
-    expect(entry?.status).toBe("completed");
+    expect(entry?.status).toBe("end");
     expect(entry?.completedAt).toBeDefined();
     expect(entry?.completedAt).toBeGreaterThan(0);
   });
@@ -191,11 +191,11 @@ describe("unified thread storage", () => {
       completedAt: null,
     });
 
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).not.toBeNull();
-    expect(entry?.status).toBe("completed");
+    expect(entry?.status).toBe("end");
     expect(entry?.suspendedRole).toBeNull();
     expect(entry?.suspendMessage).toBeNull();
   });
@@ -206,7 +206,7 @@ describe("unified thread storage", () => {
     const threadId = "01JTEST000000000000NOEXIST" as ThreadId;
 
     // Should not throw
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).toBeNull();
@@ -221,7 +221,7 @@ describe("unified thread storage", () => {
 
     setThread(uwf.varStore, threadId, {
       head,
-      status: "completed",
+      status: "end",
       suspendedRole: null,
       suspendMessage: null,
       completedAt: now,
@@ -229,7 +229,7 @@ describe("unified thread storage", () => {
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).not.toBeNull();
-    expect(entry?.status).toBe("completed");
+    expect(entry?.status).toBe("end");
     expect(entry?.completedAt).toBe(now);
   });
 });
