@@ -18,8 +18,8 @@ importers:
         specifier: ^2.31.0
         version: 2.31.0(@types/node@25.9.1)
       '@shazhou/proman':
-        specifier: ^0.6.3
-        version: 0.6.3(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
+        specifier: ^0.6.4
+        version: 0.6.4(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
       '@types/node':
         specifier: ^25.7.0
         version: 25.9.1
@@ -1158,8 +1158,8 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
-  '@shazhou/proman@0.6.3':
-    resolution: {integrity: sha512-KguWl1xHrWXx1YWYrWj47v4NRbaQuKCm7Hd7T8dzrqnkM8UL8em3R9rC7GeDzI8YDDfriFeLTX+xb03UHkhTDA==}
+  '@shazhou/proman@0.6.4':
+    resolution: {integrity: sha512-zdRZ0sN7+kvTANVMFrmxuNzpiZNnHHs5fW369+YUaGftDGoPFWF/I0UwYRQR5JAmesbPWgwWWzF3+sB3/3ujxw==}
     hasBin: true
     peerDependencies:
       '@biomejs/biome': ^2.0.0
@@ -4062,7 +4062,7 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
-  '@shazhou/proman@0.6.3(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
+  '@shazhou/proman@0.6.4(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
     dependencies:
       '@biomejs/biome': 2.4.16
       typescript: 5.9.3
