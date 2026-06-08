@@ -5,7 +5,11 @@ export { buildThreadProgress } from "./build-thread-progress.js";
 export type { BuildContextMeta } from "./context.js";
 export { buildContext, buildContextWithMeta } from "./context.js";
 export type { FrontmatterFastPathResult } from "./frontmatter.js";
-export { tryFrontmatterFastPath, trySuspendFastPath } from "./frontmatter.js";
+export {
+  buildSuspendOutput,
+  tryFrontmatterFastPath,
+  trySuspendFastPath,
+} from "./frontmatter.js";
 export { buildFrontmatterRetryPrompt } from "./frontmatter-retry-prompt.js";
 export { createAgent, parseArgv } from "./run.js";
 export {

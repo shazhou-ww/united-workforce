@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import type { Store } from "@ocas/core";
 import type { Usage } from "@united-workforce/protocol";
-import { SUSPEND_STATUS } from "@united-workforce/protocol";
 import { createLogger } from "@united-workforce/util";
 import {
   type AgentContext,
@@ -9,6 +8,7 @@ import {
   buildContinuationPrompt,
   buildFrontmatterRetryPrompt,
   buildRolePrompt,
+  buildSuspendOutput,
   buildThreadProgress,
   createAgent,
   getCachedSessionId,
@@ -21,15 +21,6 @@ const log = createLogger({ sink: { kind: "stderr" } });
 
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
-
-/**
- * Build a frontmatter suspend output (coroutine yield). The engine intercepts
- * `$status: "$SUSPEND"` before the moderator, writes the step to CAS, and marks
- * the thread suspended — preserving all turns and usage from the run.
- */
-function buildSuspendOutput(reason: string): string {
-  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
-}
 
 /** Assemble system prompt, task, and prior step outputs for Claude Code. */
 export function buildClaudeCodePrompt(ctx: AgentContext): string {

@@ -182,6 +182,19 @@ export async function tryFrontmatterFastPath(
 }
 
 /**
+ * Build a frontmatter suspend output (coroutine yield). The engine intercepts
+ * `$status: "$SUSPEND"` before the moderator, writes the step to CAS, and marks
+ * the thread suspended — preserving all turns and usage from the run.
+ *
+ * Adapter packages (e.g. `agent-claude-code`, `agent-hermes`) import this helper
+ * to emit a consistent wire format that round-trips through
+ * {@link trySuspendFastPath}.
+ */
+export function buildSuspendOutput(reason: string): string {
+  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
+}
+
+/**
  * Try to interpret the agent output as an engine-level suspend (coroutine yield).
  *
  * When the frontmatter declares `$status: "$SUSPEND"`, store the output against

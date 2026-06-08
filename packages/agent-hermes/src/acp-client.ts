@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import { SUSPEND_STATUS } from "@united-workforce/protocol";
+import { buildSuspendOutput } from "@united-workforce/util-agent";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OWN_VERSION = (
@@ -25,15 +25,6 @@ const PROMPT_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Raised when a JSON-RPC request exceeds its timeout. */
 export class AcpTimeoutError extends Error {}
-
-/**
- * Build a frontmatter suspend output (coroutine yield). When the prompt times
- * out the engine intercepts `$status: "$SUSPEND"` and marks the thread
- * suspended instead of losing the work — the caller can resume the same role.
- */
-function buildSuspendOutput(reason: string): string {
-  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
-}
 
 type JsonRpcResponse = {
   jsonrpc: "2.0";
