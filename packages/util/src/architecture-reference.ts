@@ -56,7 +56,7 @@ CAS data lives under \`~/.ocas/\`:
 - \`variables.db\` — variable store (\`@uwf/registry/*\`, \`@uwf/thread/*\`, \`@uwf/history/*\`)
 
 Config lives under \`~/.uwf/\`:
-- \`config.yaml\` — provider, model, agent settings
-- \`.env\` — API keys
+- \`config.yaml\` — engine config (LLM-free): \`agents\`, \`defaultAgent\`, \`agentOverrides\`
+- \`agents/<adapter>.yaml\` — per-adapter LLM configuration (each adapter owns its own)
 `;
 }

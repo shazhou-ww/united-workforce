@@ -152,10 +152,8 @@ export function _printAgentMenu(agents: string[]): void {
     const bin = agents[i] ?? "";
     const label = KNOWN_AGENTS[bin] ?? bin;
     const num = String(i + 1).padStart(numWidth);
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log(`  ${num}) ${label}  (${bin})`);
   }
-  // biome-ignore lint/suspicious/noConsole: CLI user-facing output
   console.log("");
 }
 
@@ -166,18 +164,13 @@ export function _printAgentMenu(agents: string[]): void {
 export async function _promptAgentSelection(
   rl: ReturnType<typeof createInterface>,
 ): Promise<string> {
-  // biome-ignore lint/suspicious/noConsole: CLI user-facing output
   console.log("Discovering installed agents...\n");
   const agents = await _discoverAgents();
 
   if (agents.length === 0) {
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("  No uwf-* agent binaries found in PATH.\n");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("  Install one first, for example:");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("    npm i -g @united-workforce/agent-hermes");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("    npm i -g @united-workforce/agent-claude-code\n");
     const manual = (
       await rl.question("Agent binary name (e.g. uwf-hermes), or press Enter to skip: ")
@@ -189,12 +182,9 @@ export async function _promptAgentSelection(
   if (agents.length === 1) {
     const name = _agentNameFromBinary(agents[0] ?? "uwf-hermes");
     const label = KNOWN_AGENTS[agents[0] ?? ""] ?? agents[0];
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log(`  Found 1 agent: ${label} — auto-selected.\n`);
     return name;
   }
-
-  // biome-ignore lint/suspicious/noConsole: CLI user-facing output
   console.log(`  Found ${agents.length} agents:\n`);
   _printAgentMenu(agents);
   const choice = (await rl.question(`Choose default agent [1-${agents.length}]: `)).trim();
@@ -202,13 +192,11 @@ export async function _promptAgentSelection(
   if (!Number.isNaN(n) && n >= 1 && n <= agents.length) {
     const selected = agents[n - 1] ?? "uwf-hermes";
     const name = _agentNameFromBinary(selected);
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log(`  → ${name}\n`);
     return name;
   }
   // Treat as literal name
   const name = _agentNameFromBinary(choice.startsWith("uwf-") ? choice : `uwf-${choice}`);
-  // biome-ignore lint/suspicious/noConsole: CLI user-facing output
   console.log(`  → ${name}\n`);
   return name;
 }
@@ -290,14 +278,12 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
   writeFileSync(configPath, stringify(merged, { indent: 2 }), "utf8");
 
   // Print config path to stderr (stdout is reserved for JSON output)
-  // biome-ignore lint/suspicious/noConsole: CLI user-facing output
   console.error(`Config saved to ${configPath} ✓`);
 
   // Check adapter availability
   const agentName = _agentNameFromBinary(args.agent);
   const adapterWarnings = _checkAdapterAvailability(agentName);
   for (const w of adapterWarnings) {
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.error(`⚠ ${w}`);
   }
 
@@ -316,23 +302,16 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
 export async function cmdSetupInteractive(storageRoot: string): Promise<Record<string, unknown>> {
   const rl = createInterface({ input, output });
   try {
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("Configure default agent for uwf workflow.\n");
 
     const agentName = await _promptAgentSelection(rl);
     rl.close();
 
     await cmdSetup({ agent: agentName, storageRoot });
-
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("Setup complete! Get started:\n");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("  uwf workflow put <workflow.yaml>   Register a workflow");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log('  uwf thread start <name> -p "..."   Start a thread');
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("  uwf thread step <thread-id>        Execute next step");
-    // biome-ignore lint/suspicious/noConsole: CLI user-facing output
     console.log("");
 
     return null as unknown as Record<string, unknown>;

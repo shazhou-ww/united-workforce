@@ -95,16 +95,11 @@ type ModeratorContext = {
 
 ### Configuration
 
-```typescript
-type ProviderAlias = string;
-type ModelAlias = string;
-type AgentAlias = string;
+Engine config is LLM-free — each adapter owns its own LLM configuration. The
+engine only tracks which agent runs which role.
 
-type ProviderConfig = { baseUrl: string; apiKey: string };
-type ModelConfig = {
-  provider: ProviderAlias;
-  name: string;
-};
+```typescript
+type AgentAlias = string;
 
 type AgentConfig = {
   command: string;
@@ -112,13 +107,9 @@ type AgentConfig = {
 };
 
 type WorkflowConfig = {
-  providers: Record<ProviderAlias, ProviderConfig>;
-  models: Record<ModelAlias, ModelConfig>;
   agents: Record<AgentAlias, AgentConfig>;
   defaultAgent: AgentAlias;
   agentOverrides: Record<WorkflowName, Record<RoleName, AgentAlias>> | null;
-  defaultModel: ModelAlias;
-  modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 ```
 

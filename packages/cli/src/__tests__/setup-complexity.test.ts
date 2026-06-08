@@ -141,7 +141,7 @@ describe("_isTerminator", () => {
     expect(_isTerminator("\r")).toBe(true);
   });
   test("\\u0004 (EOT) is a terminator", () => {
-    expect(_isTerminator("")).toBe(true);
+    expect(_isTerminator("")).toBe(true);
   });
   test("regular char is not a terminator", () => {
     expect(_isTerminator("a")).toBe(false);
@@ -157,7 +157,7 @@ describe("_isTerminator", () => {
 
 describe("_isBackspace", () => {
   test("\\u007F is a backspace", () => {
-    expect(_isBackspace("")).toBe(true);
+    expect(_isBackspace("")).toBe(true);
   });
   test("\\b is a backspace", () => {
     expect(_isBackspace("\b")).toBe(true);
