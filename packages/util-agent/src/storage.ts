@@ -168,8 +168,17 @@ export function normalizeWorkflowConfig(raw: unknown): WorkflowConfig {
   if (typeof defaultAgent !== "string") {
     throw new Error("config requires defaultAgent");
   }
+  const agents = normalizeAgents(raw.agents);
+  if (!(defaultAgent in agents)) {
+    const available = Object.keys(agents);
+    throw new Error(
+      available.length === 0
+        ? `config.defaultAgent is "${defaultAgent}" but config.agents is empty — define at least the default agent`
+        : `config.defaultAgent "${defaultAgent}" not found in config.agents (available: ${available.join(", ")})`,
+    );
+  }
   return {
-    agents: normalizeAgents(raw.agents),
+    agents,
     defaultAgent,
     agentOverrides: normalizeAgentOverrides(raw.agentOverrides),
   };

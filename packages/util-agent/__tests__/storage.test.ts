@@ -97,6 +97,21 @@ describe("normalizeWorkflowConfig — engine config (issue #143)", () => {
     expect(() => normalizeWorkflowConfig({ agents: {} })).toThrow(/defaultAgent/);
   });
 
+  it("throws when defaultAgent not found in agents (fail-fast)", () => {
+    expect(() =>
+      normalizeWorkflowConfig({
+        defaultAgent: "hermes",
+        agents: { builtin: { command: "uwf-builtin" } },
+      }),
+    ).toThrow('defaultAgent "hermes" not found in config.agents (available: builtin)');
+  });
+
+  it("throws when defaultAgent set but agents is empty", () => {
+    expect(() => normalizeWorkflowConfig({ defaultAgent: "builtin", agents: {} })).toThrow(
+      "config.agents is empty — define at least the default agent",
+    );
+  });
+
   it("throws on invalid agents entry", () => {
     expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, agents: "bad" })).toThrow(
       "config.agents must be a mapping",
