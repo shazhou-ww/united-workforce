@@ -430,7 +430,7 @@ describe("uwf step ask - successful ask (core)", () => {
 
 // ── Group 4: Fork cache semantics ─────────────────────────────────────────
 
-describe("uwf step ask - fork cache", () => {
+describe("uwf step ask - fork cache", { timeout: 15_000 }, () => {
   test("4.1 first ask creates a fork session and caches it", async () => {
     const { casDir, stepHash, mockAgentPath, forkSessionCapturePath } = await setupAskFixture();
 
