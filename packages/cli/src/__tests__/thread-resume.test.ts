@@ -175,7 +175,10 @@ echo '${adapterJson}'
   );
 
   const configPath = join(tmpDir, "config.yaml");
-  await writeFile(configPath, `defaultAgent: uwf-hermes\nagentOverrides: null\nagents: {}\n`);
+  await writeFile(
+    configPath,
+    `defaultAgent: uwf-hermes\nagentOverrides: null\nagents:\n  uwf-hermes:\n    command: uwf-hermes\n`,
+  );
 
   return { casDir, mockAgentPath, promptCapturePath };
 }
@@ -594,7 +597,10 @@ echo '${adapterJson}'
     );
 
     const configPath = join(tmpDir, "config.yaml");
-    await writeFile(configPath, `defaultAgent: uwf-hermes\nagentOverrides: null\nagents: {}\n`);
+    await writeFile(
+      configPath,
+      `defaultAgent: uwf-hermes\nagentOverrides: null\nagents:\n  uwf-hermes:\n    command: uwf-hermes\n`,
+    );
 
     const result = runUwf(
       ["thread", "resume", THREAD_ID, "-p", "Additional context", "--agent", mockAgentPath],

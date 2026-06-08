@@ -237,7 +237,10 @@ exit 7
 
   // Minimal config so loadWorkflowConfig succeeds.
   const configPath = join(tmpDir, "config.yaml");
-  await writeFile(configPath, `defaultAgent: uwf-hermes\nagentOverrides: null\nagents: {}\n`);
+  await writeFile(
+    configPath,
+    `defaultAgent: uwf-hermes\nagentOverrides: null\nagents:\n  uwf-hermes:\n    command: uwf-hermes\n`,
+  );
 
   return {
     casDir,
