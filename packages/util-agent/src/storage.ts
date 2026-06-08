@@ -8,11 +8,6 @@ import type {
   AgentAlias,
   AgentConfig,
   CasRef,
-  ModelAlias,
-  ModelConfig,
-  ProviderAlias,
-  ProviderConfig,
-  Scenario,
   ThreadId,
   ThreadIndexEntry,
   WorkflowConfig,
@@ -108,45 +103,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeProviders(raw: unknown): Record<ProviderAlias, ProviderConfig> {
-  if (!isRecord(raw)) {
-    throw new Error("config.providers must be a mapping");
-  }
-  const providers: Record<ProviderAlias, ProviderConfig> = {};
-  for (const [name, entry] of Object.entries(raw)) {
-    if (!isRecord(entry)) {
-      throw new Error(`config.providers.${name} must be a mapping`);
-    }
-    const baseUrl = entry.baseUrl;
-    const apiKey = entry.apiKey;
-    if (typeof baseUrl !== "string" || typeof apiKey !== "string") {
-      throw new Error(`config.providers.${name} requires baseUrl and apiKey`);
-    }
-    providers[name] = { baseUrl, apiKey };
-  }
-  return providers;
-}
-
-function normalizeModels(raw: unknown): Record<ModelAlias, ModelConfig> {
-  if (!isRecord(raw)) {
-    throw new Error("config.models must be a mapping");
-  }
-  const models: Record<ModelAlias, ModelConfig> = {};
-  for (const [name, entry] of Object.entries(raw)) {
-    if (!isRecord(entry)) {
-      throw new Error(`config.models.${name} must be a mapping`);
-    }
-    const provider = entry.provider;
-    const modelName = entry.name;
-    if (typeof provider !== "string" || typeof modelName !== "string") {
-      throw new Error(`config.models.${name} requires provider and name`);
-    }
-    models[name] = { provider, name: modelName };
-  }
-  return models;
-}
-
 function normalizeAgents(raw: unknown): Record<AgentAlias, AgentConfig> {
+  if (raw === undefined || raw === null) {
+    return {};
+  }
   if (!isRecord(raw)) {
     throw new Error("config.agents must be a mapping");
   }
@@ -166,22 +126,6 @@ function normalizeAgents(raw: unknown): Record<AgentAlias, AgentConfig> {
     agents[name] = { command, args };
   }
   return agents;
-}
-
-function normalizeModelOverrides(raw: unknown): Record<Scenario, ModelAlias> | null {
-  if (raw === undefined || raw === null) {
-    return null;
-  }
-  if (!isRecord(raw)) {
-    throw new Error("config.modelOverrides must be a mapping or null");
-  }
-  const overrides: Record<Scenario, ModelAlias> = {};
-  for (const [scene, alias] of Object.entries(raw)) {
-    if (typeof alias === "string") {
-      overrides[scene] = alias;
-    }
-  }
-  return overrides;
 }
 
 function normalizeAgentOverrides(
@@ -209,23 +153,34 @@ function normalizeAgentOverrides(
   return overrides;
 }
 
+/**
+ * Normalize raw config into the engine-only WorkflowConfig shape.
+ *
+ * Engine config is LLM-free — providers/models/defaultModel/modelOverrides are
+ * silently ignored if present (legacy compatibility). Each adapter is
+ * responsible for loading its own LLM configuration.
+ */
 export function normalizeWorkflowConfig(raw: unknown): WorkflowConfig {
   if (!isRecord(raw)) {
     throw new Error("config.yaml root must be a mapping");
   }
   const defaultAgent = raw.defaultAgent;
-  const defaultModel = raw.defaultModel;
-  if (typeof defaultAgent !== "string" || typeof defaultModel !== "string") {
-    throw new Error("config requires defaultAgent and defaultModel");
+  if (typeof defaultAgent !== "string") {
+    throw new Error("config requires defaultAgent");
+  }
+  const agents = normalizeAgents(raw.agents);
+  if (!(defaultAgent in agents)) {
+    const available = Object.keys(agents);
+    throw new Error(
+      available.length === 0
+        ? `config.defaultAgent is "${defaultAgent}" but config.agents is empty — define at least the default agent`
+        : `config.defaultAgent "${defaultAgent}" not found in config.agents (available: ${available.join(", ")})`,
+    );
   }
   return {
-    providers: normalizeProviders(raw.providers),
-    models: normalizeModels(raw.models),
-    agents: normalizeAgents(raw.agents),
+    agents,
     defaultAgent,
     agentOverrides: normalizeAgentOverrides(raw.agentOverrides),
-    defaultModel,
-    modelOverrides: normalizeModelOverrides(raw.modelOverrides),
   };
 }
 

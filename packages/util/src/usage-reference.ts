@@ -15,7 +15,7 @@ Guide for using the uwf CLI to manage workflows and threads.
 ## Quick Start
 
 \`\`\`bash
-# 1. Configure provider and model
+# 1. Pick the default agent adapter for the engine
 uwf setup
 
 # 2. Place a workflow under .workflow/ in your project (recommended)
@@ -43,13 +43,14 @@ uwf thread exec <thread-id> -c 10 --background  # run in background
 ## Setup
 
 \`\`\`
-uwf setup                                          # interactive wizard
-uwf setup --provider <name> --base-url <url> \\
-           --api-key <key> --model <name>           # non-interactive
-           [--agent <name>]                         # optional default agent
+uwf setup                          # interactive: pick the default agent
+uwf setup --agent <name>           # non-interactive: set the default agent only
 \`\`\`
 
-Config is stored at \`~/.uwf/config.yaml\`. Override storage root with \`UWF_HOME\`.
+Engine config is LLM-free — \`~/.uwf/config.yaml\` only stores \`agents\`,
+\`defaultAgent\`, and \`agentOverrides\`. Each agent adapter loads its own LLM
+configuration from a path it owns (e.g. \`~/.uwf/agents/builtin.yaml\` for the
+builtin adapter). Override storage root with \`UWF_HOME\`.
 
 ## Workflow Commands
 

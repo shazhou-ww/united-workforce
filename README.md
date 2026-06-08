@@ -94,11 +94,14 @@ Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
 | **step** | `list`, `show`, `read`, `fork` |
 | **workflow** | `add`, `show`, `list` |
 | **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
-| **setup** | Interactive or `--provider`, `--base-url`, `--api-key`, `--model`, `--agent` |
+| **setup** | Interactive, or `--agent <name>` to set the default agent non-interactively |
 | **skill** | `cli` — print markdown reference of all uwf commands |
 | **log** | `list`, `show`, `clean` — process-level debug logs |
 
-Config is stored in `~/.uwf/config.yaml`. API keys go in `~/.uwf/.env`.
+Engine config (`~/.uwf/config.yaml`) is LLM-free — it only tracks `agents`,
+`defaultAgent`, and `agentOverrides`. Each agent adapter loads its own LLM
+configuration from a path it owns (e.g.
+`~/.uwf/agents/builtin.yaml` for the builtin adapter).
 
 Detailed command usage, options, and examples: [packages/cli/README.md](packages/cli/README.md).
 

@@ -1,10 +1,9 @@
-import type { ResolvedLlmProvider } from "@united-workforce/util-agent";
-
 import type {
   ChatMessage,
   LlmAssistantResponse,
   LlmToolCall,
   OpenAiToolDefinition,
+  ResolvedLlmProvider,
 } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {

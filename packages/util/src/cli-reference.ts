@@ -6,11 +6,14 @@ export function generateCliReference(): string {
 ## Setup
 
 \`\`\`
-uwf setup                                         # interactive setup wizard
-uwf setup --provider <name> --base-url <url> \\
-           --api-key <key> --model <name>          # non-interactive setup
-           [--agent <name>]                        # optional: default agent alias
+uwf setup                          # interactive: pick the default agent
+uwf setup --agent <name>           # non-interactive: set the default agent only
 \`\`\`
+
+Engine config is LLM-free — \`~/.uwf/config.yaml\` only stores
+\`agents\`, \`defaultAgent\`, and \`agentOverrides\`. Each agent adapter loads its
+own LLM configuration from a path it owns (e.g.
+\`~/.uwf/agents/builtin.yaml\` for the builtin adapter).
 
 ## Workflow Commands
 

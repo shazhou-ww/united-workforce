@@ -120,12 +120,13 @@ Use the [`ocas`](https://www.npmjs.com/package/@ocas/cli) CLI for direct CAS ope
 ### Setup
 
 ```bash
-uwf setup
-uwf setup --provider openai --base-url https://api.openai.com/v1 \
-  --api-key sk-... --model gpt-4o --agent hermes
+uwf setup                    # interactive: pick the default agent adapter
+uwf setup --agent hermes     # non-interactive: set default agent only
 ```
 
-Config: `~/.uwf/config.yaml` (includes API keys).
+Engine config: `~/.uwf/config.yaml` (LLM-free — only `agents`, `defaultAgent`,
+`agentOverrides`). Each agent adapter owns its own LLM config in
+`~/.uwf/agents/<adapter>.yaml`.
 
 ### Skill
 

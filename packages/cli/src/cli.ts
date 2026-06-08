@@ -11,7 +11,7 @@ import {
   cmdPromptUsage,
   cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
-import { cmdSetup, cmdSetupInteractive, resolvePresetBaseUrl } from "./commands/setup.js";
+import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
 import { cmdStepAsk, cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
 import {
   cmdThreadCancel,
@@ -593,46 +593,22 @@ prompt
 
 program
   .command("setup")
-  .description("Configure provider, model, and agent. Run without options for interactive wizard.")
-  .option("--provider <name>", "Provider name")
-  .option("--base-url <url>", "OpenAI-compatible API base URL")
-  .option("--api-key <key>", "API key")
-  .option("--model <name>", "Default model name")
+  .description(
+    "Configure the default agent. Run without --agent for interactive wizard.\n" +
+      "LLM provider/model configuration lives per-adapter in <storage>/agents/<adapter>.yaml.",
+  )
   .option("--agent <name>", "Default agent adapter (e.g. hermes → uwf-hermes)")
-  .action(
-    (opts: {
-      provider?: string;
-      baseUrl?: string;
-      apiKey?: string;
-      model?: string;
-      agent?: string;
-    }) => {
-      const storageRoot = resolveStorageRoot();
-      runAction(async () => {
-        // Resolve preset base-url when provider is known but --base-url is omitted
-        const resolvedBaseUrl =
-          opts.baseUrl ??
-          (opts.provider !== undefined ? resolvePresetBaseUrl(opts.provider) : null);
-        if (opts.provider && resolvedBaseUrl && opts.apiKey && opts.model) {
-          const result = await cmdSetup({
-            provider: opts.provider,
-            baseUrl: resolvedBaseUrl,
-            apiKey: opts.apiKey,
-            model: opts.model,
-            agent: opts.agent ?? undefined,
-            storageRoot,
-          });
-          writeOutput(result);
-        } else if (!opts.provider && !opts.baseUrl && !opts.apiKey && !opts.model) {
-          await cmdSetupInteractive(storageRoot);
-        } else {
-          throw new Error(
-            "Non-interactive setup requires: --provider, --api-key, --model (--base-url is optional for preset providers)",
-          );
-        }
-      });
-    },
-  );
+  .action((opts: { agent?: string }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      if (opts.agent !== undefined && opts.agent !== "") {
+        const result = await cmdSetup({ agent: opts.agent, storageRoot });
+        writeOutput(result);
+      } else {
+        await cmdSetupInteractive(storageRoot);
+      }
+    });
+  });
 
 const log = program.command("log").description("Process-level debug logs");
 

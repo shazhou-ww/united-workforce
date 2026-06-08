@@ -177,7 +177,7 @@ echo '${adapterJson}'
   const configPath = join(tmpDir, "config.yaml");
   await writeFile(
     configPath,
-    `defaultAgent: uwf-hermes\ndefaultModel: test-model\nagentOverrides: null\nagents: {}\nproviders: {}\nmodels: {}\n`,
+    `defaultAgent: uwf-hermes\nagentOverrides: null\nagents:\n  uwf-hermes:\n    command: uwf-hermes\n`,
   );
 
   return { casDir, mockAgentPath, promptCapturePath };
@@ -599,7 +599,7 @@ echo '${adapterJson}'
     const configPath = join(tmpDir, "config.yaml");
     await writeFile(
       configPath,
-      `defaultAgent: uwf-hermes\ndefaultModel: test-model\nagentOverrides: null\nagents: {}\nproviders: {}\nmodels: {}\n`,
+      `defaultAgent: uwf-hermes\nagentOverrides: null\nagents:\n  uwf-hermes:\n    command: uwf-hermes\n`,
     );
 
     const result = runUwf(

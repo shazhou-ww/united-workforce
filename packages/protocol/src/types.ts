@@ -192,36 +192,19 @@ export type RunningThreadsOutput = {
 
 /** Alias types for config references */
 export type AgentAlias = string;
-export type ModelAlias = string;
-export type ProviderAlias = string;
 export type WorkflowName = string;
 export type RoleName = string;
-export type Scenario = string;
-
-export type ProviderConfig = {
-  baseUrl: string;
-  apiKey: string;
-};
-
-export type ModelConfig = {
-  provider: ProviderAlias;
-  name: string;
-};
 
 export type AgentConfig = {
   command: string;
   args: string[];
 };
 
-/** ~/.uwf/config.yaml */
+/** ~/.uwf/config.yaml — engine config is LLM-free; LLM concerns belong to adapters. */
 export type WorkflowConfig = {
-  providers: Record<ProviderAlias, ProviderConfig>;
-  models: Record<ModelAlias, ModelConfig>;
   agents: Record<AgentAlias, AgentConfig>;
   defaultAgent: AgentAlias;
   agentOverrides: Record<WorkflowName, Record<RoleName, AgentAlias>> | null;
-  defaultModel: ModelAlias;
-  modelOverrides: Record<Scenario, ModelAlias> | null;
 };
 
 /** @uwf/thread/* variable store index */
