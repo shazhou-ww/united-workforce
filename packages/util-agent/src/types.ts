@@ -74,6 +74,14 @@ export type AdapterOutput = {
   startedAtMs: number;
   completedAtMs: number;
   usage: Usage | null;
+  /**
+   * True when the step was persisted to CAS but failed (e.g. frontmatter
+   * extraction did not produce valid output after retries). The engine
+   * should NOT advance the thread head when isError is true.
+   */
+  isError: boolean;
+  /** Human-readable error message when isError is true; null otherwise. */
+  errorMessage: string | null;
 };
 
 export type AgentOptions = {

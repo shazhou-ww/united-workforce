@@ -28,6 +28,7 @@ describe("Protocol types for thread/edge location", () => {
         assembledPrompt: null,
         cwd: "/home/user/project",
         usage: null,
+        previousAttempts: null,
       };
 
       expect(record.cwd).toBe("/home/user/project");

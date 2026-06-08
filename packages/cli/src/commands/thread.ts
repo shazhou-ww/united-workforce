@@ -94,6 +94,7 @@ function buildStepOutputFromEvaluation(
     suspendMessage,
     done,
     background,
+    error: null,
   };
 }
 
@@ -195,6 +196,7 @@ const PL_THREAD_START = "7HNQ4B2X";
 const PL_MODERATOR = "M3K8V9T1";
 const PL_AGENT_SPAWN = "R5J2W8N4";
 const PL_AGENT_DONE = "C6P9E3H7";
+const PL_AGENT_ERROR = "Z3F7K8M2";
 const PL_THREAD_ARCHIVED = "F4D8Q2K5";
 const PL_STEP_ERROR = "B8T5N1V6";
 const PL_BACKGROUND_START = "X7Q4W9M2";
@@ -521,6 +523,7 @@ export async function cmdThreadShow(
       suspendMessage: null,
       done: true,
       background: null,
+      error: null,
       hint,
     };
   }
@@ -545,6 +548,7 @@ export async function cmdThreadShow(
     suspendMessage: suspendFields.suspendMessage,
     done: false,
     background: null,
+    error: null,
     hint,
   };
 }
@@ -1059,6 +1063,24 @@ function spawnAgent(
   ) {
     failStep(plog, `agent stdout JSON missing valid stepHash: ${line}`);
   }
+  // Normalize isError / errorMessage so downstream code can rely on them.
+  // Legacy adapters that don't emit these fields default to isError=false.
+  if (obj.isError !== undefined && typeof obj.isError !== "boolean") {
+    failStep(plog, `agent stdout JSON has non-boolean isError: ${line}`);
+  }
+  if (obj.isError === undefined) {
+    obj.isError = false;
+  }
+  if (
+    obj.errorMessage !== undefined &&
+    obj.errorMessage !== null &&
+    typeof obj.errorMessage !== "string"
+  ) {
+    failStep(plog, `agent stdout JSON has non-string errorMessage: ${line}`);
+  }
+  if (obj.errorMessage === undefined) {
+    obj.errorMessage = null;
+  }
   return obj as unknown as AdapterOutput;
 }
 
@@ -1296,6 +1318,7 @@ export async function cmdThreadPoke(
     suspendMessage: null,
     done: false,
     background: null,
+    error: null,
   };
 }
 
@@ -1428,6 +1451,7 @@ async function cmdThreadStepBackground(
       suspendMessage: null,
       done: false,
       background: true,
+      error: null,
     },
   ];
 }
@@ -1506,6 +1530,7 @@ async function resolveModeratorStepTarget(
       suspendMessage: null,
       done: true,
       background: null,
+      error: null,
     };
   }
 
@@ -1577,6 +1602,7 @@ async function finalizeAgentStep(
     suspendMessage: null,
     done,
     background: null,
+    error: null,
   };
 }
 
@@ -1638,6 +1664,31 @@ async function cmdThreadStepOnce(
   const newNode = uwfAfter.store.cas.get(newHead);
   if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
     failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
+  }
+
+  // Recoverable failure: agent persisted a failed StepNode (e.g. frontmatter
+  // validation exhausted retries) but the engine MUST NOT advance head. The
+  // moderator graph is also untouched — the same role will be replayed on the
+  // next exec (until eventual success records `previousAttempts` linking the
+  // failed step hashes).
+  if (agentResult.isError === true) {
+    plog.log(
+      PL_AGENT_ERROR,
+      `agent reported recoverable failure stepHash=${newHead} message=${agentResult.errorMessage ?? ""}`,
+      null,
+    );
+    return {
+      workflow: workflowHash,
+      thread: threadId,
+      head: headHash,
+      status: "idle",
+      currentRole: role,
+      suspendedRole: null,
+      suspendMessage: null,
+      done: false,
+      background: null,
+      error: { stepHash: newHead, message: agentResult.errorMessage ?? "agent reported error" },
+    };
   }
 
   return finalizeAgentStep(storageRoot, threadId, workflowHash, workflow, newHead, uwfAfter, plog);

@@ -24,6 +24,11 @@ export type StepRecord = {
   assembledPrompt: CasRef | null;
   /** Token usage statistics reported by the agent adapter. null for legacy steps. */
   usage: Usage | null;
+  /**
+   * Failed StepNode hashes for prior retry attempts of the same role. null for non-retry steps.
+   * Legacy nodes load as null.
+   */
+  previousAttempts: CasRef[] | null;
 };
 
 /** Token usage statistics reported by agent adapters. */
@@ -122,6 +127,12 @@ export type StepOutput = {
   suspendMessage: string | null;
   done: boolean;
   background: boolean | null;
+  /**
+   * Set when the agent reported a recoverable failure (frontmatter validation
+   * exhausted retries). The failed StepNode is recorded in CAS but the thread
+   * head is NOT advanced. Null on success.
+   */
+  error: { stepHash: CasRef; message: string } | null;
 };
 
 /** Active thread entry in @uwf/thread/* variable store */
@@ -143,6 +154,11 @@ export type StepEntry = {
   timestamp: number;
   durationMs: number;
   usage: Usage | null;
+  /**
+   * Nested entries for prior failed attempts of this role.
+   * null when there were no failed attempts (or legacy step with no `previousAttempts` field).
+   */
+  previousAttempts: StepEntry[] | null;
 };
 
 /** uwf thread steps — start entry */

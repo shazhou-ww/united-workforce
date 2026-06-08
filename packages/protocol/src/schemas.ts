@@ -107,6 +107,27 @@ export const STEP_NODE_SCHEMA: JSONSchema = {
         { type: "null" },
       ],
     },
+    previousAttempts: {
+      anyOf: [{ type: "array", items: { type: "string", format: "ocas_ref" } }, { type: "null" }],
+    },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * Output schema for failed agent steps — written to CAS so failed step nodes
+ * can carry a structured `output` ref (with `$status: "error"`) for moderator
+ * inspection and dashboard rendering. Failed steps are NEVER advanced to thread
+ * head; they are linked from the eventual successful step via `previousAttempts`.
+ */
+export const ERROR_OUTPUT_SCHEMA: JSONSchema = {
+  title: "ErrorOutput",
+  type: "object",
+  required: ["$status", "error"],
+  properties: {
+    $status: { type: "string", const: "error" },
+    error: { type: "string" },
+    phase: { type: "string" },
   },
   additionalProperties: false,
 };

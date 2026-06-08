@@ -38,6 +38,111 @@ type TurnData = {
 };
 
 /**
+ * Build a StepEntry for a single step CAS hash, recursively populating its
+ * `previousAttempts` from prior failed StepNode hashes (if any). Failed steps
+ * are persisted to CAS but never reachable through `prev`; they live only via
+ * the successful step's `previousAttempts` array.
+ */
+function buildStepEntry(uwf: UwfStore, stepHash: CasRef): StepEntry | null {
+  const node = uwf.store.cas.get(stepHash);
+  if (node === null || node.type !== uwf.schemas.stepNode) {
+    return null;
+  }
+  const payload = node.payload as StepNodePayload;
+  const previousHashes = payload.previousAttempts ?? null;
+  let previousAttempts: StepEntry[] | null = null;
+  if (previousHashes !== null && previousHashes.length > 0) {
+    const entries: StepEntry[] = [];
+    for (const prevHash of previousHashes) {
+      const entry = buildStepEntry(uwf, prevHash);
+      if (entry !== null) {
+        entries.push(entry);
+      }
+    }
+    previousAttempts = entries.length > 0 ? entries : null;
+  }
+  return {
+    hash: stepHash,
+    role: payload.role,
+    output: expandOutput(uwf, payload.output),
+    detail: payload.detail ?? null,
+    agent: payload.agent,
+    timestamp: node.timestamp,
+    durationMs: payload.completedAtMs - payload.startedAtMs,
+    usage: payload.usage ?? null,
+    previousAttempts,
+  };
+}
+
+/**
+ * Sum of usage across an entry and its nested previousAttempts.
+ * Treats null usage as zero. Non-recursive shape preserves immutability.
+ */
+function sumStepEntryUsage(entry: StepEntry): {
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  duration: number;
+} {
+  let turns = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let duration = 0;
+  if (entry.usage !== null) {
+    turns += entry.usage.turns;
+    inputTokens += entry.usage.inputTokens;
+    outputTokens += entry.usage.outputTokens;
+    duration += entry.usage.duration;
+  }
+  if (entry.previousAttempts !== null) {
+    for (const attempt of entry.previousAttempts) {
+      const sub = sumStepEntryUsage(attempt);
+      turns += sub.turns;
+      inputTokens += sub.inputTokens;
+      outputTokens += sub.outputTokens;
+      duration += sub.duration;
+    }
+  }
+  return { turns, inputTokens, outputTokens, duration };
+}
+
+/**
+ * Aggregate token usage across the entire thread chain, including any
+ * recorded failed retry attempts via `previousAttempts`. Returns zeros when
+ * no usage is recorded anywhere on the thread.
+ */
+export async function aggregateThreadUsage(
+  storageRoot: string,
+  threadId: ThreadId,
+): Promise<{
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  duration: number;
+}> {
+  const result = await cmdStepList(storageRoot, threadId);
+  let turns = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let duration = 0;
+  for (const entry of result.steps) {
+    if (!isStepEntry(entry)) {
+      continue;
+    }
+    const sub = sumStepEntryUsage(entry);
+    turns += sub.turns;
+    inputTokens += sub.inputTokens;
+    outputTokens += sub.outputTokens;
+    duration += sub.duration;
+  }
+  return { turns, inputTokens, outputTokens, duration };
+}
+
+function isStepEntry(entry: StartEntry | StepEntry): entry is StepEntry {
+  return "role" in entry && "agent" in entry;
+}
+
+/**
  * List all steps in a thread (previously: thread steps)
  */
 export async function cmdStepList(
@@ -64,16 +169,10 @@ export async function cmdStepList(
   const ordered = collectOrderedSteps(uwf, headHash, chain);
 
   for (const item of ordered) {
-    stepEntries.push({
-      hash: item.hash,
-      role: item.payload.role,
-      output: expandOutput(uwf, item.payload.output),
-      detail: item.payload.detail ?? null,
-      agent: item.payload.agent,
-      timestamp: item.timestamp,
-      durationMs: item.payload.completedAtMs - item.payload.startedAtMs,
-      usage: item.payload.usage ?? null,
-    });
+    const entry = buildStepEntry(uwf, item.hash);
+    if (entry !== null) {
+      stepEntries.push(entry);
+    }
   }
 
   return {

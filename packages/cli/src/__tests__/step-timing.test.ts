@@ -97,6 +97,7 @@ describe("protocol types", () => {
       assembledPrompt: null,
       cwd: "/test/path",
       usage: null,
+      previousAttempts: null,
     };
     expect(record.startedAtMs).toBe(1000);
     expect(record.completedAtMs).toBe(2000);
@@ -112,6 +113,7 @@ describe("protocol types", () => {
       timestamp: 123,
       durationMs: 5000,
       usage: null,
+      previousAttempts: null,
     };
     expect(entry.durationMs).toBe(5000);
   });

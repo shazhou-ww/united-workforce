@@ -1,3 +1,4 @@
+import type { VarStore } from "@ocas/core";
 import { getSchema, validate } from "@ocas/core";
 import type { CasRef, StepNodePayload, ThreadId, Usage } from "@united-workforce/protocol";
 import { config as loadDotenv } from "dotenv";
@@ -9,6 +10,61 @@ import { getEnvPath, getGlobalCasDir, resolveStorageRoot } from "./storage.js";
 import type { AdapterOutput, AgentOptions } from "./types.js";
 
 const MAX_FRONTMATTER_RETRIES = 2;
+
+/** Variable name prefix tracking failed step hashes per (thread, role). */
+const THREAD_FAILED_VAR_PREFIX = "@uwf/thread-failed/";
+
+function failedAttemptsVarName(threadId: ThreadId, role: string): string {
+  return `${THREAD_FAILED_VAR_PREFIX}${threadId}/${role}`;
+}
+
+/**
+ * Read the list of failed StepNode hashes recorded for `(threadId, role)`.
+ * Returns null when no failed attempts are recorded (fresh role or after a
+ * successful step cleared the list).
+ */
+function readFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string): CasRef[] | null {
+  const name = failedAttemptsVarName(threadId, role);
+  const vars = varStore.list({ exactName: name });
+  const v = vars[0];
+  if (v === undefined || v.value === "") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(v.value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) {
+    return null;
+  }
+  const refs: CasRef[] = [];
+  for (const entry of parsed) {
+    if (typeof entry === "string" && entry !== "") {
+      refs.push(entry as CasRef);
+    }
+  }
+  return refs.length > 0 ? refs : null;
+}
+
+/** Append a failed step hash to the per-(thread, role) failed-attempts variable. */
+function appendFailedAttempt(
+  varStore: VarStore,
+  threadId: ThreadId,
+  role: string,
+  failedStepHash: CasRef,
+): CasRef[] {
+  const existing = readFailedAttempts(varStore, threadId, role) ?? [];
+  const updated: CasRef[] = [...existing, failedStepHash];
+  varStore.set(failedAttemptsVarName(threadId, role), JSON.stringify(updated));
+  return updated;
+}
+
+/** Clear the failed-attempts variable for `(threadId, role)`. */
+function clearFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string): void {
+  varStore.remove(failedAttemptsVarName(threadId, role));
+}
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
@@ -66,6 +122,7 @@ async function writeStepNode(options: {
   completedAtMs: number;
   assembledPromptHash: CasRef | null;
   usage: Usage | null;
+  previousAttempts: CasRef[] | null;
 }): Promise<CasRef> {
   const payload: StepNodePayload = {
     start: options.startHash,
@@ -80,6 +137,7 @@ async function writeStepNode(options: {
     cwd: process.cwd(),
     assembledPrompt: options.assembledPromptHash,
     usage: options.usage,
+    previousAttempts: options.previousAttempts,
   };
   const hash = await options.store.cas.put(options.schemas.stepNode, payload);
   const node = options.store.cas.get(hash);
@@ -120,6 +178,7 @@ async function persistStep(options: {
   completedAtMs: number;
   assembledPromptHash: CasRef | null;
   usage: Usage | null;
+  previousAttempts: CasRef[] | null;
 }): Promise<CasRef> {
   const { store, schemas, chain, headHash } = options.ctx.meta;
   return writeStepNode({
@@ -136,6 +195,7 @@ async function persistStep(options: {
     completedAtMs: options.completedAtMs,
     assembledPromptHash: options.assembledPromptHash,
     usage: options.usage,
+    previousAttempts: options.previousAttempts,
   });
 }
 
@@ -197,11 +257,55 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     }
 
     if (extracted === null) {
-      fail(
+      const errorMessage =
         "Agent output does not contain valid YAML frontmatter matching the role schema " +
-          `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
-          `Raw output (first 500 chars): ${agentResult.output.slice(0, 500)}`,
+        `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
+        `Raw output (first 500 chars): ${agentResult.output.slice(0, 500)}`;
+      const completedAtMs = Date.now();
+      // Persist a failed StepNode so the turns + usage from the agent run are
+      // preserved in CAS and can be linked to a future successful retry via
+      // `previousAttempts`. Thread head MUST NOT be advanced — the engine
+      // (cmdThreadStepOnce) decides routing based on `isError: true`.
+      const errorPayload = {
+        $status: "error" as const,
+        error: errorMessage,
+        phase: "frontmatter_extraction",
+      };
+      const errorOutputHash = await ctx.meta.store.cas.put(
+        ctx.meta.schemas.errorOutput,
+        errorPayload,
       );
+
+      const failedStepHash = await persistStep({
+        ctx,
+        outputHash: errorOutputHash,
+        detailHash: primaryDetailHash,
+        agentName: agentLabel(options.name),
+        startedAtMs,
+        completedAtMs,
+        assembledPromptHash: null,
+        usage: agentResult.usage,
+        previousAttempts: null,
+      });
+
+      // Track the failed hash so a future successful retry of the same
+      // (thread, role) can record `previousAttempts: [failedStepHash, ...]`.
+      appendFailedAttempt(ctx.meta.store.var, threadId, role, failedStepHash);
+
+      const failedOutput: AdapterOutput = {
+        stepHash: failedStepHash,
+        detailHash: primaryDetailHash,
+        role,
+        frontmatter: { $status: "error" },
+        body: "",
+        startedAtMs,
+        completedAtMs,
+        usage: agentResult.usage,
+        isError: true,
+        errorMessage,
+      };
+      process.stdout.write(`${JSON.stringify(failedOutput)}\n`);
+      return;
     }
     const completedAtMs = Date.now();
     const usage = agentResult.usage;
@@ -217,6 +321,8 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       }
     }
 
+    const previousAttempts = readFailedAttempts(ctx.meta.store.var, threadId, role);
+
     const stepHash = await persistStep({
       ctx,
       outputHash: extracted.outputHash,
@@ -226,7 +332,12 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       completedAtMs,
       assembledPromptHash,
       usage,
+      previousAttempts,
     });
+
+    if (previousAttempts !== null) {
+      clearFailedAttempts(ctx.meta.store.var, threadId, role);
+    }
 
     const adapterOutput: AdapterOutput = {
       stepHash,
@@ -237,6 +348,8 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       startedAtMs,
       completedAtMs,
       usage,
+      isError: false,
+      errorMessage: null,
     };
     process.stdout.write(`${JSON.stringify(adapterOutput)}\n`);
   };
