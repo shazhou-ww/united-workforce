@@ -22,6 +22,7 @@ import type {
 import {
   createThreadIndexEntry,
   markThreadSuspended,
+  SUSPEND_STATUS,
   updateThreadHead,
 } from "@united-workforce/protocol";
 import {
@@ -36,7 +37,7 @@ import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
 import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
 import { createIncludeTag } from "../include.js";
-import { evaluate, isSuspendResult } from "../moderator/index.js";
+import { evaluate } from "../moderator/index.js";
 import {
   completeThread,
   createUwfStore,
@@ -64,54 +65,49 @@ const END_ROLE = "$END";
 const START_ROLE = "$START";
 export const THREAD_READ_DEFAULT_QUOTA = 4000;
 
-function buildStepOutputFromEvaluation(
+/**
+ * Read the suspend reason from an agent output if it is an engine-level suspend
+ * (coroutine yield). Returns the reason string when `$status === "$SUSPEND"`,
+ * or `null` otherwise. A suspend output with no `reason` yields an empty string.
+ */
+function readSuspendReason(lastOutput: Record<string, unknown>): string | null {
+  if (lastOutput[STATUS_KEY] !== SUSPEND_STATUS) {
+    return null;
+  }
+  const reason = lastOutput.reason;
+  return typeof reason === "string" ? reason : "";
+}
+
+function buildSuspendStepOutput(
   workflowHash: CasRef,
   threadId: ThreadId,
   head: CasRef,
-  status: ThreadStatus,
-  evaluation: ReturnType<typeof evaluate>,
-  background: boolean | null,
+  suspendedRole: string,
+  suspendMessage: string,
 ): StepOutput {
-  const done = status === "completed";
-  let currentRole: string | null = null;
-  let suspendedRole: string | null = null;
-  let suspendMessage: string | null = null;
-  if (evaluation.ok) {
-    if (isSuspendResult(evaluation.value)) {
-      suspendedRole = evaluation.value.suspendedRole;
-      suspendMessage = evaluation.value.prompt;
-    } else if (evaluation.value.role !== END_ROLE) {
-      currentRole = evaluation.value.role;
-    }
-  }
   return {
     workflow: workflowHash,
     thread: threadId,
     head,
-    status,
-    currentRole,
+    status: "suspended",
+    currentRole: null,
     suspendedRole,
     suspendMessage,
-    done,
-    background,
+    done: false,
+    background: null,
     error: null,
   };
 }
 
-function resolveSuspendFieldsFromGraph(
+function resolveSuspendFieldsFromOutput(
   uwf: UwfStore,
   head: CasRef,
-  workflowRef: CasRef,
 ): { suspendedRole: string | null; suspendMessage: string | null } {
   const chain = walkChain(uwf, head);
   const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
-  const workflow = loadWorkflowPayload(uwf, workflowRef);
-  const result = evaluate(workflow.graph, lastRole, lastOutput);
-  if (result.ok && isSuspendResult(result.value)) {
-    return {
-      suspendedRole: result.value.suspendedRole,
-      suspendMessage: result.value.prompt,
-    };
+  const reason = readSuspendReason(lastOutput);
+  if (reason !== null) {
+    return { suspendedRole: lastRole, suspendMessage: reason };
   }
   return { suspendedRole: null, suspendMessage: null };
 }
@@ -121,7 +117,6 @@ function resolveSuspendFieldsForShow(
   status: ThreadStatus,
   uwf: UwfStore,
   head: CasRef,
-  workflowRef: CasRef,
 ): { suspendedRole: string | null; suspendMessage: string | null } {
   if (status !== "suspended") {
     return { suspendedRole: null, suspendMessage: null };
@@ -129,10 +124,10 @@ function resolveSuspendFieldsForShow(
   if (entry.suspendedRole !== null && entry.suspendMessage !== null) {
     return { suspendedRole: entry.suspendedRole, suspendMessage: entry.suspendMessage };
   }
-  const fromGraph = resolveSuspendFieldsFromGraph(uwf, head, workflowRef);
+  const fromOutput = resolveSuspendFieldsFromOutput(uwf, head);
   return {
-    suspendedRole: entry.suspendedRole ?? fromGraph.suspendedRole,
-    suspendMessage: entry.suspendMessage ?? fromGraph.suspendMessage,
+    suspendedRole: entry.suspendedRole ?? fromOutput.suspendedRole,
+    suspendMessage: entry.suspendMessage ?? fromOutput.suspendMessage,
   };
 }
 
@@ -156,7 +151,7 @@ async function resolveActiveThreadStatus(
   threadId: ThreadId,
   uwf: UwfStore,
   head: CasRef,
-  workflowRef: CasRef,
+  _workflowRef: CasRef,
 ): Promise<ThreadStatus> {
   const runningMarker = await isThreadRunning(storageRoot, threadId);
   if (runningMarker !== null) {
@@ -164,10 +159,8 @@ async function resolveActiveThreadStatus(
   }
 
   const chain = walkChain(uwf, head);
-  const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
-  const workflow = loadWorkflowPayload(uwf, workflowRef);
-  const result = evaluate(workflow.graph, lastRole, lastOutput);
-  if (result.ok && isSuspendResult(result.value)) {
+  const { lastOutput } = resolveEvaluateArgs(uwf, chain);
+  if (readSuspendReason(lastOutput) !== null) {
     return "suspended";
   }
 
@@ -181,12 +174,15 @@ async function resolveActiveThreadStatus(
 function resolveCurrentRole(uwf: UwfStore, head: CasRef, workflowRef: CasRef): string | null {
   const chain = walkChain(uwf, head);
   const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
+  if (readSuspendReason(lastOutput) !== null) {
+    return null;
+  }
   const workflow = loadWorkflowPayload(uwf, workflowRef);
   const result = evaluate(workflow.graph, lastRole, lastOutput);
   if (!result.ok) {
     return null;
   }
-  if (isSuspendResult(result.value) || result.value.role === END_ROLE) {
+  if (result.value.role === END_ROLE) {
     return null;
   }
   return result.value.role;
@@ -531,7 +527,7 @@ export async function cmdThreadShow(
   // Active thread
   const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, activeHead, workflow);
   const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
-  const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead, workflow);
+  const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead);
 
   const hint =
     status === "suspended"
@@ -1127,7 +1123,7 @@ export async function cmdThreadResume(
   });
 
   if (status === "suspended") {
-    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, headHash, workflowHash);
+    const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, headHash);
     if (suspendFields.suspendedRole === null) {
       fail(`thread is suspended but suspendedRole is missing: ${threadId}`);
     }
@@ -1154,9 +1150,6 @@ export async function cmdThreadResume(
   const startResult = evaluate(workflow.graph, START_ROLE, { [STATUS_KEY]: "resume" });
   if (!startResult.ok) {
     fail(`failed to evaluate $START: ${startResult.error.message}`);
-  }
-  if (isSuspendResult(startResult.value)) {
-    fail("workflow cannot start with $SUSPEND");
   }
   if (startResult.value.role === END_ROLE) {
     fail("workflow cannot start with $END");
@@ -1227,8 +1220,11 @@ function resolveCurrentRoleFromChain(
 ): string | null {
   const chainAfter = walkChain(uwfAfter, replacedHash);
   const { lastRole, lastOutput } = resolveEvaluateArgs(uwfAfter, chainAfter);
+  if (readSuspendReason(lastOutput) !== null) {
+    return null;
+  }
   const afterResult = evaluate(workflow.graph, lastRole, lastOutput);
-  if (!afterResult.ok || isSuspendResult(afterResult.value)) {
+  if (!afterResult.ok) {
     return null;
   }
   if (afterResult.value.role === END_ROLE) {
@@ -1484,6 +1480,16 @@ async function resolveModeratorStepTarget(
   plog: ProcessLogger,
 ): Promise<StepOutput | AgentStepTarget> {
   const { lastRole, lastOutput } = resolveEvaluateArgs(uwf, chain);
+
+  // Intercept an already-suspended head before the moderator: a thread whose
+  // head step yielded `$status: "$SUSPEND"` stays suspended (idempotent re-exec).
+  const suspendReason = readSuspendReason(lastOutput);
+  if (suspendReason !== null) {
+    await ensureThreadSuspendMetadata(uwf.varStore, threadId, entry, lastRole, suspendReason);
+    plog.log(PL_MODERATOR, `moderator action=suspend suspendedRole=${lastRole}`, null);
+    return buildSuspendStepOutput(workflowHash, threadId, headHash, lastRole, suspendReason);
+  }
+
   const nextResult = evaluate(workflow.graph, lastRole, lastOutput);
   if (!nextResult.ok) {
     failStep(plog, `moderator evaluate failed: ${nextResult.error.message}`);
@@ -1491,31 +1497,9 @@ async function resolveModeratorStepTarget(
 
   plog.log(
     PL_MODERATOR,
-    `moderator ${
-      isSuspendResult(nextResult.value)
-        ? `action=suspend suspendedRole=${nextResult.value.suspendedRole}`
-        : `role=${nextResult.value.role}`
-    } prompt=${nextResult.value.prompt}`,
+    `moderator role=${nextResult.value.role} prompt=${nextResult.value.prompt}`,
     null,
   );
-
-  if (isSuspendResult(nextResult.value)) {
-    await ensureThreadSuspendMetadata(
-      uwf.varStore,
-      threadId,
-      entry,
-      nextResult.value.suspendedRole,
-      nextResult.value.prompt,
-    );
-    return buildStepOutputFromEvaluation(
-      workflowHash,
-      threadId,
-      headHash,
-      "suspended",
-      nextResult,
-      null,
-    );
-  }
 
   if (nextResult.value.role === END_ROLE) {
     plog.log(PL_THREAD_ARCHIVED, `thread archived head=${headHash}`, null);
@@ -1558,29 +1542,27 @@ async function finalizeAgentStep(
     uwfAfter,
     chainAfter,
   );
-  const afterResult = evaluate(workflow.graph, lastRoleAfter, lastOutputAfter);
-  if (!afterResult.ok) {
-    failStep(plog, `post-step moderator evaluate failed: ${afterResult.error.message}`);
-  }
 
-  if (isSuspendResult(afterResult.value)) {
+  // Intercept `$status: "$SUSPEND"` before the moderator (coroutine yield): the
+  // step is already in CAS and the head has advanced — mark the thread suspended
+  // and return without routing through the graph.
+  const suspendReason = readSuspendReason(lastOutputAfter);
+  if (suspendReason !== null) {
     setThread(
       uwfAfter.varStore,
       threadId,
       markThreadSuspended(
         getThread(uwfAfter.varStore, threadId) ?? createThreadIndexEntry(newHead),
-        afterResult.value.suspendedRole,
-        afterResult.value.prompt,
+        lastRoleAfter,
+        suspendReason,
       ),
     );
-    return buildStepOutputFromEvaluation(
-      workflowHash,
-      threadId,
-      newHead,
-      "suspended",
-      afterResult,
-      null,
-    );
+    return buildSuspendStepOutput(workflowHash, threadId, newHead, lastRoleAfter, suspendReason);
+  }
+
+  const afterResult = evaluate(workflow.graph, lastRoleAfter, lastOutputAfter);
+  if (!afterResult.ok) {
+    failStep(plog, `post-step moderator evaluate failed: ${afterResult.error.message}`);
   }
 
   const done = afterResult.value.role === END_ROLE;

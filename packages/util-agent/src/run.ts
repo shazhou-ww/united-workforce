@@ -10,7 +10,7 @@ import type {
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";
-import { tryFrontmatterFastPath } from "./frontmatter.js";
+import { tryFrontmatterFastPath, trySuspendFastPath } from "./frontmatter.js";
 import type { AgentStore } from "./storage.js";
 import { getEnvPath, getGlobalCasDir, resolveStorageRoot } from "./storage.js";
 import type { AdapterOutput, AgentOptions } from "./types.js";
@@ -181,6 +181,21 @@ async function tryExtractOutput(
   outputSchema: CasRef,
   ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
 ): Promise<ExtractedOutput | null> {
+  // `$status: "$SUSPEND"` is a reserved coroutine yield — store it against the
+  // suspend schema, bypassing the role's own frontmatter schema.
+  const suspend = await trySuspendFastPath(
+    rawOutput,
+    ctx.meta.schemas.suspendOutput,
+    ctx.meta.store,
+  );
+  if (suspend !== null) {
+    return {
+      outputHash: suspend.outputHash,
+      frontmatter: suspend.frontmatter,
+      body: suspend.body,
+    };
+  }
+
   const fastPath = await tryFrontmatterFastPath(rawOutput, outputSchema, ctx.meta.store);
   if (fastPath !== null) {
     return {

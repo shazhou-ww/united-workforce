@@ -370,7 +370,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     expect(s1.role).toBe("planner");
     expect(s2.role).toBe("planner");
     expect(s2.prev).toBe(step1.head);
-    expect(getStatus(store, s1.output)).toBe("insufficient_info");
+    expect(getStatus(store, s1.output)).toBe("$SUSPEND");
     expect(getStatus(store, s2.output)).toBe("ready");
 
     const finalEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);

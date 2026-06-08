@@ -3,7 +3,8 @@ import type { WorkflowPayload } from "@united-workforce/protocol";
 type SchemaObj = Record<string, unknown>;
 
 const RESERVED_NAMES = new Set(["$START", "$END", "$SUSPEND"]);
-const PSEUDO_TARGETS = new Set(["$END", "$SUSPEND"]);
+const PSEUDO_TARGETS = new Set(["$END"]);
+const SUSPEND_TARGET = "$SUSPEND";
 
 /** Extract mustache variable names from a prompt string. */
 function extractMustacheVars(prompt: string): string[] {
@@ -89,6 +90,27 @@ function checkRoleReferences(payload: WorkflowPayload, errors: string[]): void {
   }
 }
 
+/** Validate each graph edge's target role, including the removed $SUSPEND target. */
+function checkEdgeTargets(
+  payload: WorkflowPayload,
+  roleNames: Set<string>,
+  errors: string[],
+): void {
+  for (const [node, statusMap] of Object.entries(payload.graph)) {
+    for (const [status, target] of Object.entries(statusMap)) {
+      if (target.role === SUSPEND_TARGET) {
+        errors.push(
+          `edge ${node}→${status}: "${SUSPEND_TARGET}" is no longer a valid graph target. Emit $status: "${SUSPEND_TARGET}" from the "${node}" role output instead.`,
+        );
+        continue;
+      }
+      if (!PSEUDO_TARGETS.has(target.role) && !roleNames.has(target.role)) {
+        errors.push(`edge ${node}→${status}: unknown target role "${target.role}"`);
+      }
+    }
+  }
+}
+
 /** Check $START/$END constraints, edge targets, and reachability. */
 function checkGraphStructure(payload: WorkflowPayload, errors: string[]): void {
   const roleNames = new Set(Object.keys(payload.roles));
@@ -107,17 +129,13 @@ function checkGraphStructure(payload: WorkflowPayload, errors: string[]): void {
     errors.push("$END must not have outgoing edges");
   }
 
-  if (graphNodes.has("$SUSPEND")) {
-    errors.push("$SUSPEND must not have outgoing edges");
+  if (graphNodes.has(SUSPEND_TARGET)) {
+    errors.push(
+      `"${SUSPEND_TARGET}" is no longer a valid graph node — it is now an engine-level reserved $status. Emit $status: "${SUSPEND_TARGET}" from a role output instead.`,
+    );
   }
 
-  for (const [node, statusMap] of Object.entries(payload.graph)) {
-    for (const [status, target] of Object.entries(statusMap)) {
-      if (!PSEUDO_TARGETS.has(target.role) && !roleNames.has(target.role)) {
-        errors.push(`edge ${node}→${status}: unknown target role "${target.role}"`);
-      }
-    }
-  }
+  checkEdgeTargets(payload, roleNames, errors);
 
   checkReachability(roleNames, collectReachableRoles(payload.graph), errors);
 }

@@ -59,13 +59,7 @@ describe("suspended thread display", () => {
             new: { role: "worker", prompt: "Start work", location: null },
             resume: { role: "worker", prompt: "Resume work", location: null },
           },
-          worker: {
-            needs_input: {
-              role: "$SUSPEND",
-              prompt: "Please provide more details: {{{question}}}",
-              location: null,
-            },
-          },
+          worker: {},
         },
       });
 
@@ -77,9 +71,9 @@ describe("suspended thread display", () => {
 
       // Create suspended thread
       const suspendedThreadId = "01SUSPENDEDTHREAD0000000" as ThreadId;
-      const outputHash = await uwf.store.cas.put(outputSchemaHash, {
-        $status: "needs_input",
-        question: "What is the target API?",
+      const outputHash = await uwf.store.cas.put(uwf.schemas.suspendOutput, {
+        $status: "$SUSPEND",
+        reason: "Please provide more details: What is the target API?",
       });
       const detailHash = await uwf.store.cas.put(uwf.schemas.text, "mock detail");
 
@@ -169,13 +163,7 @@ describe("suspended thread display", () => {
             new: { role: "worker", prompt: "Start work", location: null },
             resume: { role: "worker", prompt: "Resume work", location: null },
           },
-          worker: {
-            needs_input: {
-              role: "$SUSPEND",
-              prompt: "Need clarification: {{{question}}}",
-              location: null,
-            },
-          },
+          worker: {},
         },
       });
 
@@ -186,9 +174,9 @@ describe("suspended thread display", () => {
       });
 
       const threadId = "01SUSPENDSHOW000000000" as ThreadId;
-      const outputHash = await uwf.store.cas.put(outputSchemaHash, {
-        $status: "needs_input",
-        question: "Which database to use?",
+      const outputHash = await uwf.store.cas.put(uwf.schemas.suspendOutput, {
+        $status: "$SUSPEND",
+        reason: "Need clarification: Which database to use?",
       });
       const detailHash = await uwf.store.cas.put(uwf.schemas.text, "mock detail");
 

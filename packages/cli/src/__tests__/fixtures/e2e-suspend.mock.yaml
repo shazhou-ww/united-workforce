@@ -2,8 +2,8 @@ steps:
   - role: planner
     output: |
       ---
-      $status: insufficient_info
-      reason: missing requirements
+      $status: "$SUSPEND"
+      reason: 'Need more info: missing requirements'
       ---
       I need more information before I can plan this.
   - role: planner

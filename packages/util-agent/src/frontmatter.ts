@@ -1,6 +1,7 @@
 import type { Store } from "@ocas/core";
 import { getSchema, validate } from "@ocas/core";
 import type { CasRef } from "@united-workforce/protocol";
+import { SUSPEND_STATUS } from "@united-workforce/protocol";
 import {
   type AgentFrontmatter,
   createLogger,
@@ -174,6 +175,53 @@ export async function tryFrontmatterFastPath(
 
   if (node === null || !validate(store, node)) {
     log("2KMQT7NR", "stored frontmatter candidate failed schema validation");
+    return null;
+  }
+
+  return { body, outputHash, frontmatter: candidate };
+}
+
+/**
+ * Try to interpret the agent output as an engine-level suspend (coroutine yield).
+ *
+ * When the frontmatter declares `$status: "$SUSPEND"`, store the output against
+ * the reserved {@link SUSPEND_OUTPUT_SCHEMA} instead of the role's own schema —
+ * any role may yield regardless of its declared output type. The engine
+ * intercepts this status before the moderator and marks the thread suspended.
+ *
+ * Returns `null` (so the caller falls back to the role-schema fast path) when
+ * the output is not a suspend. Never throws.
+ */
+export async function trySuspendFastPath(
+  raw: string,
+  suspendSchema: CasRef,
+  store: Store,
+): Promise<FrontmatterFastPathResult | null> {
+  const { frontmatter, body } = parseFrontmatterMarkdown(raw);
+  if (frontmatter === null) {
+    return null;
+  }
+
+  const rawFields = parseRawFrontmatterFields(raw);
+  if (rawFields.$status !== SUSPEND_STATUS) {
+    return null;
+  }
+
+  const reason = typeof rawFields.reason === "string" ? rawFields.reason : "";
+  const candidate = { $status: SUSPEND_STATUS, reason };
+
+  let outputHash: CasRef;
+  let node: ReturnType<Store["cas"]["get"]>;
+  try {
+    outputHash = await store.cas.put(suspendSchema, candidate);
+    node = store.cas.get(outputHash);
+  } catch (e) {
+    log("3WQT8KMR", `failed to store suspend candidate in CAS: ${e}`);
+    return null;
+  }
+
+  if (node === null || !validate(store, node)) {
+    log("6PNV4RQX", "stored suspend candidate failed schema validation");
     return null;
   }
 

@@ -75,11 +75,6 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
         resume: { role: "worker", prompt: "Resume the work", location: null },
       },
       worker: {
-        needs_input: {
-          role: "$SUSPEND",
-          prompt: "Please clarify: {{{question}}}",
-          location: null,
-        },
         ok: { role: "reviewer", prompt: "Review the work", location: null },
       },
       reviewer: { done: { role: "$END", prompt: "Done", location: null } },
@@ -95,9 +90,9 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
   process.env.OCAS_HOME = casDir;
   await seedThreads(tmpDir, { [THREAD_ID]: startHash });
 
-  const outputHash = await store.cas.put(outputSchemaHash, {
-    $status: "needs_input",
-    question: "Which API?",
+  const outputHash = await store.cas.put(schemas.suspendOutput, {
+    $status: "$SUSPEND",
+    reason: SUSPEND_MESSAGE,
   });
   const detailHash = await store.cas.put(schemas.text, "mock detail");
 
@@ -132,14 +127,15 @@ async function setupSuspendedThread(mode: MockAgentMode): Promise<{
   const mockAgentPath = join(tmpDir, "mock-agent.sh");
 
   const frontmatter =
-    mode === "suspend" ? { $status: "needs_input", question: "Which API?" } : { $status: "ok" };
+    mode === "suspend" ? { $status: "$SUSPEND", reason: SUSPEND_MESSAGE } : { $status: "ok" };
+  const frontmatterSchema = mode === "suspend" ? schemas.suspendOutput : outputSchemaHash;
 
   const adapterJson = JSON.stringify({
     stepHash: await store.cas.put(schemas.stepNode, {
       start: startHash,
       prev: stepHash,
       role: "worker",
-      output: await store.cas.put(outputSchemaHash, frontmatter),
+      output: await store.cas.put(frontmatterSchema, frontmatter),
       detail: detailHash,
       agent: "uwf-mock",
       edgePrompt: "resume prompt placeholder",

@@ -469,6 +469,43 @@ describe("Suite 5: oneOf Discriminant Validity", () => {
   });
 });
 
+describe("Suite 7: $SUSPEND is no longer a valid graph target", () => {
+  test("7.1 edge targeting $SUSPEND is rejected with a migration hint", () => {
+    const wf = makeWorkflow();
+    wf.graph.writer = {
+      done: { role: "$SUSPEND", prompt: "Need more info", location: null },
+    };
+    const errors = validateWorkflow(wf);
+    expect(
+      errors.some(
+        (e) =>
+          e.includes("$SUSPEND") &&
+          e.includes("no longer a valid graph target") &&
+          e.includes('Emit $status: "$SUSPEND"'),
+      ),
+    ).toBe(true);
+  });
+
+  test("7.2 $SUSPEND as a graph node is rejected", () => {
+    const wf = makeWorkflow();
+    (wf.graph as Record<string, unknown>).$SUSPEND = {
+      done: { role: "$END", prompt: "done", location: null },
+    };
+    const errors = validateWorkflow(wf);
+    expect(
+      errors.some((e) => e.includes("$SUSPEND") && e.includes("no longer a valid graph node")),
+    ).toBe(true);
+  });
+
+  test("7.3 a role emitting $SUSPEND from its output (not the graph) passes", () => {
+    // The role declares only its normal status; $SUSPEND is an engine-level
+    // reserved status emitted at runtime and validated against its own schema.
+    const wf = makeWorkflow();
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("$SUSPEND"))).toBe(false);
+  });
+});
+
 describe("Suite 6: Multiple Errors Collection", () => {
   test("6.1 multiple errors collected", () => {
     const wf = makeWorkflow();
