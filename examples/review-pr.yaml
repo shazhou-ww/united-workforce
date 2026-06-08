@@ -9,6 +9,19 @@ roles:
     procedure: |
       You will receive a PR number and repo slug (owner/repo) in the task prompt.
 
+      **Step 0 — Self-review guard (MUST do first):**
+      Check who authored the PR and who is the current authenticated user:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      PR_AUTHOR=$(curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>" \
+        -H "Authorization: token $GITEA_TOKEN" | jq -r '.user.login')
+      CURRENT_USER=$(curl -s "https://git.shazhou.work/api/v1/user" \
+        -H "Authorization: token $GITEA_TOKEN" | jq -r '.login')
+      ```
+      If `$PR_AUTHOR == $CURRENT_USER`, **STOP IMMEDIATELY**. Do NOT proceed to any further steps.
+      Output frontmatter with `$status: self_review`, the author name, and reason:
+      "Self-review detected: PR author and reviewer are both <username>. Project policy prohibits reviewing your own changes."
+
       **Step 1 — Set up worktree:**
       1. cd into the local repo clone
       2. `git fetch origin`
@@ -56,17 +69,24 @@ roles:
 
       Output all collected context for the reviewer.
 
-    output: "Output the PR metadata, diff summary, changed files list, existing comments, and worktree path."
+    output: "Output the PR metadata, diff summary, changed files list, existing comments, and worktree path. If self-review detected, output $status: self_review immediately."
     frontmatter:
-      type: object
-      required: [$status, repo, prNumber, worktree, changedFiles, existingComments]
-      properties:
-        $status: { const: "ready" }
-        repo: { type: string }
-        prNumber: { type: integer }
-        worktree: { type: string }
-        changedFiles: { type: string }
-        existingComments: { type: string }
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+            repo: { type: string }
+            prNumber: { type: integer }
+            worktree: { type: string }
+            changedFiles: { type: string }
+            existingComments: { type: string }
+          required: [$status, repo, prNumber, worktree, changedFiles, existingComments]
+        - properties:
+            $status: { const: "self_review" }
+            repo: { type: string }
+            prNumber: { type: integer }
+            author: { type: string }
+            reason: { type: string }
+          required: [$status, repo, prNumber, author, reason]
 
   reviewer:
     description: "Structured code review against checklist"
@@ -251,6 +271,7 @@ graph:
     resume: { role: "fetcher", prompt: "Re-fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
   fetcher:
     ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing comments (do NOT repeat these): {{{existingComments}}}" }
+    self_review: { role: "$END", prompt: "Self-review detected for PR #{{{prNumber}}} in {{{repo}}}. Author: {{{author}}}. {{{reason}}}. Workflow terminated — project policy prohibits self-review." }
   reviewer:
     approve: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Summary: {{{summary}}}. Proceed to merge." }
     request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Blocking: {{{blockingIssues}}}. Non-blocking: {{{nonBlockingIssues}}}. Summary: {{{summary}}}" }
