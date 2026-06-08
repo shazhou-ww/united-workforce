@@ -151,7 +151,6 @@ async function resolveActiveThreadStatus(
   threadId: ThreadId,
   uwf: UwfStore,
   head: CasRef,
-  _workflowRef: CasRef,
 ): Promise<ThreadStatus> {
   const runningMarker = await isThreadRunning(storageRoot, threadId);
   if (runningMarker !== null) {
@@ -525,7 +524,7 @@ export async function cmdThreadShow(
   }
 
   // Active thread
-  const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, activeHead, workflow);
+  const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, activeHead);
   const currentRole = resolveCurrentRole(uwf, activeHead, workflow);
   const suspendFields = resolveSuspendFieldsForShow(entry, status, uwf, activeHead);
 
@@ -572,7 +571,7 @@ async function threadListItemFromActive(
     return null;
   }
 
-  const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, head, workflow);
+  const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, head);
   const statusDisplay = status === "suspended" ? `${status} [suspended]` : status;
 
   return {
@@ -1110,7 +1109,7 @@ export async function cmdThreadResume(
   if (entry.status === "completed" || entry.status === "cancelled") {
     status = entry.status;
   } else {
-    status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, headHash, workflowHash);
+    status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, headHash);
   }
 
   if (status !== "suspended" && status !== "completed") {
