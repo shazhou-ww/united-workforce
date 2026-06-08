@@ -77,8 +77,8 @@ afterEach(async () => {
 // ── discoverProjectWorkflows — parent traversal ───────────────────────────────
 
 describe("discoverProjectWorkflows — parent traversal", () => {
-  test("B1: finds workflows in cwd's .workflow/", async () => {
-    const wfDir = join(projectRoot, ".workflow");
+  test("T1: finds workflows in cwd's .workflows/", async () => {
+    const wfDir = join(projectRoot, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -87,8 +87,8 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(entries.map((e) => e.name)).toContain("solve-issue");
   });
 
-  test("B2: finds workflows in ancestor's .workflow/ when called from subdirectory", async () => {
-    const wfDir = join(projectRoot, ".workflow");
+  test("T2: finds workflows in ancestor's .workflows/ when called from subdirectory", async () => {
+    const wfDir = join(projectRoot, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -100,8 +100,8 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(entries.map((e) => e.name)).toContain("solve-issue");
   });
 
-  test("B3: returns [] when no .workflow/ exists in any ancestor", async () => {
-    // Use a deep path under tmpDir that has no .workflow/ on the way up.
+  test("T3: returns [] when no .workflows/ or .workflow/ exists in any ancestor", async () => {
+    // Use a deep path under tmpDir that has no .workflows/ or .workflow/ on the way up.
     // (Traversal will stop at filesystem root and find nothing.)
     const deepPath = join(tmpDir, "isolated", "no", "workflow", "here");
     await mkdir(deepPath, { recursive: true });
@@ -111,14 +111,14 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(entries).toEqual([]);
   });
 
-  test("B4: .workflow/ entries win over .workflows/ within the same directory", async () => {
-    const wfDir = join(projectRoot, ".workflow");
-    const legacyDir = join(projectRoot, ".workflows");
-    await mkdir(wfDir, { recursive: true });
+  test("T4: .workflows/ entries win over .workflow/ within the same directory", async () => {
+    const primaryDir = join(projectRoot, ".workflows");
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(primaryDir, { recursive: true });
     await mkdir(legacyDir, { recursive: true });
 
     await writeFile(
-      join(wfDir, "solve-issue.yaml"),
+      join(primaryDir, "solve-issue.yaml"),
       await createWorkflowYaml("solve-issue", "new"),
     );
     await writeFile(
@@ -130,16 +130,16 @@ describe("discoverProjectWorkflows — parent traversal", () => {
 
     const match = entries.find((e) => e.name === "solve-issue");
     expect(match).toBeDefined();
-    expect(match?.filePath).toBe(join(wfDir, "solve-issue.yaml"));
+    expect(match?.filePath).toBe(join(primaryDir, "solve-issue.yaml"));
   });
 
-  test("B5: nearest .workflow/ wins over ancestor's .workflow/", async () => {
-    const ancestorWf = join(projectRoot, ".workflow");
+  test("T5: nearest .workflows/ wins over ancestor's .workflows/", async () => {
+    const ancestorWf = join(projectRoot, ".workflows");
     await mkdir(ancestorWf, { recursive: true });
     await writeFile(join(ancestorWf, "foo.yaml"), await createWorkflowYaml("foo", "ancestor"));
 
     const nearDir = join(projectRoot, "pkg");
-    const nearWf = join(nearDir, ".workflow");
+    const nearWf = join(nearDir, ".workflows");
     await mkdir(nearWf, { recursive: true });
     await writeFile(join(nearWf, "foo.yaml"), await createWorkflowYaml("foo", "near"));
 
@@ -152,8 +152,8 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(entries.filter((e) => e.name === "foo")).toHaveLength(1);
   });
 
-  test("B6: returns all entries from the nearest .workflow/ when called from a deep subdir", async () => {
-    const wfDir = join(projectRoot, ".workflow");
+  test("T6: returns all entries from the nearest .workflows/ when called from a deep subdir", async () => {
+    const wfDir = join(projectRoot, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
     await writeFile(join(wfDir, "review-code.yaml"), await createWorkflowYaml("review-code"));
@@ -167,8 +167,8 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(names).toEqual(["review-code", "solve-issue"]);
   });
 
-  test("B7: discovers folder-based layout (name/index.yaml) via parent traversal", async () => {
-    const folderDir = join(projectRoot, ".workflow", "solve-issue");
+  test("T7: discovers folder-based layout (name/index.yaml) via parent traversal under .workflows/", async () => {
+    const folderDir = join(projectRoot, ".workflows", "solve-issue");
     await mkdir(folderDir, { recursive: true });
     await writeFile(join(folderDir, "index.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -181,19 +181,47 @@ describe("discoverProjectWorkflows — parent traversal", () => {
     expect(match).toBeDefined();
     expect(match?.filePath).toBe(join(folderDir, "index.yaml"));
   });
+
+  test("T8: .workflow/ (legacy) is still discovered when .workflows/ does not exist", async () => {
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(legacyDir, { recursive: true });
+    await writeFile(join(legacyDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const entries = await discoverProjectWorkflows(projectRoot);
+
+    const match = entries.find((e) => e.name === "solve-issue");
+    expect(match).toBeDefined();
+    expect(match?.filePath).toBe(join(legacyDir, "solve-issue.yaml"));
+  });
+
+  test("T9: nearest directory with EITHER variant stops traversal", async () => {
+    // Setup: ancestor .workflows/ + near .workflow/ only — near wins, ancestor not merged.
+    const ancestorWf = join(tmpDir, ".workflows");
+    await mkdir(ancestorWf, { recursive: true });
+    await writeFile(join(ancestorWf, "leak.yaml"), await createWorkflowYaml("leak"));
+
+    const nearLegacyDir = join(projectRoot, ".workflow");
+    await mkdir(nearLegacyDir, { recursive: true });
+    await writeFile(join(nearLegacyDir, "local.yaml"), await createWorkflowYaml("local"));
+
+    const entries = await discoverProjectWorkflows(projectRoot);
+    const names = entries.map((e) => e.name);
+    expect(names).toContain("local");
+    expect(names).not.toContain("leak");
+  });
 });
 
 // ── discoverProjectWorkflows — .git boundary ─────────────────────────────────
 
 describe("discoverProjectWorkflows — .git boundary", () => {
   test("G1: .git directory stops traversal", async () => {
-    // Setup: tmpDir/repo/.git/ (dir), tmpDir/.workflow/leak.yaml, start from tmpDir/repo/sub/deep/
+    // Setup: tmpDir/repo/.git/ (dir), tmpDir/.workflows/leak.yaml, start from tmpDir/repo/sub/deep/
     const repoDir = join(tmpDir, "repo");
     const gitDir = join(repoDir, ".git");
     await mkdir(gitDir, { recursive: true });
 
     // Workflow above repo root — should NOT be reachable
-    const leakDir = join(tmpDir, ".workflow");
+    const leakDir = join(tmpDir, ".workflows");
     await mkdir(leakDir, { recursive: true });
     await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
 
@@ -205,12 +233,12 @@ describe("discoverProjectWorkflows — .git boundary", () => {
   });
 
   test("G2: .git file (worktree) stops traversal", async () => {
-    // Setup: tmpDir/repo/.git as a FILE, tmpDir/.workflow/leak.yaml, start from tmpDir/repo/pkg/
+    // Setup: tmpDir/repo/.git as a FILE, tmpDir/.workflows/leak.yaml, start from tmpDir/repo/pkg/
     const repoDir = join(tmpDir, "repo");
     await mkdir(repoDir, { recursive: true });
     await writeFile(join(repoDir, ".git"), "gitdir: /some/other/path/.git/worktrees/repo");
 
-    const leakDir = join(tmpDir, ".workflow");
+    const leakDir = join(tmpDir, ".workflows");
     await mkdir(leakDir, { recursive: true });
     await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
 
@@ -221,13 +249,13 @@ describe("discoverProjectWorkflows — .git boundary", () => {
     expect(entries).toEqual([]);
   });
 
-  test("G3: workflow at .git boundary IS found", async () => {
-    // Setup: tmpDir/repo/.git/ (dir), tmpDir/repo/.workflow/local.yaml, start from tmpDir/repo/sub/
+  test("G3: workflow at .git boundary IS found (primary .workflows/)", async () => {
+    // Setup: tmpDir/repo/.git/ (dir), tmpDir/repo/.workflows/local.yaml, start from tmpDir/repo/sub/
     const repoDir = join(tmpDir, "repo");
     const gitDir = join(repoDir, ".git");
     await mkdir(gitDir, { recursive: true });
 
-    const wfDir = join(repoDir, ".workflow");
+    const wfDir = join(repoDir, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "local.yaml"), await createWorkflowYaml("local"));
 
@@ -239,16 +267,16 @@ describe("discoverProjectWorkflows — .git boundary", () => {
   });
 
   test("G4: workflow below .git is found, above is not", async () => {
-    // Setup: tmpDir/repo/.git/ + tmpDir/repo/.workflow/local.yaml + tmpDir/.workflow/leak.yaml
+    // Setup: tmpDir/repo/.git/ + tmpDir/repo/.workflows/local.yaml + tmpDir/.workflows/leak.yaml
     const repoDir = join(tmpDir, "repo");
     const gitDir = join(repoDir, ".git");
     await mkdir(gitDir, { recursive: true });
 
-    const localWfDir = join(repoDir, ".workflow");
+    const localWfDir = join(repoDir, ".workflows");
     await mkdir(localWfDir, { recursive: true });
     await writeFile(join(localWfDir, "local.yaml"), await createWorkflowYaml("local"));
 
-    const leakDir = join(tmpDir, ".workflow");
+    const leakDir = join(tmpDir, ".workflows");
     await mkdir(leakDir, { recursive: true });
     await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
 
@@ -270,7 +298,7 @@ describe("findWorkflowInParents via cmdThreadStart — .git boundary", () => {
     await mkdir(gitDir, { recursive: true });
 
     // Workflow above .git boundary
-    const leakDir = join(tmpDir, ".workflow");
+    const leakDir = join(tmpDir, ".workflows");
     await mkdir(leakDir, { recursive: true });
     await writeFile(join(leakDir, "leak.yaml"), await createWorkflowYaml("leak"));
 
@@ -287,7 +315,7 @@ describe("findWorkflowInParents via cmdThreadStart — .git boundary", () => {
     const gitDir = join(repoDir, ".git");
     await mkdir(gitDir, { recursive: true });
 
-    const wfDir = join(repoDir, ".workflow");
+    const wfDir = join(repoDir, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "local.yaml"), await createWorkflowYaml("local"));
 
@@ -304,7 +332,7 @@ describe("findWorkflowInParents via cmdThreadStart — .git boundary", () => {
 describe("cmdWorkflowList — parent traversal", () => {
   test("B9: lists local workflows discovered from a subdirectory", async () => {
     await makeUwfStore(storageRoot);
-    const wfDir = join(projectRoot, ".workflow");
+    const wfDir = join(projectRoot, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -321,7 +349,7 @@ describe("cmdWorkflowList — parent traversal", () => {
 
   test("aligns with cmdThreadStart discovery from same subdirectory", async () => {
     await makeUwfStore(storageRoot);
-    const wfDir = join(projectRoot, ".workflow");
+    const wfDir = join(projectRoot, ".workflows");
     await mkdir(wfDir, { recursive: true });
     await writeFile(join(wfDir, "foo.yaml"), await createWorkflowYaml("foo"));
 

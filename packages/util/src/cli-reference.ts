@@ -20,7 +20,7 @@ own LLM configuration from a path it owns (e.g.
 \`\`\`
 uwf workflow add <file>           # register a workflow from YAML file
 uwf workflow show <id>            # show workflow by name or CAS hash
-uwf workflow list                 # list workflows (auto-discovers .workflow/ from cwd upward + global registry)
+uwf workflow list                 # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
 \`\`\`
 
 ### Workflow Resolution
@@ -30,11 +30,11 @@ argument by searching from cwd upward. Strategies are tried in priority order:
 
 1. **CAS hash** — a 13-char Crockford Base32 string is loaded directly from CAS.
 2. **File path** — a relative or absolute \`.yaml\`/\`.yml\` path is materialized on the fly.
-3. **Local \`.workflow/\` (cwd upward)** — \`uwf\` searches from cwd upward for the nearest
-   directory containing \`.workflow/<name>.yaml\`, \`.workflow/<name>.yml\`,
-   \`.workflow/<name>/index.yaml\`, or the legacy \`.workflows/\` variants. \`workflow list\`
-   uses the same cwd upward parent traversal so its output matches what \`thread start\`
-   can resolve.
+3. **Local \`.workflows/\` (cwd upward)** — \`uwf\` searches from cwd upward for the nearest
+   directory containing \`.workflows/<name>.yaml\`, \`.workflows/<name>.yml\`,
+   \`.workflows/<name>/index.yaml\`, or the legacy \`.workflow/\` (singular) variants
+   as a fallback. \`workflow list\` uses the same cwd upward parent traversal so its
+   output matches what \`thread start\` can resolve.
 4. **Global registry** — \`uwf workflow add\` stores the workflow under
    \`@uwf/registry/<name>\` for system-wide resolution independent of cwd.
 

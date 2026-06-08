@@ -244,27 +244,11 @@ async function workflowFileExists(dir: string, name: string, ext: string): Promi
 }
 
 /**
- * Search for a workflow file in a given directory (checks both .workflow/ and .workflows/).
+ * Search for a workflow file in a given directory (checks both .workflows/ and .workflow/).
+ * `.workflows/` (primary) takes priority over `.workflow/` (legacy fallback).
  */
 async function findWorkflowInDir(dir: string, name: string): Promise<string | null> {
-  // Check .workflow/ directory first (preferred)
-  for (const ext of [".yaml", ".yml"]) {
-    const result = await workflowFileExists(resolvePath(dir, ".workflow"), name, ext);
-    if (result !== null) {
-      return result;
-    }
-  }
-  for (const indexName of ["index.yaml", "index.yml"]) {
-    const candidate = resolvePath(dir, ".workflow", name, indexName);
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {
-      /* not found */
-    }
-  }
-
-  // Check .workflows/ directory as fallback (legacy)
+  // Check .workflows/ directory first (primary)
   for (const ext of [".yaml", ".yml"]) {
     const result = await workflowFileExists(resolvePath(dir, ".workflows"), name, ext);
     if (result !== null) {
@@ -273,6 +257,23 @@ async function findWorkflowInDir(dir: string, name: string): Promise<string | nu
   }
   for (const indexName of ["index.yaml", "index.yml"]) {
     const candidate = resolvePath(dir, ".workflows", name, indexName);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
+  }
+
+  // Check .workflow/ directory as fallback (legacy)
+  for (const ext of [".yaml", ".yml"]) {
+    const result = await workflowFileExists(resolvePath(dir, ".workflow"), name, ext);
+    if (result !== null) {
+      return result;
+    }
+  }
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const candidate = resolvePath(dir, ".workflow", name, indexName);
     try {
       await access(candidate);
       return candidate;
@@ -295,7 +296,10 @@ async function hasGitMarker(dir: string): Promise<boolean> {
 }
 
 /**
- * Traverse parent directories looking for `.workflow/<name>.yaml` or `.workflow/<name>.yml`.
+ * Traverse parent directories looking for a workflow named `name` under
+ * `.workflows/` (primary) or `.workflow/` (legacy fallback). Within each
+ * directory the lookup checks flat YAML files (`<name>.yaml`/`.yml`) and
+ * folder-based layouts (`<name>/index.yaml`/`.yml`).
  * Returns the absolute path if found, otherwise null.
  * Stops at filesystem root or .git directory.
  */

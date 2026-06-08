@@ -18,11 +18,11 @@ Guide for using the uwf CLI to manage workflows and threads.
 # 1. Pick the default agent adapter for the engine
 uwf setup
 
-# 2. Place a workflow under .workflow/ in your project (recommended)
-#    uwf thread start auto-discovers from .workflow/ by walking from cwd upward.
+# 2. Place a workflow under .workflows/ in your project (recommended)
+#    uwf thread start auto-discovers from .workflows/ by walking from cwd upward.
 #    No workflow add registration needed.
-mkdir -p .workflow
-cp my-workflow.yaml .workflow/solve-issue.yaml
+mkdir -p .workflows
+cp my-workflow.yaml .workflows/solve-issue.yaml
 
 # 3. Start a thread by bare name (no file path)
 uwf thread start solve-issue -p "Build a login page"
@@ -57,12 +57,12 @@ builtin adapter). Override storage root with \`UWF_HOME\`.
 \`\`\`
 uwf workflow add <file>            # register from YAML file (optional)
 uwf workflow show <id>             # show by name or CAS hash
-uwf workflow list                  # list workflows (auto-discovers .workflow/ from cwd upward + global registry)
+uwf workflow list                  # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
 \`\`\`
 
 Three placement strategies, in priority order:
 
-1. **Project-local \`.workflow/\` (recommended)** — drop \`<name>.yaml\` (or \`<name>/index.yaml\`) under \`<repo>/.workflow/\`. \`uwf thread start <name>\` and \`uwf workflow list\` both auto-discover by walking from cwd upward. No registration step is needed.
+1. **Project-local \`.workflows/\` (recommended)** — drop \`<name>.yaml\` (or \`<name>/index.yaml\`) under \`<repo>/.workflows/\`. \`uwf thread start <name>\` and \`uwf workflow list\` both auto-discover by walking from cwd upward. No registration step is needed. The legacy \`.workflow/\` (singular) directory is still honored as a fallback when \`.workflows/\` is absent.
 2. **Explicit file path** — pass a relative or absolute \`.yaml\` path to \`uwf thread start ./path/to/workflow.yaml\`. Useful for one-off runs and testing.
 3. **Global registry** — \`uwf workflow add <file>\` stores the workflow hash under \`@uwf/registry/<name>\` so it is available system-wide, independent of cwd.
 
