@@ -1,4 +1,5 @@
 export {
+  ERROR_OUTPUT_SCHEMA,
   START_NODE_SCHEMA,
   STEP_NODE_SCHEMA,
   WORKFLOW_SCHEMA,
@@ -17,6 +18,7 @@ export type {
   AgentAlias,
   AgentConfig,
   CasRef,
+  ErrorOutputPayload,
   GraphPseudoRole,
   ModeratorContext,
   RoleDefinition,
@@ -28,6 +30,7 @@ export type {
   StartOutput,
   StepContext,
   StepEntry,
+  StepError,
   StepNodePayload,
   StepOutput,
   StepRecord,

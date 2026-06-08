@@ -133,6 +133,7 @@ async function buildHistory(
       cwd: step.cwd ?? "",
       assembledPrompt: step.assembledPrompt ?? null,
       usage: step.usage ?? null,
+      previousAttempts: step.previousAttempts ?? null,
       content,
     });
   }

@@ -24,6 +24,11 @@ export type StepRecord = {
   assembledPrompt: CasRef | null;
   /** Token usage statistics reported by the agent adapter. null for legacy steps. */
   usage: Usage | null;
+  /**
+   * Failed StepNode hashes for prior retry attempts of the same role. null for non-retry steps.
+   * Legacy nodes load as null.
+   */
+  previousAttempts: CasRef[] | null;
 };
 
 /** Token usage statistics reported by agent adapters. */
@@ -78,6 +83,17 @@ export type StepNodePayload = StepRecord & {
   prev: CasRef | null;
 };
 
+/**
+ * Output payload for a failed agent step — stored in CAS (matching
+ * `ERROR_OUTPUT_SCHEMA`) so failed StepNodes carry a structured `output` ref.
+ * `phase` is optional in the schema; null here when no phase was recorded.
+ */
+export type ErrorOutputPayload = {
+  $status: "error";
+  error: string;
+  phase: string | null;
+};
+
 // ── 4.4 JSONata 求值上下文 ──────────────────────────────────────────
 
 /** JSONata 上下文中的 step — output 被展开 */
@@ -122,6 +138,22 @@ export type StepOutput = {
   suspendMessage: string | null;
   done: boolean;
   background: boolean | null;
+  /**
+   * Set when the agent reported a recoverable failure (frontmatter validation
+   * exhausted retries). The failed StepNode is recorded in CAS but the thread
+   * head is NOT advanced. Null on success.
+   */
+  error: StepError | null;
+};
+
+/**
+ * Recoverable step failure surfaced by `uwf thread step`. Points at the failed
+ * StepNode recorded in CAS (never advanced to head) plus a human-readable
+ * message.
+ */
+export type StepError = {
+  stepHash: CasRef;
+  message: string;
 };
 
 /** Active thread entry in @uwf/thread/* variable store */
@@ -143,6 +175,11 @@ export type StepEntry = {
   timestamp: number;
   durationMs: number;
   usage: Usage | null;
+  /**
+   * Nested entries for prior failed attempts of this role.
+   * null when there were no failed attempts (or legacy step with no `previousAttempts` field).
+   */
+  previousAttempts: StepEntry[] | null;
 };
 
 /** uwf thread steps — start entry */

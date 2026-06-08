@@ -429,6 +429,20 @@ export function completeThread(
     completedAt: Date.now(),
   } as ThreadIndexEntry;
   setThread(varStore, threadId, completed);
+  clearThreadFailedAttempts(varStore, threadId);
+}
+
+/**
+ * Remove all `@uwf/thread-failed/<threadId>/*` variables for a thread.
+ * Called on thread completion / cancellation so retry-lineage state does not
+ * leak into the variable store after the thread is archived.
+ */
+export function clearThreadFailedAttempts(varStore: VarStore, threadId: ThreadId): void {
+  const prefix = `@uwf/thread-failed/${threadId}/`;
+  const vars = varStore.list({ namePrefix: prefix });
+  for (const v of vars) {
+    varStore.remove(v.name);
+  }
 }
 
 type LegacyHistoryEntry = {
