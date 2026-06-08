@@ -83,6 +83,17 @@ export type StepNodePayload = StepRecord & {
   prev: CasRef | null;
 };
 
+/**
+ * Output payload for a failed agent step — stored in CAS (matching
+ * `ERROR_OUTPUT_SCHEMA`) so failed StepNodes carry a structured `output` ref.
+ * `phase` is optional in the schema; null here when no phase was recorded.
+ */
+export type ErrorOutputPayload = {
+  $status: "error";
+  error: string;
+  phase: string | null;
+};
+
 // ── 4.4 JSONata 求值上下文 ──────────────────────────────────────────
 
 /** JSONata 上下文中的 step — output 被展开 */
@@ -132,7 +143,17 @@ export type StepOutput = {
    * exhausted retries). The failed StepNode is recorded in CAS but the thread
    * head is NOT advanced. Null on success.
    */
-  error: { stepHash: CasRef; message: string } | null;
+  error: StepError | null;
+};
+
+/**
+ * Recoverable step failure surfaced by `uwf thread step`. Points at the failed
+ * StepNode recorded in CAS (never advanced to head) plus a human-readable
+ * message.
+ */
+export type StepError = {
+  stepHash: CasRef;
+  message: string;
 };
 
 /** Active thread entry in @uwf/thread/* variable store */

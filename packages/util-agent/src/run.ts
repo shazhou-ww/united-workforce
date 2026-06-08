@@ -1,6 +1,12 @@
-import type { VarStore } from "@ocas/core";
+import type { Hash, VarStore } from "@ocas/core";
 import { getSchema, validate } from "@ocas/core";
-import type { CasRef, StepNodePayload, ThreadId, Usage } from "@united-workforce/protocol";
+import type {
+  CasRef,
+  ErrorOutputPayload,
+  StepNodePayload,
+  ThreadId,
+  Usage,
+} from "@united-workforce/protocol";
 import { config as loadDotenv } from "dotenv";
 import { buildOutputFormatInstruction } from "./build-output-format-instruction.js";
 import { buildContextWithMeta } from "./context.js";
@@ -20,19 +26,30 @@ function failedAttemptsVarName(threadId: ThreadId, role: string): string {
 
 /**
  * Read the list of failed StepNode hashes recorded for `(threadId, role)`.
+ *
+ * The variable value is a CAS ref to a text node holding a JSON array of
+ * hashes — the var store only accepts CAS refs as values, never raw JSON.
  * Returns null when no failed attempts are recorded (fresh role or after a
  * successful step cleared the list).
  */
-function readFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string): CasRef[] | null {
+export function readFailedAttempts(
+  store: AgentStore["store"],
+  threadId: ThreadId,
+  role: string,
+): CasRef[] | null {
   const name = failedAttemptsVarName(threadId, role);
-  const vars = varStore.list({ exactName: name });
+  const vars = store.var.list({ exactName: name });
   const v = vars[0];
   if (v === undefined || v.value === "") {
     return null;
   }
+  const node = store.cas.get(v.value as CasRef);
+  if (node === null || typeof node.payload !== "string") {
+    return null;
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(v.value);
+    parsed = JSON.parse(node.payload);
   } catch {
     return null;
   }
@@ -48,21 +65,27 @@ function readFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string
   return refs.length > 0 ? refs : null;
 }
 
-/** Append a failed step hash to the per-(thread, role) failed-attempts variable. */
-function appendFailedAttempt(
-  varStore: VarStore,
+/**
+ * Append a failed step hash to the per-(thread, role) failed-attempts variable.
+ * The accumulated list is stored as a CAS text node and the variable points at
+ * its ref, keeping the variable value a valid CAS hash.
+ */
+export async function appendFailedAttempt(
+  store: AgentStore["store"],
+  textSchema: Hash,
   threadId: ThreadId,
   role: string,
   failedStepHash: CasRef,
-): CasRef[] {
-  const existing = readFailedAttempts(varStore, threadId, role) ?? [];
+): Promise<CasRef[]> {
+  const existing = readFailedAttempts(store, threadId, role) ?? [];
   const updated: CasRef[] = [...existing, failedStepHash];
-  varStore.set(failedAttemptsVarName(threadId, role), JSON.stringify(updated));
+  const listHash = await store.cas.put(textSchema, JSON.stringify(updated));
+  store.var.set(failedAttemptsVarName(threadId, role), listHash);
   return updated;
 }
 
 /** Clear the failed-attempts variable for `(threadId, role)`. */
-function clearFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string): void {
+export function clearFailedAttempts(varStore: VarStore, threadId: ThreadId, role: string): void {
   varStore.remove(failedAttemptsVarName(threadId, role));
 }
 
@@ -266,8 +289,8 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       // preserved in CAS and can be linked to a future successful retry via
       // `previousAttempts`. Thread head MUST NOT be advanced — the engine
       // (cmdThreadStepOnce) decides routing based on `isError: true`.
-      const errorPayload = {
-        $status: "error" as const,
+      const errorPayload: ErrorOutputPayload = {
+        $status: "error",
         error: errorMessage,
         phase: "frontmatter_extraction",
       };
@@ -290,7 +313,13 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
 
       // Track the failed hash so a future successful retry of the same
       // (thread, role) can record `previousAttempts: [failedStepHash, ...]`.
-      appendFailedAttempt(ctx.meta.store.var, threadId, role, failedStepHash);
+      await appendFailedAttempt(
+        ctx.meta.store,
+        ctx.meta.schemas.text,
+        threadId,
+        role,
+        failedStepHash,
+      );
 
       const failedOutput: AdapterOutput = {
         stepHash: failedStepHash,
@@ -321,7 +350,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       }
     }
 
-    const previousAttempts = readFailedAttempts(ctx.meta.store.var, threadId, role);
+    const previousAttempts = readFailedAttempts(ctx.meta.store, threadId, role);
 
     const stepHash = await persistStep({
       ctx,

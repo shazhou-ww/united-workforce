@@ -13,7 +13,7 @@ import type {
   WorkflowConfig,
   WorkflowPayload,
 } from "@united-workforce/protocol";
-import { generateUlid } from "@united-workforce/util";
+import { createLogger, generateUlid } from "@united-workforce/util";
 import { getAskSessionId, loadWorkflowConfig, setAskSessionId } from "@united-workforce/util-agent";
 import { createUwfStore, setThread, type UwfStore } from "../store.js";
 import {
@@ -24,6 +24,8 @@ import {
   resolveHeadHash,
   walkChain,
 } from "./shared.js";
+
+const log = createLogger({ sink: { kind: "stderr" } });
 
 type TurnToolCall = {
   name: string;
@@ -43,7 +45,7 @@ type TurnData = {
  * are persisted to CAS but never reachable through `prev`; they live only via
  * the successful step's `previousAttempts` array.
  */
-function buildStepEntry(uwf: UwfStore, stepHash: CasRef): StepEntry | null {
+export function buildStepEntry(uwf: UwfStore, stepHash: CasRef): StepEntry | null {
   const node = uwf.store.cas.get(stepHash);
   if (node === null || node.type !== uwf.schemas.stepNode) {
     return null;
@@ -57,6 +59,11 @@ function buildStepEntry(uwf: UwfStore, stepHash: CasRef): StepEntry | null {
       const entry = buildStepEntry(uwf, prevHash);
       if (entry !== null) {
         entries.push(entry);
+      } else {
+        log(
+          "STP7K2QM",
+          `previousAttempts ref ${prevHash} for step ${stepHash} did not resolve to a StepNode; skipping it in retry lineage`,
+        );
       }
     }
     previousAttempts = entries.length > 0 ? entries : null;
@@ -76,9 +83,10 @@ function buildStepEntry(uwf: UwfStore, stepHash: CasRef): StepEntry | null {
 
 /**
  * Sum of usage across an entry and its nested previousAttempts.
- * Treats null usage as zero. Non-recursive shape preserves immutability.
+ * Treats null usage as zero. Returns a flat aggregate — recursive traversal is
+ * internal.
  */
-function sumStepEntryUsage(entry: StepEntry): {
+export function sumStepEntryUsage(entry: StepEntry): {
   turns: number;
   inputTokens: number;
   outputTokens: number;
