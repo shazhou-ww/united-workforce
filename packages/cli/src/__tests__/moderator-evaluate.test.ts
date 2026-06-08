@@ -68,49 +68,6 @@ describe("evaluate", () => {
     });
   });
 
-  test("status-based routing (needs input → $SUSPEND)", () => {
-    const graph: Record<string, Record<string, Target>> = {
-      ...solveIssueGraph,
-      reviewer: {
-        ...solveIssueGraph.reviewer,
-        needs_input: { role: "$SUSPEND", prompt: "Waiting for user input.", location: null },
-      },
-    };
-    const result = evaluate(graph, "reviewer", { $status: "needs_input" });
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        action: "suspend",
-        suspendedRole: "reviewer",
-        prompt: "Waiting for user input.",
-      },
-    });
-  });
-
-  test("$SUSPEND prompt template renders mustache variables", () => {
-    const graph: Record<string, Record<string, Target>> = {
-      reviewer: {
-        needs_input: {
-          role: "$SUSPEND",
-          prompt: "Please clarify: {{{question}}}",
-          location: null,
-        },
-      },
-    };
-    const result = evaluate(graph, "reviewer", {
-      $status: "needs_input",
-      question: "Which API endpoint?",
-    });
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        action: "suspend",
-        suspendedRole: "reviewer",
-        prompt: "Please clarify: Which API endpoint?",
-      },
-    });
-  });
-
   test("missing role in graph → error", () => {
     const result = evaluate(solveIssueGraph, "unknown-role", { $status: "new" });
     expect(result.ok).toBe(false);

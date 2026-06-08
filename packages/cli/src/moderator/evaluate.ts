@@ -6,8 +6,6 @@ import type { EvaluateResult, Result } from "./types.js";
 // Disable HTML escaping — prompts are plain text, not HTML.
 mustache.escape = (text: string) => text;
 
-const SUSPEND_ROLE = "$SUSPEND";
-
 type LastOutput = Record<string, unknown>;
 
 const STATUS_KEY = "$status";
@@ -51,16 +49,6 @@ export function evaluate(
         error: new Error(
           `edge prompt resolved to empty string for role "${target.role}" (template: "${target.prompt}"). Check that upstream output includes required variables.`,
         ),
-      };
-    }
-    if (target.role === SUSPEND_ROLE) {
-      return {
-        ok: true,
-        value: {
-          action: "suspend",
-          suspendedRole: lastRole,
-          prompt,
-        },
       };
     }
 

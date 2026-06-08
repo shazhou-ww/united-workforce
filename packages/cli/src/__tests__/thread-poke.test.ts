@@ -106,11 +106,6 @@ async function setupThread(opts: Partial<SetupOpts> = {}): Promise<SetupResult> 
       },
       worker: {
         ok: { role: "reviewer", prompt: "Review the work", location: null },
-        needs_input: {
-          role: "$SUSPEND",
-          prompt: "Please clarify",
-          location: null,
-        },
       },
       reviewer: { done: { role: "$END", prompt: "Done", location: null } },
     },

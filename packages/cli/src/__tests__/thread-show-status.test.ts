@@ -1,20 +1,11 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { putSchema } from "@ocas/core";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
 import { createMarker, deleteMarker } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import { completeThread, createUwfStore, loadAllThreads, setThread } from "../store.js";
-
-const OUTPUT_SCHEMA = {
-  type: "object" as const,
-  properties: {
-    $status: { type: "string" as const },
-    question: { type: "string" as const },
-  },
-};
 
 const TEST_WORKFLOW_YAML = `
 name: test-status
@@ -59,15 +50,12 @@ roles:
     capabilities: ["coding"]
     procedure: Work
     output: |
-      $status: "needs_input"
-      question: "Which API?"
+      $status: "done"
     frontmatter:
-      oneOf:
-        - type: object
-          required: ["$status", "question"]
-          properties:
-            $status: { const: "needs_input" }
-            question: { type: string }
+      type: object
+      required: ["$status"]
+      properties:
+        $status: { const: "done" }
 graph:
   $START:
     new:
@@ -79,9 +67,9 @@ graph:
       prompt: "Resume work"
       location: null
   worker:
-    needs_input:
-      role: $SUSPEND
-      prompt: "Please clarify: {{{question}}}"
+    done:
+      role: $END
+      prompt: "Done"
       location: null
 `;
 
@@ -97,8 +85,7 @@ async function insertStepNode(
   if (headEntry === undefined) throw new Error(`thread ${threadId} not in index`);
   const head = headEntry.head;
 
-  const outputSchemaHash = await putSchema(uwf.store, OUTPUT_SCHEMA);
-  const outputHash = await uwf.store.cas.put(outputSchemaHash, outputPayload);
+  const outputHash = await uwf.store.cas.put(uwf.schemas.suspendOutput, outputPayload);
   const detailHash = await uwf.store.cas.put(uwf.schemas.text, "detail-placeholder");
 
   const headNode = uwf.store.cas.get(head);
@@ -300,8 +287,8 @@ describe("thread show status field", () => {
       const threadId = startResult.thread as ThreadId;
 
       await insertStepNode(storageRoot, threadId, "worker", {
-        $status: "needs_input",
-        question: "Which API?",
+        $status: "$SUSPEND",
+        reason: "Please clarify: Which API?",
       });
 
       const result = await cmdThreadShow(storageRoot, threadId);

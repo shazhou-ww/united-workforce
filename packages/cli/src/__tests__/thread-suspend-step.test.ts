@@ -62,13 +62,7 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
             new: { role: "worker", prompt: "Start work", location: null },
             resume: { role: "worker", prompt: "Resume work", location: null },
           },
-          worker: {
-            needs_input: {
-              role: "$SUSPEND",
-              prompt: "Please clarify: {{{question}}}",
-              location: null,
-            },
-          },
+          worker: {},
         },
       });
 
@@ -81,9 +75,9 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       const threadId = "01SUSPENDSTEPTEST0000000" as ThreadId;
       await seedThreads(tmpDir, { [threadId]: startHash });
 
-      const outputHash = await store.cas.put(outputSchemaHash, {
-        $status: "needs_input",
-        question: "Which API?",
+      const outputHash = await store.cas.put(schemas.suspendOutput, {
+        $status: "$SUSPEND",
+        reason: "Please clarify: Which API?",
       });
       const detailHash = await store.cas.put(schemas.text, "mock detail");
 
@@ -109,7 +103,7 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
         stepHash,
         detailHash,
         role: "worker",
-        frontmatter: { $status: "needs_input", question: "Which API?" },
+        frontmatter: { $status: "$SUSPEND", reason: "Please clarify: Which API?" },
         body: "",
         startedAtMs,
         completedAtMs,
@@ -154,8 +148,8 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
 
       const outputNode = storeAfter.cas.get(outputHash);
       expect(outputNode?.payload).toEqual({
-        $status: "needs_input",
-        question: "Which API?",
+        $status: "$SUSPEND",
+        reason: "Please clarify: Which API?",
       });
 
       const { createUwfStore, getThread } = await import("../store.js");

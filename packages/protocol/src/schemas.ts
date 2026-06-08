@@ -18,11 +18,27 @@ const TARGET: JSONSchema = {
   type: "object",
   required: ["role", "prompt"],
   properties: {
-    role: { type: "string", description: "Role name or pseudo-role ($END, $SUSPEND)" },
+    role: { type: "string", description: "Role name or pseudo-role ($END)" },
     prompt: { type: "string" },
     location: {
       anyOf: [{ type: "string" }, { type: "null" }],
     },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * Schema for the engine-level suspend output `{ $status: "$SUSPEND", reason }`.
+ * Adapters store suspend outputs against this schema instead of the role's own
+ * frontmatter schema, so any role may yield regardless of its declared output.
+ */
+export const SUSPEND_OUTPUT_SCHEMA: JSONSchema = {
+  title: "SuspendOutput",
+  type: "object",
+  required: ["$status", "reason"],
+  properties: {
+    $status: { const: "$SUSPEND" },
+    reason: { type: "string" },
   },
   additionalProperties: false,
 };

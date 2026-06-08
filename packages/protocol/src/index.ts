@@ -2,6 +2,7 @@ export {
   ERROR_OUTPUT_SCHEMA,
   START_NODE_SCHEMA,
   STEP_NODE_SCHEMA,
+  SUSPEND_OUTPUT_SCHEMA,
   WORKFLOW_SCHEMA,
 } from "./schemas.js";
 export {
@@ -34,6 +35,7 @@ export type {
   StepNodePayload,
   StepOutput,
   StepRecord,
+  SuspendOutput,
   Target,
   ThreadForkOutput,
   ThreadId,
@@ -47,3 +49,4 @@ export type {
   WorkflowName,
   WorkflowPayload,
 } from "./types.js";
+export { SUSPEND_STATUS } from "./types.js";

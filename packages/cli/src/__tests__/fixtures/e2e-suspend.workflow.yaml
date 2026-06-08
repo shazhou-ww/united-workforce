@@ -6,20 +6,15 @@ roles:
     goal: Analyze the task
     capabilities: []
     procedure: Analyze the task and decide if more info is needed
-    output: Set $status to insufficient_info (with reason) or ready
+    output: Set $status to ready when done, or emit $status "$SUSPEND" (with reason) to pause for more info
     frontmatter:
-      oneOf:
-        - properties:
-            $status: { const: insufficient_info }
-            reason: { type: string }
-          required: [$status, reason]
-        - properties:
-            $status: { const: ready }
-          required: [$status]
+      type: object
+      required: [$status]
+      properties:
+        $status: { const: ready }
 graph:
   $START:
     new: { role: planner, prompt: 'Analyze the task' }
     resume: { role: planner, prompt: 'Review the previous run output and continue the work.' }
   planner:
-    insufficient_info: { role: '$SUSPEND', prompt: 'Need more info: {{{reason}}}' }
     ready: { role: '$END', prompt: 'Done' }

@@ -20,7 +20,7 @@ roles:
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Assess whether the issue has enough information to produce a test spec
-      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then output $status=insufficient_info
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
       6. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       7. Output **$status=ready** with plan hash and repoPath
@@ -47,7 +47,7 @@ roles:
       git remote get-url origin | sed 's|.*[:/]\([^/]*/[^.]*\).*|\1|'
       ```
       Store the result as repoRemote in your frontmatter output so downstream roles can use it.
-    output: "Output a brief summary of the test spec. Set $status to ready (fresh), continue (existing PR), or insufficient_info."
+    output: "Output a brief summary of the test spec. Set $status to ready (fresh) or continue (existing PR). If the issue lacks enough info to plan, yield with $status=$SUSPEND and a reason."
     frontmatter:
       oneOf:
         - properties:
@@ -62,10 +62,6 @@ roles:
             branch: { type: string }
             worktree: { type: string }
           required: [$status, plan, repoPath, branch, worktree]
-        - properties:
-            $status: { const: "insufficient_info" }
-            reason: { type: string }
-          required: [$status, reason]
   developer:
     description: "TDD implementation per test spec"
     goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
@@ -238,7 +234,6 @@ graph:
     new: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
     resume: { role: "planner", prompt: "Review the previous run output and continue the work." }
   planner:
-    insufficient_info: { role: "$SUSPEND", prompt: "信息不足，需要补充：{{{reason}}}" }
     ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
     continue: { role: "developer", prompt: "Continue work on existing branch {{{branch}}} at worktree {{{worktree}}}. Implement the revised TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:

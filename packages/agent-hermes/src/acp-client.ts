@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { SUSPEND_STATUS } from "@united-workforce/protocol";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OWN_VERSION = (
@@ -18,6 +19,21 @@ function resolveHermesCommand(): string {
   return override !== undefined && override !== "" ? override : "hermes";
 }
 const PROTOCOL_VERSION = 1;
+
+/** Default per-request timeout (also the prompt suspend threshold). */
+const PROMPT_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Raised when a JSON-RPC request exceeds its timeout. */
+export class AcpTimeoutError extends Error {}
+
+/**
+ * Build a frontmatter suspend output (coroutine yield). When the prompt times
+ * out the engine intercepts `$status: "$SUSPEND"` and marks the thread
+ * suspended instead of losing the work — the caller can resume the same role.
+ */
+function buildSuspendOutput(reason: string): string {
+  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
+}
 
 type JsonRpcResponse = {
   jsonrpc: "2.0";
@@ -107,10 +123,27 @@ export class HermesAcpClient {
 
     this.messageChunks = [];
 
-    const response = await this.sendRequest("session/prompt", {
-      sessionId: this.sessionId,
-      prompt: [{ type: "text", text }],
-    });
+    let response: JsonRpcResponse;
+    try {
+      response = await this.sendRequest(
+        "session/prompt",
+        {
+          sessionId: this.sessionId,
+          prompt: [{ type: "text", text }],
+        },
+        PROMPT_TIMEOUT_MS,
+      );
+    } catch (err) {
+      if (err instanceof AcpTimeoutError) {
+        const minutes = Math.round(PROMPT_TIMEOUT_MS / 60000);
+        return {
+          text: buildSuspendOutput(`hermes prompt timed out after ${minutes} minutes`),
+          sessionId: this.sessionId,
+          usage: null,
+        };
+      }
+      throw err;
+    }
 
     if ((response as { error?: unknown }).error !== undefined) {
       throw new Error(
@@ -160,13 +193,13 @@ export class HermesAcpClient {
   private sendRequest(
     method: string,
     params: Record<string, unknown>,
-    timeoutMs = 10 * 60 * 1000,
+    timeoutMs = PROMPT_TIMEOUT_MS,
   ): Promise<JsonRpcResponse> {
     const id = this.nextId++;
     return new Promise<JsonRpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`Timeout waiting for response to ${method} (id=${id})`));
+        reject(new AcpTimeoutError(`Timeout waiting for response to ${method} (id=${id})`));
       }, timeoutMs);
 
       this.pending.set(id, {

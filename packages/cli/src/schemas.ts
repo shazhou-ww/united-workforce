@@ -4,6 +4,7 @@ import {
   ERROR_OUTPUT_SCHEMA,
   START_NODE_SCHEMA,
   STEP_NODE_SCHEMA,
+  SUSPEND_OUTPUT_SCHEMA,
   WORKFLOW_SCHEMA,
 } from "@united-workforce/protocol";
 
@@ -15,6 +16,7 @@ export type UwfSchemaHashes = {
   stepNode: Hash;
   text: Hash;
   errorOutput: Hash;
+  suspendOutput: Hash;
 };
 
 /**
@@ -22,12 +24,13 @@ export type UwfSchemaHashes = {
  * Idempotent: safe to call on every CLI invocation.
  */
 export async function registerUwfSchemas(store: Store): Promise<UwfSchemaHashes> {
-  const [workflow, startNode, stepNode, text, errorOutput] = await Promise.all([
+  const [workflow, startNode, stepNode, text, errorOutput, suspendOutput] = await Promise.all([
     putSchema(store, WORKFLOW_SCHEMA),
     putSchema(store, START_NODE_SCHEMA),
     putSchema(store, STEP_NODE_SCHEMA),
     putSchema(store, TEXT_SCHEMA),
     putSchema(store, ERROR_OUTPUT_SCHEMA),
+    putSchema(store, SUSPEND_OUTPUT_SCHEMA),
   ]);
-  return { workflow, startNode, stepNode, text, errorOutput };
+  return { workflow, startNode, stepNode, text, errorOutput, suspendOutput };
 }

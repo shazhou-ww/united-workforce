@@ -8,17 +8,9 @@ export type EvaluateRouteResult = {
   location: string | null;
 };
 
-/** Moderator routes the thread to `$SUSPEND` — waiting for external input. */
-export type EvaluateSuspendResult = {
-  action: "suspend";
-  /** Role whose output triggered the suspend transition. */
-  suspendedRole: string;
-  prompt: string;
-};
-
-/** The result of moderator evaluation. */
-export type EvaluateResult = EvaluateRouteResult | EvaluateSuspendResult;
-
-export function isSuspendResult(result: EvaluateResult): result is EvaluateSuspendResult {
-  return "action" in result && result.action === "suspend";
-}
+/**
+ * The result of moderator evaluation. `$SUSPEND` is no longer a moderator
+ * concern — it is an engine-level reserved `$status` intercepted before the
+ * moderator runs.
+ */
+export type EvaluateResult = EvaluateRouteResult;

@@ -52,14 +52,32 @@ export type RoleDefinition = {
 };
 
 /** Pseudo-role targets in workflow graph edges (not real roles). */
-export type GraphPseudoRole = "$END" | "$SUSPEND";
+export type GraphPseudoRole = "$END";
 
 export type Target = {
-  /** Next role name, or a graph pseudo-role such as `$END` or `$SUSPEND`. */
+  /** Next role name, or a graph pseudo-role such as `$END`. */
   role: string | GraphPseudoRole;
   prompt: string;
   /** Optional working directory override via mustache template. */
   location: string | null;
+};
+
+/**
+ * Reserved `$status` value that yields control back to the caller (coroutine
+ * yield). Intercepted by the engine before the moderator: the step is written
+ * to CAS normally, the thread is marked `suspended`, and resume re-runs the
+ * same role. Not a graph target — any role may emit it from its output.
+ */
+export const SUSPEND_STATUS = "$SUSPEND" as const;
+
+/**
+ * Engine-level suspend output. For any role with frontmatter type `F`, the real
+ * output type is `F | SuspendOutput`. Emitting this from a role output suspends
+ * the thread instead of routing through the graph.
+ */
+export type SuspendOutput = {
+  $status: typeof SUSPEND_STATUS;
+  reason: string;
 };
 
 export type WorkflowPayload = {
