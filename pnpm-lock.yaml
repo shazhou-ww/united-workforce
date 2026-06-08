@@ -45,8 +45,8 @@ importers:
   packages/agent-builtin:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@united-workforce/util':
         specifier: workspace:^
         version: link:../util
@@ -61,8 +61,8 @@ importers:
   packages/agent-claude-code:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@united-workforce/protocol':
         specifier: workspace:^
         version: link:../protocol
@@ -80,8 +80,8 @@ importers:
   packages/agent-hermes:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@united-workforce/protocol':
         specifier: workspace:^
         version: link:../protocol
@@ -99,8 +99,8 @@ importers:
   packages/agent-mock:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@united-workforce/protocol':
         specifier: workspace:^
         version: link:../protocol
@@ -121,8 +121,8 @@ importers:
   packages/cli:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@ocas/fs':
         specifier: ^0.4.0
         version: 0.4.0
@@ -231,8 +231,8 @@ importers:
   packages/eval:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@ocas/fs':
         specifier: ^0.4.0
         version: 0.4.0
@@ -256,8 +256,8 @@ importers:
   packages/protocol:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@ocas/fs':
         specifier: ^0.4.0
         version: 0.4.0
@@ -275,8 +275,8 @@ importers:
   packages/util-agent:
     dependencies:
       '@ocas/core':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.1
+        version: 0.4.1
       '@ocas/fs':
         specifier: ^0.4.0
         version: 0.4.0
@@ -894,6 +894,10 @@ packages:
 
   '@ocas/core@0.4.0':
     resolution: {integrity: sha512-6JvHd3nr5GncMOBNaZTf9ZTWou/txONTfZbkrblmgqL/H+YuRj1FfeFY+b1ndUlfwR7AuJ6bvoSxR5RP+AbC0w==}
+    engines: {node: '>=22.5.0'}
+
+  '@ocas/core@0.4.1':
+    resolution: {integrity: sha512-rmnfe1Q/J/4RXzvt+zn65FLLvzK+F8atuJB2+5Qe4tS8lusWV6s3wB1XErhphVlKpJAZY/sokVlNJylWmIgArQ==}
     engines: {node: '>=22.5.0'}
 
   '@ocas/fs@0.4.0':
@@ -3899,6 +3903,13 @@ snapshots:
       fastq: 1.20.1
 
   '@ocas/core@0.4.0':
+    dependencies:
+      ajv: 8.20.0
+      cborg: 4.5.8
+      liquidjs: 10.27.0
+      xxhash-wasm: 1.1.0
+
+  '@ocas/core@0.4.1':
     dependencies:
       ajv: 8.20.0
       cborg: 4.5.8
