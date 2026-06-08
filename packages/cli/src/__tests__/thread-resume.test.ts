@@ -533,7 +533,7 @@ describe("uwf thread resume - completed threads", () => {
     await seedThreads(tmpDir, {
       [THREAD_ID]: {
         head: reviewerStepHash,
-        status: "completed",
+        status: "end",
         suspendedRole: null,
         suspendMessage: null,
         completedAt: 1716600002000,

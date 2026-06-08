@@ -505,8 +505,8 @@ export async function cmdThreadShow(
     fail(`failed to resolve workflow from head: ${activeHead}`);
   }
 
-  // Determine if this is a completed/cancelled thread
-  if (entry.status === "completed" || entry.status === "cancelled") {
+  // Determine if this is an ended/cancelled thread
+  if (entry.status === "end" || entry.status === "cancelled") {
     const hint = null;
     return {
       workflow,
@@ -681,7 +681,7 @@ export async function cmdThreadList(
   // Collect completed threads (if relevant for status filter)
   const includeCompleted =
     effectiveFilter === null ||
-    effectiveFilter.includes("completed") ||
+    effectiveFilter.includes("end") ||
     effectiveFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
@@ -1080,7 +1080,7 @@ function spawnAgent(
 }
 
 function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _head: CasRef): void {
-  completeThread(uwf.varStore, threadId, "completed");
+  completeThread(uwf.varStore, threadId, "end");
 }
 
 export async function cmdThreadResume(
@@ -1104,15 +1104,15 @@ export async function cmdThreadResume(
   const chain = walkChain(uwf, headHash);
   const workflowHash = chain.start.workflow;
 
-  // Check entry.status first for completed/cancelled (like in cmdThreadShow)
+  // Check entry.status first for end/cancelled (like in cmdThreadShow)
   let status: ThreadStatus;
-  if (entry.status === "completed" || entry.status === "cancelled") {
+  if (entry.status === "end" || entry.status === "cancelled") {
     status = entry.status;
   } else {
     status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, headHash);
   }
 
-  if (status !== "suspended" && status !== "completed") {
+  if (status !== "suspended" && status !== "end") {
     fail(`thread cannot be resumed: ${threadId} (status: ${status})`);
   }
 
@@ -1144,7 +1144,7 @@ export async function cmdThreadResume(
     });
   }
 
-  // status === "completed"
+  // status === "end"
   const workflow = loadWorkflowPayload(uwf, workflowHash);
   const startResult = evaluate(workflow.graph, START_ROLE, { [STATUS_KEY]: "resume" });
   if (!startResult.ok) {
@@ -1192,7 +1192,7 @@ async function validatePokePreconditions(
     fail(`thread not active: ${threadId}`);
   }
 
-  if (entry.status === "completed" || entry.status === "cancelled") {
+  if (entry.status === "end" || entry.status === "cancelled") {
     fail(`thread cannot be poked: ${threadId} (status: ${entry.status})`);
   }
 
@@ -1507,7 +1507,7 @@ async function resolveModeratorStepTarget(
       workflow: workflowHash,
       thread: threadId,
       head: headHash,
-      status: "completed",
+      status: "end",
       currentRole: null,
       suspendedRole: null,
       suspendMessage: null,
@@ -1570,7 +1570,7 @@ async function finalizeAgentStep(
     archiveThread(uwfAfter, threadId, workflowHash, newHead);
   }
 
-  const status: ThreadStatus = done ? "completed" : "idle";
+  const status: ThreadStatus = done ? "end" : "idle";
   const currentRole = done ? null : afterResult.value.role;
 
   return {

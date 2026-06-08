@@ -169,7 +169,7 @@ async function setupAskFixture(opts: Partial<SetupOpts> = {}): Promise<SetupResu
       status: cfg.threadStatus,
       suspendedRole: null,
       suspendMessage: null,
-      completedAt: cfg.threadStatus === "completed" ? 1716600001000 : null,
+      completedAt: cfg.threadStatus === "end" ? 1716600001000 : null,
     },
   });
 

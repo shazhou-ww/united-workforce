@@ -179,11 +179,11 @@ function parseStatusFilter(status: string | undefined): ThreadStatus[] | null {
   if (raw === "active") return ["idle", "running"];
 
   const parts = raw.split(",").map((s) => s.trim());
-  const validStatuses: ThreadStatus[] = ["idle", "running", "suspended", "completed", "cancelled"];
+  const validStatuses: ThreadStatus[] = ["idle", "running", "suspended", "end", "cancelled"];
   for (const part of parts) {
     if (!validStatuses.includes(part as ThreadStatus)) {
       process.stderr.write(
-        `Invalid status: ${part}. Must be one of: idle, running, suspended, completed, cancelled, active\n`,
+        `Invalid status: ${part}. Must be one of: idle, running, suspended, end, cancelled, active\n`,
       );
       process.exit(1);
     }
@@ -236,7 +236,7 @@ thread
   .description("List threads (defaults to active: idle + running)")
   .option(
     "--status <status>",
-    "Filter by status: idle, running, completed, cancelled, active (idle+running), or comma-separated values",
+    "Filter by status: idle, running, end, cancelled, active (idle+running), or comma-separated values",
   )
   .option("--all", "Show all threads regardless of status (overrides default active-only filter)")
   .option("--after <date>", "Filter threads created after this date (ISO or relative like '7d')")

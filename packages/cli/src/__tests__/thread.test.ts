@@ -752,7 +752,7 @@ describe("cmdStepList with completed threads", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const result = await cmdStepList(tmpDir, threadId);
 
@@ -881,7 +881,7 @@ describe("cmdStepShow with completed threads", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const result = await cmdStepShow(tmpDir, stepHash);
 
@@ -944,7 +944,7 @@ describe("cmdThreadRead with completed threads", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const markdown = await cmdThreadRead(tmpDir, threadId, THREAD_READ_DEFAULT_QUOTA, null, false);
 
@@ -1007,7 +1007,7 @@ describe("cmdThreadRead with completed threads", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const markdown = await cmdThreadRead(
       tmpDir,

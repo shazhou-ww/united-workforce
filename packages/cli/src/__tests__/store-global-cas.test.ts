@@ -230,11 +230,11 @@ describe("Global CAS directory", () => {
     const { createThreadIndexEntry } = await import("@united-workforce/protocol");
 
     setThread(uwf.varStore, threadId, createThreadIndexEntry(headHash));
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry?.head).toBe(headHash);
-    expect(entry?.status).toBe("completed");
+    expect(entry?.status).toBe("end");
 
     const { access } = await import("node:fs/promises");
     await access(join(globalCasDir, "vars"));

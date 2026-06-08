@@ -206,7 +206,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     // Step 2 → worker → $END (thread archived to history).
     const step2 = execStep(threadId);
     expect(step2.done).toBe(true);
-    expect(step2.status).toBe("completed");
+    expect(step2.status).toBe("end");
     expect(step2.currentRole).toBeNull();
 
     // Verify CAS chain integrity: start → step1 → step2.
@@ -234,11 +234,11 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const startNode = store.cas.get(startHash as CasRef);
     expect((startNode!.payload as StartNodePayload).workflow).toBe(workflowHash);
 
-    // Thread is completed: status changed to "completed", head updated.
+    // Thread is completed: status changed to "end", head updated.
     const uwf = await createUwfStore(uwfHome);
     const finalEntry = getThread(uwf.varStore, threadId);
     expect(finalEntry).not.toBeNull();
-    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.status).toBe("end");
     expect(finalEntry!.head).toBe(step2.head);
   });
 
@@ -267,7 +267,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
 
     const s4 = execStep(threadId);
     expect(s4.done).toBe(true);
-    expect(s4.status).toBe("completed");
+    expect(s4.status).toBe("end");
 
     // Verify the chain order and roles.
     const store = await openStore(casDir);
@@ -299,7 +299,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const uwf = await createUwfStore(uwfHome);
     const finalEntry = getThread(uwf.varStore, threadId);
     expect(finalEntry).not.toBeNull();
-    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.status).toBe("end");
   });
 
   test("3. role mismatch in mock data makes the agent exit with an error", {
@@ -326,7 +326,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const uwf = await createUwfStore(uwfHome);
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).not.toBeNull();
-    expect(entry!.status).not.toBe("completed");
+    expect(entry!.status).not.toBe("end");
     expect(entry!.head).toBe(step1.head);
   });
 
@@ -358,7 +358,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const resume = runResume(threadId, "Here are the requirements");
     expect(resume.exitCode).toBe(0);
     const resumeOut = JSON.parse(resume.stdout.trim()) as StepOutputJson;
-    expect(resumeOut.status).toBe("completed");
+    expect(resumeOut.status).toBe("end");
     expect(resumeOut.done).toBe(true);
     expect(resumeOut.currentRole).toBeNull();
     expect(resumeOut.suspendedRole).toBeNull();
@@ -375,7 +375,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
 
     const finalEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);
     expect(finalEntry).not.toBeNull();
-    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.status).toBe("end");
     expect(finalEntry!.head).toBe(resumeOut.head);
   });
 
@@ -401,7 +401,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     expect(results[0].currentRole).toBe("developer");
     expect(results[1].status).toBe("idle");
     expect(results[1].currentRole).toBe("reviewer");
-    expect(results[2].status).toBe("completed");
+    expect(results[2].status).toBe("end");
     expect(results[2].done).toBe(true);
 
     // Verify the CAS chain holds 3 step nodes in the correct order.
@@ -417,7 +417,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
 
     const finalEntry = getThread((await createUwfStore(uwfHome)).varStore, threadId);
     expect(finalEntry).not.toBeNull();
-    expect(finalEntry!.status).toBe("completed");
+    expect(finalEntry!.status).toBe("end");
     expect(finalEntry!.head).toBe(results[2].head);
   });
 
@@ -438,7 +438,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     // Step 2 → worker; the moderator renders the templated edge prompt before spawning it.
     const step2 = execStep(threadId);
     expect(step2.done).toBe(true);
-    expect(step2.status).toBe("completed");
+    expect(step2.status).toBe("end");
 
     const store = await openStore(casDir);
     const plannerStep = getStepNode(store, step1.head);
@@ -466,12 +466,12 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     // Step 1: planner outputs ready → $END → thread completed.
     const step1 = execStep(threadId);
     expect(step1.done).toBe(true);
-    expect(step1.status).toBe("completed");
+    expect(step1.status).toBe("end");
 
     const uwf1 = await createUwfStore(uwfHome);
     const entry1 = getThread(uwf1.varStore, threadId);
     expect(entry1).not.toBeNull();
-    expect(entry1!.status).toBe("completed");
+    expect(entry1!.status).toBe("end");
 
     // Resume the completed thread — should re-evaluate $START → planner.
     const resumeResult = runResume(threadId, "Additional context for round 2");
@@ -481,7 +481,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const uwf2 = await createUwfStore(uwfHome);
     const entry2 = getThread(uwf2.varStore, threadId);
     expect(entry2).not.toBeNull();
-    expect(entry2!.status).toBe("completed");
+    expect(entry2!.status).toBe("end");
     // Head should have advanced (not the same as step1).
     expect(entry2!.head).not.toBe(step1.head);
 

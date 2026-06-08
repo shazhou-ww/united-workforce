@@ -61,11 +61,11 @@ describe("thread cancel status", () => {
       completedAt: null,
     });
 
-    completeThread(uwf.varStore, threadId, "completed");
+    completeThread(uwf.varStore, threadId, "end");
 
     const entry = getThread(uwf.varStore, threadId);
     expect(entry).not.toBeNull();
-    expect(entry?.status).toBe("completed");
+    expect(entry?.status).toBe("end");
   });
 
   test("loadHistoryThreads returns completed and cancelled", async () => {
@@ -82,7 +82,7 @@ describe("thread cancel status", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId1, "completed");
+    completeThread(uwf.varStore, threadId1, "end");
 
     const threadId2 = "01JTEST000000000000CANCEL5" as ThreadId;
     setThread(uwf.varStore, threadId2, {
@@ -99,7 +99,7 @@ describe("thread cancel status", () => {
     const statuses = Object.values(history)
       .map((entry) => entry.status)
       .sort();
-    expect(statuses).toEqual(["cancelled", "completed"]);
+    expect(statuses).toEqual(["cancelled", "end"]);
   });
 
   test("mixed completed and cancelled entries preserve distinct statuses", async () => {
@@ -116,7 +116,7 @@ describe("thread cancel status", () => {
       suspendMessage: null,
       completedAt: null,
     });
-    completeThread(uwf.varStore, threadId1, "completed");
+    completeThread(uwf.varStore, threadId1, "end");
 
     const threadId2 = "01JTEST000000000000CANCEL7" as ThreadId;
     setThread(uwf.varStore, threadId2, {
@@ -133,6 +133,6 @@ describe("thread cancel status", () => {
     const statuses = Object.values(history)
       .map((entry) => entry.status)
       .sort();
-    expect(statuses).toEqual(["cancelled", "completed"]);
+    expect(statuses).toEqual(["cancelled", "end"]);
   });
 });

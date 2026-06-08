@@ -307,10 +307,10 @@ describe("currentRole field", () => {
 
       const uwfForIndex = await createUwfStore(storageRoot);
       loadActiveThreads(uwfForIndex.varStore)[tid]!.head;
-      completeThread(uwfForIndex.varStore, tid, "completed");
+      completeThread(uwfForIndex.varStore, tid, "end");
 
       const result = await cmdThreadShow(storageRoot, tid);
-      expect(result.status).toBe("completed");
+      expect(result.status).toBe("end");
       expect(result.currentRole).toBe(null);
     } finally {
       await teardown();
@@ -378,11 +378,11 @@ describe("currentRole field", () => {
       const idleId = idle.thread as ThreadId;
 
       // completed thread
-      const comp = await cmdThreadStart(storageRoot, wf, "completed", tmpDir);
+      const comp = await cmdThreadStart(storageRoot, wf, "end", tmpDir);
       const compId = comp.thread as ThreadId;
       const uwfForIndex = await createUwfStore(storageRoot);
       const _compHead = loadActiveThreads(uwfForIndex.varStore)[compId]!.head;
-      completeThread(uwfForIndex.varStore, compId, "completed");
+      completeThread(uwfForIndex.varStore, compId, "end");
 
       const list = await cmdThreadList(storageRoot, null, null, null, 0, 100, true);
 

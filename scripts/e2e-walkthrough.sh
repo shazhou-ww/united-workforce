@@ -291,7 +291,7 @@ CANCEL_THREAD=$(echo "$OUT" | jq -r '.thread // empty')
 
 if [ -n "$CANCEL_THREAD" ]; then
   OUT=$(run_test "uwf thread cancel" bash -c "$UWF thread cancel $CANCEL_THREAD")
-  run_test "cancelled thread status" bash -c "$UWF thread list --status completed | jq -e '.[] | select(.thread==\"$CANCEL_THREAD\")'"
+  run_test "cancelled thread status" bash -c "$UWF thread list --status cancelled | jq -e '.[] | select(.thread==\"$CANCEL_THREAD\")'"
 fi
 
 # Fork from the first thread's last step

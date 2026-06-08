@@ -177,7 +177,7 @@ async function setupThread(opts: Partial<SetupOpts> = {}): Promise<SetupResult> 
       suspendedRole: cfg.threadStatus === "suspended" ? "worker" : null,
       suspendMessage: cfg.threadStatus === "suspended" ? "Please clarify" : null,
       completedAt:
-        cfg.threadStatus === "completed" || cfg.threadStatus === "cancelled"
+        cfg.threadStatus === "end" || cfg.threadStatus === "cancelled"
           ? oldStepCompletedAtMs
           : null,
     },
@@ -351,7 +351,7 @@ describe("uwf thread poke - guard errors", () => {
   });
 
   test("2.3 completed thread rejects poke", async () => {
-    const { casDir } = await setupThread({ threadStatus: "completed" });
+    const { casDir } = await setupThread({ threadStatus: "end" });
     const result = runUwf(["thread", "poke", THREAD_ID, "-p", "prompt"], casDir);
     expect(result.status).not.toBe(0);
     expect(result.stderr.toLowerCase()).toMatch(/cannot be poked|completed/);

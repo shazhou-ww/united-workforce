@@ -42,14 +42,14 @@ describe("thread-index", () => {
       head: "0123456789ABC",
       suspendedRole: null,
       suspendMessage: null,
-      status: "completed",
+      status: "end",
       completedAt: 1234567890,
     });
     expect(entry).toEqual({
       head: "0123456789ABC",
       suspendedRole: null,
       suspendMessage: null,
-      status: "completed",
+      status: "end",
       completedAt: 1234567890,
     });
   });
@@ -89,14 +89,10 @@ describe("thread-index", () => {
   });
 
   test("serialize completed entry as object", () => {
-    const entry = markThreadCompleted(
-      createThreadIndexEntry("0123456789ABC"),
-      "completed",
-      1234567890,
-    );
+    const entry = markThreadCompleted(createThreadIndexEntry("0123456789ABC"), "end", 1234567890);
     expect(serializeThreadIndexEntry(entry)).toEqual({
       head: "0123456789ABC",
-      status: "completed",
+      status: "end",
       completedAt: 1234567890,
     });
   });
@@ -131,12 +127,12 @@ describe("thread-index", () => {
 
   test("markThreadCompleted sets status and completedAt", () => {
     const entry = createThreadIndexEntry("0123456789ABC");
-    const completed = markThreadCompleted(entry, "completed", 1234567890);
+    const completed = markThreadCompleted(entry, "end", 1234567890);
     expect(completed).toEqual({
       head: "0123456789ABC",
       suspendedRole: null,
       suspendMessage: null,
-      status: "completed",
+      status: "end",
       completedAt: 1234567890,
     });
   });

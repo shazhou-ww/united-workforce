@@ -387,35 +387,35 @@ export function setThread(varStore: VarStore, threadId: ThreadId, entry: ThreadI
   varStore.set(name, entry.head, { tags });
 }
 
-/** Load only active threads (status not in completed/cancelled). */
+/** Load only active threads (status not in end/cancelled). */
 export function loadActiveThreads(varStore: VarStore): ThreadsIndex {
   const all = loadAllThreads(varStore);
   const active: ThreadsIndex = {};
   for (const [threadId, entry] of Object.entries(all)) {
-    if (entry.status !== "completed" && entry.status !== "cancelled") {
+    if (entry.status !== "end" && entry.status !== "cancelled") {
       active[threadId as ThreadId] = entry;
     }
   }
   return active;
 }
 
-/** Load only completed/cancelled threads (history). */
+/** Load only end/cancelled threads (history). */
 export function loadHistoryThreads(varStore: VarStore): ThreadsIndex {
   const all = loadAllThreads(varStore);
   const history: ThreadsIndex = {};
   for (const [threadId, entry] of Object.entries(all)) {
-    if (entry.status === "completed" || entry.status === "cancelled") {
+    if (entry.status === "end" || entry.status === "cancelled") {
       history[threadId as ThreadId] = entry;
     }
   }
   return history;
 }
 
-/** Complete a thread by marking it completed or cancelled. */
+/** Complete a thread by marking it end or cancelled. */
 export function completeThread(
   varStore: VarStore,
   threadId: ThreadId,
-  reason: "completed" | "cancelled",
+  reason: "end" | "cancelled",
 ): void {
   const entry = getThread(varStore, threadId);
   if (entry === null) {
@@ -505,7 +505,7 @@ export async function migrateHistoryIfNeeded(
     }
     const entry = parseLegacyHistoryJsonlLine(trimmed);
     if (entry !== null) {
-      const status = entry.reason === "cancelled" ? "cancelled" : "completed";
+      const status = entry.reason === "cancelled" ? "cancelled" : "end";
       const threadEntry: ThreadIndexEntry = {
         head: entry.head,
         status: status as ThreadIndexEntry["status"],
@@ -528,7 +528,7 @@ export function migrateHistoryVarsToThreadVars(varStore: VarStore): void {
   for (const v of vars) {
     const threadId = v.name.slice(LEGACY_HISTORY_VAR_PREFIX.length) as ThreadId;
     const reason = v.tags.reason;
-    const status = reason === "cancelled" ? "cancelled" : "completed";
+    const status = reason === "cancelled" ? "cancelled" : "end";
     const completedAt = Number(v.tags.completedAt ?? Date.now());
 
     const threadEntry: ThreadIndexEntry = {
