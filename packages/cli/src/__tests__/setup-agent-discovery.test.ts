@@ -59,7 +59,7 @@ describe("_printAgentMenu", () => {
 
 // ─── cmdSetup agent config ───────────────────────────────────────────────────
 
-describe("cmdSetup agent configuration", () => {
+describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)", () => {
   let storageRoot: string;
 
   beforeEach(async () => {
@@ -71,33 +71,8 @@ describe("cmdSetup agent configuration", () => {
     await rm(storageRoot, { recursive: true, force: true });
   });
 
-  const baseArgs = () => ({
-    provider: "testprovider",
-    baseUrl: "https://api.test.com/v1",
-    apiKey: "sk-test",
-    model: "test-model",
-    storageRoot,
-  });
-
-  test("defaults to hermes agent when no agent specified", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    const result = await cmdSetup(baseArgs());
-
-    expect(result.defaultAgent).toBe("hermes");
-    const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents.hermes).toEqual({ command: "uwf-hermes", args: [] });
-    expect(config.defaultAgent).toBe("hermes");
-  });
-
   test("writes specified agent as default", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    const result = await cmdSetup({ ...baseArgs(), agent: "claude-code" });
+    const result = await cmdSetup({ agent: "claude-code", storageRoot });
 
     expect(result.defaultAgent).toBe("claude-code");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -106,14 +81,8 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("preserves existing agents when adding new one", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    // First setup with hermes
-    await cmdSetup(baseArgs());
-    // Second setup with claude-code
-    await cmdSetup({ ...baseArgs(), agent: "claude-code" });
+    await cmdSetup({ agent: "hermes", storageRoot });
+    await cmdSetup({ agent: "claude-code", storageRoot });
 
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
     expect(config.agents.hermes).toBeDefined();
@@ -122,25 +91,17 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("updates defaultAgent on re-run with different agent", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    await cmdSetup(baseArgs());
+    await cmdSetup({ agent: "hermes", storageRoot });
     const config1 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
     expect(config1.defaultAgent).toBe("hermes");
 
-    await cmdSetup({ ...baseArgs(), agent: "builtin" });
+    await cmdSetup({ agent: "builtin", storageRoot });
     const config2 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
     expect(config2.defaultAgent).toBe("builtin");
   });
 
   test("normalizes agent name with uwf- prefix to bare name", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    const result = await cmdSetup({ ...baseArgs(), agent: "uwf-hermes" });
+    const result = await cmdSetup({ agent: "uwf-hermes", storageRoot });
 
     expect(result.defaultAgent).toBe("hermes");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -151,11 +112,7 @@ describe("cmdSetup agent configuration", () => {
   });
 
   test("normalizes uwf-claude-code to claude-code", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
-
-    const result = await cmdSetup({ ...baseArgs(), agent: "uwf-claude-code" });
+    const result = await cmdSetup({ agent: "uwf-claude-code", storageRoot });
 
     expect(result.defaultAgent).toBe("claude-code");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -163,5 +120,23 @@ describe("cmdSetup agent configuration", () => {
     expect(config.defaultAgent).toBe("claude-code");
     // Verify no duplicate uwf- prefix
     expect(config.agents["uwf-claude-code"]).toBeUndefined();
+  });
+
+  test("rewrite drops legacy provider/model fields from existing config", async () => {
+    // First create a config that contains legacy LLM fields
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    mkdirSync(storageRoot, { recursive: true });
+    writeFileSync(
+      join(storageRoot, "config.yaml"),
+      "providers:\n  openai: { baseUrl: x, apiKey: y }\nmodels:\n  default: { provider: openai, name: gpt-4o }\ndefaultModel: default\nagents:\n  hermes: { command: uwf-hermes, args: [] }\ndefaultAgent: hermes\n",
+      "utf8",
+    );
+    await cmdSetup({ agent: "hermes", storageRoot });
+    const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
+    expect(config.providers).toBeUndefined();
+    expect(config.models).toBeUndefined();
+    expect(config.defaultModel).toBeUndefined();
+    expect(config.agents.hermes).toEqual({ command: "uwf-hermes", args: [] });
+    expect(config.defaultAgent).toBe("hermes");
   });
 });

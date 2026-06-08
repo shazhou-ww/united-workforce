@@ -1,15 +1,10 @@
 import type { Store } from "@ocas/core";
 import { createLogger, generateUlid } from "@united-workforce/util";
-import {
-  type AgentContext,
-  type AgentRunResult,
-  createAgent,
-  loadWorkflowConfig,
-  resolveModel,
-} from "@united-workforce/util-agent";
+import { type AgentContext, type AgentRunResult, createAgent } from "@united-workforce/util-agent";
 
 import { storeBuiltinDetail } from "./detail.js";
-import type { ChatMessage } from "./llm/index.js";
+import { loadBuiltinLlmConfig } from "./llm/config.js";
+import type { ChatMessage, ResolvedLlmProvider } from "./llm/index.js";
 import { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
 import { buildBuiltinMessages } from "./prompt.js";
 import { initSessionDir } from "./session.js";
@@ -61,7 +56,7 @@ function buildToolContext(storageRoot: string): { cwd: string; storageRoot: stri
 
 async function runBuiltinWithMessages(
   storageRoot: string,
-  provider: ReturnType<typeof resolveModel>,
+  provider: ResolvedLlmProvider,
   messages: ChatMessage[],
   session: SessionRecord,
   store: Store,
@@ -111,8 +106,7 @@ async function runBuiltinWithMessages(
 
 async function runBuiltin(ctx: AgentContext): Promise<AgentRunResult> {
   const storageRoot = ctx.storageRoot;
-  const config = await loadWorkflowConfig(storageRoot);
-  const provider = resolveModel(config, config.defaultModel);
+  const provider = await loadBuiltinLlmConfig(storageRoot);
 
   const sessionId = generateUlid(Date.now());
   await initSessionDir(storageRoot);
@@ -145,8 +139,7 @@ async function continueBuiltin(
 ): Promise<AgentRunResult> {
   const session = getSession(sessionId);
   const storageRoot = session.storageRoot;
-  const config = await loadWorkflowConfig(storageRoot);
-  const provider = resolveModel(config, config.defaultModel);
+  const provider = await loadBuiltinLlmConfig(storageRoot);
 
   const messages: ChatMessage[] = [...session.messages, { role: "user", content: message }];
 

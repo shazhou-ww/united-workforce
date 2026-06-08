@@ -117,10 +117,7 @@ describe("C1: adapter JSON round-trip integration", () => {
 
     // 4. Write config.yaml
     const configPath = join(tmpDir, "config.yaml");
-    await writeFile(
-      configPath,
-      `defaultAgent: uwf-hermes\ndefaultModel: test-model\nagentOverrides: null\nagents: {}\nproviders: {}\nmodels: {}\n`,
-    );
+    await writeFile(configPath, `defaultAgent: uwf-hermes\nagentOverrides: null\nagents: {}\n`);
 
     // 5. Run CLI with agent override pointing to our mock
     const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");

@@ -1,7 +1,12 @@
 export { createBuiltinAgent } from "./agent.js";
 export { registerBuiltinSchemas, storeBuiltinDetail } from "./detail.js";
-export type { ChatMessage, LlmAssistantResponse, LlmToolCall } from "./llm/index.js";
-export { chatCompletionWithTools } from "./llm/index.js";
+export type {
+  ChatMessage,
+  LlmAssistantResponse,
+  LlmToolCall,
+  ResolvedLlmProvider,
+} from "./llm/index.js";
+export { chatCompletionWithTools, loadBuiltinLlmConfig } from "./llm/index.js";
 export { BUILTIN_CONTINUE_MAX_TURNS, BUILTIN_MAX_TURNS, runBuiltinLoop } from "./loop.js";
 export { buildBuiltinMessages } from "./prompt.js";
 export { appendSessionTurn, initSessionDir, readSessionTurns, removeSession } from "./session.js";

@@ -1,17 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import {
   _discoverAgents,
   _isBackspace,
   _isTerminator,
   _parseWhichOutput,
-  _printModelMenu,
-  _printProviderMenu,
-  _printValidationResult,
-  _resolveModelChoice,
-  _resolveProviderChoice,
   _searchPathDirs,
 } from "../commands/setup.js";
 
@@ -146,7 +141,7 @@ describe("_isTerminator", () => {
     expect(_isTerminator("\r")).toBe(true);
   });
   test("\\u0004 (EOT) is a terminator", () => {
-    expect(_isTerminator("")).toBe(true);
+    expect(_isTerminator("")).toBe(true);
   });
   test("regular char is not a terminator", () => {
     expect(_isTerminator("a")).toBe(false);
@@ -162,210 +157,13 @@ describe("_isTerminator", () => {
 
 describe("_isBackspace", () => {
   test("\\u007F is a backspace", () => {
-    expect(_isBackspace("")).toBe(true);
+    expect(_isBackspace("")).toBe(true);
   });
   test("\\b is a backspace", () => {
     expect(_isBackspace("\b")).toBe(true);
   });
   test("regular char is not a backspace", () => {
     expect(_isBackspace("x")).toBe(false);
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 3a. _printProviderMenu
-// ──────────────────────────────────────────────────────────────────────────────
-
-describe("_printProviderMenu", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const providers = [
-    { name: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
-    { name: "xai", label: "xAI", baseUrl: "https://api.x.ai/v1" },
-  ] as const;
-
-  test("prints correct number of lines (one per provider + custom)", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printProviderMenu(providers);
-    // 2 providers + 1 custom = 3 lines
-    expect(lines.length).toBe(3);
-  });
-
-  test("custom option number = providers.length + 1", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printProviderMenu(providers);
-    const lastLine = lines[lines.length - 1] ?? "";
-    expect(lastLine).toMatch(/3\)/);
-  });
-
-  test("each provider line contains its label and baseUrl", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printProviderMenu(providers);
-    expect(lines[0]).toContain("OpenAI");
-    expect(lines[0]).toContain("https://api.openai.com/v1");
-    expect(lines[1]).toContain("xAI");
-    expect(lines[1]).toContain("https://api.x.ai/v1");
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 3b. _resolveProviderChoice
-// ──────────────────────────────────────────────────────────────────────────────
-
-describe("_resolveProviderChoice", () => {
-  const providers = [
-    { name: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
-    { name: "xai", label: "xAI", baseUrl: "https://api.x.ai/v1" },
-    { name: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1" },
-  ] as const;
-
-  test("valid index 1 returns first provider", () => {
-    const result = _resolveProviderChoice("1", providers);
-    expect(result).toEqual({ providerName: "openai", baseUrl: "https://api.openai.com/v1" });
-  });
-
-  test("valid index N (last preset) returns last provider", () => {
-    const result = _resolveProviderChoice("3", providers);
-    expect(result).toEqual({ providerName: "deepseek", baseUrl: "https://api.deepseek.com/v1" });
-  });
-
-  test("index providers.length+1 (custom) returns null", () => {
-    const result = _resolveProviderChoice("4", providers);
-    expect(result).toBeNull();
-  });
-
-  test("non-numeric string returns null", () => {
-    expect(_resolveProviderChoice("abc", providers)).toBeNull();
-  });
-
-  test("0 returns null (out of range)", () => {
-    expect(_resolveProviderChoice("0", providers)).toBeNull();
-  });
-
-  test("N+2 returns null (out of range)", () => {
-    expect(_resolveProviderChoice("5", providers)).toBeNull();
-  });
-
-  test("negative number returns null", () => {
-    expect(_resolveProviderChoice("-1", providers)).toBeNull();
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 3c. _resolveModelChoice
-// ──────────────────────────────────────────────────────────────────────────────
-
-describe("_resolveModelChoice", () => {
-  test("numeric input within range returns model at that index", () => {
-    expect(_resolveModelChoice("2", ["a", "b", "c"])).toBe("b");
-  });
-
-  test("numeric input out of range returns input as-is", () => {
-    expect(_resolveModelChoice("5", ["a"])).toBe("5");
-  });
-
-  test("non-numeric input returns input as-is", () => {
-    expect(_resolveModelChoice("gpt-4o", ["a", "b"])).toBe("gpt-4o");
-  });
-
-  test("numeric input 1 returns first model", () => {
-    expect(_resolveModelChoice("1", ["alpha", "beta"])).toBe("alpha");
-  });
-
-  test("empty models list with numeric input returns input as-is", () => {
-    expect(_resolveModelChoice("1", [])).toBe("1");
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 3d. _printModelMenu
-// ──────────────────────────────────────────────────────────────────────────────
-
-describe("_printModelMenu", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  test("prints all models — each model name appears in output", () => {
-    const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      output.push(msg);
-    });
-    const models = ["model-a", "model-b", "model-c"];
-    _printModelMenu(models, 100);
-    const combined = output.join("\n");
-    for (const m of models) {
-      expect(combined).toContain(m);
-    }
-  });
-
-  test("single column when termCols is very small", () => {
-    const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      output.push(msg);
-    });
-    _printModelMenu(["a", "b", "c"], 1);
-    // Each model on its own row → 3 lines
-    expect(output.length).toBe(3);
-  });
-
-  test("wide terminal fits multiple columns", () => {
-    const output: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      output.push(msg);
-    });
-    const models = Array.from({ length: 6 }, (_, i) => `m${i}`);
-    _printModelMenu(models, 200);
-    // With wide terminal and short names, should fit in fewer than 6 rows
-    expect(output.length).toBeLessThan(6);
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 3e. _printValidationResult
-// ──────────────────────────────────────────────────────────────────────────────
-
-describe("_printValidationResult", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  test("ok=true prints success message containing '✓'", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printValidationResult({ ok: true, error: null });
-    expect(lines.join("\n")).toContain("✓");
-  });
-
-  test("ok=false prints warning message containing '⚠'", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printValidationResult({ ok: false, error: "HTTP 401" });
-    expect(lines.join("\n")).toContain("⚠");
-  });
-
-  test("ok=false includes the error string in output", () => {
-    const lines: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((msg: string) => {
-      lines.push(msg);
-    });
-    _printValidationResult({ ok: false, error: "HTTP 401" });
-    expect(lines.join("\n")).toContain("HTTP 401");
   });
 });
 

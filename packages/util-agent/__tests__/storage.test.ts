@@ -13,9 +13,6 @@ import {
 
 const VALID_CONFIG = {
   defaultAgent: "builtin",
-  defaultModel: "main",
-  providers: { openai: { baseUrl: "https://api.openai.com/v1", apiKey: "sk-xxx" } },
-  models: { main: { provider: "openai", name: "gpt-4" } },
   agents: { builtin: { command: "uwf-builtin", args: ["--verbose"] } },
 };
 
@@ -59,17 +56,35 @@ describe("getGlobalCasDir", () => {
   });
 });
 
-describe("normalizeWorkflowConfig", () => {
-  it("normalizes a valid config", () => {
-    const result = normalizeWorkflowConfig(VALID_CONFIG);
-    expect(result.defaultAgent).toBe("builtin");
-    expect(result.defaultModel).toBe("main");
-    expect(result.providers.openai.baseUrl).toBe("https://api.openai.com/v1");
-    expect(result.models.main.name).toBe("gpt-4");
-    expect(result.agents.builtin.command).toBe("uwf-builtin");
-    expect(result.agents.builtin.args).toEqual(["--verbose"]);
-    expect(result.modelOverrides).toBeNull();
-    expect(result.agentOverrides).toBeNull();
+describe("normalizeWorkflowConfig — engine config (issue #143)", () => {
+  it("accepts a minimal engine config (agents + defaultAgent)", () => {
+    const cfg = normalizeWorkflowConfig(VALID_CONFIG);
+    expect(cfg.defaultAgent).toBe("builtin");
+    expect(cfg.agents.builtin.command).toBe("uwf-builtin");
+    expect(cfg.agents.builtin.args).toEqual(["--verbose"]);
+    expect(cfg.agentOverrides).toBeNull();
+  });
+
+  it("does NOT carry providers/models/defaultModel/modelOverrides on result", () => {
+    const cfg = normalizeWorkflowConfig(VALID_CONFIG) as Record<string, unknown>;
+    expect(cfg.providers).toBeUndefined();
+    expect(cfg.models).toBeUndefined();
+    expect(cfg.defaultModel).toBeUndefined();
+    expect(cfg.modelOverrides).toBeUndefined();
+  });
+
+  it("ignores legacy providers/models entries (does not crash, does not surface them)", () => {
+    const cfg = normalizeWorkflowConfig({
+      providers: { openai: { baseUrl: "x", apiKey: "y" } },
+      models: { default: { provider: "openai", name: "gpt-4o" } },
+      defaultModel: "default",
+      modelOverrides: { extract: "default" },
+      ...VALID_CONFIG,
+    }) as Record<string, unknown>;
+    expect(cfg.providers).toBeUndefined();
+    expect(cfg.models).toBeUndefined();
+    expect(cfg.defaultModel).toBeUndefined();
+    expect(cfg.modelOverrides).toBeUndefined();
   });
 
   it("throws on non-record root", () => {
@@ -79,27 +94,7 @@ describe("normalizeWorkflowConfig", () => {
   });
 
   it("throws when defaultAgent missing", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultAgent: undefined })).toThrow(
-      "defaultAgent and defaultModel",
-    );
-  });
-
-  it("throws when defaultModel missing", () => {
-    expect(() => normalizeWorkflowConfig({ ...VALID_CONFIG, defaultModel: 42 })).toThrow(
-      "defaultAgent and defaultModel",
-    );
-  });
-
-  it("throws on invalid providers entry", () => {
-    expect(() =>
-      normalizeWorkflowConfig({ ...VALID_CONFIG, providers: { bad: "string" } }),
-    ).toThrow("config.providers.bad must be a mapping");
-  });
-
-  it("throws on invalid models entry", () => {
-    expect(() =>
-      normalizeWorkflowConfig({ ...VALID_CONFIG, models: { m: { provider: 123, name: "x" } } }),
-    ).toThrow("config.models.m requires provider and name");
+    expect(() => normalizeWorkflowConfig({ agents: {} })).toThrow(/defaultAgent/);
   });
 
   it("throws on invalid agents entry", () => {
@@ -108,9 +103,9 @@ describe("normalizeWorkflowConfig", () => {
     );
   });
 
-  it("returns null for undefined modelOverrides", () => {
+  it("returns null for undefined agentOverrides", () => {
     const result = normalizeWorkflowConfig(VALID_CONFIG);
-    expect(result.modelOverrides).toBeNull();
+    expect(result.agentOverrides).toBeNull();
   });
 
   it("returns null for null agentOverrides", () => {
@@ -129,11 +124,5 @@ describe("normalizeWorkflowConfig", () => {
     expect(result.agentOverrides).toEqual({
       "solve-issue": { coder: "hermes", reviewer: "claude" },
     });
-  });
-
-  it("normalizes modelOverrides", () => {
-    const config = { ...VALID_CONFIG, modelOverrides: { coding: "fast" } };
-    const result = normalizeWorkflowConfig(config);
-    expect(result.modelOverrides).toEqual({ coding: "fast" });
   });
 });

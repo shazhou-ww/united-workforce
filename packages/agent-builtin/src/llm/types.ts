@@ -27,3 +27,15 @@ export type OpenAiToolDefinition = {
     parameters: Record<string, unknown>;
   };
 };
+
+/**
+ * The resolved LLM endpoint information needed by the builtin agent.
+ *
+ * Lives here (not in @united-workforce/util-agent) because the engine config
+ * is LLM-free — each adapter owns its own LLM configuration.
+ */
+export type ResolvedLlmProvider = {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+};

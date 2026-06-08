@@ -117,10 +117,7 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       await writeFile(mockAgentPath, `#!/bin/sh\necho '${adapterJson}'\n`, { mode: 0o755 });
 
       const configPath = join(tmpDir, "config.yaml");
-      await writeFile(
-        configPath,
-        `defaultAgent: uwf-hermes\ndefaultModel: test-model\nagentOverrides: null\nagents: {}\nproviders: {}\nmodels: {}\n`,
-      );
+      await writeFile(configPath, `defaultAgent: uwf-hermes\nagentOverrides: null\nagents: {}\n`);
 
       const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
       const stdout = execFileSync(

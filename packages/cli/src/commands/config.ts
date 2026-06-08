@@ -3,20 +3,14 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 
 /**
- * Valid configuration key schema
+ * Valid configuration key schema. Engine config is LLM-free — providers,
+ * models, defaultModel, and modelOverrides are no longer accepted here.
+ * Each adapter owns its own LLM configuration.
  */
 const VALID_CONFIG_KEYS: Record<
   string,
   { nested: boolean; knownFields?: string[]; minDepth?: number }
 > = {
-  providers: {
-    nested: true,
-    knownFields: ["baseUrl", "apiKey"],
-  },
-  models: {
-    nested: true,
-    knownFields: ["provider", "name"],
-  },
   agents: {
     nested: true,
     knownFields: ["command", "args"],
@@ -26,14 +20,7 @@ const VALID_CONFIG_KEYS: Record<
     // agentOverrides.<workflowName>.<roleName> = agentAlias (string value)
     // No knownFields — workflow/role names are user-defined
   },
-  modelOverrides: {
-    nested: true,
-    minDepth: 2,
-    // modelOverrides.<scenario> = modelAlias (string value)
-    // No knownFields — scenarios are user-defined
-  },
   defaultAgent: { nested: false },
-  defaultModel: { nested: false },
 };
 
 /**
@@ -175,27 +162,12 @@ export function setNestedValue(obj: Record<string, unknown>, path: string[], val
 }
 
 /**
- * Deep clone and mask all apiKey values in providers section
+ * Deep clone the config. Engine config is LLM-free, so there are no apiKey
+ * fields to mask — this function is preserved as a defensive deep-clone
+ * boundary used by `cmdConfigList`.
  */
 export function maskApiKeys(config: Record<string, unknown>): Record<string, unknown> {
-  // Deep clone
-  const cloned = JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
-
-  // Mask apiKey values in providers
-  if (cloned.providers && typeof cloned.providers === "object") {
-    const providers = cloned.providers as Record<string, unknown>;
-    for (const providerName of Object.keys(providers)) {
-      const provider = providers[providerName];
-      if (provider && typeof provider === "object") {
-        const providerObj = provider as Record<string, unknown>;
-        if ("apiKey" in providerObj) {
-          providerObj.apiKey = "***MASKED***";
-        }
-      }
-    }
-  }
-
-  return cloned;
+  return JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
 }
 
 /**

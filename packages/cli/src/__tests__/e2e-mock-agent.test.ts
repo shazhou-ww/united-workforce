@@ -78,9 +78,6 @@ afterEach(async () => {
 async function writeMockConfig(mockDataFixture: string): Promise<void> {
   const config = {
     defaultAgent: "mock",
-    defaultModel: "test",
-    providers: {},
-    models: {},
     agentOverrides: null,
     agents: {
       mock: {

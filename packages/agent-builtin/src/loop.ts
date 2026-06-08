@@ -1,11 +1,11 @@
 import { createLogger } from "@united-workforce/util";
-import type { ResolvedLlmProvider } from "@united-workforce/util-agent";
 
 import {
   type ChatMessage,
   chatCompletionWithTools,
   type LlmToolCall,
   type OpenAiToolDefinition,
+  type ResolvedLlmProvider,
 } from "./llm/index.js";
 import { appendSessionTurn } from "./session.js";
 import {
