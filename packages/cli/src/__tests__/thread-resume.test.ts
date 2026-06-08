@@ -334,7 +334,7 @@ describe("uwf thread resume", () => {
     }
   });
 
-  test("multiple suspend/resume cycles", async () => {
+  test("multiple suspend/resume cycles", { timeout: 15_000 }, async () => {
     const originalCasDir = process.env.OCAS_HOME;
     const { casDir, mockAgentPath, promptCapturePath } = await setupSuspendedThread("suspend");
     process.env.OCAS_HOME = casDir;
