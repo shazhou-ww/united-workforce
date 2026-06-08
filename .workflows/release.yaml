@@ -1,0 +1,141 @@
+name: "release"
+description: "Release workflow for proman-managed projects. Runs pre-flight checks, bumps versions, publishes to npm, verifies, and syncs to GitHub."
+roles:
+  releaser:
+    description: "Executes the full release pipeline: pre-flight → bump → publish → verify → sync"
+    goal: "You are a release engineer. You execute a safe, verified release of a proman-managed project."
+    capabilities:
+      - git
+      - npm
+    procedure: |
+      You will receive a repo slug (owner/repo) and local repo path in the task prompt.
+      cd into the local repo path for all operations.
+
+      **Step 1 — Pre-flight checks (ALL must pass, abort on first failure):**
+
+      1a. On `main` branch:
+      ```bash
+      BRANCH=$(git branch --show-current)
+      ```
+      If not `main`, output `$status: not_ready` with reason.
+
+      1b. Clean working tree:
+      ```bash
+      git status --porcelain
+      ```
+      If output is non-empty, output `$status: not_ready` with reason.
+
+      1c. Pull latest and check for divergence:
+      ```bash
+      git pull --ff-only
+      ```
+      If this fails (diverged), output `$status: not_ready` with reason.
+
+      1d. Pending changesets exist:
+      ```bash
+      ls .changeset/*.md 2>/dev/null | grep -v README.md | grep -v config.json
+      ```
+      If no `.md` files found (excluding README.md and config.json), output `$status: not_ready` with reason "no pending changesets".
+
+      1e. CI is green on latest commit:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      HEAD_SHA=$(git rev-parse HEAD)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/$HEAD_SHA/status" \
+        -H "Authorization: token $GITEA_TOKEN" | jq '{state: .state}'
+      ```
+      If state is not `success`, output `$status: not_ready` with reason.
+      If state is `pending`, wait up to 5 minutes (poll every 30s), then fail if still pending.
+
+      **Step 2 — Bump versions:**
+      ```bash
+      npx proman bump
+      ```
+      This consumes changesets, bumps package.json versions, generates CHANGELOG entries, and deletes consumed changeset files.
+      If it fails, output `$status: failed` with the error.
+
+      Record the bumped versions from the output for later verification.
+
+      **Step 3 — Publish:**
+      ```bash
+      npx proman publish
+      ```
+      This runs: install → build → test → check → npm publish → git commit → git tag → push.
+      If it fails, output `$status: failed` with the error and which packages succeeded/failed.
+
+      **Step 4 — Verify:**
+
+      4a. Check npm registry for each published package:
+      ```bash
+      npm view <package-name>@<new-version> version
+      ```
+      Each should return the new version string.
+
+      4b. Check git tags exist locally:
+      ```bash
+      git tag -l '<package-name>@v<new-version>'
+      ```
+
+      4c. Check Gitea has the release commit:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/branches/main" \
+        -H "Authorization: token $GITEA_TOKEN" | jq -r '.commit.message'
+      ```
+      Should start with `release: v`.
+
+      If any verification fails, output `$status: verify_failed` with details.
+
+      **Step 5 — Sync to GitHub:**
+
+      Check if a GitHub remote exists:
+      ```bash
+      git remote -v | grep github
+      ```
+      The remote might be named `origin` or `github` — use whichever points to github.com.
+
+      If a GitHub remote exists:
+      ```bash
+      git push <github-remote> main --tags
+      ```
+      If no GitHub remote, skip this step and note it in the output.
+
+      **Step 6 — Output results:**
+      Output `$status: released` with:
+      - List of published packages and versions
+      - Git tags created
+      - GitHub sync status
+
+    output: "Report the release result. Set $status to released, not_ready, failed, or verify_failed."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "released" }
+            packages: { type: string }
+            tags: { type: string }
+            githubSync: { type: string }
+          required: [$status, packages, tags]
+        - properties:
+            $status: { const: "not_ready" }
+            reason: { type: string }
+          required: [$status, reason]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+            partialPublish: { type: string }
+          required: [$status, reason]
+        - properties:
+            $status: { const: "verify_failed" }
+            reason: { type: string }
+            packages: { type: string }
+          required: [$status, reason]
+
+graph:
+  $START:
+    new: { role: "releaser", prompt: "Release {{{repo}}} from {{{repoPath}}}." }
+    resume: { role: "releaser", prompt: "Retry release for {{{repo}}} from {{{repoPath}}}." }
+  releaser:
+    released: { role: "$END", prompt: "✅ Release complete. Published: {{{packages}}}. Tags: {{{tags}}}. GitHub: {{{githubSync}}}" }
+    not_ready: { role: "$END", prompt: "⏸ Release aborted — pre-flight failed: {{{reason}}}" }
+    failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
+    verify_failed: { role: "$END", prompt: "⚠️ Release may be partial — verification failed: {{{reason}}}" }

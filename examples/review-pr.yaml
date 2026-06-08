@@ -106,7 +106,7 @@ roles:
       4. **Race conditions** — Concurrent access patterns, shared mutable state, async pitfalls.
       5. **Breaking changes** — API surface changes, removed exports, schema changes. Must be flagged in changeset.
       6. **Test coverage** — New code has tests, edge cases covered, no test-only code in production.
-      7. **Changeset** — Exists in `.changeset/`, correct bump type (patch/minor/major), lists affected packages.
+      7. **Changeset** — Check if `.changeset/` directory exists in the repo root. If yes, the project uses changesets — verify the PR includes one with correct bump type (patch/minor/major) and affected packages. If no `.changeset/` directory, skip this item.
       8. **Architecture** — Follows existing patterns, proper module boundaries, no circular deps.
       9. **Documentation** — README, JSDoc, inline comments for non-obvious logic.
       10. **Style** — Naming conventions, no console.log in production, consistent patterns.
