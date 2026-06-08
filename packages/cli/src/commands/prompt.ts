@@ -297,7 +297,7 @@ Check the changelog for breaking changes. Known migrations:
     resume: { role: planner, prompt: "Review previous run and continue." }
   \`\`\`
 
-Update all \`.workflow/\` and \`.workflows/\` YAML files in your projects. \`uwf workflow add\` will reject files with the old \`_\` syntax.
+Update all \`.workflows/\` and \`.workflow/\` YAML files in your projects. \`uwf workflow add\` will reject files with the old \`_\` syntax.
 
 - **v0.2.1**: \`$status: { enum: [value] }\` → \`$status: { const: "value" }\`. The validator no longer accepts \`enum\` for \`$status\`. Update all workflow YAML files:
   \`\`\`yaml

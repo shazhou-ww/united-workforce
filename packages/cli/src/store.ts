@@ -20,7 +20,7 @@ export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 /** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
 export const THREAD_VAR_PREFIX = "@uwf/thread/";
 
-/** A workflow entry discovered from the project-local .workflows/ directory. */
+/** A workflow entry discovered from the project-local .workflows/ (primary) or .workflow/ (legacy) directory. */
 export type ProjectWorkflowEntry = {
   /** Workflow name (from YAML `name` field, equals filename stem). */
   name: string;
@@ -82,7 +82,7 @@ async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
   return result;
 }
 
-/** Merge primary (.workflow/) and legacy (.workflows/) entries, primary wins on name collision. */
+/** Merge primary (.workflows/) and legacy (.workflow/) entries, primary wins on name collision. */
 function mergeWorkflowEntries(
   primary: ProjectWorkflowEntry[],
   legacy: ProjectWorkflowEntry[],
@@ -109,20 +109,20 @@ async function hasGitMarker(dir: string): Promise<boolean> {
 
 /**
  * Discover project-local workflows by walking from `startDir` up through parent
- * directories. The nearest directory that contains a `.workflow/` or `.workflows/`
+ * directories. The nearest directory that contains a `.workflows/` or `.workflow/`
  * directory wins — once a match is found, traversal stops (entries from more
  * distant ancestors are NOT merged in).
  *
  * Within the winning directory:
- * - `.workflow/` (preferred) takes priority over `.workflows/` (legacy).
- * - If both exist in that directory, `.workflow/` entries win when names collide.
+ * - `.workflows/` (preferred/primary) takes priority over `.workflow/` (legacy fallback).
+ * - If both exist in that directory, `.workflows/` entries win when names collide.
  *
  * This matches the resolution strategy of `findWorkflowInParents` used by
  * `uwf thread start`, so `uwf workflow list` and `uwf thread start` agree on
  * what's discoverable from any given subdirectory.
  *
  * Traversal stops at the first `.git` boundary (directory or file) or the
- * filesystem root. Returns an empty array if no `.workflow/` or `.workflows/`
+ * filesystem root. Returns an empty array if no `.workflows/` or `.workflow/`
  * directory exists within that range.
  */
 export async function discoverProjectWorkflows(startDir: string): Promise<ProjectWorkflowEntry[]> {
@@ -130,8 +130,8 @@ export async function discoverProjectWorkflows(startDir: string): Promise<Projec
   const root = resolvePath("/");
 
   while (true) {
-    const primary = await scanWorkflowDir(join(currentDir, ".workflow"));
-    const legacy = await scanWorkflowDir(join(currentDir, ".workflows"));
+    const primary = await scanWorkflowDir(join(currentDir, ".workflows"));
+    const legacy = await scanWorkflowDir(join(currentDir, ".workflow"));
 
     if (primary.length > 0 || legacy.length > 0) {
       return mergeWorkflowEntries(primary, legacy);

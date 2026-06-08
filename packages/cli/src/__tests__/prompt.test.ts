@@ -43,17 +43,17 @@ describe("prompt commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("prompt usage describes .workflow/ auto-discovery", () => {
+  test("prompt usage describes .workflows/ auto-discovery", () => {
     const result = cmdPromptUsage();
-    expect(result).toContain(".workflow/");
+    expect(result).toContain(".workflows/");
     expect(result).toContain("uwf thread start solve-issue");
     expect(result.toLowerCase()).toContain("auto-discover");
     expect(result.toLowerCase()).toContain("recommended");
   });
 
-  test("prompt cli-reference describes .workflow/ auto-discovery", () => {
+  test("prompt cli-reference describes .workflows/ auto-discovery", () => {
     const ref = generateCliReference();
-    expect(ref).toContain(".workflow/");
+    expect(ref).toContain(".workflows/");
     expect(ref.toLowerCase()).toContain("cwd upward");
     expect(ref).toContain("workflow list");
     expect(ref).toMatch(/CAS hash/i);
@@ -75,15 +75,21 @@ describe("prompt commands", () => {
     expect(result.length).toBeGreaterThan(500);
   });
 
-  test("prompt workflow-authoring documents .workflow/ Placement section", () => {
+  test("prompt workflow-authoring documents .workflows/ Placement section", () => {
     const result = cmdPromptWorkflowAuthoring();
     expect(result).toContain("## Placement");
-    expect(result).toContain(".workflow/");
+    expect(result).toContain(".workflows/");
     expect(result).toContain("solve-issue.yaml");
     expect(result.toLowerCase()).toContain("auto-discover");
     expect(result.toLowerCase()).toContain("no workflow add");
     // Placement must appear before Self-Testing
     expect(result.indexOf("## Placement")).toBeLessThan(result.indexOf("## Self-Testing"));
+  });
+
+  test("prompt workflow-authoring mentions .workflow/ as legacy fallback", () => {
+    const result = cmdPromptWorkflowAuthoring();
+    expect(result).toContain(".workflow/");
+    expect(result.toLowerCase()).toContain("legacy");
   });
 
   test("prompt adapter-developing returns non-empty markdown string with frontmatter", () => {

@@ -180,9 +180,9 @@ describe("Strategy 2: File Path Resolution", () => {
 // ── Strategy 3: Local Discovery (Parent Traversal) ────────────────────────────
 
 describe("Strategy 3: Local Discovery", () => {
-  test("should find workflow in current directory .workflow/", async () => {
+  test("should find workflow in current directory .workflows/", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow");
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -197,9 +197,9 @@ describe("Strategy 3: Local Discovery", () => {
     }
   });
 
-  test("should find workflow in parent directory .workflow/", async () => {
+  test("should find workflow in parent directory .workflows/", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow");
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -219,19 +219,19 @@ describe("Strategy 3: Local Discovery", () => {
     await expect(cmdThreadStart(storageRoot, "nonexistent", "prompt", deepPath)).rejects.toThrow();
   });
 
-  test("should prefer .workflow/ over .workflows/ directory", async () => {
+  test("should prefer .workflows/ over .workflow/ directory", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow");
-    const workflowsDir = join(projectRoot, ".workflows");
-    await mkdir(workflowDir, { recursive: true });
-    await mkdir(workflowsDir, { recursive: true });
+    const primaryDir = join(projectRoot, ".workflows");
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(primaryDir, { recursive: true });
+    await mkdir(legacyDir, { recursive: true });
 
     await writeFile(
-      join(workflowDir, "solve-issue.yaml"),
+      join(primaryDir, "solve-issue.yaml"),
       await createWorkflowYaml("solve-issue", "1"),
     );
     await writeFile(
-      join(workflowsDir, "solve-issue.yaml"),
+      join(legacyDir, "solve-issue.yaml"),
       await createWorkflowYaml("solve-issue", "2"),
     );
 
@@ -245,9 +245,9 @@ describe("Strategy 3: Local Discovery", () => {
     }
   });
 
-  test("should support .yml extension in local discovery", async () => {
+  test("should support .yml extension in local discovery under .workflows/", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow");
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(join(workflowDir, "solve-issue.yml"), await createWorkflowYaml("solve-issue"));
 
@@ -256,9 +256,9 @@ describe("Strategy 3: Local Discovery", () => {
     expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
   });
 
-  test("should find workflow in folder-based layout (name/index.yaml)", async () => {
+  test("should find workflow in folder-based layout (.workflows/<name>/index.yaml)", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow", "solve-issue");
+    const workflowDir = join(projectRoot, ".workflows", "solve-issue");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(join(workflowDir, "index.yaml"), await createWorkflowYaml("solve-issue"));
 
@@ -273,9 +273,9 @@ describe("Strategy 3: Local Discovery", () => {
     }
   });
 
-  test("should prefer flat file over folder-based layout", async () => {
+  test("should prefer flat file over folder-based layout under .workflows/", async () => {
     await makeUwfStore(storageRoot);
-    const workflowDir = join(projectRoot, ".workflow");
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(
       join(workflowDir, "solve-issue.yaml"),
@@ -296,6 +296,23 @@ describe("Strategy 3: Local Discovery", () => {
     expect(node).not.toBeNull();
     if (node !== null) {
       expect((node.payload as WorkflowPayload).description).toBe("Test workflow (flat)");
+    }
+  });
+
+  test("should resolve from legacy .workflow/ when .workflows/ is absent", async () => {
+    await makeUwfStore(storageRoot);
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(legacyDir, { recursive: true });
+    await writeFile(join(legacyDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const result = await cmdThreadStart(storageRoot, "solve-issue", "prompt", projectRoot);
+
+    expect(result.workflow).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    const uwf = await makeUwfStore(storageRoot);
+    const node = uwf.store.cas.get(result.workflow);
+    expect(node).not.toBeNull();
+    if (node !== null) {
+      expect((node.payload as WorkflowPayload).name).toBe("solve-issue");
     }
   });
 });
@@ -329,8 +346,8 @@ describe("Resolution Priority", () => {
   test("should use explicit file path over local discovery", async () => {
     await makeUwfStore(storageRoot);
 
-    // Setup: Create workflow in .workflow/ AND as explicit file
-    const workflowDir = join(projectRoot, ".workflow");
+    // Setup: Create workflow in .workflows/ AND as explicit file
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(
       join(workflowDir, "solve-issue.yaml"),
@@ -358,8 +375,8 @@ describe("Resolution Priority", () => {
     const globalHash = await storeWorkflow(uwf, "solve-issue");
     saveWorkflowRegistry(uwf.varStore, "solve-issue", globalHash);
 
-    // Setup: Create local .workflow/
-    const workflowDir = join(projectRoot, ".workflow");
+    // Setup: Create local .workflows/
+    const workflowDir = join(projectRoot, ".workflows");
     await mkdir(workflowDir, { recursive: true });
     const localYaml = await createWorkflowYaml("solve-issue", "local");
     await writeFile(join(workflowDir, "solve-issue.yaml"), localYaml);
