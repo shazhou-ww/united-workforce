@@ -23,7 +23,6 @@ A thread progresses by running \`uwf thread exec\`, which performs one moderator
 A Workflow is a YAML definition (\`WorkflowPayload\`) stored as a CAS node. It defines:
 - **Roles** — named actors with system prompts and output schemas
 - **Graph** — status-based routing edges between roles
-- **Conditions** — edge predicates evaluated by the moderator
 
 Workflow names follow verb-first kebab-case: \`solve-issue\`, \`review-code\`.
 

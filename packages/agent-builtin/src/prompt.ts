@@ -70,7 +70,7 @@ export function buildBuiltinMessages(ctx: AgentContext): ChatMessage[] {
       "Your task is described in the user message below — do NOT use uwf or workflow CLI commands to discover your task. " +
       "When you are done, output your final response with the YAML frontmatter block as specified above. " +
       "Do NOT output the frontmatter until you have completed all necessary work. " +
-      "If you are running low on turns and cannot finish, output the frontmatter with `status: failed` and explain what remains in the body. " +
+      "If you are running low on turns and cannot finish, output the frontmatter with `$status: failed` and explain what remains in the body. " +
       "CRITICAL: Your final output MUST start with the `---` fence on the very first line — " +
       "no preamble text, no explanation before it. The parser requires `---` at position 0.",
   );
