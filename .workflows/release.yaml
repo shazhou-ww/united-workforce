@@ -1,112 +1,185 @@
 name: "release"
-description: "Release workflow for proman-managed projects. Runs pre-flight checks, bumps versions, publishes to npm, verifies, and syncs to GitHub."
+description: "Release workflow for proman-managed monorepo with $SUSPEND gate for PR review."
 roles:
-  releaser:
-    description: "Executes the full release pipeline: pre-flight → bump → publish → verify → sync"
-    goal: "You are a release engineer. You execute a safe, verified release of a proman-managed project."
+  preflight:
+    description: "Verify repository readiness for release"
+    goal: "Check all pre-flight conditions for releasing the monorepo."
     capabilities:
       - git
       - npm
     procedure: |
-      You will receive a repo slug (owner/repo) and local repo path in the task prompt.
-      cd into the local repo path for all operations.
+      cd into the repo path from the task prompt.
 
-      **Step 1 — Pre-flight checks (ALL must pass, abort on first failure):**
+      Check base conditions — abort on first failure with `$status: not_ready`:
 
-      1a. On `main` branch:
-      ```bash
-      BRANCH=$(git branch --show-current)
-      ```
-      If not `main`, output `$status: not_ready` with reason.
+      1. On `main` branch (`git branch --show-current`)
+      2. Clean working tree (`git status --porcelain` is empty)
+      3. Up to date (`git pull --ff-only` succeeds)
+      4. CI green on HEAD:
+         ```bash
+         GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+         HEAD_SHA=$(git rev-parse HEAD)
+         ```
+         Poll `GET /api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status` up to 10× (30s interval).
+         Accept `success`. Fail on `failure`/`error`. Timeout after ~5min if still `pending`.
 
-      1b. Clean working tree:
-      ```bash
-      git status --porcelain
-      ```
-      If output is non-empty, output `$status: not_ready` with reason.
+      Then check changeset and publish state:
 
-      1c. Pull latest and check for divergence:
-      ```bash
-      git pull --ff-only
-      ```
-      If this fails (diverged), output `$status: not_ready` with reason.
+      5. Look for pending changesets:
+         ```bash
+         find .changeset -name '*.md' ! -name 'README.md' -type f
+         ```
 
-      1d. Pending changesets exist:
-      ```bash
-      ls .changeset/*.md 2>/dev/null | grep -v README.md | grep -v config.json
-      ```
-      If no `.md` files found (excluding README.md and config.json), output `$status: not_ready` with reason "no pending changesets".
+      6. If no changesets, check for unpublished packages.
+         Read `proman.yaml` to get the package list. For each non-private package,
+         read its `package.json` version and check npm:
+         ```bash
+         npm view <package-name>@<local-version> version 2>/dev/null
+         ```
+         Collect packages where the local version is NOT yet on npm.
 
-      1e. CI is green on latest commit:
-      ```bash
-      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      HEAD_SHA=$(git rev-parse HEAD)
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/$HEAD_SHA/status" \
-        -H "Authorization: token $GITEA_TOKEN" | jq '{state: .state}'
-      ```
-      If state is not `success`, output `$status: not_ready` with reason.
-      If state is `pending`, wait up to 5 minutes (poll every 30s), then fail if still pending.
+      Decision:
+      - Changesets found → output `$status: ready` with changeset list
+      - No changesets, unpublished packages exist → output `$status: already_bumped` with package list
+      - No changesets, all packages already published → output `$status: not_ready` with reason "no pending changesets and all current versions published"
 
-      **Step 2 — Bump versions:**
-      ```bash
-      npx proman bump
-      ```
-      This consumes changesets, bumps package.json versions, generates CHANGELOG entries, and deletes consumed changeset files.
-      If it fails, output `$status: failed` with the error.
+      Pass through `repo` and `repoPath` from the task prompt in all non-error outputs.
+    output: "ready, already_bumped, or not_ready"
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+            changesets: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, changesets, repo, repoPath]
+        - properties:
+            $status: { const: "already_bumped" }
+            packages: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, packages, repo, repoPath]
+        - properties:
+            $status: { const: "not_ready" }
+            reason: { type: string }
+          required: [$status, reason]
 
-      Record the bumped versions from the output for later verification.
+  bumper:
+    description: "Bump versions via proman, open PR, and suspend for review"
+    goal: "Create a version bump PR and suspend until it is reviewed and merged."
+    capabilities:
+      - git
+      - npm
+    procedure: |
+      cd into the repo path.
 
-      **Step 3 — Publish:**
-      ```bash
-      npx proman publish
-      ```
-      This runs: install → build → test → check → npm publish → git commit → git tag → push.
-      If it fails, output `$status: failed` with the error and which packages succeeded/failed.
+      **First run — create the bump PR:**
 
-      **Step 4 — Verify:**
+      1. Create a release branch:
+         ```bash
+         BRANCH_NAME="release/$(date +%Y%m%d-%H%M)"
+         git checkout -b "$BRANCH_NAME"
+         ```
 
-      4a. Check npm registry for each published package:
-      ```bash
-      npm view <package-name>@<new-version> version
-      ```
-      Each should return the new version string.
+      2. Run proman bump to consume changesets and bump versions:
+         ```bash
+         npx proman bump
+         ```
+         Record the output — it lists bumped packages and their new versions.
+         If it fails, abort: `git checkout main`, output `$status: failed`.
 
-      4b. Check git tags exist locally:
-      ```bash
-      git tag -l '<package-name>@v<new-version>'
-      ```
+      3. Build and test to verify the bump is clean:
+         ```bash
+         pnpm build && pnpm test
+         ```
+         If either fails, abort: `git checkout main`, output `$status: failed`.
 
-      4c. Check Gitea has the release commit:
-      ```bash
-      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/branches/main" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.commit.message'
-      ```
-      Should start with `release: v`.
+      4. Commit and push:
+         ```bash
+         git add -A
+         git commit -m "release: bump versions
 
-      If any verification fails, output `$status: verify_failed` with details.
+         <list bumped packages and new versions from proman bump output>"
+         git push -u origin "$BRANCH_NAME"
+         ```
 
-      **Step 5 — Sync to GitHub:**
+      5. Open PR via Gitea API:
+         ```bash
+         GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+         curl -s -X POST \
+           -H "Authorization: token ${GITEA_TOKEN}" \
+           -H "Content-Type: application/json" \
+           "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls" \
+           -d '{"title":"release: bump versions","head":"'"$BRANCH_NAME"'","base":"main","body":"..."}'
+         ```
 
-      Check if a GitHub remote exists:
-      ```bash
-      git remote -v | grep github
-      ```
-      The remote might be named `origin` or `github` — use whichever points to github.com.
+      6. Emit `$SUSPEND` with reason including the PR number and URL.
 
-      If a GitHub remote exists:
-      ```bash
-      git push <github-remote> main --tags
-      ```
-      If no GitHub remote, skip this step and note it in the output.
+      **On resume — verify PR is merged:**
 
-      **Step 6 — Output results:**
-      Output `$status: released` with:
-      - List of published packages and versions
-      - Git tags created
-      - GitHub sync status
+      1. Check PR status via Gitea API.
+      2. If PR is not merged, emit `$SUSPEND` again with "PR still open — waiting for merge".
+      3. If merged:
+         ```bash
+         git checkout main && git pull --ff-only
+         ```
+      4. Collect the list of bumped packages and versions from package.json files.
+      5. Output `$status: merged` with packages, repo, and repoPath.
 
-    output: "Report the release result. Set $status to released, not_ready, failed, or verify_failed."
+    output: "merged after PR is reviewed, or $SUSPEND while waiting"
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "merged" }
+            packages: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, packages, repo, repoPath]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
+
+  publisher:
+    description: "Publish packages to npm, tag, verify, sync"
+    goal: "Publish bumped packages to npm and finalize the release."
+    capabilities:
+      - git
+      - npm
+    procedure: |
+      cd into the repo path. Should be on main with bumped versions already merged.
+
+      1. Verify on main, clean tree.
+
+      2. Run proman publish (automation token, no OTP needed):
+         ```bash
+         npx proman publish
+         ```
+         This handles: build → test → check → npm publish → git tag → push.
+         If it fails, output `$status: failed` with details on which packages succeeded/failed.
+
+      3. Verify published packages on npm:
+         For each non-private package in `proman.yaml`, check:
+         ```bash
+         npm view <package-name>@<expected-version> version
+         ```
+         Each should return the expected version.
+
+      4. Verify git tags exist:
+         ```bash
+         git tag -l '*@v*'
+         ```
+
+      5. Sync to GitHub (if remote exists):
+         ```bash
+         git remote -v | grep github
+         git push github main --tags
+         ```
+         Note result but do NOT fail the release if GitHub sync fails.
+
+      6. Output `$status: released` with packages, tags, githubSync.
+
+    output: "released, failed, or verify_failed"
     frontmatter:
       oneOf:
         - properties:
@@ -115,10 +188,6 @@ roles:
             tags: { type: string }
             githubSync: { type: string }
           required: [$status, packages, tags]
-        - properties:
-            $status: { const: "not_ready" }
-            reason: { type: string }
-          required: [$status, reason]
         - properties:
             $status: { const: "failed" }
             reason: { type: string }
@@ -132,10 +201,16 @@ roles:
 
 graph:
   $START:
-    new: { role: "releaser", prompt: "Release {{{repo}}} from {{{repoPath}}}." }
-    resume: { role: "releaser", prompt: "Retry release for {{{repo}}} from {{{repoPath}}}." }
-  releaser:
-    released: { role: "$END", prompt: "✅ Release complete. Published: {{{packages}}}. Tags: {{{tags}}}. GitHub: {{{githubSync}}}" }
-    not_ready: { role: "$END", prompt: "⏸ Release aborted — pre-flight failed: {{{reason}}}" }
+    new: { role: "preflight", prompt: "Pre-flight check for releasing {{{repo}}} from {{{repoPath}}}." }
+    resume: { role: "preflight", prompt: "Re-check release readiness for {{{repo}}} at {{{repoPath}}}." }
+  preflight:
+    ready: { role: "bumper", prompt: "Bump versions for {{{repo}}} at {{{repoPath}}}. Pending changesets:\n{{{changesets}}}" }
+    already_bumped: { role: "publisher", prompt: "Publish {{{repo}}} from {{{repoPath}}}. Unpublished packages:\n{{{packages}}}" }
+    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
+  bumper:
+    merged: { role: "publisher", prompt: "Publish {{{repo}}} from {{{repoPath}}}. Bumped packages:\n{{{packages}}}" }
+    failed: { role: "$END", prompt: "❌ Bump failed: {{{reason}}}" }
+  publisher:
+    released: { role: "$END", prompt: "✅ Released {{{packages}}}. Tags: {{{tags}}}. GitHub: {{{githubSync}}}" }
     failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
-    verify_failed: { role: "$END", prompt: "⚠️ Release may be partial — verification failed: {{{reason}}}" }
+    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{{reason}}}" }
