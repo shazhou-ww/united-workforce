@@ -80,7 +80,10 @@ Fixes #N
 
 ## Adding a Changeset
 
-For any user-facing change (feat, fix, breaking change), add a changeset:
+Add a changeset for **user-facing changes** only:
+
+- ✅ `feat`, `fix`, breaking changes
+- ❌ `chore`, `test`, `docs` (unless affecting public API surface)
 
 ```bash
 bun changeset
