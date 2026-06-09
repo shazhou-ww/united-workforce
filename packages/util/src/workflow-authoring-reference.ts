@@ -253,8 +253,6 @@ Validate workflow YAML before committing or in CI:
 uwf workflow validate my-workflow.yaml
 \`\`\`
 
-> **Note:** \`uwf workflow validate\` is landing in PR #196. Until it ships, register with
-> \`uwf workflow add <file>\` (which runs schema + semantic validation) or start a test thread.
 
 Checks include JSON Schema conformance, graph edge completeness, Mustache field references,
 and reserved-name rules (e.g. \`$SUSPEND\` is not a valid graph target).
