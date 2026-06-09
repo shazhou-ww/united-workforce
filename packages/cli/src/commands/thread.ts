@@ -1159,7 +1159,7 @@ export async function cmdThreadResume(
   }
 
   const startRole = startResult.value.role;
-  const completedResumePrompt = buildResumePrompt(startResult.value.prompt, supplement);
+  const endResumePrompt = buildResumePrompt(startResult.value.prompt, supplement);
 
   const updatedEntry = { ...entry, status: "idle" as const, completedAt: null };
   setThread(uwf.varStore, threadId, updatedEntry);
@@ -1172,7 +1172,7 @@ export async function cmdThreadResume(
 
   return cmdThreadStepOnce(storageRoot, threadId, agentOverride, plog, {
     role: startRole,
-    prompt: completedResumePrompt,
+    prompt: endResumePrompt,
   });
 }
 

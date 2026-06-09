@@ -354,7 +354,7 @@ describe("uwf thread poke - guard errors", () => {
     const { casDir } = await setupThread({ threadStatus: "end" });
     const result = runUwf(["thread", "poke", THREAD_ID, "-p", "prompt"], casDir);
     expect(result.status).not.toBe(0);
-    expect(result.stderr.toLowerCase()).toMatch(/cannot be poked|completed/);
+    expect(result.stderr.toLowerCase()).toMatch(/cannot be poked|end/);
   });
 
   test("2.4 cancelled thread rejects poke", async () => {

@@ -54,6 +54,23 @@ describe("thread-index", () => {
     });
   });
 
+  test("normalizeThreadIndexEntry migrates legacy 'completed' status to 'end'", () => {
+    const entry = normalizeThreadIndexEntry({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "completed",
+      completedAt: 1234567890,
+    });
+    expect(entry).toEqual({
+      head: "0123456789ABC",
+      suspendedRole: null,
+      suspendMessage: null,
+      status: "end",
+      completedAt: 1234567890,
+    });
+  });
+
   test("normalizeThreadIndexEntry defaults status=idle, completedAt=null for old data", () => {
     const entry = normalizeThreadIndexEntry({
       head: "0123456789ABC",
