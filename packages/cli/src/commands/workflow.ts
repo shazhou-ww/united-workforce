@@ -112,6 +112,47 @@ export async function materializeWorkflowPayload(
   };
 }
 
+/**
+ * Validate a workflow YAML file without registering it.
+ *
+ * CI-friendly: does not touch CAS or the workflow registry. On success,
+ * returns silently (no stdout/stderr) and exits 0. On any error, writes a
+ * single message to stderr and exits 1.
+ */
+export async function cmdWorkflowValidate(filePath: string): Promise<void> {
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch {
+    fail(`file not found: ${filePath}`);
+  }
+
+  let raw: unknown;
+  try {
+    raw = parse(text, {
+      customTags: [createIncludeTag(dirname(resolvePath(filePath)))],
+    }) as unknown;
+  } catch (e) {
+    fail(`invalid YAML: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  const payload = parseWorkflowPayload(raw);
+  if (payload === null) {
+    fail("invalid workflow YAML: expected WorkflowPayload shape");
+  }
+
+  const filenameError = checkWorkflowFilenameConsistency(filePath, payload);
+  if (filenameError !== null) {
+    fail(filenameError);
+  }
+
+  const semanticErrors = validateWorkflow(payload);
+  if (semanticErrors.length > 0) {
+    fail(`workflow validation failed:\n${semanticErrors.map((e) => `  - ${e}`).join("\n")}`);
+  }
+  // success: silent return
+}
+
 export async function cmdWorkflowAdd(
   storageRoot: string,
   filePath: string,
