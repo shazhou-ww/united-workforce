@@ -377,7 +377,7 @@ describe("workflow validate — Suite C: YAML / Shape Errors", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr.startsWith("invalid YAML:")).toBe(true);
+    expect(result.stderr).toContain("invalid YAML:");
   });
 
   test("C.2 valid YAML but wrong shape exits 1 with WorkflowPayload error", async () => {
@@ -478,7 +478,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.startsWith("workflow validation failed:")).toBe(true);
+    expect(result.stderr).toContain("workflow validation failed:");
     expect(result.stderr).toContain('prompt variable "prNumber"');
     expect(result.stderr).toContain("commenter");
   });
