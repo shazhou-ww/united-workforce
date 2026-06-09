@@ -56,4 +56,16 @@ describe("mergeUsage", () => {
       duration: 394,
     });
   });
+
+  test("handles zero-value Usage (distinct from null)", () => {
+    const zero: Usage = {
+      turns: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      duration: 0,
+    };
+    expect(mergeUsage(primary, zero)).toEqual(primary);
+    expect(mergeUsage(zero, retry)).toEqual(retry);
+    expect(mergeUsage(zero, zero)).toEqual(zero);
+  });
 });
