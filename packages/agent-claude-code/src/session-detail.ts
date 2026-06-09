@@ -186,7 +186,9 @@ function assembleResult(state: ParseState): ClaudeCodeParsedResult | null {
     subtype: subtype as ClaudeCodeParsedResult["subtype"],
     result,
     sessionId,
-    numTurns: safeNumber(state.resultLine.num_turns),
+    // CC's result line `num_turns` reports only the final summary turn (always 1),
+    // not cumulative session turns. Use the actual parsed turns from streaming.
+    numTurns: state.turns.length,
     totalCostUsd: safeNumber(state.resultLine.total_cost_usd),
     durationMs: safeNumber(state.resultLine.duration_ms),
     model: state.model,
