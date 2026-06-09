@@ -66,6 +66,10 @@ roles:
       This returns all previous reviews with their state (APPROVED, REQUEST_CHANGES) and body.
       Pass this to the reviewer so they know what has already been flagged and don't repeat.
 
+      **Self-approval shortcut:** If the existing reviews show that `$CURRENT_USER` has already
+      submitted an APPROVED review on this PR, output `$status: already_approved` immediately.
+      There is no need to re-review — skip directly to merger.
+
       **Step 4 — Collect PR metadata:**
       - PR title and description
       - Changed file count and line counts (+/-)
@@ -92,6 +96,11 @@ roles:
             author: { type: string }
             reason: { type: string }
           required: [$status, repo, prNumber, author, reason]
+        - properties:
+            $status: { const: "already_approved" }
+            repo: { type: string }
+            prNumber: { type: integer }
+          required: [$status, repo, prNumber]
 
   reviewer:
     description: "Structured code review — decide if the PR can merge"
@@ -135,7 +144,7 @@ roles:
       4. **Race conditions** — Concurrent access patterns, shared mutable state, async pitfalls.
       5. **Breaking changes** — API surface changes, removed exports, schema changes. Must be flagged in changeset.
       6. **Test coverage** — New code has tests, edge cases covered, no test-only code in production.
-      7. **Changeset** — Check if `.changeset/` directory exists in the repo root. If yes, the project uses changesets — verify the PR includes one with correct bump type (patch/minor/major) and affected packages. If no `.changeset/` directory, skip this item.
+      7. **Changeset** — Only check this if the PR modifies files under `packages/` (source code of published npm packages). Skip for workflow files, docs, specs, config, and other non-package files. When applicable: check if `.changeset/` directory exists in the repo root. If yes, the project uses changesets — verify the PR includes one with correct bump type (patch/minor/major) and affected packages. If no `.changeset/` directory, skip this item.
       8. **Architecture** — Follows existing patterns, proper module boundaries, no circular deps.
       9. **Documentation** — README, JSDoc, inline comments for non-obvious logic.
       10. **Style** — Naming conventions, no console.log in production, consistent patterns.
@@ -148,6 +157,7 @@ roles:
       **Rules:**
       - Do NOT repeat issues already raised in existing reviews (provided in task prompt). If a previous review flagged an issue and it's still present, mention it briefly as "previously flagged, still unresolved" but do NOT write a full new finding for it.
       - If a previous review raised an issue and it has been fixed in the current code, do NOT mention it at all.
+      - If existing reviews contain author responses that explain a finding as intentional design or pre-existing (outside the PR's scope), do NOT re-raise that finding unless you have NEW technical evidence that contradicts the explanation.
       - For each finding, reference the specific file and line number.
       - If a finding maps to a checklist item, reference the item number.
       - Read full file context in the worktree when the diff alone is ambiguous.
@@ -320,6 +330,7 @@ graph:
   fetcher:
     ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}" }
     self_review: { role: "$END", prompt: "Self-review detected for PR #{{{prNumber}}} in {{{repo}}}. Author: {{{author}}}. {{{reason}}}. Workflow terminated — project policy prohibits self-review." }
+    already_approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} was already approved by us. Skip review, proceed directly to merge." }
   reviewer:
     approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open one consolidated tracking issue): {{{suggestions}}}. Summary: {{{summary}}}" }
     request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}" }
