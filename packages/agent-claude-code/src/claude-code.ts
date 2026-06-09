@@ -230,7 +230,7 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
           exitCode,
           ctx.store,
           resumePrompt,
-          Date.now() - startMs,
+          Date.now() - startMs, // wall-clock elapsed, not CC result line duration
         );
         if (result.sessionId !== undefined && result.sessionId !== "") {
           await setCachedSessionId(
@@ -259,7 +259,7 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
     exitCode,
     ctx.store,
     fullPrompt,
-    Date.now() - startMs,
+    Date.now() - startMs, // wall-clock elapsed, not CC result line duration
   );
   if (result.sessionId !== undefined && result.sessionId !== "") {
     await setCachedSessionId(
@@ -281,7 +281,7 @@ async function continueClaudeCode(
 ): Promise<AgentRunResult> {
   const startMs = Date.now();
   const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message, model);
-  return processClaudeOutput(stdout, stderr, exitCode, store, "", Date.now() - startMs);
+  return processClaudeOutput(stdout, stderr, exitCode, store, "", Date.now() - startMs); // wall-clock elapsed, not CC result line duration
 }
 
 /** Agent CLI factory: parses argv, runs Claude Code, extracts output, writes StepNode. */
