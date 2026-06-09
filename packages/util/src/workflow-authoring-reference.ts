@@ -231,6 +231,15 @@ graph:
 
 The \`cloner\` step runs in the thread's start cwd; the \`developer\` edge sets \`location: "{{{repoPath}}}"\`, so the moderator renders the cloner's \`repoPath\` field and the developer agent runs inside that newly cloned directory — dispatching across different repos within a single thread.
 
+#### Path resolution
+
+\`location\` values are used as-is after Mustache rendering — no additional path resolution is applied.
+
+- **Absolute paths** — used directly (e.g. \`/home/user/repos/my-project\`)
+- **Relative paths** — resolved by Node.js against the thread's start cwd (\`StartNodePayload.cwd\`), not the current step's cwd
+
+In practice, use absolute paths (typically rendered from a previous step's frontmatter) to avoid ambiguity.
+
 ## Suspend (\`$SUSPEND\`)
 
 \`$SUSPEND\` is an engine-level coroutine yield — **not** a graph target. Any role may emit it
