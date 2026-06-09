@@ -103,6 +103,30 @@ roles:
       cd into the worktree path provided in the task prompt. All file reads and
       tool invocations must happen inside the worktree.
 
+      **Step 0 — Understand context before reviewing (MUST do first):**
+
+      0a. Read project conventions:
+      ```bash
+      cat CLAUDE.md 2>/dev/null
+      cat CONTRIBUTING.md 2>/dev/null
+      cat .cursor/rules/*.mdc 2>/dev/null
+      ```
+      These files define the project's tech stack, conventions, and standards.
+      Your review MUST respect these conventions — if the project says "use pnpm",
+      do not suggest npm; if it says "use vitest", do not suggest jest.
+      Any finding that contradicts the project's own conventions is WRONG.
+
+      0b. Identify what you are reviewing:
+      Adapt your review approach to the type of artifact being changed:
+      - **Source code** (.ts, .js, .py, etc.) — review as executable code. Correctness, type safety, error handling all apply strictly.
+      - **Workflow definitions** (.workflows/*.yaml, .workflow/*.yaml, examples/*.yaml) — these are **LLM agent procedures**, NOT executable scripts. Before reviewing, read the authoring guide:
+        ```bash
+        uwf prompt workflow-authoring
+        ```
+        Key insight: the `procedure:` field contains prose instructions + illustrative bash snippets that guide an AI agent. The agent interprets the intent and fills gaps autonomously. Do NOT treat bash snippets as complete shell scripts. Focus on: whether the procedure's *intent* is clear, whether the steps are in a safe order, whether error/rollback paths cover all dirty state, and whether the output schema captures all meaningful outcomes.
+      - **Config files** (package.json, tsconfig, biome.json, etc.) — review for correctness and consistency with project conventions.
+      - **Documentation** (README, docs/) — review for accuracy and completeness.
+
       **Review checklist (in priority order):**
 
       1. **Correctness** — Does the code do what the PR claims? Logic errors, off-by-one, null handling.
@@ -204,7 +228,9 @@ roles:
         - properties:
             $status: { const: "approved" }
             issuesCreated: { type: integer }
-          required: [$status, issuesCreated]
+            repo: { type: string }
+            prNumber: { type: integer }
+          required: [$status, issuesCreated, repo, prNumber]
 
   merger:
     description: "Waits for CI, checks mergeability, and merges the PR"
