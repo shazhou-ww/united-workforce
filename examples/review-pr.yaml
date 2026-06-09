@@ -187,28 +187,32 @@ roles:
       The review body should include:
       - Summary
       - All issues (numbered, with file:line refs)
+      - A reminder at the end: "When fixing these issues, include `Fixes #<issue>` or `Closes #<issue>` in your commit message so tracking issues close automatically when the PR merges."
 
       Do NOT open any tracking issues — the author will fix everything and push a new version.
 
       **Path B — Approval with suggestions:**
 
-      Open tracking issues for each suggestion. First, search existing issues to avoid duplicates:
+      If there are no suggestions, skip issue creation entirely and submit the approval.
+
+      If there ARE suggestions, open ONE consolidated tracking issue (not one per suggestion).
+      First, search existing issues to avoid duplicates:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues?state=open&type=issues&limit=50" \
         -H "Authorization: token $GITEA_TOKEN" | jq '[.[] | {number, title}]'
       ```
 
-      For each suggestion, check if an existing open issue already covers it.
-      - If YES: skip, note the existing issue number.
-      - If NO: create a tracking issue:
+      Check if a consolidated review feedback issue already exists for this PR (title contains "PR #<number>").
+      - If YES: skip issue creation, note the existing issue number.
+      - If NO: create ONE issue covering ALL suggestions:
       ```bash
       tea issues create -r <owner/repo> \
-        -t "Review feedback: <short description>" \
-        -d "From PR #<number> review:\n\n<detailed description with file:line ref>\n\nRef: PR #<number>"
+        -t "Review feedback: PR #<number> — <N> non-blocking suggestions" \
+        -d "From PR #<number> review:\n\n<all suggestions listed with file:line refs>\n\nRef: PR #<number>"
       ```
 
-      If there are no suggestions, skip issue creation entirely.
+      IMPORTANT: Do NOT create one issue per suggestion. All suggestions go in one issue body.
 
       **Output:**
       Report what was done: review state, number of issues opened (if any), and their URLs.
@@ -317,7 +321,7 @@ graph:
     ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}" }
     self_review: { role: "$END", prompt: "Self-review detected for PR #{{{prNumber}}} in {{{repo}}}. Author: {{{author}}}. {{{reason}}}. Workflow terminated — project policy prohibits self-review." }
   reviewer:
-    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open issues for these): {{{suggestions}}}. Summary: {{{summary}}}" }
+    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open one consolidated tracking issue): {{{suggestions}}}. Summary: {{{summary}}}" }
     request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}" }
   merger:
     merged: { role: "$END", prompt: "PR merged successfully." }
