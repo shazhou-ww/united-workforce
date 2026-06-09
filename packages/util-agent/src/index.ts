@@ -11,7 +11,7 @@ export {
   trySuspendFastPath,
 } from "./frontmatter.js";
 export { buildFrontmatterRetryPrompt } from "./frontmatter-retry-prompt.js";
-export { createAgent, parseArgv } from "./run.js";
+export { createAgent, mergeUsage, parseArgv } from "./run.js";
 export {
   getAskSessionId,
   getCachedSessionId,

@@ -17,6 +17,18 @@ import type { AdapterOutput, AgentOptions } from "./types.js";
 
 const MAX_FRONTMATTER_RETRIES = 2;
 
+/** Sum two Usage records.  Null-safe: returns whichever side is non-null. */
+export function mergeUsage(a: Usage | null, b: Usage | null): Usage | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return {
+    turns: a.turns + b.turns,
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    duration: a.duration + b.duration,
+  };
+}
+
 /** Variable name prefix tracking failed step hashes per (thread, role). */
 const THREAD_FAILED_VAR_PREFIX = "@uwf/thread-failed/";
 
@@ -278,6 +290,10 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     // formatting and their 1-turn detail is not meaningful.
     const primaryDetailHash = agentResult.detailHash;
 
+    // Accumulate usage across the primary run and any frontmatter retries so
+    // the final StepRecord reflects total resource consumption.
+    let accumulatedUsage: Usage | null = agentResult.usage;
+
     // Try to extract frontmatter; retry via continue if it fails
     let extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
 
@@ -291,6 +307,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
         options.continue(agentResult.sessionId, correctionMessage, ctx.meta.store),
       );
       agentResult.output = agentResult.output.trimStart();
+      accumulatedUsage = mergeUsage(accumulatedUsage, agentResult.usage);
       extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
     }
 
@@ -322,7 +339,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
         startedAtMs,
         completedAtMs,
         assembledPromptHash: null,
-        usage: agentResult.usage,
+        usage: accumulatedUsage,
         previousAttempts: null,
       });
 
@@ -344,7 +361,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
         body: "",
         startedAtMs,
         completedAtMs,
-        usage: agentResult.usage,
+        usage: accumulatedUsage,
         isError: true,
         errorMessage,
       };
@@ -352,7 +369,7 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
       return;
     }
     const completedAtMs = Date.now();
-    const usage = agentResult.usage;
+    const usage = accumulatedUsage;
 
     // Store the assembled prompt in CAS for later inspection via `step read --prompt`
     const promptText = agentResult.assembledPrompt;
