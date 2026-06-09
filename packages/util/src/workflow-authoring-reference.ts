@@ -159,6 +159,70 @@ graph:
     failed: { role: cleanup, prompt: "Clean up: {{{error}}}" }
 \`\`\`
 
+## Suspend (\`$SUSPEND\`)
+
+\`$SUSPEND\` is an engine-level coroutine yield — **not** a graph target. Any role may emit it
+from its output to pause the thread until external input arrives.
+
+### SuspendOutput
+
+When a role yields, it emits this reserved output shape (validated against \`SuspendOutput\`,
+not the role's own frontmatter schema):
+
+\`\`\`yaml
+---
+$status: "$SUSPEND"
+reason: "Waiting for human approval on PR #42"
+---
+\`\`\`
+
+| Field | Purpose |
+|-------|---------|
+| \`$status\` | Must be the literal \`"$SUSPEND"\` |
+| \`reason\` | Human-readable explanation of why the thread paused |
+
+The engine intercepts \`$SUSPEND\` before the moderator: the step is written to CAS, the thread
+status becomes \`suspended\`, and routing stops. \`uwf thread resume\` re-runs the **same role**
+with its original prompt plus an optional supplementary prompt (\`-p\`).
+
+### Design Guidelines
+
+- Do **not** add \`$SUSPEND\` as a graph edge target — \`role: "$SUSPEND"\` fails validation
+- Do **not** declare \`$SUSPEND\` in the role's frontmatter schema — it is engine-reserved
+- Use suspend when a role needs human input, external approval, or a long-running async result
+- Pair with clear \`reason\` text so operators know what to provide before resuming
+
+### Example
+
+\`\`\`yaml
+roles:
+  planner:
+    description: "Plan the implementation"
+    goal: "Produce a plan or request missing info"
+    capabilities: []
+    procedure: |
+      1. Analyze the prompt
+      2. If info is missing, emit $status "$SUSPEND" with a reason
+      3. Otherwise output $status ready with the plan
+    output: "ready with plan, or $SUSPEND with reason if blocked"
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: "ready" }
+        plan: { type: string }
+      required: [$status, plan]
+
+graph:
+  $START:
+    new: { role: planner, prompt: "Analyze the task." }
+    resume: { role: planner, prompt: "Continue with the provided info." }
+  planner:
+    ready: { role: $END, prompt: "Done." }
+\`\`\`
+
+When the planner emits \`$SUSPEND\`, the operator runs \`uwf thread resume <id> -p "Here is the missing info"\`
+and the planner role runs again with the supplement appended to its prompt.
+
 ## Placement
 
 Drop your workflow YAML under a project-local \`.workflows/\` directory at (or above)
@@ -180,6 +244,20 @@ matches what \`thread start\` can resolve. No workflow add registration needed �
 Folder-based layouts also work — \`.workflows/<name>/index.yaml\` (or \`index.yml\`) is
 discovered as workflow \`<name>\`. The legacy \`.workflow/\` (singular) directory
 remains supported as a fallback when \`.workflows/\` is absent.
+
+## Validation
+
+Validate workflow YAML before committing or in CI:
+
+\`\`\`bash
+uwf workflow validate my-workflow.yaml
+\`\`\`
+
+> **Note:** \`uwf workflow validate\` is landing in PR #196. Until it ships, register with
+> \`uwf workflow add <file>\` (which runs schema + semantic validation) or start a test thread.
+
+Checks include JSON Schema conformance, graph edge completeness, Mustache field references,
+and reserved-name rules (e.g. \`$SUSPEND\` is not a valid graph target).
 
 ## Self-Testing
 
