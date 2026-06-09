@@ -59,12 +59,8 @@ uwf workflow add <file>            # register from YAML file (optional)
 uwf workflow validate <file>       # validate a workflow YAML without registering (CI-friendly)
 uwf workflow show <id>             # show by name or CAS hash
 uwf workflow list                  # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
-uwf workflow validate <file>       # validate workflow YAML (schema + semantic checks) — coming in v0.4
 \`\`\`
 
-> **Note:** \`uwf workflow validate\` is landing in PR #196. Until it ships, use
-> \`uwf workflow add <file>\` (which validates on registration) or start a thread to
-> catch schema errors at runtime.
 
 Three placement strategies, in priority order:
 
