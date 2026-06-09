@@ -17,7 +17,17 @@ import type { AdapterOutput, AgentOptions } from "./types.js";
 
 const MAX_FRONTMATTER_RETRIES = 2;
 
-/** Sum two Usage records.  Null-safe: returns whichever side is non-null. */
+/**
+ * Sum two Usage records, accumulating turns, tokens, and duration.
+ *
+ * Used during frontmatter retry to preserve the primary run's usage:
+ * when `options.continue()` returns a correction turn, the result is
+ * merged into the running total so `StepRecord.usage` reflects the
+ * full resource consumption (primary + all retries).
+ *
+ * Null-safe: returns whichever side is non-null, or null when both are
+ * (handles legacy steps / adapters that don't report usage).
+ */
 export function mergeUsage(a: Usage | null, b: Usage | null): Usage | null {
   if (a === null) return b;
   if (b === null) return a;
