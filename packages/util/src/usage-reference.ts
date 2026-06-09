@@ -58,7 +58,12 @@ builtin adapter). Override storage root with \`UWF_HOME\`.
 uwf workflow add <file>            # register from YAML file (optional)
 uwf workflow show <id>             # show by name or CAS hash
 uwf workflow list                  # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
+uwf workflow validate <file>       # validate workflow YAML (schema + semantic checks) — coming in v0.4
 \`\`\`
+
+> **Note:** \`uwf workflow validate\` is landing in PR #196. Until it ships, use
+> \`uwf workflow add <file>\` (which validates on registration) or start a thread to
+> catch schema errors at runtime.
 
 Three placement strategies, in priority order:
 
@@ -86,6 +91,11 @@ uwf thread read <thread-id>                        # render context as markdown
                [--quota <chars>]                   # max output chars (default 4000)
                [--before <step-hash>]              # pagination
                [--start]                           # include start step
+uwf thread resume <thread-id>                      # resume a suspended thread
+               [-p, --prompt <text>]              # supplementary info appended to resume prompt
+               [--agent <cmd>]                     # override agent
+uwf thread poke <thread-id> -p <prompt>            # re-run head step agent (replaces head step)
+               [--agent <cmd>]                     # override agent
 uwf thread stop <thread-id>                        # stop background execution
 uwf thread cancel <thread-id>                      # cancel and archive thread
 \`\`\`
@@ -93,8 +103,44 @@ uwf thread cancel <thread-id>                      # cancel and archive thread
 ### Typical Lifecycle
 
 \`\`\`
-start → exec (repeat) → thread reaches $END → auto-end
+start → exec (repeat) → thread reaches $END → auto-end (status: end)
+                       → or: role yields $SUSPEND → suspended → thread resume
                        → or: cancel to abort
+\`\`\`
+
+### Suspend and Resume (\`$SUSPEND\`)
+
+Any role may yield control by emitting \`$status: "$SUSPEND"\` with a \`reason\` string in its
+frontmatter output. The engine intercepts this before the moderator: the step is written to CAS,
+the thread status becomes \`suspended\`, and routing pauses until a human or external process
+continues.
+
+\`\`\`yaml
+---
+$status: "$SUSPEND"
+reason: "Need API credentials before continuing"
+---
+\`\`\`
+
+Resume the suspended thread to re-run the same role with its original prompt plus optional
+supplementary context:
+
+\`\`\`bash
+uwf thread resume <thread-id>
+uwf thread resume <thread-id> -p "Credentials are in ~/.secrets/api.env"
+\`\`\`
+
+\`thread resume\` also works on ended threads — it re-evaluates \`$START.resume\` and begins a
+new run from the workflow's resume entry point.
+
+### Poke
+
+\`thread poke\` re-runs the head step's agent with a supplementary prompt, **replacing** the
+head step (not appending). Unlike \`thread resume\`, poke skips the moderator and reuses the
+head step's role. Works on idle and suspended threads.
+
+\`\`\`bash
+uwf thread poke <thread-id> -p "Re-read the file and fix the import error"
 \`\`\`
 
 ## Step Commands
@@ -126,6 +172,23 @@ ocas walk <hash>                # recursive traversal
 ocas reindex                    # rebuild type index
 ocas schema list                # list schemas
 ocas schema get <hash>          # show schema definition
+\`\`\`
+
+## Config Commands
+
+Engine config lives in \`~/.uwf/config.yaml\` (override storage root with \`UWF_HOME\`).
+
+\`\`\`
+uwf config list                    # display all config values (API keys masked)
+uwf config get <key>               # get a value by dot-notation path (e.g. defaultAgent)
+uwf config set <key> <value>       # set a value (use JSON array for list values, e.g. args)
+\`\`\`
+
+Example:
+
+\`\`\`bash
+uwf config get defaultAgent
+uwf config set defaultAgent uwf-hermes
 \`\`\`
 
 ## Log Commands

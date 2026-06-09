@@ -241,7 +241,17 @@ uwf thread exec <thread-id>
 uwf thread show <thread-id>
 \`\`\`
 
-If the thread reaches \`$END\` with status \`completed\`, the setup is working.
+If the thread reaches \`$END\` with status \`end\`, the setup is working.
+
+To verify suspend/resume and poke:
+
+\`\`\`bash
+# After a role yields with $status: "$SUSPEND", resume the suspended thread:
+uwf thread resume <thread-id> -p "Additional context for the agent"
+
+# Re-run the head step's agent with a supplementary prompt (replaces head step):
+uwf thread poke <thread-id> -p "Try again with this hint"
+\`\`\`
 
 ## Scenario B: Upgrade from Previous Version
 
@@ -309,6 +319,9 @@ Update all \`.workflows/\` and \`.workflow/\` YAML files in your projects. \`uwf
   $status: { const: "done" }
   # For multi-exit, use oneOf with const (unchanged)
   \`\`\`
+
+- **v0.4.0**: Thread status \`completed\` → \`end\`. Update scripts that filter \`--status completed\` to use \`--status end\`. Legacy on-disk \`status: completed\` is normalized to \`end\` on read.
+- **v0.4.0**: \`$SUSPEND\` is now an engine-level coroutine yield, not a graph target. Workflows that routed to \`role: "$SUSPEND"\` must emit \`$status: "$SUSPEND"\` with a \`reason\` from the role output instead. The thread becomes \`suspended\`; continue with \`uwf thread resume\`.
 
 ### Step 4 — Verify
 
