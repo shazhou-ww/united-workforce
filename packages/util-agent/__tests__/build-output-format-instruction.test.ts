@@ -46,7 +46,12 @@ describe("buildOutputFormatInstruction", () => {
   test("generates reviewer-specific YAML example from schema", () => {
     const result = buildOutputFormatInstruction(REVIEWER_SCHEMA);
     expect(result).toContain("approved: true  # required | true | false");
-    expect(result).not.toContain("status:");
+    // The YAML example block should not contain a `status:` field from the schema,
+    // but the $SUSPEND instruction (engine-level) legitimately contains `$status:`.
+    // Verify schema-level absence by checking the example block only.
+    const exampleMatch = result.match(/```\n(---[\s\S]*?---)\n/);
+    expect(exampleMatch).not.toBeNull();
+    expect(exampleMatch![1]).not.toContain("status:");
   });
 
   test("lists fields from a flat object schema with required marker", () => {

@@ -273,6 +273,19 @@ ${variantBlocks}
 The frontmatter is the **primary deliverable** — the engine reads it directly.
 Output ONLY the fields listed for your chosen variant. Do not add extra fields that are not specified in the schema.
 
+### Suspend (coroutine yield)
+
+In addition to the variants above, you may pause the thread by emitting:
+
+\`\`\`
+---
+$status: "$SUSPEND"
+reason: "Human-readable explanation of why you are pausing"
+---
+\`\`\`
+
+The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. Use this when you need human input, external approval, or must wait for an async result before continuing. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
+
 Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
     }
   }
@@ -296,6 +309,19 @@ Your meta output must satisfy these fields:
 ${fieldList}
 
 Output ONLY the fields listed above. Do not add extra fields that are not specified in the schema.
+
+### Suspend (coroutine yield)
+
+In addition to the format above, you may pause the thread by emitting:
+
+\`\`\`
+---
+$status: "$SUSPEND"
+reason: "Human-readable explanation of why you are pausing"
+---
+\`\`\`
+
+The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. Use this when you need human input, external approval, or must wait for an async result before continuing. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
 
 Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
 }
