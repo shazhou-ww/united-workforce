@@ -55,11 +55,16 @@ roles:
         -H "Authorization: token $(cfg get GITEA_TOKEN)" | jq -r '.[] | "=== \(.filename) ===\n\(.patch)"'
       ```
 
-      **Step 3 — Collect existing review comments:**
+      **Step 3 — Collect existing reviews:**
+      Use the Gitea API (NOT `tea pr review-comments` which is broken):
       ```bash
-      tea pr review-comments <number> -r <owner/repo> -f id,path,line,body,reviewer -o json
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>/reviews" \
+        -H "Authorization: token $GITEA_TOKEN" \
+        | jq '[.[] | {state, body, reviewer: .user.login}]'
       ```
-      This tells the reviewer what has already been commented on, so they don't repeat.
+      This returns all previous reviews with their state (APPROVED, REQUEST_CHANGES) and body.
+      Pass this to the reviewer so they know what has already been flagged and don't repeat.
 
       **Step 4 — Collect PR metadata:**
       - PR title and description
@@ -69,7 +74,7 @@ roles:
 
       Output all collected context for the reviewer.
 
-    output: "Output the PR metadata, diff summary, changed files list, existing comments, and worktree path. If self-review detected, output $status: self_review immediately."
+    output: "Output the PR metadata, diff summary, changed files list, existing reviews, and worktree path. If self-review detected, output $status: self_review immediately."
     frontmatter:
       oneOf:
         - properties:
@@ -78,8 +83,8 @@ roles:
             prNumber: { type: integer }
             worktree: { type: string }
             changedFiles: { type: string }
-            existingComments: { type: string }
-          required: [$status, repo, prNumber, worktree, changedFiles, existingComments]
+            existingReviews: { type: string }
+          required: [$status, repo, prNumber, worktree, changedFiles, existingReviews]
         - properties:
             $status: { const: "self_review" }
             repo: { type: string }
@@ -89,8 +94,8 @@ roles:
           required: [$status, repo, prNumber, author, reason]
 
   reviewer:
-    description: "Structured code review against checklist"
-    goal: "You are a code reviewer. You perform a thorough, structured review of a PR against a defined checklist. You identify blocking issues and non-blocking suggestions separately."
+    description: "Structured code review — decide if the PR can merge"
+    goal: "You are a code reviewer. You review a PR against a checklist and make a single decision: can this PR merge, or must the author fix something first?"
     capabilities:
       - code-review
       - static-analysis
@@ -111,82 +116,95 @@ roles:
       9. **Documentation** — README, JSDoc, inline comments for non-obvious logic.
       10. **Style** — Naming conventions, no console.log in production, consistent patterns.
 
-      **Classify each finding:**
-      - **blocking** — Must fix before merge. Bugs, type safety holes, missing error handling, missing tests.
-      - **non-blocking** — Good to fix but doesn't block. Style nits, minor naming, doc improvements.
+      **Your single decision: can this PR merge?**
+
+      - **approve** — The code is correct and safe. You may still have suggestions for improvement (style, naming, minor refactors) — list them in `suggestions`. These will be tracked as issues but won't block the merge.
+      - **request_changes** — There are problems that must be fixed before merge (bugs, type safety holes, missing error handling, missing tests, etc.). List ALL issues in `issues` — the PR will be rejected and the author fixes everything in one pass.
 
       **Rules:**
-      - Do NOT repeat issues already raised in existing review comments (provided in task prompt).
+      - Do NOT repeat issues already raised in existing reviews (provided in task prompt). If a previous review flagged an issue and it's still present, mention it briefly as "previously flagged, still unresolved" but do NOT write a full new finding for it.
+      - If a previous review raised an issue and it has been fixed in the current code, do NOT mention it at all.
       - For each finding, reference the specific file and line number.
       - If a finding maps to a checklist item, reference the item number.
       - Read full file context in the worktree when the diff alone is ambiguous.
 
-      **Verdict:**
-      - If ANY blocking issues exist → $status=request_changes
-      - If ONLY non-blocking issues exist → $status=request_changes (non-blocking items need issues)
-      - If NO issues at all → $status=approve
-
-    output: "List all findings with file:line references and blocking/non-blocking classification. Set $status to approve or request_changes."
+    output: "List all findings with file:line references. Set $status to approve or request_changes."
     frontmatter:
       oneOf:
         - properties:
             $status: { const: "approve" }
             summary: { type: string }
+            suggestions: { type: string }
             repo: { type: string }
             prNumber: { type: integer }
           required: [$status, summary, repo, prNumber]
         - properties:
             $status: { const: "request_changes" }
-            blockingIssues: { type: string }
-            nonBlockingIssues: { type: string }
+            issues: { type: string }
             summary: { type: string }
             repo: { type: string }
             prNumber: { type: integer }
-          required: [$status, summary, repo, prNumber]
+          required: [$status, issues, summary, repo, prNumber]
 
   commenter:
-    description: "Submits review feedback and opens follow-up issues"
-    goal: "You submit review feedback on a Gitea PR and open follow-up issues for non-blocking items. This is the unified 'feedback exit' — whether the reviewer found problems or the merger hit a conflict."
+    description: "Submits review feedback and/or opens follow-up issues"
+    goal: "You handle the feedback side of a PR review. On rejection, you submit the review. On approval, you open tracking issues for suggestions."
     capabilities: []
     procedure: |
       You receive the repo, PR number, and review findings in the task prompt.
+      Your behavior depends on the review outcome:
 
-      **Step 1 — Submit the review:**
+      **Path A — Rejection (request_changes):**
 
-      For request_changes:
+      Submit the rejection review with ALL issues listed:
       ```bash
       tea pr reject <number> -r <owner/repo> "<review body>"
       ```
       The review body should include:
-      - Summary of findings
-      - Blocking issues (numbered, with file:line refs)
-      - Non-blocking issues (numbered, with file:line refs, marked as "will track in issue")
+      - Summary
+      - All issues (numbered, with file:line refs)
 
-      **Step 2 — Open issues for non-blocking items:**
+      Do NOT open any tracking issues — the author will fix everything and push a new version.
 
-      For each non-blocking finding, create a tracking issue:
+      **Path B — Approval with suggestions:**
+
+      Open tracking issues for each suggestion. First, search existing issues to avoid duplicates:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues?state=open&type=issues&limit=50" \
+        -H "Authorization: token $GITEA_TOKEN" | jq '[.[] | {number, title}]'
+      ```
+
+      For each suggestion, check if an existing open issue already covers it.
+      - If YES: skip, note the existing issue number.
+      - If NO: create a tracking issue:
       ```bash
       tea issues create -r <owner/repo> \
         -t "Review feedback: <short description>" \
         -d "From PR #<number> review:\n\n<detailed description with file:line ref>\n\nRef: PR #<number>"
       ```
 
-      **Step 3 — Output results:**
-      Report what was submitted: the review state, number of issues opened, and their URLs.
+      If there are no suggestions, skip issue creation entirely.
+
+      **Output:**
+      Report what was done: review state, number of issues opened (if any), and their URLs.
 
       **tea command notes:**
       - `tea pr reject` requires the reason as a positional arg, not a flag
       - Keep the review body concise but specific — file:line references are essential
       - Issue titles should be actionable: "Fix X in Y" not "Review comment about Z"
 
-    output: "Report the review submission result and any issues created. Set $status to submitted."
+    output: "Report the review submission result and any issues created. Set $status to rejected or approved."
     frontmatter:
-      type: object
-      required: [$status, reviewState, issuesCreated]
-      properties:
-        $status: { const: "submitted" }
-        reviewState: { type: string }
-        issuesCreated: { type: integer }
+      oneOf:
+        - properties:
+            $status: { const: "rejected" }
+            reviewState: { type: string }
+          required: [$status, reviewState]
+        - properties:
+            $status: { const: "approved" }
+            issuesCreated: { type: integer }
+          required: [$status, issuesCreated]
 
   merger:
     description: "Waits for CI, checks mergeability, and merges the PR"
@@ -270,15 +288,16 @@ graph:
     new: { role: "fetcher", prompt: "Fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
     resume: { role: "fetcher", prompt: "Re-fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
   fetcher:
-    ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing comments (do NOT repeat these): {{{existingComments}}}" }
+    ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}" }
     self_review: { role: "$END", prompt: "Self-review detected for PR #{{{prNumber}}} in {{{repo}}}. Author: {{{author}}}. {{{reason}}}. Workflow terminated — project policy prohibits self-review." }
   reviewer:
-    approve: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Summary: {{{summary}}}. Proceed to merge." }
-    request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Blocking: {{{blockingIssues}}}. Non-blocking: {{{nonBlockingIssues}}}. Summary: {{{summary}}}" }
+    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open issues for these): {{{suggestions}}}. Summary: {{{summary}}}" }
+    request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}" }
   merger:
     merged: { role: "$END", prompt: "PR merged successfully." }
     ci_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} was approved but CI failed: {{{reason}}}. Submit as request_changes asking to fix CI." }
     conflict: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} was approved but has merge conflicts: {{{reason}}}. Submit as request_changes asking to rebase." }
     merge_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} merge failed: {{{reason}}}. Submit as request_changes with the error details." }
   commenter:
-    submitted: { role: "$END", prompt: "Review feedback submitted. Workflow complete." }
+    rejected: { role: "$END", prompt: "Review rejection submitted. Workflow complete." }
+    approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestion issues created: {{{issuesCreated}}}. Proceed to merge." }
