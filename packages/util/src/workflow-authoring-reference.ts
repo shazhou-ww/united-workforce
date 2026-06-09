@@ -161,6 +161,76 @@ graph:
     failed: { role: cleanup, prompt: "Clean up: {{{error}}}" }
 \`\`\`
 
+### Cross-cwd Execution
+
+Each step runs in a working directory resolved by the cwd inheritance chain:
+
+1. \`--cwd <path>\` — CLI flag on \`uwf thread start\`, captured into \`StartNodePayload.cwd\` (defaults to \`process.cwd()\`). This is the thread's base working directory and the fallback for every step.
+2. \`Target.location\` — per-edge working directory override using a Mustache template (e.g. \`{{{repoPath}}}\`); rendered by the moderator against the previous step's frontmatter output. When set, the rendered path becomes the new \`StepRecord.cwd\`.
+3. \`StepRecord.cwd\` — the final per-step working directory persisted on the step node and used by the agent that runs it.
+
+Each edge's \`location\` override applies per-step only — when the next edge omits \`location\` (or sets it to \`null\`), the step reverts to the thread's start cwd, not the previously overridden one.
+
+### Edge Target Fields
+
+Each graph edge target supports three fields:
+
+| Field | Purpose |
+|-------|---------|
+| \`role\` | The next role to execute, or a pseudo-role such as \`$END\` |
+| \`prompt\` | Mustache template rendered against the previous step's frontmatter |
+| \`location\` | Optional working directory override — a Mustache template (e.g. \`{{{repoPath}}}\`); falls back to the thread's start cwd (\`StartNodePayload.cwd\`) when \`null\` or omitted |
+
+#### Cross-repo dispatch example
+
+A \`cloner\` role checks out a different repository; the downstream \`developer\` step then runs inside the freshly cloned working directory:
+
+\`\`\`yaml
+roles:
+  cloner:
+    description: "Clone a repository"
+    goal: "Clone the target repo and report its absolute path"
+    capabilities: [git]
+    procedure: |
+      1. git clone the URL into a fresh directory
+      2. Output the absolute path as repoPath
+    output: "ready with repoPath"
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: "ready" }
+        repoPath: { type: string }
+      required: [$status, repoPath]
+
+  developer:
+    description: "Implement a change inside the cloned repo"
+    goal: "Run the developer procedure inside the cloned working directory"
+    capabilities: [coding]
+    procedure: |
+      1. Inspect the working directory
+      2. Apply the requested change
+    output: "done with summary"
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: "done" }
+        summary: { type: string }
+      required: [$status, summary]
+
+graph:
+  $START:
+    new: { role: cloner, prompt: "Clone {{{repoUrl}}}.", location: null }
+  cloner:
+    ready:
+      role: developer
+      prompt: "Implement the change in {{{repoPath}}}."
+      location: "{{{repoPath}}}"
+  developer:
+    done: { role: $END, prompt: "{{{summary}}}", location: null }
+\`\`\`
+
+The \`cloner\` step runs in the thread's start cwd; the \`developer\` edge sets \`location: "{{{repoPath}}}"\`, so the moderator renders the cloner's \`repoPath\` field and the developer agent runs inside that newly cloned directory — dispatching across different repos within a single thread.
+
 ## Suspend (\`$SUSPEND\`)
 
 \`$SUSPEND\` is an engine-level coroutine yield — **not** a graph target. Any role may emit it

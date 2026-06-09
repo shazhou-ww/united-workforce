@@ -408,3 +408,84 @@ describe("prompt adapter-developing — issue #214 v0.4 contract", () => {
     expect(checklist.toLowerCase()).toMatch(/llm config|agents\/.+\.yaml|adapter-owned/);
   });
 });
+
+describe("prompt workflow-authoring — issue #226 edge location field", () => {
+  const text = cmdPromptWorkflowAuthoring();
+  const lower = text.toLowerCase();
+
+  // ── Group 1 — Field documentation ───────────────────────────────────
+  test("documents the location field on graph edges", () => {
+    expect(text).toMatch(/^\s*\|\s*`?location`?\s*\|/m);
+    expect(text).toMatch(/location[\s\S]{0,200}(working directory|cwd)/i);
+  });
+
+  test("documents location as optional with null fallback", () => {
+    expect(lower).toMatch(/location[\s\S]{0,300}(null|omitted|optional|default|fall(s| ?back))/i);
+    expect(lower).toMatch(/(thread.*cwd|start.*cwd|creation cwd|thread['']?s cwd)/);
+  });
+
+  test("documents Mustache template support for location", () => {
+    expect(text).toMatch(/location[\s\S]{0,400}\{\{\{[a-zA-Z_]\w*\}\}\}/);
+    expect(lower).toMatch(/location[\s\S]{0,300}mustache/);
+  });
+
+  // ── Group 2 — Inheritance chain ─────────────────────────────────────
+  test("documents the cwd inheritance chain end-to-end", () => {
+    expect(text).toContain("--cwd");
+    expect(text).toMatch(/StartNodePayload\.cwd|start(\.|node\.)?cwd|thread start cwd/i);
+    expect(text).toMatch(/Target\.location|edge\s+location|location\s+(field|override)/i);
+    expect(text).toMatch(/StepRecord\.cwd|StepNodePayload\.cwd|step(\.|node\.)?cwd|step.*cwd/i);
+    const flagIdx = text.indexOf("--cwd");
+    const startIdx = text.search(/StartNodePayload\.cwd|start(\.|node\.)?cwd|thread start cwd/i);
+    const locIdx = text.search(/Target\.location|edge\s+location|location\s+(field|override)/i);
+    const stepIdx = text.search(/StepRecord\.cwd|StepNodePayload\.cwd|step(\.|node\.)?cwd/i);
+    expect(flagIdx).toBeGreaterThanOrEqual(0);
+    expect(startIdx).toBeGreaterThan(flagIdx);
+    expect(locIdx).toBeGreaterThan(startIdx);
+    expect(stepIdx).toBeGreaterThan(locIdx);
+  });
+
+  test("explains location override is per-step (not per-thread)", () => {
+    expect(lower).toMatch(/(each|per).?step|override.*per.*step|step['']?s (working|cwd)/);
+  });
+
+  // ── Group 3 — Realistic cross-cwd example ───────────────────────────
+  test("includes a YAML example showing location on an edge", () => {
+    const yamlBlocks = text.match(/```yaml[\s\S]*?```/g) ?? [];
+    const hasLocationEdge = yamlBlocks.some(
+      (b) => /graph\s*:/.test(b) && /^\s*location\s*:/m.test(b),
+    );
+    expect(hasLocationEdge).toBe(true);
+  });
+
+  test("example demonstrates cross-cwd execution with a Mustache-templated path", () => {
+    const yamlBlocks = text.match(/```yaml[\s\S]*?```/g) ?? [];
+    const hasCrossCwdExample = yamlBlocks.some((b) =>
+      /location\s*:\s*['"]?\{\{\{[a-zA-Z_]\w*\}\}\}/m.test(b),
+    );
+    expect(hasCrossCwdExample).toBe(true);
+  });
+
+  test("example narrates a realistic scenario", () => {
+    expect(lower).toMatch(
+      /(clone|checkout|dispatch|cross[- ]repo|different (repo|directory|working directory|cwd))/,
+    );
+  });
+
+  // ── Group 4 — Structural placement ──────────────────────────────────
+  test("location documentation appears under the Graph Routing section", () => {
+    const graphIdx = text.indexOf("## Graph Routing");
+    expect(graphIdx).toBeGreaterThanOrEqual(0);
+    const after = text.slice(graphIdx);
+    const localLocIdx = after.search(/\blocation\b/i);
+    expect(localLocIdx).toBeGreaterThanOrEqual(0);
+    const nextHeadingIdx = after.slice(1).search(/\n## /);
+    expect(localLocIdx).toBeLessThan(nextHeadingIdx === -1 ? after.length : nextHeadingIdx + 1);
+  });
+
+  test("Target field table still includes role and prompt alongside location", () => {
+    expect(text).toMatch(/\|\s*`?role`?\s*\|/m);
+    expect(text).toMatch(/\|\s*`?prompt`?\s*\|/m);
+    expect(text).toMatch(/\|\s*`?location`?\s*\|/m);
+  });
+});
