@@ -1,8 +1,8 @@
 ---
-"@united-workforce/protocol": major
-"@united-workforce/util-agent": major
-"@united-workforce/agent-builtin": major
-"@united-workforce/cli": major
+"@united-workforce/protocol": minor
+"@united-workforce/util-agent": minor
+"@united-workforce/agent-builtin": minor
+"@united-workforce/cli": minor
 ---
 
 refactor: remove engine-level LLM config — each adapter owns its own LLM (#143)
