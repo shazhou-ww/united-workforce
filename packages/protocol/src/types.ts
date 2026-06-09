@@ -141,8 +141,8 @@ export type StartOutput = {
 /**
  * Output from thread show and thread exec commands.
  *
- * @property status - Current thread status (idle/running/suspended/completed/cancelled)
- * @property done - @deprecated Use status field instead. True if thread is completed or cancelled.
+ * @property status - Current thread status (idle/running/suspended/end/cancelled)
+ * @property done - @deprecated Use status field instead. True if thread has ended or is cancelled.
  * @property background - @deprecated Use status field instead. Always null in current implementation.
  */
 export type StepOutput = {
@@ -150,7 +150,7 @@ export type StepOutput = {
   thread: ThreadId;
   head: CasRef;
   status: ThreadStatus;
-  /** The current or next role. Null when completed, cancelled, suspended, or next is $END. */
+  /** The current or next role. Null when ended, cancelled, suspended, or next is $END. */
   currentRole: string | null;
   /** Role whose output triggered suspension. Null when thread is not suspended. */
   suspendedRole: string | null;
