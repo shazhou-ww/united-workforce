@@ -56,6 +56,7 @@ builtin adapter). Override storage root with \`UWF_HOME\`.
 
 \`\`\`
 uwf workflow add <file>            # register from YAML file (optional)
+uwf workflow validate <file>       # validate a workflow YAML without registering (CI-friendly)
 uwf workflow show <id>             # show by name or CAS hash
 uwf workflow list                  # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
 \`\`\`

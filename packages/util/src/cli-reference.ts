@@ -19,6 +19,7 @@ own LLM configuration from a path it owns (e.g.
 
 \`\`\`
 uwf workflow add <file>           # register a workflow from YAML file
+uwf workflow validate <file>      # validate a workflow YAML without registering it (CI-friendly)
 uwf workflow show <id>            # show workflow by name or CAS hash
 uwf workflow list                 # list workflows (auto-discovers .workflows/ from cwd upward + global registry)
 \`\`\`

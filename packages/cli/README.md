@@ -99,6 +99,7 @@ uwf step ask 32GCDE899RRQ3 -p "Summarise the key findings" --no-fork
 | Command | Description |
 |---------|-------------|
 | `uwf workflow add <file.yaml>` | Register a workflow from YAML |
+| `uwf workflow validate <file.yaml>` | Validate a workflow YAML without registering it (CI-friendly) |
 | `uwf workflow show <name-or-hash>` | Show workflow definition |
 | `uwf workflow list` | List registered workflows |
 
