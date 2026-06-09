@@ -245,6 +245,46 @@ describe("parseClaudeCodeStreamOutput — helper extraction", () => {
     expect(parsed!.turns).toHaveLength(3);
     expect(parsed!.turns.map((t) => t.index)).toEqual([0, 1, 2]);
   });
+
+  test("numTurns uses parsed turns count, not result line num_turns (#220)", () => {
+    const lines = [
+      JSON.stringify({
+        type: "system",
+        session_id: "sess-220",
+        model: "claude-test",
+      }),
+      // 3 streaming turns: assistant, tool_result, assistant
+      JSON.stringify({
+        type: "assistant",
+        message: { content: [{ type: "text", text: "step 1" }] },
+      }),
+      JSON.stringify({
+        type: "user",
+        message: { content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: { content: [{ type: "text", text: "step 2" }] },
+      }),
+      // Result line claims num_turns: 1 (CC bug — last turn only)
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "step 2",
+        session_id: "sess-220",
+        num_turns: 1,
+        duration_ms: 5000,
+        total_cost_usd: 0.1,
+        stop_reason: "end_turn",
+        usage: { input_tokens: 50, output_tokens: 10 },
+      }),
+    ];
+    const parsed = parseClaudeCodeStreamOutput(lines.join("\n"));
+    expect(parsed).not.toBeNull();
+    // Must use actual parsed turns (3), not result line's num_turns (1)
+    expect(parsed!.numTurns).toBe(3);
+    expect(parsed!.turns).toHaveLength(3);
+  });
 });
 
 describe("storeClaudeCodeDetail", () => {

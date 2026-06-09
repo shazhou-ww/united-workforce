@@ -33,16 +33,17 @@ describe("claude-code adapter: suspend on max turns", () => {
     const store = createMemoryStore();
     const stdout = buildStreamOutput("error_max_turns");
 
-    const result = await processClaudeOutput(stdout, "", 0, store, "the-prompt");
+    const result = await processClaudeOutput(stdout, "", 0, store, "the-prompt", 15000);
 
     expect(result.output).toContain("$status: $SUSPEND");
     expect(result.output).toContain("reason: max turns (90) reached");
-    // Turns and usage are preserved from the run.
+    // numTurns comes from parsed streaming turns (1 assistant turn in our fixture),
+    // not from the result line's num_turns. Duration is wall-clock.
     expect(result.usage).toEqual({
-      turns: 90,
+      turns: 1,
       inputTokens: 100,
       outputTokens: 50,
-      duration: 12,
+      duration: 15,
     });
     expect(result.assembledPrompt).toBe("the-prompt");
     expect(result.sessionId).toBe("sess-abc");
@@ -52,7 +53,7 @@ describe("claude-code adapter: suspend on max turns", () => {
     const store = createMemoryStore();
     const stdout = buildStreamOutput("success");
 
-    const result = await processClaudeOutput(stdout, "", 0, store, "the-prompt");
+    const result = await processClaudeOutput(stdout, "", 0, store, "the-prompt", 5000);
 
     expect(result.output).toBe("partial work output");
     expect(result.output).not.toContain("$SUSPEND");

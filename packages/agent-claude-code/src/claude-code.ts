@@ -139,6 +139,7 @@ export async function processClaudeOutput(
   exitCode: number | null,
   store: Store,
   assembledPrompt: string,
+  wallClockMs: number,
 ): Promise<AgentRunResult> {
   const parsed = parseClaudeCodeStreamOutput(stdout);
 
@@ -153,11 +154,15 @@ export async function processClaudeOutput(
       );
     }
 
+    // CC's result line reports last-turn-only stats for num_turns/duration/usage.
+    // Use our own parsed turn count and wall-clock time instead.
+    // Token counts from the result line are still last-turn-only — there is no
+    // cumulative source in CC's streaming output, so we report what we have.
     const usage: Usage = {
       turns: parsed.numTurns,
       inputTokens: parsed.usage.inputTokens,
       outputTokens: parsed.usage.outputTokens,
-      duration: Math.round(parsed.durationMs / 1000),
+      duration: Math.round(wallClockMs / 1000),
     };
 
     // Max-turns is a resource limit, not a failure. Yield `$SUSPEND` instead of
@@ -213,12 +218,20 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
         : fullPrompt;
 
       try {
+        const startMs = Date.now();
         const { stdout, stderr, exitCode } = await spawnClaudeResume(
           cachedSessionId,
           resumePrompt,
           model,
         );
-        const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, resumePrompt);
+        const result = await processClaudeOutput(
+          stdout,
+          stderr,
+          exitCode,
+          ctx.store,
+          resumePrompt,
+          Date.now() - startMs,
+        );
         if (result.sessionId !== undefined && result.sessionId !== "") {
           await setCachedSessionId(
             "claude-code",
@@ -238,8 +251,16 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
     }
   }
 
+  const startMs = Date.now();
   const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt, model);
-  const result = await processClaudeOutput(stdout, stderr, exitCode, ctx.store, fullPrompt);
+  const result = await processClaudeOutput(
+    stdout,
+    stderr,
+    exitCode,
+    ctx.store,
+    fullPrompt,
+    Date.now() - startMs,
+  );
   if (result.sessionId !== undefined && result.sessionId !== "") {
     await setCachedSessionId(
       "claude-code",
@@ -258,8 +279,9 @@ async function continueClaudeCode(
   store: Store,
   model: string | null,
 ): Promise<AgentRunResult> {
+  const startMs = Date.now();
   const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message, model);
-  return processClaudeOutput(stdout, stderr, exitCode, store, "");
+  return processClaudeOutput(stdout, stderr, exitCode, store, "", Date.now() - startMs);
 }
 
 /** Agent CLI factory: parses argv, runs Claude Code, extracts output, writes StepNode. */
