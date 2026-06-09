@@ -146,3 +146,265 @@ describe("prompt commands", () => {
     expect(output).not.toContain("usage-reference");
   });
 });
+
+describe("prompt adapter-developing — issue #214 v0.4 contract", () => {
+  const text = cmdPromptAdapterDeveloping();
+  const lower = text.toLowerCase();
+
+  // ── Item 1 — AgentOptions includes fork and cleanup ─────────────────
+  test("AgentOptions documents fork field with AgentForkFn | null", () => {
+    expect(text).toContain("AgentOptions");
+    expect(text).toMatch(/fork\s*:\s*AgentForkFn\s*\|\s*null/);
+    expect(text).toContain("AgentForkFn");
+  });
+
+  test("AgentOptions documents cleanup field with AgentCleanupFn | null", () => {
+    expect(text).toMatch(/cleanup\s*:\s*AgentCleanupFn\s*\|\s*null/);
+    expect(text).toContain("AgentCleanupFn");
+  });
+
+  test("explains that fork=null is acceptable for adapters that do not implement step ask", () => {
+    expect(lower).toMatch(/fork.*null.*(do(es)? not|no).*step ask|step ask.*fork.*null/);
+  });
+
+  test("explains that cleanup runs after the agent completes (success or failure)", () => {
+    expect(lower).toMatch(
+      /cleanup.*(after|completes|invoked).*(release|i\/?o|resources|subprocess)/,
+    );
+  });
+
+  // ── Item 2 — Public helpers table is complete ───────────────────────
+  test("helpers table lists buildRolePrompt", () => {
+    expect(text).toContain("buildRolePrompt");
+  });
+
+  test("helpers table lists buildContinuationPrompt", () => {
+    expect(text).toContain("buildContinuationPrompt");
+  });
+
+  test("helpers table lists buildThreadProgress", () => {
+    expect(text).toContain("buildThreadProgress");
+  });
+
+  test("helpers table lists buildOutputFormatInstruction", () => {
+    expect(text).toContain("buildOutputFormatInstruction");
+  });
+
+  test("helpers table lists buildSuspendOutput", () => {
+    expect(text).toContain("buildSuspendOutput");
+  });
+
+  test("helpers table lists buildFrontmatterRetryPrompt", () => {
+    expect(text).toContain("buildFrontmatterRetryPrompt");
+  });
+
+  test("helpers table lists session-cache helpers", () => {
+    expect(text).toContain("getCachedSessionId");
+    expect(text).toContain("setCachedSessionId");
+    expect(text).toContain("getAskSessionId");
+    expect(text).toContain("setAskSessionId");
+  });
+
+  // ── Item 3 — $SUSPEND coroutine yield ───────────────────────────────
+  test("documents $SUSPEND as coroutine yield with reason", () => {
+    expect(text).toContain("$SUSPEND");
+    expect(lower).toContain("coroutine");
+    expect(lower).toMatch(/reason/);
+  });
+
+  test("documents buildSuspendOutput helper to emit a $SUSPEND output", () => {
+    expect(text).toContain("buildSuspendOutput");
+    expect(text).toMatch(/buildSuspendOutput\s*\(/);
+  });
+
+  test("documents trySuspendFastPath round-trip and SUSPEND_OUTPUT_SCHEMA", () => {
+    expect(text).toContain("trySuspendFastPath");
+    expect(text).toMatch(/SUSPEND_OUTPUT_SCHEMA|suspendOutput/);
+  });
+
+  test("explains engine intercepts $SUSPEND before the moderator", () => {
+    expect(lower).toMatch(/intercept.*moderator|before the moderator|engine.*suspend/);
+    expect(lower).toMatch(/(thread|state).*suspend/);
+  });
+
+  test("notes that $SUSPEND is reserved and may be emitted by any role regardless of declared output", () => {
+    expect(lower).toMatch(/(any role|every role|regardless).*\$?suspend|reserved/);
+  });
+
+  // ── Item 4 — step ask adapter contract ──────────────────────────────
+  test("documents step ask --mode fork CLI contract for adapters", () => {
+    expect(text).toContain("--mode fork");
+    expect(text).toContain("--session");
+    expect(lower).toMatch(/fork.*(stdout|prints|return).*session/);
+  });
+
+  test("documents step ask --mode ask CLI contract", () => {
+    expect(text).toContain("--mode ask");
+    expect(text).toContain("--prompt");
+  });
+
+  test("explains that fork: null adapters do not need to handle --mode fork/ask", () => {
+    expect(lower).toMatch(/fork\s*:\s*null.*(do(es)? not|no|not required).*(--mode|step ask)/);
+  });
+
+  test("documents the per-stepHash ask-session cache key", () => {
+    expect(text).toContain("getAskSessionId");
+    expect(lower).toMatch(/(<step ?hash>|stephash).*:ask|ask.*cache|forked.*session.*step/);
+  });
+
+  // ── Item 5 — Adapter-owned LLM config ───────────────────────────────
+  test("explains engine config.yaml is LLM-free (no providers/models)", () => {
+    expect(lower).toMatch(/engine.*(config|llm-free|llm free)/);
+    expect(lower).toMatch(/no.*(provider|model|api[- ]?key)/);
+  });
+
+  test("shows the adapter-owned config path convention ~/.uwf/agents/<name>.yaml", () => {
+    expect(text).toMatch(/~\/?\.uwf\/agents\/.+\.yaml/);
+  });
+
+  test("shows a concrete example with provider.baseUrl, provider.apiKey, model", () => {
+    expect(text).toContain("baseUrl");
+    expect(text).toContain("apiKey");
+    expect(text).toMatch(/^\s*model\s*:/m);
+  });
+
+  test("references storageRoot from AgentContext as the way to resolve the adapter config path", () => {
+    expect(text).toContain("storageRoot");
+    expect(lower).toMatch(/(storageroot|ctx\.storageroot).*(agents\/|config|yaml)/);
+  });
+
+  // ── Item 6 — previousAttempts and $status: error ────────────────────
+  test("documents the failed-step retry path with $status: error", () => {
+    expect(text).toMatch(/\$status\s*:\s*["']?error["']?/);
+    expect(text).toContain("ErrorOutputPayload");
+  });
+
+  test("documents previousAttempts as CAS refs to prior failed StepNodes", () => {
+    expect(text).toContain("previousAttempts");
+    expect(lower).toMatch(/previousattempts.*(failed|prior|retry).*step/);
+  });
+
+  test("explains thread head is NOT advanced on isError=true", () => {
+    expect(lower).toMatch(/(head|thread).*not.*advance|advance.*not|isError.*true/);
+  });
+
+  test("documents the @uwf/thread-failed variable for tracking failed attempts across runs", () => {
+    expect(text).toContain("@uwf/thread-failed/");
+  });
+
+  test("explains MAX_FRONTMATTER_RETRIES (2) before persisting the error step", () => {
+    expect(text).toMatch(/2\s*(retries?|attempts?|frontmatter)/i);
+  });
+
+  // ── Item 7 — Realistic run() skeleton ───────────────────────────────
+  test("Quick Start run() builds prompt via helpers (not empty comments)", () => {
+    expect(text).toMatch(/buildRolePrompt|buildContinuationPrompt|buildThreadProgress/);
+  });
+
+  test("Quick Start run() returns all 5 AgentRunResult fields", () => {
+    expect(text).toContain("assembledPrompt");
+    expect(text).toContain("usage");
+    expect(text).toContain("detailHash");
+    expect(text).toContain("sessionId");
+  });
+
+  test("documents Usage type fields turns/inputTokens/outputTokens/duration", () => {
+    expect(text).toContain("inputTokens");
+    expect(text).toContain("outputTokens");
+    expect(text).toMatch(/turns/);
+    expect(text).toContain("duration");
+  });
+
+  test("Quick Start example does NOT contain the placeholder stub `// 1. Build your prompt from ctx`", () => {
+    expect(text).not.toMatch(/\/\/\s*1\.\s*Build your prompt from ctx\b/);
+  });
+
+  // ── Item 8 — isFirstVisit ───────────────────────────────────────────
+  test("explains isFirstVisit semantics", () => {
+    expect(text).toContain("isFirstVisit");
+    expect(lower).toMatch(/isfirstvisit.*(true|false).*(role|appeared|run|history)/);
+  });
+
+  test("explains the first-visit / re-entry branching pattern", () => {
+    expect(lower).toMatch(/(first[- ]?visit|isfirstvisit)[\s\S]*(re-?entry|resume)/);
+  });
+
+  // ── Item 9 — Fast path jargon explained ─────────────────────────────
+  test("introduces frontmatter extraction concept before the symbol name", () => {
+    const idxConcept = lower.search(
+      /frontmatter extraction|extract.*frontmatter|parse.*frontmatter/,
+    );
+    const idxSymbol = text.indexOf("tryFrontmatterFastPath");
+    if (idxSymbol !== -1) {
+      expect(idxConcept).toBeGreaterThanOrEqual(0);
+      expect(idxConcept).toBeLessThan(idxSymbol);
+    }
+  });
+
+  test("does not use the bare term 'fast path' without an explanation in the surrounding 200 chars", () => {
+    const re = /fast[- ]?path/gi;
+    let m: RegExpExecArray | null = re.exec(text);
+    while (m !== null) {
+      const window = text.slice(Math.max(0, m.index - 200), m.index + 200).toLowerCase();
+      expect(window).toMatch(/extract|parse|attempt|try|interpret/);
+      m = re.exec(text);
+    }
+  });
+
+  // ── Item 10 — No undefined schema variables ─────────────────────────
+  test("does not reference an undefined `textSchema` in the code samples", () => {
+    const idx = text.indexOf("textSchema");
+    if (idx !== -1) {
+      const window = text.slice(Math.max(0, idx - 200), idx + 200);
+      expect(window).toMatch(/registerAgentSchemas|schemas\.text|putSchema|TEXT_SCHEMA/);
+    }
+  });
+
+  test("does not reference an undefined `detailSchema` in the code samples", () => {
+    const idx = text.indexOf("detailSchema");
+    if (idx !== -1) {
+      const window = text.slice(Math.max(0, idx - 200), idx + 200);
+      expect(window).toMatch(/registerAgentSchemas|schemas|putSchema/);
+    }
+  });
+
+  test("Storing Session Detail section uses real APIs (storeBuiltinDetail / storeClaudeCodeDetail or store.cas.put with a registered schema)", () => {
+    expect(text).toMatch(
+      /store\.cas\.put|storeBuiltinDetail|storeClaudeCodeDetail|registerAgentSchemas/,
+    );
+  });
+
+  // ── Cross-cutting structural tests ──────────────────────────────────
+  test("AdapterOutput JSON envelope (not just step hash) is documented as the stdout contract", () => {
+    expect(text).toContain("AdapterOutput");
+    expect(lower).toMatch(/json.*stdout|stdout.*json/);
+    expect(text).toContain("isError");
+    expect(text).toContain("errorMessage");
+  });
+
+  test("documents AgentContext storageRoot and casDir fields", () => {
+    expect(text).toContain("storageRoot");
+    expect(text).toContain("casDir");
+  });
+
+  test("documents UWF_HOME / OCAS_HOME env propagation from CLI to adapter", () => {
+    expect(text).toContain("UWF_HOME");
+    expect(text).toContain("OCAS_HOME");
+  });
+
+  test("Existing Adapters table still lists hermes, builtin, claude-code", () => {
+    expect(text).toContain("uwf-hermes");
+    expect(text).toContain("uwf-builtin");
+    expect(text).toContain("uwf-claude-code");
+  });
+
+  test("Checklist now includes fork, cleanup, $SUSPEND, and adapter-owned LLM config items", () => {
+    const checklistIdx = text.search(/##\s+Checklist/);
+    expect(checklistIdx).toBeGreaterThan(-1);
+    const checklist = text.slice(checklistIdx);
+    expect(checklist).toContain("fork");
+    expect(checklist).toContain("cleanup");
+    expect(checklist).toContain("$SUSPEND");
+    expect(checklist.toLowerCase()).toMatch(/llm config|agents\/.+\.yaml|adapter-owned/);
+  });
+});
