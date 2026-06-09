@@ -206,13 +206,18 @@ roles:
       The worktree path, branch name, and repo info are provided in your task prompt.
       cd into the worktree first.
 
+      IMPORTANT: You MUST execute every step via shell commands. Do NOT skip steps or fabricate output.
+
       Note: You inherit the developer's worktree and branch. Do NOT create a new branch.
       1. Stage all changes: `git add -A`
       2. Commit with a descriptive message referencing the issue: `git commit -m "type: description\n\nFixes #N"`
+         - If nothing to commit (clean tree), skip to step 3.
       3. Push the branch: `git push -u origin <branch-name>`
          - If push hook fails: capture the error log in your output, mark hook_failed
-      4. On push success: create a PR via `tea pr create --repo <owner/repo> --title "..." --description "..."`
-         - Extract owner/repo from: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
+      4. On push success, create a PR. Run this from within the worktree directory:
+         `tea pr create -t "title" -d "description"`
+         - Do NOT use `--repo`, `--title`, or `--description` — they don't work. Use `-t` and `-d`.
+         - Do NOT use `gh` — this is a Gitea repo, not GitHub.
          - PR description must include: What / Why / Changes / Ref sections, with `Fixes #N` in Ref
          - On tea failure: capture stderr/stdout, include PR details for manual creation, mark hook_failed
       5. After PR creation, clean up the worktree:
