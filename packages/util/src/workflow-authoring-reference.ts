@@ -122,8 +122,10 @@ graph[role][$status] → { role: nextRole, prompt: edgePrompt }
 
 | Node | Purpose |
 |------|---------|
-| \`$START\` | Entry point — status keys \`new\` (first start) and \`resume\` (resuming an ended thread) |
+| \`$START\` | Entry point — status keys \`new\` (first start) and \`resume\` (\`uwf thread resume\` on an **ended** thread re-enters the workflow here) |
 | \`$END\` | Terminal — thread completes and is archived |
+
+**Important:** \`$START.resume\` is only triggered when resuming an **ended** thread. Resuming a **suspended** thread does NOT use \`$START.resume\` — it re-runs the suspended role directly with its original prompt. These are completely different code paths.
 
 ### Edge Prompts
 
@@ -223,6 +225,18 @@ graph:
 When the planner emits \`$SUSPEND\`, the operator runs \`uwf thread resume <id> -p "Here is the missing info"\`
 and the planner role runs again with the supplement appended to its prompt.
 
+### Engine-Level Errors
+
+If the agent crashes or frontmatter extraction fails after all retries, the engine records the step with
+\`$status: "error"\` — distinct from any role-defined status. Engine errors are **not routable** in the graph;
+the thread stops at the failed step and requires manual intervention (\`thread poke\` or \`thread exec\` to retry).
+
+On successful retry, the new step carries a \`previousAttempts\` array referencing prior failed step hashes.
+This forms a complete retry lineage visible via \`uwf step show\`.
+
+Agent adapters may also emit \`$SUSPEND\` autonomously when hitting resource limits (token budget, context window).
+Design roles to be resumable even if the role procedure does not explicitly mention suspension.
+
 ## Placement
 
 Drop your workflow YAML under a project-local \`.workflows/\` directory at (or above)
@@ -236,10 +250,11 @@ my-project/
 \`\`\`
 
 \`uwf thread start solve-issue\` will auto-discover \`.workflows/solve-issue.yaml\` by
-searching from cwd upward — you can run the command from any subdirectory of the
-project. \`uwf workflow list\` uses the same parent traversal, so its output
-matches what \`thread start\` can resolve. No workflow add registration needed —
-\`uwf workflow add\` is only required for global, cwd-independent registration.
+searching from cwd upward, stopping at the nearest \`.git\` boundary (repository root).
+You can run the command from any subdirectory of the project. \`uwf workflow list\` uses
+the same parent traversal, so its output matches what \`thread start\` can resolve.
+No workflow add registration needed — \`uwf workflow add\` is only required for global,
+cwd-independent registration.
 
 Folder-based layouts also work — \`.workflows/<name>/index.yaml\` (or \`index.yml\`) is
 discovered as workflow \`<name>\`. The legacy \`.workflow/\` (singular) directory

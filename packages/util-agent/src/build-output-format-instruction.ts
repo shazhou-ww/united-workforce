@@ -275,7 +275,7 @@ Output ONLY the fields listed for your chosen variant. Do not add extra fields t
 
 ### Suspend (coroutine yield)
 
-In addition to the variants above, you may pause the thread by emitting:
+Instead of any of the variants above, you may pause the thread by emitting this reserved output:
 
 \`\`\`
 ---
@@ -284,7 +284,9 @@ reason: "Human-readable explanation of why you are pausing"
 ---
 \`\`\`
 
-The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. Use this when you need human input, external approval, or must wait for an async result before continuing. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
+This is a separate reserved output shape — it replaces (not supplements) your role's normal output. Use \`$SUSPEND\` when the work **can succeed** with additional input (human approval, missing info, async result). Use a role-defined failure status (e.g. \`failed\`) when the work has been attempted and **cannot succeed**.
+
+The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
 
 Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
     }
@@ -312,7 +314,7 @@ Output ONLY the fields listed above. Do not add extra fields that are not specif
 
 ### Suspend (coroutine yield)
 
-In addition to the format above, you may pause the thread by emitting:
+Instead of the format above, you may pause the thread by emitting this reserved output:
 
 \`\`\`
 ---
@@ -321,7 +323,9 @@ reason: "Human-readable explanation of why you are pausing"
 ---
 \`\`\`
 
-The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. Use this when you need human input, external approval, or must wait for an async result before continuing. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
+This is a separate reserved output shape — it replaces (not supplements) your role's normal output. Use \`$SUSPEND\` when the work **can succeed** with additional input (human approval, missing info, async result). Use a role-defined failure status (e.g. \`failed\`) when the work has been attempted and **cannot succeed**.
+
+The engine intercepts \`$SUSPEND\` before routing — the thread becomes \`suspended\` and waits for \`thread resume\`. On resume, your role runs again with the original prompt plus any supplementary context provided via \`-p\`.
 
 Focus exclusively on YOUR role's deliverable. Do not perform actions outside your role's scope.`;
 }

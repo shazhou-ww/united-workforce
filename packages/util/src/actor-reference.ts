@@ -9,7 +9,7 @@ Your response **MUST** begin with a YAML frontmatter block at byte position 0 �
 
 \`\`\`
 ---
-status: done
+$status: done
 myField: some value
 ---
 
@@ -18,9 +18,24 @@ myField: some value
 
 ### Standard Field
 
-| Field | Values | Default | Description |
-|-------|--------|---------|-------------|
-| \`status\` | \`done\`, \`needs_input\`, \`in_progress\`, \`failed\` | \`done\` | Completion signal — determines which graph edge the moderator follows next |
+| Field | Values | Description |
+|-------|--------|-------------|
+| \`$status\` | Role-defined values (e.g. \`ready\`, \`failed\`, \`merged\`) | Completion signal — determines which graph edge the moderator follows next. Must match one of the variants in your role's output schema. |
+
+### Reserved Status: \`$SUSPEND\`
+
+Instead of any role-defined status, you may pause the thread by emitting:
+
+\`\`\`
+---
+$status: "$SUSPEND"
+reason: "description of what you need before continuing"
+---
+\`\`\`
+
+Use \`$SUSPEND\` when the work **can succeed** with additional input (human approval, missing info, external result). Use \`failed\` when the work has been attempted and **cannot succeed**.
+
+The engine intercepts \`$SUSPEND\` before the moderator — the step is recorded normally, the thread is suspended, and \`uwf thread resume\` re-runs your role with supplementary context.
 
 ### Schema-Defined Fields
 
