@@ -1,6 +1,6 @@
 ---
-"@united-workforce/protocol": major
-"@united-workforce/cli": major
+"@united-workforce/protocol": minor
+"@united-workforce/cli": minor
 "@united-workforce/util": patch
 ---
 

@@ -1,8 +1,8 @@
 ---
-"@united-workforce/protocol": major
-"@united-workforce/cli": major
-"@united-workforce/agent-claude-code": major
-"@united-workforce/agent-hermes": major
+"@united-workforce/protocol": minor
+"@united-workforce/cli": minor
+"@united-workforce/agent-claude-code": minor
+"@united-workforce/agent-hermes": minor
 ---
 
 feat(workflow)!: `$SUSPEND` becomes an engine-level reserved `$status` (coroutine yield)
