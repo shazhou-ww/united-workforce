@@ -70,7 +70,7 @@ const run: AgentRunFn = async (ctx: AgentContext): Promise<AgentRunResult> => {
     ctx.role,
     ctx.storageRoot,
   );
-  const { output, sessionId, detailHash, usage } = await callMyLlm({
+  const { output, sessionId, detailHash, usage } = await callMyLlm({ // (your implementation)
     sessionId: cachedSession,
     systemPrompt,
     userPrompt,
@@ -83,7 +83,7 @@ const run: AgentRunFn = async (ctx: AgentContext): Promise<AgentRunResult> => {
   }
 
   // If the LLM signals a need for human input, yield via $SUSPEND.
-  if (needsHumanInput(output)) {
+  if (needsHumanInput(output)) { // (your implementation)
     return {
       output: buildSuspendOutput("Awaiting human approval"),
       detailHash,
@@ -101,18 +101,18 @@ const continue_: AgentContinueFn = async (sessionId, message, store) => {
   // buildFrontmatterRetryPrompt() to remind the agent that the work itself
   // succeeded — only the YAML envelope needs fixing.
   const retryPrompt = buildFrontmatterRetryPrompt(message);
-  const { output, detailHash, usage } = await resumeMyLlm({ sessionId, retryPrompt, store });
+  const { output, detailHash, usage } = await resumeMyLlm({ sessionId, retryPrompt, store }); // (your implementation)
   return { output, detailHash, sessionId, assembledPrompt: retryPrompt, usage };
 };
 
 const fork: AgentForkFn = async (sessionId, _store) => {
   // Branch the LLM session and return the new session id. Used by step ask.
-  return await forkMyLlmSession(sessionId);
+  return await forkMyLlmSession(sessionId); // (your implementation)
 };
 
 const cleanup: AgentCleanupFn = async () => {
   // Release any I/O handles, kill subprocesses, close ACP clients.
-  await closeMyLlmClient();
+  await closeMyLlmClient(); // (your implementation)
 };
 
 const main = createAgent({ name: "my-agent", run, continue: continue_, fork, cleanup });
