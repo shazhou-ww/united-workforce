@@ -1,0 +1,86 @@
+name: triage-issues
+description: "Triage open issues: classify with labels and assign to version milestones."
+
+roles:
+  triager:
+    description: "Classifies issues and assigns milestones"
+    goal: "You are a triage agent. You classify open issues by type and assign them to appropriate version milestones."
+    capabilities: [gitea]
+    procedure: |
+      You triage issues in batches. Each run, you process the issues given to you.
+
+      ## Setup (first run only)
+
+      If this is the first run (no issue list in your prompt), discover untriaged issues:
+      1. Read the main deliverable's package.json to get the current version
+         - For proman: `cat package.json` (single package)
+         - For uwf: `cat packages/cli/package.json` (@united-workforce/cli)
+         - For ocas: `cat packages/cli/package.json` (@ocas/cli)
+      2. From the current version (e.g. 0.7.0), derive three future milestones:
+         - next patch: 0.7.1
+         - next minor: 0.8.0
+         - next major: 1.0.0
+         (plus `backlog` for long-term items)
+      3. Fetch open issues without a milestone:
+         `tea issues --state open --repo <owner/repo> | grep "│" | grep -v "MILESTONE"`
+         Then filter to rows where the MILESTONE column is empty.
+         If tea fails, use: `curl -s "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/issues?state=open&type=issues&milestones=none&limit=50" -H "Authorization: token <token>"`
+      4. If no untriaged issues exist, output $status all_done immediately.
+
+      ## Triage (every run)
+
+      For each issue in your batch:
+      1. Read the issue: `tea issues <number> --repo <owner/repo>`
+      2. Classify by type — assign ONE label:
+         - `bug` — something is broken
+         - `enhancement` — new feature or improvement
+         - `refactor` — internal cleanup, no behavior change
+         - `docs` — documentation only
+         - `idea` — brainstorm, not actionable yet
+         - `investigation` — needs research before action
+         - `perf` — performance improvement
+      3. Assign a milestone based on severity/scope:
+         - **next patch** (e.g. 0.7.1) — bugfixes, small safe changes
+         - **next minor** (e.g. 0.8.0) — new features, refactors, enhancements
+         - **next major** (e.g. 1.0.0) — breaking changes
+         - **backlog** — ideas, long-term, not urgent
+      4. Apply via tea CLI:
+         `tea issues edit <number> --repo <owner/repo> --labels <label> --milestone <milestone>`
+         If tea edit fails, use the Gitea API directly:
+         `curl -s -X PATCH "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/issues/<number>" -H "Authorization: token <token>" -H "Content-Type: application/json" -d '{"labels": [<label_id>], "milestone": <milestone_id>}'`
+
+      ## After processing
+
+      Check if there are remaining untriaged issues (no milestone) that you haven't processed yet.
+      - If yes: output $status has_issues with the remaining issue numbers
+      - If no: output $status all_done
+
+      ## Important
+
+      - Create milestones via API if they don't exist yet:
+        `curl -s -X POST "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/milestones" -H "Authorization: token <token>" -H "Content-Type: application/json" -d '{"title": "<version>"}'`
+      - Create labels via API if they don't exist:
+        `curl -s -X POST "https://git.shazhou.work/api/v1/repos/<owner>/<repo>/labels" -H "Authorization: token <token>" -H "Content-Type: application/json" -d '{"name": "<label>", "color": "#<hex>"}'`
+        Use these colors: bug=#e11d48, enhancement=#2563eb, refactor=#7c3aed, docs=#059669, idea=#d97706, investigation=#0891b2, perf=#ea580c
+      - Extract owner/repo from git remote: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
+      - Extract token from git remote: `git remote get-url origin | sed 's|https://[^:]*:\([^@]*\)@.*|\1|'`
+    output: "Report what was triaged. Set $status to has_issues (with remaining list) or all_done (with summary)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "has_issues" }
+            remaining: { type: string }
+            triaged: { type: string }
+          required: [$status, remaining, triaged]
+        - properties:
+            $status: { const: "all_done" }
+            summary: { type: string }
+          required: [$status, summary]
+
+graph:
+  $START:
+    new: { role: triager, prompt: "Triage all open issues without a milestone." }
+    resume: { role: triager, prompt: "Continue triaging. Check for any new untriaged issues." }
+  triager:
+    has_issues: { role: triager, prompt: "Continue triaging. Remaining untriaged issues: {{{remaining}}}. Already triaged: {{{triaged}}}" }
+    all_done: { role: $END, prompt: "Triage complete. {{{summary}}}" }
