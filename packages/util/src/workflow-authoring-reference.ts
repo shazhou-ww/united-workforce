@@ -28,7 +28,6 @@ roles:                         # named actors
       2. Do that
     output: "..."              # what the agent should produce
     frontmatter:               # JSON Schema for structured output
-      type: object
       oneOf:
         - properties:
             $status: { const: "ready" }
@@ -78,7 +77,6 @@ The \`frontmatter\` field is a standard JSON Schema. It defines the structured f
 
 \`\`\`yaml
 frontmatter:
-  type: object
   oneOf:
     - properties:
         $status: { const: "done" }
@@ -102,7 +100,8 @@ frontmatter:
 \`\`\`
 
 **Important rules:**
-- \`type: object\` is **required** at the top level of frontmatter (both flat and oneOf)
+- For **flat schemas**, declare \`type: object\` at the top level alongside \`properties\`
+- For **oneOf schemas**, do NOT add a sibling \`type: object\` — each variant declares its own \`properties\` and \`required\`
 - \`$status\` always uses \`const: "value"\` — simple and consistent
 - \`enum\` is **not supported** for \`$status\` — the validator will reject it
 
