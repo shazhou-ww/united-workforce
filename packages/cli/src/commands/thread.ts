@@ -1050,18 +1050,14 @@ function resolveAgentConfig(
   return agentConfig;
 }
 
-function spawnAgent(
-  plog: ProcessLogger,
+function executeAgentCommand(
   agent: AgentConfig,
-  threadId: ThreadId,
-  role: string,
-  edgePrompt: string,
+  argv: readonly string[],
   cwd: string,
-): AdapterOutput {
-  const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
-  let stdout: string;
+  plog: ProcessLogger,
+): string {
   try {
-    stdout = execFileSync(agent.command, argv, {
+    return execFileSync(agent.command, argv, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
@@ -1084,14 +1080,22 @@ function spawnAgent(
     const detail = stderr.trim() !== "" ? `: ${stderr.trim()}` : "";
     failStep(plog, `agent command failed (${agent.command})${detail}`);
   }
+}
 
+function parseAgentOutput(stdout: string, plog: ProcessLogger): unknown {
   const line = stdout.trim().split("\n").pop()?.trim() ?? "";
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(line);
+    return JSON.parse(line);
   } catch {
     failStep(plog, `agent stdout last line is not valid JSON: ${line || "(empty)"}`);
   }
+}
+
+function validateAndNormalizeOutput(
+  parsed: unknown,
+  line: string,
+  plog: ProcessLogger,
+): AdapterOutput {
   const obj = parsed as Record<string, unknown>;
   if (
     typeof obj !== "object" ||
@@ -1120,6 +1124,21 @@ function spawnAgent(
     obj.errorMessage = null;
   }
   return obj as unknown as AdapterOutput;
+}
+
+function spawnAgent(
+  plog: ProcessLogger,
+  agent: AgentConfig,
+  threadId: ThreadId,
+  role: string,
+  edgePrompt: string,
+  cwd: string,
+): AdapterOutput {
+  const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
+  const stdout = executeAgentCommand(agent, argv, cwd, plog);
+  const line = stdout.trim().split("\n").pop()?.trim() ?? "";
+  const parsed = parseAgentOutput(stdout, plog);
+  return validateAndNormalizeOutput(parsed, line, plog);
 }
 
 function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _head: CasRef): void {

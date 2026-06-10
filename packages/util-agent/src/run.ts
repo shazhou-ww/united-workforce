@@ -271,6 +271,97 @@ function resolveAgentDirs(): { storageRoot: string; casDir: string } {
   };
 }
 
+async function retryFrontmatterExtraction(
+  options: AgentOptions,
+  agentResult: {
+    sessionId: string;
+    output: string;
+    detailHash: CasRef;
+    usage: Usage | null;
+    assembledPrompt: string;
+  },
+  roleDef: { frontmatter: Hash },
+  ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
+): Promise<{
+  extracted: Awaited<ReturnType<typeof tryExtractOutput>>;
+  accumulatedUsage: Usage | null;
+  finalOutput: string;
+}> {
+  let extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
+  let accumulatedUsage = agentResult.usage;
+  let finalOutput = agentResult.output;
+  let currentSessionId = agentResult.sessionId;
+
+  for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
+    const correctionMessage =
+      "Your previous response did not contain valid YAML frontmatter matching the role schema.\n" +
+      "You MUST begin your response with a YAML frontmatter block (--- delimited).\n" +
+      "Please output ONLY the corrected frontmatter block followed by your work.";
+
+    const retryResult = await runWithMessage("agent continue failed", () =>
+      options.continue(currentSessionId, correctionMessage, ctx.meta.store),
+    );
+    currentSessionId = retryResult.sessionId;
+    finalOutput = retryResult.output.trimStart();
+    accumulatedUsage = mergeUsage(accumulatedUsage, retryResult.usage);
+    extracted = await tryExtractOutput(finalOutput, roleDef.frontmatter, ctx);
+  }
+
+  return { extracted, accumulatedUsage, finalOutput };
+}
+
+async function handleExtractionFailure(
+  ctx: Awaited<ReturnType<typeof buildContextWithMeta>>,
+  primaryDetailHash: CasRef,
+  accumulatedUsage: Usage | null,
+  startedAtMs: number,
+  threadId: ThreadId,
+  role: string,
+  finalOutput: string,
+  options: AgentOptions,
+): Promise<void> {
+  const errorMessage =
+    "Agent output does not contain valid YAML frontmatter matching the role schema " +
+    `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
+    `Raw output (first 500 chars): ${finalOutput.slice(0, 500)}`;
+  const completedAtMs = Date.now();
+
+  const errorPayload: ErrorOutputPayload = {
+    $status: "error",
+    error: errorMessage,
+    phase: "frontmatter_extraction",
+  };
+  const errorOutputHash = await ctx.meta.store.cas.put(ctx.meta.schemas.errorOutput, errorPayload);
+
+  const failedStepHash = await persistStep({
+    ctx,
+    outputHash: errorOutputHash,
+    detailHash: primaryDetailHash,
+    agentName: agentLabel(options.name),
+    startedAtMs,
+    completedAtMs,
+    assembledPromptHash: null,
+    usage: accumulatedUsage,
+    previousAttempts: null,
+  });
+
+  await appendFailedAttempt(ctx.meta.store, ctx.meta.schemas.text, threadId, role, failedStepHash);
+
+  const failedOutput: AdapterOutput = {
+    stepHash: failedStepHash,
+    detailHash: primaryDetailHash,
+    role,
+    frontmatter: { $status: "error" },
+    body: "",
+    startedAtMs,
+    completedAtMs,
+    usage: accumulatedUsage,
+    isError: true,
+    errorMessage,
+  };
+  process.stdout.write(`${JSON.stringify(failedOutput)}\n`);
+}
+
 export function createAgent(options: AgentOptions): () => Promise<void> {
   return async function main(): Promise<void> {
     const { threadId, role, prompt } = parseArgv(process.argv);
@@ -292,90 +383,29 @@ export function createAgent(options: AgentOptions): () => Promise<void> {
     }
 
     const startedAtMs = Date.now();
-    let agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
+    const agentResult = await runWithMessage("agent run failed", () => options.run(ctx));
     agentResult.output = agentResult.output.trimStart();
 
-    // Preserve the primary detail from the first run — it contains the full
-    // tool-call turn history.  Continuation retries only fix frontmatter
-    // formatting and their 1-turn detail is not meaningful.
     const primaryDetailHash = agentResult.detailHash;
 
-    // Accumulate usage across the primary run and any frontmatter retries so
-    // the final StepRecord reflects total resource consumption.
-    let accumulatedUsage: Usage | null = agentResult.usage;
-
-    // Try to extract frontmatter; retry via continue if it fails
-    let extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
-
-    for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
-      const correctionMessage =
-        "Your previous response did not contain valid YAML frontmatter matching the role schema.\n" +
-        "You MUST begin your response with a YAML frontmatter block (--- delimited).\n" +
-        "Please output ONLY the corrected frontmatter block followed by your work.";
-
-      agentResult = await runWithMessage("agent continue failed", () =>
-        options.continue(agentResult.sessionId, correctionMessage, ctx.meta.store),
-      );
-      agentResult.output = agentResult.output.trimStart();
-      accumulatedUsage = mergeUsage(accumulatedUsage, agentResult.usage);
-      extracted = await tryExtractOutput(agentResult.output, roleDef.frontmatter, ctx);
-    }
+    const { extracted, accumulatedUsage, finalOutput } = await retryFrontmatterExtraction(
+      options,
+      agentResult,
+      roleDef,
+      ctx,
+    );
 
     if (extracted === null) {
-      const errorMessage =
-        "Agent output does not contain valid YAML frontmatter matching the role schema " +
-        `after ${MAX_FRONTMATTER_RETRIES} retries.\n` +
-        `Raw output (first 500 chars): ${agentResult.output.slice(0, 500)}`;
-      const completedAtMs = Date.now();
-      // Persist a failed StepNode so the turns + usage from the agent run are
-      // preserved in CAS and can be linked to a future successful retry via
-      // `previousAttempts`. Thread head MUST NOT be advanced — the engine
-      // (cmdThreadStepOnce) decides routing based on `isError: true`.
-      const errorPayload: ErrorOutputPayload = {
-        $status: "error",
-        error: errorMessage,
-        phase: "frontmatter_extraction",
-      };
-      const errorOutputHash = await ctx.meta.store.cas.put(
-        ctx.meta.schemas.errorOutput,
-        errorPayload,
-      );
-
-      const failedStepHash = await persistStep({
+      await handleExtractionFailure(
         ctx,
-        outputHash: errorOutputHash,
-        detailHash: primaryDetailHash,
-        agentName: agentLabel(options.name),
+        primaryDetailHash,
+        accumulatedUsage,
         startedAtMs,
-        completedAtMs,
-        assembledPromptHash: null,
-        usage: accumulatedUsage,
-        previousAttempts: null,
-      });
-
-      // Track the failed hash so a future successful retry of the same
-      // (thread, role) can record `previousAttempts: [failedStepHash, ...]`.
-      await appendFailedAttempt(
-        ctx.meta.store,
-        ctx.meta.schemas.text,
         threadId,
         role,
-        failedStepHash,
+        finalOutput,
+        options,
       );
-
-      const failedOutput: AdapterOutput = {
-        stepHash: failedStepHash,
-        detailHash: primaryDetailHash,
-        role,
-        frontmatter: { $status: "error" },
-        body: "",
-        startedAtMs,
-        completedAtMs,
-        usage: accumulatedUsage,
-        isError: true,
-        errorMessage,
-      };
-      process.stdout.write(`${JSON.stringify(failedOutput)}\n`);
       return;
     }
     const completedAtMs = Date.now();

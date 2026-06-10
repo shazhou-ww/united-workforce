@@ -195,7 +195,14 @@ function parseStatusFilter(status: string | undefined): ThreadStatus[] | null {
   if (raw === "active") return ["idle", "running"];
 
   const parts = raw.split(",").map((s) => s.trim());
-  const validStatuses: ThreadStatus[] = ["idle", "running", "suspended", "end", "cancelled", "corrupt"];
+  const validStatuses: ThreadStatus[] = [
+    "idle",
+    "running",
+    "suspended",
+    "end",
+    "cancelled",
+    "corrupt",
+  ];
   for (const part of parts) {
     if (!validStatuses.includes(part as ThreadStatus)) {
       process.stderr.write(
