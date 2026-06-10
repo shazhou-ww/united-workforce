@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **chore:** removed outdated `BOOTSTRAP.md` — still referenced bun and old providers/models config (#242)
+
 ## 0.1.0 (2026-06-05)
 
 Initial release of `@united-workforce/*` — a stateless workflow engine for AI agent orchestration.

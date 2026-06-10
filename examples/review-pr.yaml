@@ -21,7 +21,7 @@ roles:
       If `$PR_AUTHOR == $CURRENT_USER`, set `selfReview: true` in your output frontmatter.
       Self-review is allowed — you still collect full context and proceed normally. The flag tells
       downstream roles to skip approve/reject API calls (Gitea blocks self-review submissions).
-      If not self-review, set `selfReview: false`. Proceed to Step 1 regardless.
+      If not self-review, set `selfReview: false` (explicit — never omit the field). Proceed to Step 1 regardless.
 
       **Step 1 — Set up worktree:**
       1. cd into the local repo clone
