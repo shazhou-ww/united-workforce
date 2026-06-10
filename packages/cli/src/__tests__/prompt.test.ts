@@ -424,9 +424,9 @@ describe("prompt workflow-authoring — issue #226 edge location field", () => {
     expect(lower).toMatch(/(thread.*cwd|start.*cwd|creation cwd|thread['']?s cwd)/);
   });
 
-  test("documents Mustache template support for location", () => {
-    expect(text).toMatch(/location[\s\S]{0,400}\{\{\{[a-zA-Z_]\w*\}\}\}/);
-    expect(lower).toMatch(/location[\s\S]{0,300}mustache/);
+  test("documents Liquid template support for location", () => {
+    expect(text).toMatch(/location[\s\S]{0,400}\{\{\s*[a-zA-Z_]\w*\s*\}\}/);
+    expect(lower).toMatch(/location[\s\S]{0,300}liquid/);
   });
 
   // ── Group 2 — Inheritance chain ─────────────────────────────────────
@@ -458,10 +458,10 @@ describe("prompt workflow-authoring — issue #226 edge location field", () => {
     expect(hasLocationEdge).toBe(true);
   });
 
-  test("example demonstrates cross-cwd execution with a Mustache-templated path", () => {
+  test("example demonstrates cross-cwd execution with a Liquid-templated path", () => {
     const yamlBlocks = text.match(/```yaml[\s\S]*?```/g) ?? [];
     const hasCrossCwdExample = yamlBlocks.some((b) =>
-      /location\s*:\s*['"]?\{\{\{[a-zA-Z_]\w*\}\}\}/m.test(b),
+      /location\s*:\s*['"]?\{\{\s*[a-zA-Z_]\w*\s*\}\}/m.test(b),
     );
     expect(hasCrossCwdExample).toBe(true);
   });

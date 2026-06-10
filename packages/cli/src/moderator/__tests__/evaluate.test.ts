@@ -5,7 +5,7 @@ describe("Edge prompt template variable resolution", () => {
   test("returns error when rendered prompt is empty string", () => {
     const graph = {
       $START: {
-        new: { role: "classifier", prompt: "{{{userPrompt}}}", location: null },
+        new: { role: "classifier", prompt: "{{ userPrompt }}", location: null },
       },
     };
 
@@ -21,7 +21,7 @@ describe("Edge prompt template variable resolution", () => {
   test("returns error when rendered prompt is whitespace-only", () => {
     const graph = {
       $START: {
-        new: { role: "classifier", prompt: "  {{{userPrompt}}}  ", location: null },
+        new: { role: "classifier", prompt: "  {{ userPrompt }}  ", location: null },
       },
     };
 
@@ -37,7 +37,7 @@ describe("Edge prompt template variable resolution", () => {
   test("succeeds when all template variables resolve to non-empty values", () => {
     const graph = {
       $START: {
-        new: { role: "classifier", prompt: "{{{userPrompt}}}", location: null },
+        new: { role: "classifier", prompt: "{{ userPrompt }}", location: null },
       },
     };
 
@@ -67,7 +67,7 @@ describe("Edge prompt template variable resolution", () => {
   test("succeeds when prompt has mix of static text and unresolved variables", () => {
     const graph = {
       $START: {
-        new: { role: "classifier", prompt: "Please handle: {{{userPrompt}}}", location: null },
+        new: { role: "classifier", prompt: "Please handle: {{ userPrompt }}", location: null },
       },
     };
 
@@ -82,13 +82,31 @@ describe("Edge prompt template variable resolution", () => {
   test("returns error when ALL variables missing and no static text remains", () => {
     const graph = {
       $START: {
-        new: { role: "classifier", prompt: "{{{a}}}{{{b}}}", location: null },
+        new: { role: "classifier", prompt: "{{ a }}{{ b }}", location: null },
       },
     };
 
     const result = evaluate(graph, "$START", { $status: "new" });
 
     expect(result.ok).toBe(false);
+  });
+
+  test("does not HTML-escape characters like <, >, &", () => {
+    const graph = {
+      $START: {
+        new: { role: "classifier", prompt: "{{ content }}", location: null },
+      },
+    };
+
+    const result = evaluate(graph, "$START", {
+      $status: "new",
+      content: "<div>Hello & welcome</div>",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt).toBe("<div>Hello & welcome</div>");
+    }
   });
 });
 
@@ -131,13 +149,13 @@ describe("Moderator location resolution", () => {
     }
   });
 
-  test("resolves mustache template location", () => {
+  test("resolves liquid template location", () => {
     const graph = {
       planner: {
         ready: {
           role: "coder",
           prompt: "Implement the code",
-          location: "{{{repoPath}}}",
+          location: "{{ repoPath }}",
         },
       },
     };
@@ -153,13 +171,13 @@ describe("Moderator location resolution", () => {
     }
   });
 
-  test("resolves mustache template with multiple variables", () => {
+  test("resolves liquid template with multiple variables", () => {
     const graph = {
       planner: {
         ready: {
           role: "coder",
           prompt: "Implement the code",
-          location: "{{{basePath}}}/{{{projectName}}}",
+          location: "{{ basePath }}/{{ projectName }}",
         },
       },
     };
@@ -182,7 +200,7 @@ describe("Moderator location resolution", () => {
         ready: {
           role: "coder",
           prompt: "Implement the code",
-          location: "{{{repoPath}}}",
+          location: "{{ repoPath }}",
         },
       },
     };
@@ -191,7 +209,7 @@ describe("Moderator location resolution", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      // Mustache renders missing variables as empty string
+      // LiquidJS renders missing variables as empty string
       expect(result.value.location).toBe("");
     }
   });

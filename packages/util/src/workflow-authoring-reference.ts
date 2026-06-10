@@ -43,8 +43,8 @@ graph:                         # status-based routing
     new: { role: planner, prompt: "Analyze the issue." }
     resume: { role: planner, prompt: "Review the previous run output and continue." }
   planner:
-    ready: { role: developer, prompt: "Implement {{{plan}}}." }
-    failed: { role: $END, prompt: "Failed: {{{error}}}" }
+    ready: { role: developer, prompt: "Implement {{ plan }}." }
+    failed: { role: $END, prompt: "Failed: {{ error }}" }
 \`\`\`
 
 ## Role Definition
@@ -107,7 +107,7 @@ frontmatter:
 
 ### Custom Fields
 
-Add any fields you need for data passing between roles. These are available in edge prompts via Mustache templates.
+Add any fields you need for data passing between roles. These are available in edge prompts via Liquid templates.
 
 ## Graph Routing
 
@@ -128,12 +128,12 @@ graph[role][$status] → { role: nextRole, prompt: edgePrompt }
 
 ### Edge Prompts
 
-Use triple-brace Mustache (\`{{{field}}}\`) to pass data from the previous step's output:
+Use Liquid \`{{ field }}\` syntax to pass data from the previous step's output:
 
 \`\`\`yaml
 graph:
   planner:
-    ready: { role: developer, prompt: "Implement plan {{{plan}}} in {{{repoPath}}}." }
+    ready: { role: developer, prompt: "Implement plan {{ plan }} in {{ repoPath }}." }
 \`\`\`
 
 The fields referenced must exist in the source role's frontmatter schema.
@@ -146,7 +146,7 @@ Roles can route back to previous roles (loops) or to different roles based on st
 graph:
   reviewer:
     approved: { role: tester, prompt: "Run tests." }
-    rejected: { role: developer, prompt: "Fix: {{{comments}}}" }  # loop back
+    rejected: { role: developer, prompt: "Fix: {{ comments }}" }  # loop back
 \`\`\`
 
 ### Fail Routing
@@ -157,7 +157,7 @@ Route failures to a cleanup role or \`$END\`:
 graph:
   developer:
     done: { role: reviewer, prompt: "Review changes." }
-    failed: { role: cleanup, prompt: "Clean up: {{{error}}}" }
+    failed: { role: cleanup, prompt: "Clean up: {{ error }}" }
 \`\`\`
 
 ### Cross-cwd Execution
@@ -165,7 +165,7 @@ graph:
 Each step runs in a working directory resolved by the cwd inheritance chain:
 
 1. \`--cwd <path>\` — CLI flag on \`uwf thread start\`, captured into \`StartNodePayload.cwd\` (defaults to \`process.cwd()\`). This is the thread's base working directory and the fallback for every step.
-2. \`Target.location\` — per-edge working directory override using a Mustache template (e.g. \`{{{repoPath}}}\`); rendered by the moderator against the previous step's frontmatter output. When set, the rendered path becomes the new \`StepRecord.cwd\`.
+2. \`Target.location\` — per-edge working directory override using a Liquid template (e.g. \`{{ repoPath }}\`); rendered by the moderator against the previous step's frontmatter output. When set, the rendered path becomes the new \`StepRecord.cwd\`.
 3. \`StepRecord.cwd\` — the final per-step working directory persisted on the step node and used by the agent that runs it.
 
 Each edge's \`location\` override applies per-step only — when the next edge omits \`location\` (or sets it to \`null\`), the step reverts to the thread's start cwd, not the previously overridden one.
@@ -177,8 +177,8 @@ Each graph edge target supports three fields:
 | Field | Purpose |
 |-------|---------|
 | \`role\` | The next role to execute, or a pseudo-role such as \`$END\` |
-| \`prompt\` | Mustache template rendered against the previous step's frontmatter |
-| \`location\` | Optional working directory override — a Mustache template (e.g. \`{{{repoPath}}}\`); falls back to the thread's start cwd (\`StartNodePayload.cwd\`) when \`null\` or omitted |
+| \`prompt\` | Liquid template rendered against the previous step's frontmatter |
+| \`location\` | Optional working directory override — a Liquid template (e.g. \`{{ repoPath }}\`); falls back to the thread's start cwd (\`StartNodePayload.cwd\`) when \`null\` or omitted |
 
 #### Cross-repo dispatch example
 
@@ -218,21 +218,21 @@ roles:
 
 graph:
   $START:
-    new: { role: cloner, prompt: "Clone {{{repoUrl}}}.", location: null }
+    new: { role: cloner, prompt: "Clone {{ repoUrl }}.", location: null }
   cloner:
     ready:
       role: developer
-      prompt: "Implement the change in {{{repoPath}}}."
-      location: "{{{repoPath}}}"
+      prompt: "Implement the change in {{ repoPath }}."
+      location: "{{ repoPath }}"
   developer:
-    done: { role: $END, prompt: "{{{summary}}}", location: null }
+    done: { role: $END, prompt: "{{ summary }}", location: null }
 \`\`\`
 
-The \`cloner\` step runs in the thread's start cwd; the \`developer\` edge sets \`location: "{{{repoPath}}}"\`, so the moderator renders the cloner's \`repoPath\` field and the developer agent runs inside that newly cloned directory — dispatching across different repos within a single thread.
+The \`cloner\` step runs in the thread's start cwd; the \`developer\` edge sets \`location: "{{ repoPath }}"\`, so the moderator renders the cloner's \`repoPath\` field and the developer agent runs inside that newly cloned directory — dispatching across different repos within a single thread.
 
 #### Path resolution
 
-\`location\` values are used as-is after Mustache rendering — no additional path resolution is applied.
+\`location\` values are used as-is after Liquid rendering — no additional path resolution is applied.
 
 - **Absolute paths** — used directly (e.g. \`/home/user/repos/my-project\`)
 - **Relative paths** — resolved by Node.js against the thread's start cwd (\`StartNodePayload.cwd\`), not the current step's cwd
@@ -347,7 +347,7 @@ uwf workflow validate my-workflow.yaml
 \`\`\`
 
 
-Checks include JSON Schema conformance, graph edge completeness, Mustache field references,
+Checks include JSON Schema conformance, graph edge completeness, Liquid template field references,
 and reserved-name rules (e.g. \`$SUSPEND\` is not a valid graph target).
 
 ## Self-Testing
@@ -376,7 +376,7 @@ ocas get <output-hash>
 ### Validation Checklist
 
 1. Every \`$status\` value in a role's frontmatter has a matching edge in the graph
-2. Every field referenced in edge prompts (\`{{{field}}}\`) exists in the source role's schema
+2. Every field referenced in edge prompts (\`{{ field }}\`) exists in the source role's schema
 3. Every role referenced in the graph exists in \`roles\`
 4. \`$START\` has edges with keys \`new\` and \`resume\`
 5. At least one path leads to \`$END\`
@@ -385,7 +385,7 @@ ocas get <output-hash>
 ## Common Pitfalls
 
 - **Missing graph edge** — if a role can produce \`$status: failed\` but the graph has no \`failed\` edge, the moderator will error
-- **Mustache field mismatch** — referencing \`{{{branch}}}\` in an edge prompt but the source schema has \`branchName\` instead
+- **Template field mismatch** — referencing \`{{ branch }}\` in an edge prompt but the source schema has \`branchName\` instead
 - **Overly complex roles** — a role with 20 steps should be split; each role should be completable in one agent turn
 - **No fail path** — always handle failure; route to cleanup or \`$END\`
 `;

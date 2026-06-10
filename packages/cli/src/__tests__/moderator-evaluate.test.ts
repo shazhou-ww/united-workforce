@@ -13,14 +13,14 @@ const solveIssueGraph: WorkflowPayload["graph"] = {
     },
   },
   planner: {
-    planned: { role: "developer", prompt: "Implement the plan: {{plan}}", location: null },
+    planned: { role: "developer", prompt: "Implement the plan: {{ plan }}", location: null },
   },
   developer: {
-    implemented: { role: "reviewer", prompt: "Review the changes: {{summary}}", location: null },
+    implemented: { role: "reviewer", prompt: "Review the changes: {{ summary }}", location: null },
   },
   reviewer: {
     approved: { role: "$END", prompt: "Done.", location: null },
-    rejected: { role: "developer", prompt: "Fix: {{comments}}", location: null },
+    rejected: { role: "developer", prompt: "Fix: {{ comments }}", location: null },
   },
 };
 
@@ -84,7 +84,7 @@ describe("evaluate", () => {
     }
   });
 
-  test("mustache template rendering with simple fields", () => {
+  test("liquid template rendering with simple fields", () => {
     const result = evaluate(solveIssueGraph, "planner", {
       $status: "planned",
       plan: "Add auth middleware",
@@ -99,7 +99,7 @@ describe("evaluate", () => {
     });
   });
 
-  test("mustache does not HTML-escape prompt content", () => {
+  test("liquid does not HTML-escape prompt content", () => {
     const result = evaluate(solveIssueGraph, "reviewer", {
       $status: "rejected",
       comments: 'use <T> & "Result<T, E>" types',
@@ -110,10 +110,10 @@ describe("evaluate", () => {
     });
   });
 
-  test("triple mustache also works for unescaped output", () => {
+  test("liquid renders HTML content without escaping", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {
-        rejected: { role: "developer", prompt: "Fix: {{{comments}}}", location: null },
+        rejected: { role: "developer", prompt: "Fix: {{ comments }}", location: null },
       },
     };
     const result = evaluate(graph, "reviewer", {
@@ -138,12 +138,12 @@ describe("evaluate", () => {
     }
   });
 
-  test("mustache template with nested object paths", () => {
+  test("liquid template with nested object paths", () => {
     const graph: Record<string, Record<string, Target>> = {
       reviewer: {
         rejected: {
           role: "developer",
-          prompt: "Address: {{review.comments}}",
+          prompt: "Address: {{ review.comments }}",
           location: null,
         },
       },

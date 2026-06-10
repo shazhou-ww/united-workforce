@@ -86,6 +86,6 @@ graph:
     new: { role: triager, prompt: "Triage all open issues without a milestone." }
     resume: { role: triager, prompt: "Continue triaging. Check for any new untriaged issues." }
   triager:
-    has_issues: { role: triager, prompt: "Continue triaging. Remaining untriaged issues: {{{remaining}}}. Already triaged: {{{triaged}}}" }
-    all_done: { role: $END, prompt: "Triage complete. {{{summary}}}" }
-    failed: { role: $END, prompt: "Triage failed: {{{reason}}}" }
+    has_issues: { role: triager, prompt: "Continue triaging. Remaining untriaged issues: {{ remaining }}. Already triaged: {{ triaged }}" }
+    all_done: { role: $END, prompt: "Triage complete. {{ summary }}" }
+    failed: { role: $END, prompt: "Triage failed: {{ reason }}" }
