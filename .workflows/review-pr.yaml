@@ -9,7 +9,7 @@ roles:
     procedure: |
       You will receive a PR number and repo slug (owner/repo) in the task prompt.
 
-      **Step 0 — Self-review guard (MUST do first):**
+      **Step 0 — Self-review detection:**
       Check who authored the PR and who is the current authenticated user:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
@@ -18,9 +18,10 @@ roles:
       CURRENT_USER=$(curl -s "https://git.shazhou.work/api/v1/user" \
         -H "Authorization: token $GITEA_TOKEN" | jq -r '.login')
       ```
-      If `$PR_AUTHOR == $CURRENT_USER`, **STOP IMMEDIATELY**. Do NOT proceed to any further steps.
-      Output frontmatter with `$status: self_review`, the author name, and reason:
-      "Self-review detected: PR author and reviewer are both <username>. Project policy prohibits reviewing your own changes."
+      If `$PR_AUTHOR == $CURRENT_USER`, set `selfReview: true` in your output frontmatter.
+      Self-review is allowed — you still collect full context and proceed normally. The flag tells
+      downstream roles to skip approve/reject API calls (Gitea blocks self-review submissions).
+      If not self-review, set `selfReview: false` (explicit — never omit the field). Proceed to Step 1 regardless.
 
       **Step 1 — Set up worktree:**
       1. cd into the local repo clone
@@ -66,6 +67,10 @@ roles:
       This returns all previous reviews with their state (APPROVED, REQUEST_CHANGES) and body.
       Pass this to the reviewer so they know what has already been flagged and don't repeat.
 
+      **Self-approval shortcut:** If the existing reviews show that `$CURRENT_USER` has already
+      submitted an APPROVED review on this PR, output `$status: already_approved` immediately.
+      There is no need to re-review — skip directly to merger.
+
       **Step 4 — Collect PR metadata:**
       - PR title and description
       - Changed file count and line counts (+/-)
@@ -74,7 +79,7 @@ roles:
 
       Output all collected context for the reviewer.
 
-    output: "Output the PR metadata, diff summary, changed files list, existing reviews, and worktree path. If self-review detected, output $status: self_review immediately."
+    output: "Output the PR metadata, diff summary, changed files list, existing reviews, worktree path, and selfReview flag."
     frontmatter:
       oneOf:
         - properties:
@@ -84,14 +89,13 @@ roles:
             worktree: { type: string }
             changedFiles: { type: string }
             existingReviews: { type: string }
-          required: [$status, repo, prNumber, worktree, changedFiles, existingReviews]
+            selfReview: { type: boolean }
+          required: [$status, repo, prNumber, worktree, changedFiles, existingReviews, selfReview]
         - properties:
-            $status: { const: "self_review" }
+            $status: { const: "already_approved" }
             repo: { type: string }
             prNumber: { type: integer }
-            author: { type: string }
-            reason: { type: string }
-          required: [$status, repo, prNumber, author, reason]
+          required: [$status, repo, prNumber]
 
   reviewer:
     description: "Structured code review — decide if the PR can merge"
@@ -135,7 +139,7 @@ roles:
       4. **Race conditions** — Concurrent access patterns, shared mutable state, async pitfalls.
       5. **Breaking changes** — API surface changes, removed exports, schema changes. Must be flagged in changeset.
       6. **Test coverage** — New code has tests, edge cases covered, no test-only code in production.
-      7. **Changeset** — Check if `.changeset/` directory exists in the repo root. If yes, the project uses changesets — verify the PR includes one with correct bump type (patch/minor/major) and affected packages. If no `.changeset/` directory, skip this item.
+      7. **Changeset** — Only check this if the PR modifies files under `packages/` (source code of published npm packages). Skip for workflow files, docs, specs, config, and other non-package files. When applicable: check if `.changeset/` directory exists in the repo root. If yes, the project uses changesets — verify the PR includes one with correct bump type (patch/minor/major) and affected packages. If no `.changeset/` directory, skip this item.
       8. **Architecture** — Follows existing patterns, proper module boundaries, no circular deps.
       9. **Documentation** — README, JSDoc, inline comments for non-obvious logic.
       10. **Style** — Naming conventions, no console.log in production, consistent patterns.
@@ -148,11 +152,16 @@ roles:
       **Rules:**
       - Do NOT repeat issues already raised in existing reviews (provided in task prompt). If a previous review flagged an issue and it's still present, mention it briefly as "previously flagged, still unresolved" but do NOT write a full new finding for it.
       - If a previous review raised an issue and it has been fixed in the current code, do NOT mention it at all.
+      - If existing reviews contain author responses that explain a finding as intentional design or pre-existing (outside the PR's scope), do NOT re-raise that finding unless you have NEW technical evidence that contradicts the explanation.
       - For each finding, reference the specific file and line number.
       - If a finding maps to a checklist item, reference the item number.
       - Read full file context in the worktree when the diff alone is ambiguous.
 
-    output: "List all findings with file:line references. Set $status to approve or request_changes."
+      **Self-review passthrough:** If the task prompt indicates `selfReview: true`, still perform the
+      full review with identical quality. Pass `selfReview` through to your output frontmatter so
+      downstream roles know to skip approve/reject API calls.
+
+    output: "List all findings with file:line references. Set $status to approve or request_changes. Pass through selfReview."
     frontmatter:
       oneOf:
         - properties:
@@ -161,14 +170,16 @@ roles:
             suggestions: { type: string }
             repo: { type: string }
             prNumber: { type: integer }
-          required: [$status, summary, repo, prNumber]
+            selfReview: { type: boolean }
+          required: [$status, summary, repo, prNumber, selfReview]
         - properties:
             $status: { const: "request_changes" }
             issues: { type: string }
             summary: { type: string }
             repo: { type: string }
             prNumber: { type: integer }
-          required: [$status, issues, summary, repo, prNumber]
+            selfReview: { type: boolean }
+          required: [$status, issues, summary, repo, prNumber, selfReview]
 
   commenter:
     description: "Submits review feedback and/or opens follow-up issues"
@@ -180,35 +191,52 @@ roles:
 
       **Path A — Rejection (request_changes):**
 
-      Submit the rejection review with ALL issues listed:
+      If `selfReview` is true, do NOT call `tea pr reject` (Gitea blocks self-review submissions).
+      Instead, post a regular comment on the PR with the findings:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s -X POST "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues/<number>/comments" \
+        -H "Authorization: token $GITEA_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"body": "## Self-Review Findings\n\n<review body>"}'
+      ```
+
+      If `selfReview` is false, submit the rejection review normally:
       ```bash
       tea pr reject <number> -r <owner/repo> "<review body>"
       ```
       The review body should include:
       - Summary
       - All issues (numbered, with file:line refs)
+      - A reminder at the end: "When fixing these issues, include `Fixes #<issue>` or `Closes #<issue>` in your commit message so tracking issues close automatically when the PR merges."
 
       Do NOT open any tracking issues — the author will fix everything and push a new version.
 
       **Path B — Approval with suggestions:**
 
-      Open tracking issues for each suggestion. First, search existing issues to avoid duplicates:
+      If `selfReview` is true, do NOT call `tea pr approve` (Gitea blocks self-review submissions).
+      Skip the approval submission entirely. Still create suggestion issues as normal below.
+
+      If `selfReview` is false and there are no suggestions, skip issue creation and submit the approval.
+
+      If there ARE suggestions, open ONE consolidated tracking issue (not one per suggestion).
+      First, search existing issues to avoid duplicates:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues?state=open&type=issues&limit=50" \
         -H "Authorization: token $GITEA_TOKEN" | jq '[.[] | {number, title}]'
       ```
 
-      For each suggestion, check if an existing open issue already covers it.
-      - If YES: skip, note the existing issue number.
-      - If NO: create a tracking issue:
+      Check if a consolidated review feedback issue already exists for this PR (title contains "PR #<number>").
+      - If YES: skip issue creation, note the existing issue number.
+      - If NO: create ONE issue covering ALL suggestions:
       ```bash
       tea issues create -r <owner/repo> \
-        -t "Review feedback: <short description>" \
-        -d "From PR #<number> review:\n\n<detailed description with file:line ref>\n\nRef: PR #<number>"
+        -t "Review feedback: PR #<number> — <N> non-blocking suggestions" \
+        -d "From PR #<number> review:\n\n<all suggestions listed with file:line refs>\n\nRef: PR #<number>"
       ```
 
-      If there are no suggestions, skip issue creation entirely.
+      IMPORTANT: Do NOT create one issue per suggestion. All suggestions go in one issue body.
 
       **Output:**
       Report what was done: review state, number of issues opened (if any), and their URLs.
@@ -224,13 +252,15 @@ roles:
         - properties:
             $status: { const: "rejected" }
             reviewState: { type: string }
-          required: [$status, reviewState]
+            selfReview: { type: boolean }
+          required: [$status, reviewState, selfReview]
         - properties:
             $status: { const: "approved" }
             issuesCreated: { type: integer }
             repo: { type: string }
             prNumber: { type: integer }
-          required: [$status, issuesCreated, repo, prNumber]
+            selfReview: { type: boolean }
+          required: [$status, issuesCreated, repo, prNumber, selfReview]
 
   merger:
     description: "Waits for CI, checks mergeability, and merges the PR"
@@ -240,6 +270,8 @@ roles:
       You receive the repo, PR number, and approval summary in the task prompt.
 
       **Step 1 — Submit the approval:**
+      If `selfReview` is true, skip this step entirely (Gitea blocks self-approval).
+      Otherwise:
       ```bash
       tea pr approve <number> -r <owner/repo> "<approval summary>"
       ```
@@ -314,11 +346,11 @@ graph:
     new: { role: "fetcher", prompt: "Fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
     resume: { role: "fetcher", prompt: "Re-fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
   fetcher:
-    ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}" }
-    self_review: { role: "$END", prompt: "Self-review detected for PR #{{{prNumber}}} in {{{repo}}}. Author: {{{author}}}. {{{reason}}}. Workflow terminated — project policy prohibits self-review." }
+    ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}. Self-review: {{{selfReview}}}" }
+    already_approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} was already approved by us. Skip review, proceed directly to merge." }
   reviewer:
-    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open issues for these): {{{suggestions}}}. Summary: {{{summary}}}" }
-    request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}" }
+    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open one consolidated tracking issue): {{{suggestions}}}. Summary: {{{summary}}}. Self-review: {{{selfReview}}}" }
+    request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}. Self-review: {{{selfReview}}}" }
   merger:
     merged: { role: "$END", prompt: "PR merged successfully." }
     ci_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} was approved but CI failed: {{{reason}}}. Submit as request_changes asking to fix CI." }
@@ -326,4 +358,4 @@ graph:
     merge_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} merge failed: {{{reason}}}. Submit as request_changes with the error details." }
   commenter:
     rejected: { role: "$END", prompt: "Review rejection submitted. Workflow complete." }
-    approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestion issues created: {{{issuesCreated}}}. Proceed to merge." }
+    approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestion issues created: {{{issuesCreated}}}. Self-review: {{{selfReview}}}. Proceed to merge." }
