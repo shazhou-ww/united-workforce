@@ -1337,11 +1337,12 @@ export async function cmdThreadExec(
 ): Promise<StepOutput[]> {
   validateCount(count);
 
-  // Check if thread is already running in background (unless we ARE the background worker)
+  // Reject concurrent exec on the same thread (unless we ARE the background worker,
+  // which hasn't created its own marker yet at this point).
   if (!backgroundWorker) {
     const runningMarker = await isThreadRunning(storageRoot, threadId);
     if (runningMarker !== null) {
-      fail(`thread already executing in background (PID: ${runningMarker.pid})`);
+      fail(`thread ${threadId} is already being executed by PID ${runningMarker.pid}`);
     }
   }
 
