@@ -107,7 +107,7 @@ frontmatter:
 
 ### Custom Fields
 
-Add any fields you need for data passing between roles. These are available in edge prompts via Mustache templates.
+Add any fields you need for data passing between roles. These are available in edge prompts via Liquid templates.
 
 ## Graph Routing
 
@@ -347,7 +347,7 @@ uwf workflow validate my-workflow.yaml
 \`\`\`
 
 
-Checks include JSON Schema conformance, graph edge completeness, Mustache field references,
+Checks include JSON Schema conformance, graph edge completeness, Liquid template field references,
 and reserved-name rules (e.g. \`$SUSPEND\` is not a valid graph target).
 
 ## Self-Testing
