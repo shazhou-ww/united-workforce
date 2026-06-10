@@ -130,7 +130,7 @@ export type ModeratorContext = {
 /** Thread status — unified status representation.
  * `end` means the workflow graph reached $END (neutral: success, failure, or guard-blocked).
  * An ended thread can still be resumed via `thread resume`. */
-export type ThreadStatus = "idle" | "running" | "suspended" | "end" | "cancelled";
+export type ThreadStatus = "idle" | "running" | "suspended" | "end" | "cancelled" | "corrupt";
 
 /** uwf thread start */
 export type StartOutput = {

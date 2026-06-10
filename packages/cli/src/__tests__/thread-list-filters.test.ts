@@ -852,3 +852,57 @@ describe("ISO date parsing", () => {
     expect(() => parseTimeInput("invalid", nowMs)).toThrow();
   });
 });
+
+// ── corrupt thread resilience (#250) ──────────────────────────────────────────
+
+describe("corrupt thread resilience (#250)", () => {
+  test("thread list returns corrupt entry when CAS node is missing", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+
+    // Create a valid thread
+    const workflowHash = await createTestWorkflow(uwf);
+    const now = Date.now();
+    const validId = await createTestThread(uwf, tmpDir, workflowHash, now);
+
+    // Create another thread with a unique start node, then delete its workflow CAS to corrupt it
+    const corruptThreadId = generateUlid(now + 1000) as ThreadId;
+    const startPayload = {
+      workflow: workflowHash,
+      prompt: "corrupt thread prompt — unique to avoid CAS hash collision",
+      cwd: tmpDir,
+    };
+    const headHash = await uwf.store.cas.put(uwf.schemas.startNode, startPayload);
+    setThread(uwf.varStore, corruptThreadId, createThreadIndexEntry(headHash));
+
+    // Delete the workflow CAS node — start node still exists but workflow ref dangles
+    uwf.store.cas.delete(workflowHash);
+
+    // thread list should NOT throw — it should return both threads
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, true);
+
+    // Both threads should appear (the valid one is now also corrupt since workflow is shared)
+    // In practice: both become corrupt because they share the same workflow CAS node
+    // This matches the real scenario from issue #250 — gc deleted a shared node
+    expect(result.length).toBeGreaterThanOrEqual(2);
+    const corruptItems = result.filter((r) => r.status === "corrupt");
+    expect(corruptItems.length).toBeGreaterThanOrEqual(1);
+    for (const item of corruptItems) {
+      expect(item.statusDisplay).toBe("corrupt");
+    }
+  });
+
+  test("corrupt threads appear in default filter (without --all)", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    // Create a thread then corrupt it
+    const corruptId = await createTestThread(uwf, tmpDir, workflowHash, Date.now());
+    const corruptEntry = loadAllThreads(uwf.varStore)[corruptId];
+    uwf.store.cas.delete(corruptEntry.head);
+
+    // Default filter (no --all, no --status) should include corrupt
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe("corrupt");
+  });
+});

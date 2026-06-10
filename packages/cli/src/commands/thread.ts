@@ -572,7 +572,15 @@ async function threadListItemFromActive(
 ): Promise<ThreadListItemWithStatus | null> {
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
-    return null;
+    // Head CAS node missing or unrecognized — treat as corrupt rather than silently skipping
+    return {
+      thread: threadId,
+      workflow: "" as CasRef,
+      head,
+      status: "corrupt",
+      currentRole: null,
+      statusDisplay: "corrupt",
+    };
   }
 
   const status = await resolveActiveThreadStatus(storageRoot, threadId, uwf, head);
@@ -595,9 +603,27 @@ async function collectActiveThreads(
 ): Promise<ThreadListItemWithStatus[]> {
   const items: ThreadListItemWithStatus[] = [];
   for (const [threadId, entry] of Object.entries(index)) {
-    const item = await threadListItemFromActive(storageRoot, uwf, threadId as ThreadId, entry.head);
-    if (item !== null) {
-      items.push(item);
+    try {
+      const item = await threadListItemFromActive(
+        storageRoot,
+        uwf,
+        threadId as ThreadId,
+        entry.head,
+      );
+      if (item !== null) {
+        items.push(item);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`warning: thread ${threadId} is corrupt: ${message}\n`);
+      items.push({
+        thread: threadId as ThreadId,
+        workflow: "" as CasRef,
+        head: entry.head,
+        status: "corrupt",
+        currentRole: null,
+        statusDisplay: "corrupt",
+      });
     }
   }
   return items;
@@ -613,16 +639,29 @@ function collectCompletedThreads(
   for (const [threadId, entry] of Object.entries(history)) {
     if (!activeIds.has(threadId as ThreadId) && !seen.has(threadId as ThreadId)) {
       seen.add(threadId as ThreadId);
-      const status = entry.status;
-      const workflow = resolveWorkflowFromHead(uwf, entry.head);
-      items.push({
-        thread: threadId as ThreadId,
-        workflow: workflow ?? "",
-        head: entry.head,
-        status,
-        currentRole: null,
-        statusDisplay: status,
-      });
+      try {
+        const status = entry.status;
+        const workflow = resolveWorkflowFromHead(uwf, entry.head);
+        items.push({
+          thread: threadId as ThreadId,
+          workflow: workflow ?? "",
+          head: entry.head,
+          status,
+          currentRole: null,
+          statusDisplay: status,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`warning: completed thread ${threadId} is corrupt: ${message}\n`);
+        items.push({
+          thread: threadId as ThreadId,
+          workflow: "" as CasRef,
+          head: entry.head,
+          status: "corrupt",
+          currentRole: null,
+          statusDisplay: "corrupt",
+        });
+      }
     }
   }
   return items;
@@ -677,7 +716,7 @@ export async function cmdThreadList(
   //   - explicit --status wins (showAll has no effect)
   //   - otherwise: --all → no filter; default → ["idle", "running"]
   const effectiveFilter: ThreadStatus[] | null =
-    statusFilter !== null ? statusFilter : showAll ? null : ["idle", "running"];
+    statusFilter !== null ? statusFilter : showAll ? null : ["idle", "running", "corrupt"];
 
   // Collect active threads
   let items = await collectActiveThreads(storageRoot, uwf, index);

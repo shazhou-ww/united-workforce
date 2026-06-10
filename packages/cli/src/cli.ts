@@ -195,7 +195,7 @@ function parseStatusFilter(status: string | undefined): ThreadStatus[] | null {
   if (raw === "active") return ["idle", "running"];
 
   const parts = raw.split(",").map((s) => s.trim());
-  const validStatuses: ThreadStatus[] = ["idle", "running", "suspended", "end", "cancelled"];
+  const validStatuses: ThreadStatus[] = ["idle", "running", "suspended", "end", "cancelled", "corrupt"];
   for (const part of parts) {
     if (!validStatuses.includes(part as ThreadStatus)) {
       process.stderr.write(
@@ -249,7 +249,7 @@ function parsePaginationOptions(
 
 thread
   .command("list")
-  .description("List threads (defaults to active: idle + running)")
+  .description("List threads (defaults to active: idle + running + corrupt)")
   .option(
     "--status <status>",
     "Filter by status: idle, running, end, cancelled, active (idle+running), or comma-separated values",
