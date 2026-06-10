@@ -55,10 +55,10 @@ function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
         new: { role: "writer", prompt: "Begin writing", location: null },
         resume: { role: "writer", prompt: "Review previous output and continue", location: null },
       },
-      writer: { done: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null } },
+      writer: { done: { role: "reviewer", prompt: "Review this: {{ plan }}", location: null } },
       reviewer: {
-        approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
-        rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
+        approved: { role: "$END", prompt: "Done: {{ summary }}", location: null },
+        rejected: { role: "writer", prompt: "Fix: {{ reason }}", location: null },
       },
     },
   };
@@ -208,8 +208,6 @@ describe("Suite 2: Graph Structure", () => {
 
 describe("Suite 3: Status-Edge Consistency", () => {
   test("3.1 user role using _ graph key is treated as an unknown status", () => {
-    // "_" is no longer special-cased — it's just a status key that does not
-    // match the role's $status enum, so it surfaces as extra/missing keys.
     const wf = makeWorkflow();
     wf.graph.writer = { _: { role: "reviewer", prompt: "Review", location: null } };
     const errors = validateWorkflow(wf);
@@ -288,7 +286,7 @@ describe("Suite 3b: Enum-Based $status is Rejected", () => {
     };
     wf.graph.reviewer = {
       approved: { role: "$END", prompt: "Done", location: null },
-      rejected: { role: "writer", prompt: "Fix: {{{comments}}}", location: null },
+      rejected: { role: "writer", prompt: "Fix: {{ comments }}", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("must define") && e.includes("const"))).toBe(true);
@@ -307,7 +305,9 @@ describe("Suite 3b: Enum-Based $status is Rejected", () => {
         required: ["$status", "plan"],
       } as unknown as string,
     };
-    wf.graph.writer = { ready: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } };
+    wf.graph.writer = {
+      ready: { role: "reviewer", prompt: "Review: {{ plan }}", location: null },
+    };
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("must define") && e.includes("const"))).toBe(true);
   });
@@ -352,7 +352,7 @@ describe("Suite 3c: Const-Based Flat Schema", () => {
     expect(errors.some((e) => e.includes("extra status keys") && e.includes("extra"))).toBe(true);
   });
 
-  test("3c.3 flat schema with const $status validates mustache vars", () => {
+  test("3c.3 flat schema with const $status validates template vars", () => {
     const wf = makeWorkflow();
     wf.roles.writer = {
       ...wf.roles.writer,
@@ -366,46 +366,36 @@ describe("Suite 3c: Const-Based Flat Schema", () => {
       } as unknown as string,
     };
     wf.graph.writer = {
-      done: { role: "reviewer", prompt: "Review: {{{nonexistent}}}", location: null },
+      done: { role: "reviewer", prompt: "Review: {{ nonexistent }}", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(
-      errors.some(
-        (e) => e.includes('prompt variable "nonexistent"') && e.includes('role "writer"'),
-      ),
-    ).toBe(true);
+    expect(errors.some((e) => e.includes("nonexistent") && e.includes('role "writer"'))).toBe(true);
   });
 });
 
-describe("Suite 4: Mustache Template Variable Existence", () => {
-  test("4.1 prompt references nonexistent variable (enum status)", () => {
+describe("Suite 4: Template Variable Existence (LiquidJS strict-render)", () => {
+  test("4.1 prompt references nonexistent variable (flat schema)", () => {
     const wf = makeWorkflow();
     wf.graph.writer = {
-      done: { role: "reviewer", prompt: "Review: {{{branch}}}", location: null },
+      done: { role: "reviewer", prompt: "Review: {{ branch }}", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(
-      errors.some(
-        (e) => e.includes('prompt variable "branch"') && e.includes('role "writer" frontmatter'),
-      ),
-    ).toBe(true);
+    expect(errors.some((e) => e.includes("branch") && e.includes('role "writer"'))).toBe(true);
   });
 
   test("4.2 prompt references nonexistent variable (multi-exit)", () => {
     const wf = makeWorkflow();
     wf.graph.reviewer = {
-      approved: { role: "$END", prompt: "Done: {{{branch}}}", location: null },
-      rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
+      approved: { role: "$END", prompt: "Done: {{ branch }}", location: null },
+      rejected: { role: "writer", prompt: "Fix: {{ reason }}", location: null },
     };
     const errors = validateWorkflow(wf);
     expect(
-      errors.some((e) =>
-        e.includes('prompt variable "branch" not found in role "reviewer" variant "approved"'),
-      ),
+      errors.some((e) => e.includes("branch") && e.includes("reviewer") && e.includes("approved")),
     ).toBe(true);
   });
 
-  test("4.3 valid mustache variables pass", () => {
+  test("4.3 valid template variables pass", () => {
     const wf = makeWorkflow();
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
@@ -413,7 +403,9 @@ describe("Suite 4: Mustache Template Variable Existence", () => {
 
   test("4.4 $status variable is always valid", () => {
     const wf = makeWorkflow();
-    wf.graph.writer = { done: { role: "reviewer", prompt: "Status: {{$status}}", location: null } };
+    wf.graph.writer = {
+      done: { role: "reviewer", prompt: "Status: {{ $status }}", location: null },
+    };
     const errors = validateWorkflow(wf);
     expect(errors).toEqual([]);
   });
@@ -498,8 +490,6 @@ describe("Suite 7: $SUSPEND is no longer a valid graph target", () => {
   });
 
   test("7.3 a role emitting $SUSPEND from its output (not the graph) passes", () => {
-    // The role declares only its normal status; $SUSPEND is an engine-level
-    // reserved status emitted at runtime and validated against its own schema.
     const wf = makeWorkflow();
     const errors = validateWorkflow(wf);
     expect(errors.some((e) => e.includes("$SUSPEND"))).toBe(false);
@@ -524,8 +514,8 @@ describe("Suite 6: Multiple Errors Collection", () => {
     };
     // unknown graph reference
     wf.graph.nonexistent = { done: { role: "$END", prompt: "done", location: null } };
-    // bad mustache var
-    wf.graph.writer = { done: { role: "reviewer", prompt: "{{{badvar}}}", location: null } };
+    // bad template var
+    wf.graph.writer = { done: { role: "reviewer", prompt: "{{ badvar }}", location: null } };
     const errors = validateWorkflow(wf);
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });

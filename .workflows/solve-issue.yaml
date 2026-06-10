@@ -283,18 +283,18 @@ graph:
     new: { role: "planner", prompt: "Analyze the issue and write behavior specs in specs/." }
     resume: { role: "planner", prompt: "Review the previous run output and continue the work." }
   planner:
-    ready: { role: "developer", prompt: "Implement the behavior defined in spec files (comma-separated): {{{specFiles}}}. Worktree: {{{worktree}}}, branch: {{{branch}}}. Repo: {{{repoPath}}}. Do NOT create a new worktree — the planner already created it." }
-    continue: { role: "developer", prompt: "Continue work on existing branch {{{branch}}} at worktree {{{worktree}}}. Implement the revised specs (comma-separated): {{{specFiles}}}. Repo: {{{repoPath}}}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
+    ready: { role: "developer", prompt: "Implement the behavior defined in spec files (comma-separated): {{ specFiles }}. Worktree: {{ worktree }}, branch: {{ branch }}. Repo: {{ repoPath }}. Do NOT create a new worktree — the planner already created it." }
+    continue: { role: "developer", prompt: "Continue work on existing branch {{ branch }} at worktree {{ worktree }}. Implement the revised specs (comma-separated): {{ specFiles }}. Repo: {{ repoPath }}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:
-    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
-    failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
+    done: { role: "reviewer", prompt: "Review branch {{ branch }} at {{ worktree }} for code standards compliance." }
+    failed: { role: "$END", prompt: "Developer failed: {{ reason }}. Ending workflow." }
   reviewer:
-    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues at {{{worktree}}}." }
-    approved: { role: "tester", prompt: "Review passed. Verify implementation against spec files on branch {{{branch}}} at {{{worktree}}}." }
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{ comments }}. Fix the issues at {{ worktree }}." }
+    approved: { role: "tester", prompt: "Review passed. Verify implementation against spec files on branch {{ branch }} at {{ worktree }}." }
   tester:
-    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit at {{{worktree}}} on branch {{{branch}}}." }
-    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the spec files at {{{worktree}}} on branch {{{branch}}}." }
-    passed: { role: "committer", prompt: "All specs verified. Commit and push branch {{{branch}}} from {{{worktree}}}." }
+    fix_code: { role: "developer", prompt: "Tests found code issues: {{ report }}. Fix and re-submit at {{ worktree }} on branch {{ branch }}." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{ report }}. Revise the spec files at {{ worktree }} on branch {{ branch }}." }
+    passed: { role: "committer", prompt: "All specs verified. Commit and push branch {{ branch }} from {{ worktree }}." }
   committer:
-    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit at {{{worktree}}} on branch {{{branch}}}." }
-    committed: { role: "$END", prompt: "PR created: {{{prUrl}}}. Workflow complete." }
+    hook_failed: { role: "developer", prompt: "Push hook failed: {{ error }}. Fix and re-submit at {{ worktree }} on branch {{ branch }}." }
+    committed: { role: "$END", prompt: "PR created: {{ prUrl }}. Workflow complete." }

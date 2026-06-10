@@ -201,16 +201,16 @@ roles:
 
 graph:
   $START:
-    new: { role: "preflight", prompt: "Pre-flight check for releasing {{{repo}}} from {{{repoPath}}}." }
-    resume: { role: "preflight", prompt: "Re-check release readiness for {{{repo}}} at {{{repoPath}}}." }
+    new: { role: "preflight", prompt: "Pre-flight check for releasing {{ repo }} from {{ repoPath }}." }
+    resume: { role: "preflight", prompt: "Re-check release readiness for {{ repo }} at {{ repoPath }}." }
   preflight:
-    ready: { role: "bumper", prompt: "Bump versions for {{{repo}}} at {{{repoPath}}}. Pending changesets:\n{{{changesets}}}" }
-    already_bumped: { role: "publisher", prompt: "Publish {{{repo}}} from {{{repoPath}}}. Unpublished packages:\n{{{packages}}}" }
-    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
+    ready: { role: "bumper", prompt: "Bump versions for {{ repo }} at {{ repoPath }}. Pending changesets:\n{{ changesets }}" }
+    already_bumped: { role: "publisher", prompt: "Publish {{ repo }} from {{ repoPath }}. Unpublished packages:\n{{ packages }}" }
+    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{ reason }}" }
   bumper:
-    merged: { role: "publisher", prompt: "Publish {{{repo}}} from {{{repoPath}}}. Bumped packages:\n{{{packages}}}" }
-    failed: { role: "$END", prompt: "❌ Bump failed: {{{reason}}}" }
+    merged: { role: "publisher", prompt: "Publish {{ repo }} from {{ repoPath }}. Bumped packages:\n{{ packages }}" }
+    failed: { role: "$END", prompt: "❌ Bump failed: {{ reason }}" }
   publisher:
-    released: { role: "$END", prompt: "✅ Released {{{packages}}}. Tags: {{{tags}}}. GitHub: {{{githubSync}}}" }
-    failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
-    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{{reason}}}" }
+    released: { role: "$END", prompt: "✅ Released {{ packages }}. Tags: {{ tags }}. GitHub: {{ githubSync }}" }
+    failed: { role: "$END", prompt: "❌ Release failed: {{ reason }}" }
+    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{ reason }}" }

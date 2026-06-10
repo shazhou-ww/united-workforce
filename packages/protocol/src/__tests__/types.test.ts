@@ -58,14 +58,14 @@ describe("Protocol types for thread/edge location", () => {
       expect(target.location).toBe(null);
     });
 
-    test("location supports mustache template syntax", () => {
+    test("location supports liquid template syntax", () => {
       const target: Target = {
         role: "coder",
         prompt: "Implement the code",
-        location: "{{{repoPath}}}",
+        location: "{{ repoPath }}",
       };
 
-      expect(target.location).toBe("{{{repoPath}}}");
+      expect(target.location).toBe("{{ repoPath }}");
     });
   });
 });

@@ -1,22 +1,11 @@
 import type { WorkflowPayload } from "@united-workforce/protocol";
+import { Liquid } from "liquidjs";
 
 type SchemaObj = Record<string, unknown>;
 
 const RESERVED_NAMES = new Set(["$START", "$END", "$SUSPEND"]);
 const PSEUDO_TARGETS = new Set(["$END"]);
 const SUSPEND_TARGET = "$SUSPEND";
-
-/** Extract mustache variable names from a prompt string. */
-function extractMustacheVars(prompt: string): string[] {
-  const vars: string[] = [];
-  const re = /\{\{\{?([^}]+)\}\}\}?/g;
-  let m: RegExpExecArray | null = re.exec(prompt);
-  while (m !== null) {
-    vars.push(m[1]);
-    m = re.exec(prompt);
-  }
-  return vars;
-}
 
 /** Check if a frontmatter schema is a oneOf (multi-exit) type. */
 function isOneOfSchema(fm: unknown): fm is SchemaObj & { oneOf: SchemaObj[] } {
@@ -43,13 +32,6 @@ function getConstStatuses(fm: SchemaObj): string[] {
   return [];
 }
 
-/** Get property names from a schema object. */
-function getPropertyNames(schema: SchemaObj): Set<string> {
-  const props = schema.properties;
-  if (typeof props !== "object" || props === null) return new Set();
-  return new Set(Object.keys(props as Record<string, unknown>));
-}
-
 /** Extract $status const values from oneOf variants. */
 function getOneOfStatuses(variants: SchemaObj[]): string[] {
   const statuses: string[] = [];
@@ -63,6 +45,83 @@ function getOneOfStatuses(variants: SchemaObj[]): string[] {
     }
   }
   return statuses;
+}
+
+/** Generate mock data from schema property names for template rendering. */
+function generateMockData(schema: SchemaObj): Record<string, string> {
+  const mock: Record<string, string> = {};
+  const props = schema.properties as Record<string, SchemaObj> | undefined;
+  if (!props) return mock;
+  for (const key of Object.keys(props)) {
+    mock[key] = `mock_${key}`;
+  }
+  return mock;
+}
+
+/**
+ * Pre-process a template to replace `$`-prefixed variables (like `$status`)
+ * which are invalid in LiquidJS syntax but always valid at runtime.
+ * Replaces `{{ $varName }}` with a literal placeholder so the strict render
+ * does not reject them.
+ */
+function sanitizeReservedVars(template: string): string {
+  return template.replace(/\{\{\s*\$\w+\s*\}\}/g, "RESERVED");
+}
+
+/** Extract variable name from a LiquidJS UndefinedVariableError message. */
+function extractVarName(err: unknown): string {
+  const msg = String(err);
+  const match = msg.match(/undefined variable: ([^,\s]+)/);
+  return match ? match[1] : "unknown";
+}
+
+/** Validate edge templates using LiquidJS strict-render for a multi-exit role. */
+function validateMultiExitTemplates(
+  roleName: string,
+  graphEntry: Record<string, { role: string; prompt: string }>,
+  variants: SchemaObj[],
+  errors: string[],
+): void {
+  const strictEngine = new Liquid({ strictVariables: true });
+
+  for (const [status, target] of Object.entries(graphEntry)) {
+    const variant = variants.find((v) => {
+      const props = v.properties as Record<string, SchemaObj> | undefined;
+      return props?.$status?.const === status;
+    });
+    if (!variant) continue;
+    const mockData = generateMockData(variant);
+    try {
+      strictEngine.parseAndRenderSync(sanitizeReservedVars(target.prompt), mockData);
+    } catch (err) {
+      const varName = extractVarName(err);
+      errors.push(
+        `template variable "${varName}" not found in role "${roleName}" variant "${status}"`,
+      );
+    }
+  }
+}
+
+/** Validate edge templates using LiquidJS strict-render for a flat schema. */
+function validateFlatTemplates(
+  roleName: string,
+  graphEntry: Record<string, { role: string; prompt: string }>,
+  fm: SchemaObj,
+  errors: string[],
+): void {
+  const strictEngine = new Liquid({ strictVariables: true });
+  const mockData = generateMockData(fm);
+
+  for (const [status, target] of Object.entries(graphEntry)) {
+    try {
+      strictEngine.parseAndRenderSync(sanitizeReservedVars(target.prompt), mockData);
+    } catch (err) {
+      const varName = extractVarName(err);
+      errors.push(
+        `template variable "${varName}" in graph[${roleName}][${status}] not found in role "${roleName}" frontmatter`,
+      );
+    }
+  }
 }
 
 /** Check reserved names and role/graph reference integrity. */
@@ -225,31 +284,7 @@ function checkStatusEdges(
   }
 }
 
-/** Check mustache variables for multi-exit role. */
-function checkMultiExitMustache(
-  roleName: string,
-  graphEntry: Record<string, { role: string; prompt: string }>,
-  variants: SchemaObj[],
-  errors: string[],
-): void {
-  for (const [status, target] of Object.entries(graphEntry)) {
-    const vars = extractMustacheVars(target.prompt);
-    const variant = variants.find((v) => {
-      const props = v.properties as Record<string, SchemaObj> | undefined;
-      return props?.$status?.const === status;
-    });
-    if (!variant) continue;
-    const propNames = getPropertyNames(variant);
-    for (const v of vars) {
-      if (v === "$status") continue;
-      if (!propNames.has(v)) {
-        errors.push(`prompt variable "${v}" not found in role "${roleName}" variant "${status}"`);
-      }
-    }
-  }
-}
-
-/** Check status-edge consistency and mustache for each role. */
+/** Check status-edge consistency and template vars for each role. */
 function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void {
   for (const [roleName, role] of Object.entries(payload.roles)) {
     if (RESERVED_NAMES.has(roleName)) continue;
@@ -265,37 +300,15 @@ function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void 
 
       checkOneOfDiscriminant(roleName, variants, statuses, errors);
       checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
-      checkMultiExitMustache(roleName, graphEntry, variants, errors);
+      validateMultiExitTemplates(roleName, graphEntry, variants, errors);
     } else if (hasStatusConst(fm)) {
       const statuses = getConstStatuses(fm as SchemaObj);
       checkStatusEdges(roleName, graphKeys, new Set(statuses), errors);
-      // For const-based flat schemas, mustache vars come from the flat properties
-      checkFlatMustache(roleName, graphEntry, fm as SchemaObj, errors);
+      validateFlatTemplates(roleName, graphEntry, fm as SchemaObj, errors);
     } else {
       errors.push(
         `role "${roleName}" must define "$status" as const (or oneOf with const) in frontmatter`,
       );
-    }
-  }
-}
-
-/** Check mustache vars in all edge prompts against flat schema properties. */
-function checkFlatMustache(
-  roleName: string,
-  graphEntry: Record<string, { role: string; prompt: string }>,
-  fm: SchemaObj,
-  errors: string[],
-): void {
-  const propNames = getPropertyNames(fm);
-  for (const [status, target] of Object.entries(graphEntry)) {
-    const vars = extractMustacheVars(target.prompt);
-    for (const v of vars) {
-      if (v === "$status") continue;
-      if (!propNames.has(v)) {
-        errors.push(
-          `prompt variable "${v}" in graph[${roleName}][${status}] not found in role "${roleName}" frontmatter`,
-        );
-      }
     }
   }
 }

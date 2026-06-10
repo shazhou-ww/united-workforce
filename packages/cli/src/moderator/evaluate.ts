@@ -1,10 +1,9 @@
 import type { Target } from "@united-workforce/protocol";
-import mustache from "mustache";
+import { Liquid } from "liquidjs";
 
 import type { EvaluateResult, Result } from "./types.js";
 
-// Disable HTML escaping — prompts are plain text, not HTML.
-mustache.escape = (text: string) => text;
+const engine = new Liquid();
 
 type LastOutput = Record<string, unknown>;
 
@@ -42,7 +41,7 @@ export function evaluate(
   }
 
   try {
-    const prompt = mustache.render(target.prompt, lastOutput);
+    const prompt = engine.parseAndRenderSync(target.prompt, lastOutput);
     if (prompt.trim() === "") {
       return {
         ok: false,
@@ -52,7 +51,8 @@ export function evaluate(
       };
     }
 
-    const location = target.location !== null ? mustache.render(target.location, lastOutput) : null;
+    const location =
+      target.location !== null ? engine.parseAndRenderSync(target.location, lastOutput) : null;
     return { ok: true, value: { role: target.role, prompt, location } };
   } catch (error) {
     return {

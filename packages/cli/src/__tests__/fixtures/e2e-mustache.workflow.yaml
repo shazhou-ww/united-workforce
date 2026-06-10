@@ -30,6 +30,6 @@ graph:
     new: { role: planner, prompt: 'Plan the task' }
     resume: { role: planner, prompt: 'Review the previous run output and continue the work.' }
   planner:
-    ready: { role: worker, prompt: 'Work on branch {{{branch}}} in {{{repoPath}}}' }
+    ready: { role: worker, prompt: 'Work on branch {{ branch }} in {{ repoPath }}' }
   worker:
     done: { role: '$END', prompt: 'Complete' }

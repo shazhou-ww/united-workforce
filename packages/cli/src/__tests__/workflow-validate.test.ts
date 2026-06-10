@@ -138,10 +138,10 @@ function makeMultiRolePayload(name: string): unknown {
         resume: { role: "writer", prompt: "Continue", location: null },
       },
       writer: {
-        done: { role: "reviewer", prompt: "Review this: {{{plan}}}", location: null },
+        done: { role: "reviewer", prompt: "Review this: {{ plan }}", location: null },
       },
       reviewer: {
-        approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
+        approved: { role: "$END", prompt: "Done: {{ summary }}", location: null },
       },
     },
   };
@@ -201,11 +201,11 @@ function makeOneOfPayload(name: string): unknown {
         resume: { role: "writer", prompt: "Resume", location: null },
       },
       writer: {
-        done: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null },
+        done: { role: "reviewer", prompt: "Review: {{ plan }}", location: null },
       },
       reviewer: {
-        approved: { role: "$END", prompt: "Done: {{{summary}}}", location: null },
-        rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
+        approved: { role: "$END", prompt: "Done: {{ summary }}", location: null },
+        rejected: { role: "writer", prompt: "Fix: {{ reason }}", location: null },
       },
     },
   };
@@ -466,7 +466,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
         commenter: {
           approved: {
             role: "$END",
-            prompt: "Comment on PR #{{{prNumber}}}",
+            prompt: "Comment on PR #{{ prNumber }}",
             location: null,
           },
         },
@@ -479,7 +479,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("workflow validation failed:");
-    expect(result.stderr).toContain('prompt variable "prNumber"');
+    expect(result.stderr).toContain('template variable "prNumber"');
     expect(result.stderr).toContain("commenter");
   });
 
@@ -535,11 +535,11 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
           new: { role: "writer", prompt: "Begin", location: null },
           resume: { role: "writer", prompt: "Resume", location: null },
         },
-        writer: { done: { role: "reviewer", prompt: "Review: {{{plan}}}", location: null } },
+        writer: { done: { role: "reviewer", prompt: "Review: {{ plan }}", location: null } },
         reviewer: {
-          // approved branch references {{{reason}}} which only exists in rejected variant
-          approved: { role: "$END", prompt: "Approved because: {{{reason}}}", location: null },
-          rejected: { role: "writer", prompt: "Fix: {{{reason}}}", location: null },
+          // approved branch references {{ reason }} which only exists in rejected variant
+          approved: { role: "$END", prompt: "Approved because: {{ reason }}", location: null },
+          rejected: { role: "writer", prompt: "Fix: {{ reason }}", location: null },
         },
       },
     };
@@ -549,7 +549,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('prompt variable "reason"');
+    expect(result.stderr).toContain('template variable "reason"');
     expect(result.stderr).toContain('variant "approved"');
   });
 
@@ -637,7 +637,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     };
     // 3) bad mustache variable
     graph.writer = {
-      done: { role: "$END", prompt: "Use {{{missing}}}", location: null },
+      done: { role: "$END", prompt: "Use {{ missing }}", location: null },
     };
 
     const file = join(tmpDir, "multi-error.yaml");

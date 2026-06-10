@@ -350,19 +350,19 @@ roles:
 
 graph:
   $START:
-    new: { role: "fetcher", prompt: "Fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
-    resume: { role: "fetcher", prompt: "Re-fetch PR context for PR #{{{prNumber}}} in repo {{{repo}}}. Local clone is at {{{repoPath}}}." }
+    new: { role: "fetcher", prompt: "Fetch PR context for PR #{{ prNumber }} in repo {{ repo }}. Local clone is at {{ repoPath }}." }
+    resume: { role: "fetcher", prompt: "Re-fetch PR context for PR #{{ prNumber }} in repo {{ repo }}. Local clone is at {{ repoPath }}." }
   fetcher:
-    ready: { role: "reviewer", prompt: "Review PR #{{{prNumber}}} in {{{repo}}}. Worktree: {{{worktree}}}. Changed files: {{{changedFiles}}}. Existing reviews (do NOT repeat issues already raised): {{{existingReviews}}}. Self-review: {{{selfReview}}}" }
-    already_approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} was already approved by us. Skip review, proceed directly to merge." }
+    ready: { role: "reviewer", prompt: "Review PR #{{ prNumber }} in {{ repo }}. Worktree: {{ worktree }}. Changed files: {{ changedFiles }}. Existing reviews (do NOT repeat issues already raised): {{ existingReviews }}. Self-review: {{ selfReview }}" }
+    already_approved: { role: "merger", prompt: "PR #{{ prNumber }} in {{ repo }} was already approved by us. Skip review, proceed directly to merge." }
   reviewer:
-    approve: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestions (open one consolidated tracking issue): {{{suggestions}}}. Summary: {{{summary}}}. Self-review: {{{selfReview}}}" }
-    request_changes: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} needs changes. Issues: {{{issues}}}. Summary: {{{summary}}}. Self-review: {{{selfReview}}}" }
+    approve: { role: "commenter", prompt: "PR #{{ prNumber }} in {{ repo }} approved. Suggestions (open one consolidated tracking issue): {{ suggestions }}. Summary: {{ summary }}. Self-review: {{ selfReview }}" }
+    request_changes: { role: "commenter", prompt: "PR #{{ prNumber }} in {{ repo }} needs changes. Issues: {{ issues }}. Summary: {{ summary }}. Self-review: {{ selfReview }}" }
   merger:
     merged: { role: "$END", prompt: "PR merged successfully." }
-    ci_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} was approved but CI failed: {{{reason}}}. Submit as request_changes asking to fix CI." }
-    conflict: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} was approved but has merge conflicts: {{{reason}}}. Submit as request_changes asking to rebase." }
-    merge_failed: { role: "commenter", prompt: "PR #{{{prNumber}}} in {{{repo}}} merge failed: {{{reason}}}. Submit as request_changes with the error details." }
+    ci_failed: { role: "commenter", prompt: "PR #{{ prNumber }} in {{ repo }} was approved but CI failed: {{ reason }}. Submit as request_changes asking to fix CI." }
+    conflict: { role: "commenter", prompt: "PR #{{ prNumber }} in {{ repo }} was approved but has merge conflicts: {{ reason }}. Submit as request_changes asking to rebase." }
+    merge_failed: { role: "commenter", prompt: "PR #{{ prNumber }} in {{ repo }} merge failed: {{ reason }}. Submit as request_changes with the error details." }
   commenter:
     rejected: { role: "$END", prompt: "Review rejection submitted. Workflow complete." }
-    approved: { role: "merger", prompt: "PR #{{{prNumber}}} in {{{repo}}} approved. Suggestion issues created: {{{issuesCreated}}}. Self-review: {{{selfReview}}}. Proceed to merge." }
+    approved: { role: "merger", prompt: "PR #{{ prNumber }} in {{ repo }} approved. Suggestion issues created: {{ issuesCreated }}. Self-review: {{ selfReview }}. Proceed to merge." }
