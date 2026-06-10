@@ -64,7 +64,7 @@ roles:
         Use these colors: bug=#e11d48, enhancement=#2563eb, refactor=#7c3aed, docs=#059669, idea=#d97706, investigation=#0891b2, perf=#ea580c
       - Extract owner/repo from git remote: `git remote get-url origin | sed 's/.*[:/]\([^/]*\/[^.]*\).*/\1/'`
       - Extract token from git remote: `git remote get-url origin | sed 's|https://[^:]*:\([^@]*\)@.*|\1|'`
-    output: "Report what was triaged. Set $status to has_issues (with remaining list) or all_done (with summary)."
+    output: "Report what was triaged. Set $status to has_issues (with remaining list), all_done (with summary), or failed (with reason) if unrecoverable errors occur."
     frontmatter:
       oneOf:
         - properties:
@@ -76,6 +76,10 @@ roles:
             $status: { const: "all_done" }
             summary: { type: string }
           required: [$status, summary]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
 
 graph:
   $START:
@@ -84,3 +88,4 @@ graph:
   triager:
     has_issues: { role: triager, prompt: "Continue triaging. Remaining untriaged issues: {{{remaining}}}. Already triaged: {{{triaged}}}" }
     all_done: { role: $END, prompt: "Triage complete. {{{summary}}}" }
+    failed: { role: $END, prompt: "Triage failed: {{{reason}}}" }
