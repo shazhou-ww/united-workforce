@@ -862,7 +862,7 @@ describe("corrupt thread resilience (#250)", () => {
     // Create a valid thread
     const workflowHash = await createTestWorkflow(uwf);
     const now = Date.now();
-    const validId = await createTestThread(uwf, tmpDir, workflowHash, now);
+    const _validId = await createTestThread(uwf, tmpDir, workflowHash, now);
 
     // Create another thread with a unique start node, then delete its workflow CAS to corrupt it
     const corruptThreadId = generateUlid(now + 1000) as ThreadId;
