@@ -1,111 +1,26 @@
-# Contributing to @united-workforce/cli
+# Contributing to United Workforce
 
-Thank you for your interest in contributing! This guide covers setup, conventions, and the PR workflow.
+Thank you for your interest in United Workforce!
 
-## Prerequisites
+## Where We Work
 
-- [Bun](https://bun.sh/) (latest)
-- [Node.js](https://nodejs.org/) 20+
-- Git
+We develop internally on a self-hosted [Gitea](https://git.shazhou.work/shazhou/united-workforce) instance. This GitHub repository is a read-only mirror — code is synced from Gitea on each release.
 
-## Setup
+## What You Can Do
 
-```bash
-git clone https://github.com/shazhou-ww/united-workforce.git
-cd united-workforce
-bun install
-bun run build
-bun test
-```
+- ✅ **Open Issues** — bug reports, feature requests, and questions are welcome on GitHub
+- ✅ **Read the code** — explore, learn, and fork freely under the MIT License
+- ❌ **Pull Requests** — we are not accepting external PRs at this stage
 
-## Development Workflow
-
-```bash
-bun run build     # TypeScript compilation (all packages)
-bun run check     # tsc + biome lint + log tag validation
-bun run format    # Auto-format with Biome
-bun test          # Run all tests
-```
-
-All three (`build`, `check`, `test`) must pass before submitting a PR. A pre-push hook runs `check` + `test` automatically.
+We review GitHub Issues regularly. If your issue is picked up, we'll update it with a reference to our internal tracker.
 
 ## Coding Conventions
 
-See [CLAUDE.md](CLAUDE.md) for the full coding standard. Key points:
+If you're reading the code or building on top of it, see [CLAUDE.md](CLAUDE.md) for our coding standard.
 
-- **Functional-first** — `function` + `type`, not `class` + `interface`
-- **No optional properties** — use `T | null` instead of `?:`
-- **Named exports only** — no default exports
-- **No `console.log`** — use the structured logger from `@united-workforce/util`
-- **Static imports only** — no `await import()` in production code
-- **Biome** for lint + format — run `bun run check` before committing
+## Internal Contributors
 
-## Commit Messages
-
-```
-<type>(<scope>): <description>
-
-type: feat | fix | refactor | docs | chore | test
-scope: cli | moderator | agent-kit | hermes | builtin | claude-code | util | protocol | dashboard
-```
-
-Examples:
-- `feat(moderator): add cycle detection to graph evaluator`
-- `fix(cli): handle missing config file gracefully`
-- `docs(protocol): update StepNode field descriptions`
-
-## Pull Request Process
-
-1. **Branch** from `main`: `git checkout -b feat/123-short-description`
-2. **Implement** your change with tests
-3. **Run checks**: `bun run check && bun test`
-4. **Commit** with a descriptive message referencing the issue: `Fixes #123`
-5. **Push** and open a PR
-
-### PR Description Template
-
-```
-## What
-What this PR does.
-
-## Why
-Why the change is needed.
-
-## Changes
-- `path/to/file.ts` — what changed and why
-
-## Ref
-Fixes #N
-```
-
-## Adding a Changeset
-
-Add a changeset for **user-facing changes** only:
-
-- ✅ `feat`, `fix`, breaking changes
-- ❌ `chore`, `test`, `docs` (unless affecting public API surface)
-
-```bash
-bun changeset
-```
-
-This creates a markdown file in `.changeset/` describing the change. It will be consumed on the next release to bump versions and generate CHANGELOG entries.
-
-## Project Structure
-
-```
-packages/
-  protocol/      # Shared types and JSON Schema
-  util/          # Encoding, IDs, logging, frontmatter
-  util-agent/    # createAgent factory, extract pipeline
-  agent-hermes/  # Hermes ACP agent
-  agent-builtin/ # Built-in LLM agent
-  agent-claude-code/ # Claude Code agent
-  cli/           # uwf CLI binary
-  dashboard/     # Web UI (private, alpha)
-```
-
-Dependency flows downward — lower layers have no dependency on higher layers. See [CLAUDE.md](CLAUDE.md) for the full architecture.
+沙洲工作室成员请参阅 [CONTRIBUTING-INTERNAL.md](CONTRIBUTING-INTERNAL.md)。
 
 ## License
 
