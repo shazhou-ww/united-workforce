@@ -146,8 +146,15 @@ roles:
 
       **Your single decision: can this PR merge?**
 
-      - **approve** — The code is correct and safe. You may still have suggestions for improvement (style, naming, minor refactors) — list them in `suggestions`. These will be tracked as issues but won't block the merge.
-      - **request_changes** — There are problems that must be fixed before merge (bugs, type safety holes, missing error handling, missing tests, etc.). List ALL issues in `issues` — the PR will be rejected and the author fixes everything in one pass.
+      Classify each finding into one of three tiers:
+
+      - **Must fix, small effort** → request_changes. The author can fix it in this PR cycle. Examples: typo in user-facing text, missing null check, wrong variable name.
+      - **Must fix, large effort, does not block this merge** → approve with `suggestions`. These become tracked issues for follow-up. Examples: architectural inconsistency that needs broader refactor, missing test coverage for a complex edge case, cross-cutting concern that spans multiple files.
+      - **Nice-to-have / stylistic / not strictly necessary** → do NOT report. Skip entirely. Reviewer time is better spent on real issues.
+
+      Decision:
+      - **approve** — No must-fix-small items. May have suggestions (must-fix-large only).
+      - **request_changes** — Has at least one must-fix item that is small enough to address in this PR cycle. List ALL such issues in `issues`.
 
       **Rules:**
       - Do NOT repeat issues already raised in existing reviews (provided in task prompt). If a previous review flagged an issue and it's still present, mention it briefly as "previously flagged, still unresolved" but do NOT write a full new finding for it.
