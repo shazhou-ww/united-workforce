@@ -58,7 +58,7 @@ export type Target = {
   /** Next role name, or a graph pseudo-role such as `$END`. */
   role: string | GraphPseudoRole;
   prompt: string;
-  /** Optional working directory override via mustache template. */
+  /** Optional working directory override via Liquid template. */
   location: string | null;
 };
 

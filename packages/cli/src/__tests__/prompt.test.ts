@@ -92,6 +92,24 @@ describe("prompt commands", () => {
     expect(result.toLowerCase()).toContain("legacy");
   });
 
+  test("prompt workflow-authoring documents Liquid filters with join example", () => {
+    const result = cmdPromptWorkflowAuthoring();
+    expect(result).toContain("| join");
+    expect(result.toLowerCase()).toContain("filter");
+  });
+
+  test("prompt workflow-authoring documents Liquid loops with for example", () => {
+    const result = cmdPromptWorkflowAuthoring();
+    expect(result).toContain("{% for");
+    expect(result).toContain("{% endfor %}");
+  });
+
+  test("prompt workflow-authoring uses Liquid terminology with no Mustache remnants", () => {
+    const result = cmdPromptWorkflowAuthoring();
+    expect(result.toLowerCase()).not.toContain("mustache");
+    expect(result.toLowerCase()).toContain("liquid");
+  });
+
   test("prompt adapter-developing returns non-empty markdown string with frontmatter", () => {
     const result = cmdPromptAdapterDeveloping();
     expect(typeof result).toBe("string");

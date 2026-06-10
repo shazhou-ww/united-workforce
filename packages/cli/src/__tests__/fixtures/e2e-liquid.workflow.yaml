@@ -1,4 +1,4 @@
-name: test-mustache
+name: test-liquid
 description: Planner emits template variables consumed by the worker edge prompt
 roles:
   planner:

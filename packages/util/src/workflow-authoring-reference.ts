@@ -138,6 +138,41 @@ graph:
 
 The fields referenced must exist in the source role's frontmatter schema.
 
+### Liquid Template Capabilities
+
+Edge prompts use the [LiquidJS](https://liquidjs.com/) engine, which supports filters and loops beyond simple field interpolation.
+
+#### Filters
+
+Transform values inline using the pipe (\`|\`) syntax:
+
+\`\`\`yaml
+graph:
+  planner:
+    ready:
+      role: developer
+      prompt: "Fix the following files: {{ files | join: \\", \\" }}"
+\`\`\`
+
+Common filters: \`join\`, \`size\`, \`upcase\`, \`downcase\`, \`strip\`, \`default\`.
+
+#### Loops
+
+Iterate over arrays using \`{% for %}\` blocks:
+
+\`\`\`yaml
+graph:
+  planner:
+    ready:
+      role: developer
+      prompt: |
+        Implement the following tasks:
+        {% for task in tasks %}- {{ task }}
+        {% endfor %}
+\`\`\`
+
+These capabilities are available because the engine uses LiquidJS — simple \`{{ field }}\` interpolation works for most cases, but filters and loops are available when edge prompts need to format complex data.
+
 ### Loops and Branching
 
 Roles can route back to previous roles (loops) or to different roles based on status (branching):
