@@ -68,7 +68,8 @@ roles:
     capabilities:
       - coding
     procedure: |
-      IMPORTANT: Always work in a git worktree, NEVER modify the main working directory directly.
+      IMPORTANT: You MUST execute every step via shell commands. Do NOT skip steps or fabricate output.
+      Always work in a git worktree, NEVER modify the main working directory directly.
       The repo path and other details are provided in your task prompt.
 
       Before starting any work, set up an isolated worktree:
@@ -84,11 +85,12 @@ roles:
       5. If bounced back from reviewer or tester (branch already exists but no explicit worktree path):
          - cd into the existing worktree under `.worktrees/fix/<issue-number>-<short-slug>`
          - `git fetch origin && git rebase origin/main`
+         - You MUST actually edit the files to address the feedback. Do NOT claim fixes without running commands.
       6. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
       6. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
-      7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
+      7. If bounced back from reviewer or tester: read the feedback carefully, then execute the actual fix commands — edit files, run build, run tests. Never output "done" without tool calls.
       8. Write tests first based on the spec
       9. Implement the code to make tests pass
       10. Ensure `pnpm run build` passes with no errors
