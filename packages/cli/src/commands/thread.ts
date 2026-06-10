@@ -1356,17 +1356,14 @@ export async function cmdThreadExec(
     return cmdThreadStepBackground(storageRoot, threadId, agentOverride, count, plog, workflowHash);
   }
 
-  // If we're the background worker, create marker before execution
-  let markerCreated = false;
-  if (backgroundWorker) {
-    await createMarker(storageRoot, {
-      thread: threadId,
-      workflow: workflowHash,
-      pid: process.pid,
-      startedAt: Date.now(),
-    });
-    markerCreated = true;
-  }
+  // Create running marker so `thread list` shows "running" during execution
+  // and concurrent `exec` on the same thread is rejected (see check above).
+  await createMarker(storageRoot, {
+    thread: threadId,
+    workflow: workflowHash,
+    pid: process.pid,
+    startedAt: Date.now(),
+  });
 
   try {
     const results: StepOutput[] = [];
@@ -1379,10 +1376,7 @@ export async function cmdThreadExec(
     }
     return results;
   } finally {
-    // Cleanup marker if we created one
-    if (markerCreated) {
-      await deleteMarker(storageRoot, threadId);
-    }
+    await deleteMarker(storageRoot, threadId);
   }
 }
 
