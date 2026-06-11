@@ -37,10 +37,24 @@ bun link packages/cli
 ### Global options
 
 ```
--V, --version          Show version
---format <json|yaml>   Output format (default: json)
--h, --help             Show help
+-V, --version                                       Show version
+--format <text|json|yaml|raw-json|raw-yaml>         Output format (default: text)
+-h, --help                                          Show help
 ```
+
+### Output formats
+
+| Format | Shape | Use case |
+|--------|-------|----------|
+| `text` (default) | Liquid-rendered, human-readable | Interactive terminal use |
+| `json` | `{"type": "<schemaHash>", "value": <payload>}` | Self-describing JSON |
+| `yaml` | YAML envelope with `type` and `value` keys | Self-describing YAML |
+| `raw-json` | bare `<payload>` (no envelope) | 0.5.0-compatible JSON |
+| `raw-yaml` | bare `<payload>` (no envelope) | 0.5.0-compatible YAML |
+
+The `text` format renders each command's output through a Liquid template registered at `@ocas/template/text/<schemaHash>`, where `<schemaHash>` is the CAS hash of the corresponding `@uwf/output/<name>` schema (e.g. `@uwf/output/thread-start`, `@uwf/output/validate-result`). Schemas and templates are registered idempotently on first use.
+
+The `json` and `yaml` envelopes carry the schema hash on the `type` field so consumers can dispatch on schema (and validate against the registered schema in CAS).
 
 ### Thread (Layer 2: Execution Instances)
 
@@ -144,6 +158,19 @@ Engine config: `~/.uwf/config.yaml` (LLM-free — only `agents`, `defaultAgent`,
 | `uwf log clean [--before YYYY-MM-DD]` | Delete old log files |
 
 ## Migration Guide
+
+### Breaking Changes (v0.5 → v0.6) — output envelope
+
+`uwf` now emits an ocas envelope (`{ type, value }`) for `--format json` and `--format yaml`, and the default format changed from `json` to `text`.
+
+| Old (0.5) | New (0.6) | What to do |
+|-----------|-----------|------------|
+| `--format json` (bare value) | `--format raw-json` (bare value, unchanged) | Quick fix: add `raw-` prefix |
+| `--format yaml` (bare value) | `--format raw-yaml` (bare value, unchanged) | Quick fix: add `raw-` prefix |
+| `--format json` (bare value) | `--format json` (envelope `{type,value}`) | Recommended: parse `value` field (`jq '.value'`) |
+| default `json` | default `text` (Liquid-rendered) | Pipelines must opt into `--format raw-json` or `json` |
+
+`uwf workflow validate` now writes a `validate-result` envelope to **stdout** (`✓ valid` / `✗ invalid (N errors)\n  - <msg>`) instead of writing errors to stderr; exit codes (0/1) are unchanged.
 
 ### Breaking Changes (v0.x → v1.x)
 

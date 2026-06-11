@@ -104,7 +104,26 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 
 ## CLI Reference
 
-Global options: `-V, --version`, `--format <json|yaml>`, `-h, --help`.
+Global options: `-V, --version`, `--format <text|json|yaml|raw-json|raw-yaml>` (default: `text`), `-h, --help`.
+
+### Output formats
+
+| Format | Shape | Use case |
+|--------|-------|----------|
+| `text` (default) | Liquid-rendered, human-readable | Interactive terminal use |
+| `json` | `{"type": "<schemaHash>", "value": <payload>}` | Self-describing JSON |
+| `yaml` | YAML envelope with `type` and `value` keys | Self-describing YAML |
+| `raw-json` | bare `<payload>` (no envelope) | 0.5.0-compatible JSON |
+| `raw-yaml` | bare `<payload>` (no envelope) | 0.5.0-compatible YAML |
+
+### Migration: 0.5.x → 0.6
+
+In 0.5.x, `--format json` and `--format yaml` emitted the bare value. As of 0.6, `json`/`yaml` wrap the payload in an ocas envelope (`{ type, value }`) so consumers can dispatch on the schema hash. Scripts that parsed the bare value can either:
+
+- **Quick fix** — change `--format json` → `--format raw-json` (and `--format yaml` → `--format raw-yaml`) to preserve the previous output byte-for-byte.
+- **Recommended** — switch to the new envelope and read the payload from `value` (`jq '.value'` for JSON, `yq '.value'` for YAML). This makes scripts robust against schema additions and lets them validate `type` against `@uwf/output/<name>` from `@united-workforce/protocol`.
+
+The default format also changed from `json` to `text`. Pipelines that captured stdout for machine parsing must pass `--format raw-json` (or `json` if migrated).
 
 | Group | Commands |
 |-------|----------|

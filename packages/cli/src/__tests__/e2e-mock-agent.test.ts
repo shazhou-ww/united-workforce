@@ -104,7 +104,7 @@ async function addWorkflow(workflowFixture: string, workflowName: string): Promi
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
 function runExec(threadId: string, count: number | null = null): ExecResult {
-  const args = [CLI_PATH, "thread", "exec", threadId];
+  const args = [CLI_PATH, "--format", "raw-json", "thread", "exec", threadId];
   if (count !== null) {
     args.push("--count", String(count));
   }
@@ -132,7 +132,7 @@ function runResume(threadId: string, prompt: string): ExecResult {
   try {
     const stdout = execFileSync(
       process.execPath,
-      [CLI_PATH, "thread", "resume", threadId, "-p", prompt],
+      [CLI_PATH, "--format", "raw-json", "thread", "resume", threadId, "-p", prompt],
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
@@ -162,12 +162,49 @@ type StepOutputJson = {
   done: boolean;
 };
 
+/**
+ * The new `thread exec` envelope value (under --format raw-json) is
+ * `{ threadId, workflowHash, steps: [...] }`. Tests still want the
+ * single-step shape, so we project each step entry back into the legacy
+ * StepOutputJson shape.
+ */
+type ThreadExecRawValue = {
+  threadId: string;
+  workflowHash: string;
+  steps: Array<{
+    head: string;
+    status: string;
+    currentRole: string | null;
+    done: boolean;
+    role?: string | null;
+    suspendedRole: string | null;
+    suspendMessage: string | null;
+  }>;
+};
+
+function projectStep(envelope: ThreadExecRawValue, idx: number): StepOutputJson {
+  const step = envelope.steps[idx];
+  if (step === undefined) {
+    throw new Error(`thread exec envelope has no step at index ${idx}`);
+  }
+  return {
+    thread: envelope.threadId,
+    head: step.head,
+    status: step.status,
+    currentRole: step.currentRole,
+    suspendedRole: step.suspendedRole,
+    suspendMessage: step.suspendMessage,
+    done: step.done,
+  };
+}
+
 function execStep(threadId: string): StepOutputJson {
   const { stdout, stderr, exitCode } = runExec(threadId);
   if (exitCode !== 0) {
     throw new Error(`thread exec failed (code ${exitCode})\nstdout: ${stdout}\nstderr: ${stderr}`);
   }
-  return JSON.parse(stdout.trim()) as StepOutputJson;
+  const envelope = JSON.parse(stdout.trim()) as ThreadExecRawValue;
+  return projectStep(envelope, 0);
 }
 
 function getStepNode(store: Awaited<ReturnType<typeof openStore>>, hash: string): StepNodePayload {
@@ -392,10 +429,11 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const { stdout, stderr, exitCode } = runExec(threadId, 3);
     expect(exitCode, `stderr: ${stderr}`).toBe(0);
 
-    // Multi-step exec emits a JSON array (one entry per executed step).
-    const results = JSON.parse(stdout.trim()) as StepOutputJson[];
-    expect(Array.isArray(results)).toBe(true);
-    expect(results).toHaveLength(3);
+    // Multi-step exec emits a single envelope with a `steps` array (one entry per executed step).
+    const envelope = JSON.parse(stdout.trim()) as ThreadExecRawValue;
+    expect(envelope.steps).toHaveLength(3);
+
+    const results = [projectStep(envelope, 0), projectStep(envelope, 1), projectStep(envelope, 2)];
 
     expect(results[0].status).toBe("idle");
     expect(results[0].currentRole).toBe("developer");

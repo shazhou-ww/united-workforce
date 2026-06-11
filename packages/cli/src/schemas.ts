@@ -1,7 +1,11 @@
 import type { Hash, Store } from "@ocas/core";
-import { putSchema } from "@ocas/core";
+import { bootstrap, putSchema } from "@ocas/core";
 import {
   ERROR_OUTPUT_SCHEMA,
+  OUTPUT_SCHEMAS,
+  OUTPUT_TEMPLATES,
+  type OutputSchemaName,
+  outputSchemaVarName,
   START_NODE_SCHEMA,
   STEP_NODE_SCHEMA,
   SUSPEND_OUTPUT_SCHEMA,
@@ -17,10 +21,12 @@ export type UwfSchemaHashes = {
   text: Hash;
   errorOutput: Hash;
   suspendOutput: Hash;
+  outputs: Record<OutputSchemaName, Hash>;
 };
 
 /**
- * Register Workflow, StartNode, and StepNode JSON Schemas in the CAS store.
+ * Register every uwf JSON Schema (workflow / start / step / error / suspend
+ * + the 9 CLI output envelopes) and the matching `text` Liquid templates.
  * Idempotent: safe to call on every CLI invocation.
  */
 export async function registerUwfSchemas(store: Store): Promise<UwfSchemaHashes> {
@@ -32,5 +38,35 @@ export async function registerUwfSchemas(store: Store): Promise<UwfSchemaHashes>
     putSchema(store, ERROR_OUTPUT_SCHEMA),
     putSchema(store, SUSPEND_OUTPUT_SCHEMA),
   ]);
-  return { workflow, startNode, stepNode, text, errorOutput, suspendOutput };
+  const outputs = await registerOutputSchemas(store);
+  return { workflow, startNode, stepNode, text, errorOutput, suspendOutput, outputs };
+}
+
+/**
+ * Register the 9 CLI output schemas, bind `@uwf/output/<name>` to each, store
+ * each Liquid template as an `@ocas/string` CAS node, and bind
+ * `@ocas/template/text/<schemaHash>` to the template content hash.
+ *
+ * Idempotent: writes are content-addressed so repeat invocations no-op.
+ */
+async function registerOutputSchemas(store: Store): Promise<Record<OutputSchemaName, Hash>> {
+  const aliases = bootstrap(store);
+  const stringHash = aliases["@ocas/string"];
+  if (stringHash === undefined) {
+    throw new Error("@ocas/string schema not found in bootstrap result");
+  }
+
+  const result = {} as Record<OutputSchemaName, Hash>;
+  const names = Object.keys(OUTPUT_SCHEMAS) as OutputSchemaName[];
+  for (const name of names) {
+    const schemaHash = await putSchema(store, OUTPUT_SCHEMAS[name]);
+    store.var.set(outputSchemaVarName(name), schemaHash);
+
+    const template = OUTPUT_TEMPLATES[name];
+    const contentHash = store.cas.put(stringHash, template);
+    store.var.set(`@ocas/template/text/${schemaHash}`, contentHash);
+
+    result[name] = schemaHash;
+  }
+  return result;
 }

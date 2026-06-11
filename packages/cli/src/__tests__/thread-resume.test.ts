@@ -184,8 +184,10 @@ function runUwf(
   casDir: string,
 ): { stdout: string; stderr: string; status: number } {
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
+  // Tests parse stdout as bare JSON; default --format text would break that.
+  const formatArgs = args.includes("--format") ? args : ["--format", "raw-json", ...args];
   try {
-    const stdout = execFileSync(process.execPath, [cliPath, ...args], {
+    const stdout = execFileSync(process.execPath, [cliPath, ...formatArgs], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       env: {

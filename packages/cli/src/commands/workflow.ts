@@ -126,7 +126,7 @@ export async function materializeWorkflowPayload(
  * returns silently (no stdout/stderr) and exits 0. On any error, writes a
  * single message to stderr and exits 1.
  */
-export async function cmdWorkflowValidate(filePath: string): Promise<void> {
+export async function cmdWorkflowValidate(filePath: string): Promise<string[]> {
   let text: string;
   try {
     text = await readFile(filePath, "utf8");
@@ -150,14 +150,10 @@ export async function cmdWorkflowValidate(filePath: string): Promise<void> {
 
   const filenameError = checkWorkflowFilenameConsistency(filePath, payload);
   if (filenameError !== null) {
-    fail(filenameError);
+    return [filenameError];
   }
 
-  const semanticErrors = validateWorkflow(payload);
-  if (semanticErrors.length > 0) {
-    fail(`workflow validation failed:\n${semanticErrors.map((e) => `  - ${e}`).join("\n")}`);
-  }
-  // success: silent return
+  return validateWorkflow(payload);
 }
 
 export async function cmdWorkflowAdd(
