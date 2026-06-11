@@ -775,7 +775,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigSet(storageRoot, key, value);
-      writeRawOutput({ key, value: result }, "config set");
+      writeRawOutput(result, "config set");
     });
   });
 
