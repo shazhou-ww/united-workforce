@@ -21,6 +21,11 @@ const VALID_CONFIG_KEYS: Record<
     // No knownFields — workflow/role names are user-defined
   },
   defaultAgent: { nested: false },
+  concurrency: {
+    nested: true,
+    knownFields: ["maxRunning"],
+    minDepth: 2,
+  },
 };
 
 /**
@@ -264,6 +269,12 @@ export async function cmdConfigSet(
   let parsedValue: unknown = value;
   if (lastSegment === "args") {
     parsedValue = parseArgsValue(value);
+  } else if (lastSegment === "maxRunning") {
+    const num = Number(value);
+    if (!Number.isInteger(num) || num < 1) {
+      throw new Error("Value for 'maxRunning' must be a positive integer");
+    }
+    parsedValue = num;
   }
 
   // Validate we're not setting a property on a non-object
