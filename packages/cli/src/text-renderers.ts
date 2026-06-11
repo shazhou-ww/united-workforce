@@ -71,6 +71,11 @@ type StepListPayload = {
   items: StepListItem[];
 };
 
+type ThreadCancelPayload = {
+  thread: string;
+  cancelled: boolean;
+};
+
 type StepDetailPayload = {
   hash: string;
   role: string;
@@ -221,5 +226,15 @@ export function renderStepShow(data: unknown): string {
     `Agent   ${asString(p.agent)}`,
     `Status  ${asString(p.status)}`,
     `Duration ${formatDuration(p.durationMs)}`,
+  ].join("\n");
+}
+
+export function renderThreadCancel(data: unknown): string {
+  const p = asObject(data) as Partial<ThreadCancelPayload>;
+  const cancelled = typeof p.cancelled === "boolean" ? (p.cancelled ? "yes" : "no") : "-";
+  return [
+    `Thread     ${asString(p.thread)}`,
+    `Status     cancelled`,
+    `Cancelled  ${cancelled}`,
   ].join("\n");
 }
