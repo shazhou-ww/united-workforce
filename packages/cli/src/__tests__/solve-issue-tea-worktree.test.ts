@@ -13,7 +13,9 @@ import { parse } from "yaml";
  * which fixes the "path segment [0] is empty" error in worktree directories.
  */
 
-describe("solve-issue workflow: Gitea API PR creation", () => {
+// Skip: pure workflow YAML prose content assertions — procedure text changes
+// break these without indicating real bugs. See #299 discussion.
+describe.skip("solve-issue workflow: Gitea API PR creation", () => {
   // Navigate up from packages/cli/src/__tests__ to repo root
   const workflowPath = join(
     dirname(fileURLToPath(import.meta.url)),

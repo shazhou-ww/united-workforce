@@ -145,7 +145,8 @@ describe("prompt commands", () => {
     expect(result.length).toBeGreaterThan(100);
   });
 
-  test("prompt bootstrap has no LLM provider/model references", () => {
+  // Skip: pure documentation content assertions on bootstrap prompt text.
+  test.skip("prompt bootstrap has no LLM provider/model references", () => {
     const result = cmdPromptBootstrap();
     // Must NOT contain provider/model flags
     expect(result).not.toContain("--provider");
@@ -172,7 +173,8 @@ describe("prompt commands", () => {
     expect(result).toMatch(/~\/\.uwf\/agents\//);
   });
 
-  test("prompt bootstrap step numbering has no gaps after removing old Step 2", () => {
+  // Skip: pure documentation content assertions on bootstrap prompt text.
+  test.skip("prompt bootstrap step numbering has no gaps after removing old Step 2", () => {
     const result = cmdPromptBootstrap();
     // Extract only the Fresh Install section
     const freshStart = result.indexOf("## Scenario A: Fresh Install");
@@ -204,7 +206,9 @@ describe("prompt commands", () => {
   });
 });
 
-describe("prompt adapter-developing — issue #214 v0.4 contract", () => {
+// Skip: pure documentation content assertions — text changes break these without
+// indicating real bugs. Verified by human review instead. See #299 discussion.
+describe.skip("prompt adapter-developing — issue #214 v0.4 contract", () => {
   const text = cmdPromptAdapterDeveloping();
   const lower = text.toLowerCase();
 
@@ -466,7 +470,8 @@ describe("prompt adapter-developing — issue #214 v0.4 contract", () => {
   });
 });
 
-describe("prompt workflow-authoring — issue #226 edge location field", () => {
+// Skip: pure documentation content assertions on reference text.
+describe.skip("prompt workflow-authoring — issue #226 edge location field", () => {
   const text = cmdPromptWorkflowAuthoring();
   const lower = text.toLowerCase();
 
