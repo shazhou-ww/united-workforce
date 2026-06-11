@@ -1,6 +1,6 @@
 ---
-"@united-workforce/cli": patch
-"@united-workforce/util": patch
+"@united-workforce/cli": minor
+"@united-workforce/util": minor
 ---
 
 Bundle 3 general-purpose example workflows (debate, brainstorm, socratic-questioning) into the CLI package. `uwf setup` now auto-registers them so users can run them immediately without manual `workflow add`.
