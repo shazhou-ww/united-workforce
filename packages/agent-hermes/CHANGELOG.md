@@ -1,5 +1,48 @@
 # @united-workforce/agent-hermes
 
+## 0.2.0 — 2026-06-11
+
+- feat(util-agent): extend AgentOptions with `fork` / `cleanup` and add ask-session cache
+  
+  Phase 2a infrastructure for `step ask`. Extends `AgentOptions` with
+  `fork: AgentForkFn | null` and `cleanup: AgentCleanupFn | null` fields, exporting
+  the new `AgentForkFn` and `AgentCleanupFn` type aliases. Adds `getAskSessionId` /
+  `setAskSessionId` to the per-agent session cache, using `<stepHash>:ask` keys
+  that share the cache file with exec sessions (`<threadId>:<role>` keys) without
+  collision. All four adapters (mock, builtin, hermes, claude-code) now pass
+  `fork: null, cleanup: null` — real implementations land in Phase 2b. Resolves
+  issue #145.
+- refactor(util-agent): hoist `buildSuspendOutput` into `util-agent`
+  
+  The `buildSuspendOutput(reason)` helper that produces the `$SUSPEND` frontmatter
+  wire format was duplicated in both `agent-claude-code` and `agent-hermes`. Extract
+  it into `@united-workforce/util-agent` (next to `trySuspendFastPath`) so the
+  producer and consumer of the suspend wire format live in one place. Both adapters
+  now import it; the obsolete local copies and now-unused `SUSPEND_STATUS` imports
+  are removed. No user-visible behavior change.
+- feat(workflow)!: `$SUSPEND` becomes an engine-level reserved `$status` (coroutine yield)
+  
+  `$SUSPEND` is no longer a graph pseudo-role. Instead, any role may emit
+  `{ $status: "$SUSPEND", reason: string }` from its output. The engine intercepts
+  this status before the moderator: the step is written to CAS normally (head
+  advances), the thread is marked `suspended` with the role and reason, and
+  `thread resume` re-runs the same role — exactly like a coroutine yielding control
+  back to its caller.
+  
+  For any role with frontmatter type `F`, the effective output type is
+  `F | { $status: "$SUSPEND", reason: string }`. Suspend outputs are validated
+  against a dedicated reserved schema, bypassing the role's own frontmatter schema.
+  
+  Adapters now yield instead of failing on resource limits:
+  - `agent-claude-code`: an `error_max_turns` result emits `$SUSPEND` (preserving
+    all turns and usage) instead of throwing.
+  - `agent-hermes`: a prompt timeout emits `$SUSPEND` instead of rejecting.
+  
+  BREAKING CHANGE: `"$SUSPEND"` is removed from `GraphPseudoRole` and is no longer a
+  valid graph target role. Workflows using the old `role: "$SUSPEND"` edge pattern
+  now fail validation with a migration hint — emit `$status: "$SUSPEND"` from the
+  role output instead.
+
 ## 0.1.5 — 2026-06-07
 
 - fix: decouple session resume from isFirstVisit guard
