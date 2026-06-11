@@ -148,44 +148,36 @@ pipx install 'hermes-agent[acp]'
 pip install -e '.[acp]'
 \`\`\`
 
-### Step 2 — Configure provider and model
+### Step 2 — Configure default agent
 
-uwf needs an LLM provider to run agents. **Ask the user** for their provider, API key, and model, then run:
+Run the interactive wizard:
 
 \`\`\`bash
-uwf setup --provider <name> --api-key <key> --model <model> --agent <adapter-command>
+uwf setup
 \`\`\`
 
-**Note:** \`--agent\` takes the adapter **command name** (e.g. \`uwf-hermes\`), not the npm package name.
+Or configure non-interactively:
 
-**Preset providers** — when using a preset name, \`--base-url\` is auto-filled and can be omitted:
-
-| Provider | Name | Default base URL |
-|----------|------|-----------------|
-| OpenAI | \`openai\` | https://api.openai.com/v1 |
-| xAI | \`xai\` | https://api.x.ai/v1 |
-| OpenRouter | \`openrouter\` | https://openrouter.ai/api/v1 |
-| Venice | \`venice\` | https://api.venice.ai/api/v1 |
-| Dashscope | \`dashscope\` | https://dashscope.aliyuncs.com/compatible-mode/v1 |
-| DeepSeek | \`deepseek\` | https://api.deepseek.com/v1 |
-| SiliconFlow | \`siliconflow\` | https://api.siliconflow.cn/v1 |
-| VolcEngine | \`volcengine\` | https://ark.cn-beijing.volces.com/api/v3 |
-| Kimi (Moonshot) | \`kimi\` | https://api.moonshot.cn/v1 |
-| GLM (Zhipu AI) | \`glm\` | https://open.bigmodel.cn/api/paas/v4 |
-| StepFun | \`stepfun\` | https://api.stepfun.com/v1 |
-| MiniMax | \`minimax\` | https://api.minimax.io/v1 |
-| Ollama (local) | \`ollama\` | http://localhost:11434/v1 |
-
-For **non-preset providers**, you must specify \`--base-url\` manually.
-
-Example:
 \`\`\`bash
-uwf setup --provider openrouter --api-key sk-or-... --model anthropic/claude-sonnet-4 --agent uwf-hermes
+uwf setup --agent <adapter-command>
 \`\`\`
 
-If the user doesn't know what to choose, suggest \`openrouter\` with \`anthropic/claude-sonnet-4\` as a sensible default.
+**Note:** \`--agent\` takes the adapter **command name** (e.g. \`uwf-hermes\`, \`uwf-claude-code\`), not the npm package name.
 
-Config is saved to \`~/.uwf/config.yaml\`. Verify with \`cat ~/.uwf/config.yaml\`.
+Config is saved to \`~/.uwf/config.yaml\`:
+
+\`\`\`yaml
+agents:
+  hermes:
+    command: uwf-hermes
+    args: []
+defaultAgent: hermes
+agentOverrides: {}
+\`\`\`
+
+**LLM configuration** is per-adapter, stored in \`~/.uwf/agents/<adapter>.yaml\`. Each adapter manages its own provider, model, and API key settings independently.
+
+Verify with \`cat ~/.uwf/config.yaml\`.
 
 ### Step 3 — Install skills
 

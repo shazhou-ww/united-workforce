@@ -135,8 +135,6 @@ describe("prompt commands", () => {
     // Fresh install scenario
     expect(result).toContain("Fresh Install");
     expect(result).toContain("uwf setup");
-    expect(result).toContain("--provider");
-    expect(result).toContain("--api-key");
     expect(result).toContain("agent adapter");
     // Upgrade scenario
     expect(result).toContain("Upgrade");
@@ -145,6 +143,47 @@ describe("prompt commands", () => {
     expect(result).not.toContain("~/.hermes/skills/");
     expect(result).not.toContain("> ~/.hermes/");
     expect(result.length).toBeGreaterThan(100);
+  });
+
+  test("prompt bootstrap has no LLM provider/model references", () => {
+    const result = cmdPromptBootstrap();
+    // Must NOT contain provider/model flags
+    expect(result).not.toContain("--provider");
+    expect(result).not.toContain("--base-url");
+    expect(result).not.toContain("--api-key");
+    expect(result).not.toContain("--model");
+    // Must NOT contain old Step 2 about provider config
+    expect(result).not.toContain("Configure provider and model");
+    // Must NOT contain preset providers table
+    expect(result).not.toContain("openrouter");
+    expect(result).not.toContain("OpenRouter");
+    expect(result).not.toContain("xAI");
+    expect(result).not.toContain("dashscope");
+    // Must NOT show provider/model config keys
+    expect(result).not.toContain("providers:");
+    expect(result).not.toContain("defaultModel");
+    expect(result).not.toContain("models:");
+    // Setup step must show only --agent
+    expect(result).toContain("uwf setup --agent");
+    // Config example must show only agents, defaultAgent, agentOverrides
+    expect(result).toContain("agents:");
+    expect(result).toContain("defaultAgent:");
+    // Must mention per-adapter LLM config
+    expect(result).toMatch(/~\/\.uwf\/agents\//);
+  });
+
+  test("prompt bootstrap step numbering has no gaps after removing old Step 2", () => {
+    const result = cmdPromptBootstrap();
+    // Extract only the Fresh Install section
+    const freshStart = result.indexOf("## Scenario A: Fresh Install");
+    const freshEnd = result.indexOf("## Scenario B:");
+    const freshSection = result.slice(freshStart, freshEnd);
+    const stepHeaders = freshSection.match(/### Step \d+/g) ?? [];
+    const stepNumbers = stepHeaders.map((h) => Number.parseInt(h.replace("### Step ", ""), 10));
+    // Verify sequential numbering (0, 1, 2, 3, ...)
+    for (let i = 0; i < stepNumbers.length; i++) {
+      expect(stepNumbers[i]).toBe(i);
+    }
   });
 
   test("prompt help subcommand is suppressed", { timeout: 30_000 }, () => {
