@@ -1,6 +1,6 @@
-# @united-workforce/cli
+# Changelog
 
-## 0.4.0 — 2026-06-11
+## 0.1.5 — 2026-06-11
 
 - docs: rewrite `adapter-developing` prompt for v0.4 contract (#214)
   
@@ -29,40 +29,6 @@
   - A realistic cross-repo dispatch YAML example where a `cloner` role outputs `repoPath` and the downstream `developer` edge uses `location: "{{{repoPath}}}"` to run inside the freshly cloned working directory
   
   Adds 10 assertions in `packages/cli/src/__tests__/prompt.test.ts` covering field documentation, the inheritance chain (in order), Mustache template support, a realistic cross-cwd YAML example, and structural placement under `## Graph Routing`.
-- feat: record failed steps in CAS and track retry lineage
-  
-  When an agent step fails (e.g. frontmatter validation failure), the step is now
-  written to CAS with `$status: "error"` preserving turns and usage data. The thread
-  head is NOT advanced, so moderator routing is unaffected.
-  
-  On successful retry, the new step's detail records `previousAttempts` linking to
-  prior failed step hashes, enabling complete attempt history visibility.
-- refactor: remove engine-level LLM config — each adapter owns its own LLM (#143)
-  
-  The engine config (`config.yaml`) is now LLM-free. Workflow execution no longer
-  knows or cares about LLM providers, models, or API keys. Each agent adapter is
-  responsible for loading its own LLM configuration from a path it owns.
-  
-  **Breaking changes:**
-  
-  - `@united-workforce/protocol` — `WorkflowConfig` is narrowed to
-    `{ agents, defaultAgent, agentOverrides }`. The types `ProviderConfig`,
-    `ModelConfig`, `ModelAlias`, `ProviderAlias`, and `Scenario` have been
-    removed.
-  - `@united-workforce/util-agent` — `extract`, `ExtractResult`,
-    `ResolvedLlmProvider`, `resolveExtractModelAlias`, and `resolveModel` are no
-    longer exported. The `extract.ts` module has been deleted. Adapters that
-    previously called `resolveModel(config, …)` must load their own LLM config.
-  - `@united-workforce/agent-builtin` — the builtin adapter now reads its LLM
-    config from `<storageRoot>/agents/builtin.yaml` via the new
-    `loadBuiltinLlmConfig(storageRoot)` function (also exported). The expected
-    YAML shape is `{ provider: { baseUrl, apiKey }, model }`. `ResolvedLlmProvider`
-    now lives in `@united-workforce/agent-builtin`.
-  - `@united-workforce/cli` — `uwf setup` no longer accepts
-    `--provider/--base-url/--api-key/--model`. It only takes an optional
-    `--agent`. `VALID_CONFIG_KEYS` for `uwf config get/set` no longer accepts
-    `providers`, `models`, `defaultModel`, or `modelOverrides`. Existing config
-    files with those legacy fields are still loadable — the engine ignores them.
 - fix(cli): align `uwf workflow list` with `uwf thread start` parent traversal; document `.workflow/` auto-discovery (#162)
   
   `discoverProjectWorkflows()` now walks from `cwd` up through parent directories
@@ -77,14 +43,6 @@
   document project-local `.workflow/` auto-discovery and recommend it as the
   primary placement strategy — `uwf workflow add` registration is only needed for
   global, cwd-independent workflows.
-- chore(cli): remove unused `_workflowRef` ghost parameter from `resolveActiveThreadStatus`
-  
-  `resolveActiveThreadStatus` in `packages/cli/src/commands/thread.ts` accepted a
-  `_workflowRef` argument that was never read inside the body — it only resolves
-  status from the running marker and the chain reachable from `head`. The dead
-  parameter (and the matching argument at the three call sites in `cmdThreadShow`,
-  the thread-list helper, and `cmdThreadResume`) has been dropped. No behavior
-  change.
 - fix(cli): swap `.workflow/` vs `.workflows/` primary/legacy semantics (#187)
   
   `.workflows/` (plural) is now the primary auto-discovery directory and
@@ -116,6 +74,24 @@
   
   The `@united-workforce/util` reference strings (`generateUsageReference`,
   `generateCliReference`) are updated to document the new command.
+- docs: fix workflow-authoring guide oneOf documentation (#244)
+  
+  The "Frontmatter Schema" section incorrectly stated that `type: object` is **required**
+  at the top level of frontmatter for both flat and `oneOf` schemas. This contradicts
+  the runtime: `collectObjectSchemas` in `build-output-format-instruction.ts` never
+  inspects `type`; it only follows `properties` / `oneOf` / `anyOf`. A sibling
+  `type: object` next to `oneOf` creates an unnecessary implicit conjunction.
+  
+  Changes:
+  
+  - The "Multi-exit (oneOf)" example no longer shows a sibling `type: object`.
+  - The workflow-structure example's planner role schema is corrected the same way.
+  - The "Important rules" bullet now distinguishes flat vs. `oneOf` schemas:
+    flat schemas keep `type: object`; `oneOf` schemas must NOT have a sibling
+    `type: object` and let each variant declare its own `properties`/`required`.
+  
+  Adds `packages/util/__tests__/workflow-authoring-reference.test.ts` with 11
+  assertions guarding the corrected guidance and the unchanged flat examples.
 - Replace Mustache template engine with LiquidJS for edge prompt and location rendering.
   
   - Swap `mustache` dependency for `liquidjs` in cli package
@@ -124,24 +100,6 @@
   - Migrate all `.workflows/*.yaml` from `{{{var}}}` to `{{ var }}` syntax
   - Update workflow authoring reference documentation
 - Update documentation and type annotations from Mustache to Liquid terminology (Phase 2 of LiquidJS migration)
-- Fix outdated command names in `uwf setup` output and correct misleading help text about LLM config location.
-- Refactor to reduce cognitive complexity in spawnAgent and createAgent main functions. Extract helper functions to pass Biome's noExcessiveCognitiveComplexity check (limit 15). Fix array formatting in thread status filter.
-- fix(cli): prevent PID recycling from permanently sticking threads in 'running' state
-  
-  When a uwf process is killed with SIGKILL and a new unrelated process inherits
-  the same PID, threads would appear permanently stuck in 'running' state. Now the
-  running marker records `processStartTime` from `/proc/<pid>/stat` (field 22) and
-  all marker validation checks (exec, list, stop, cancel) verify both PID aliveness
-  AND process identity. Stale markers from recycled PIDs are automatically cleaned
-  up. On non-Linux systems, `processStartTime` is null and the behavior gracefully
-  falls back to PID-alive-only checks. Fixes #288.
-- fix: stop parent traversal at .git boundary
-  
-  `findWorkflowInParents()` and `discoverProjectWorkflows()` now stop traversing
-  parent directories when they encounter a `.git` directory or file (git worktree).
-  This prevents picking up unrelated `.workflow/` directories above the repository
-  root in monorepo setups.
-- Add `workflowName` field to `thread list` output. Each thread now includes a resolved workflow name from the registry, or `null` when the workflow hash is not in the registry (orphaned thread). Fixes #286.
 - docs: update built-in prompts for v0.4.0
   
   - bootstrap: add `thread resume`/`thread poke` verification, v0.3→v0.4 migration notes (`completed`→`end`, `$SUSPEND` mechanism)
@@ -170,28 +128,6 @@
   session that receives the step's detail ref for context. The `prompt usage`
   reference (in `@united-workforce/util`) is also updated so agents discover the
   new subcommand. Resolves issue #146.
-- feat(workflow)!: `$SUSPEND` becomes an engine-level reserved `$status` (coroutine yield)
-  
-  `$SUSPEND` is no longer a graph pseudo-role. Instead, any role may emit
-  `{ $status: "$SUSPEND", reason: string }` from its output. The engine intercepts
-  this status before the moderator: the step is written to CAS normally (head
-  advances), the thread is marked `suspended` with the role and reason, and
-  `thread resume` re-runs the same role — exactly like a coroutine yielding control
-  back to its caller.
-  
-  For any role with frontmatter type `F`, the effective output type is
-  `F | { $status: "$SUSPEND", reason: string }`. Suspend outputs are validated
-  against a dedicated reserved schema, bypassing the role's own frontmatter schema.
-  
-  Adapters now yield instead of failing on resource limits:
-  - `agent-claude-code`: an `error_max_turns` result emits `$SUSPEND` (preserving
-    all turns and usage) instead of throwing.
-  - `agent-hermes`: a prompt timeout emits `$SUSPEND` instead of rejecting.
-  
-  BREAKING CHANGE: `"$SUSPEND"` is removed from `GraphPseudoRole` and is no longer a
-  valid graph target role. Workflows using the old `role: "$SUSPEND"` edge pattern
-  now fail validation with a migration hint — emit `$status: "$SUSPEND"` from the
-  role output instead.
 - feat(cli): `uwf thread list` now defaults to active threads only
   
   Changes the default behavior of `uwf thread list` to show only active threads
@@ -201,28 +137,4 @@
   When invoked with no flags, the command now hides completed/cancelled/suspended
   threads. Use `--all` to see them, or `--status <status>` to filter explicitly.
   The `--status` filter wins when both are present. Resolves issue #147.
-- feat(cli): add `uwf thread poke` command
-  
-  New subcommand `uwf thread poke <thread-id> -p <prompt>` re-runs the head step's
-  agent with a supplementary prompt, replacing the head step's output. Unlike
-  `thread resume`, poke skips the moderator and rewrites the new step's `prev`
-  pointer so the new head replaces (not appends to) the old head. Works on idle
-  and suspended threads. Resolves issue #144 (Phase 1).
-- Fix `uwf workflow show` to resolve local project workflows from `.workflows/` directory using parent traversal, matching the behavior of `uwf thread start`. Previously, `workflow show` only resolved workflows from the global registry or direct CAS hashes, making it impossible to inspect local project workflows without first registering them globally via `uwf workflow add`.
-  
-  The command now follows the full 4-strategy resolution order:
-  1. **CAS hash** — direct CAS load for 13-char Crockford Base32 hashes
-  2. **File path** — materialize from explicit `.yaml`/`.yml` paths (relative or absolute)
-  3. **Local discovery** — traverse upward from cwd to find `.workflows/<name>` (or legacy `.workflow/<name>`)
-  4. **Global registry** — fallback to `@uwf/registry/*` variables
-  
-  This aligns `workflow show` with `thread start` and `workflow list`, ensuring consistent workflow resolution across all CLI commands.
-- Add `version` field to workflow YAML format. `WorkflowPayload` now includes a top-level `version: number` (integer). Legacy YAML without `version` falls back to `1`; `uwf workflow add` warns when the field is missing. All in-repo workflow YAML files updated to `version: 1`. Fixes #294.
 
-## 0.1.1
-
-### Patch Changes
-
-- 850a3b2: fix: resolve --agent override via config alias before raw command
-
-  `resolveAgentConfig()` now checks `config.agents[alias]` first before falling back to `parseAgentOverride()`. Eval CLI default `--agent` changed from `"hermes"` to `"uwf-hermes"`.
