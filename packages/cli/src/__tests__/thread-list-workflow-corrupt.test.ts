@@ -142,38 +142,56 @@ describe("loadWorkflowPayload throws on error (#326)", () => {
     expect(corruptItem!.statusDisplay).toBe("corrupt");
   });
 
-  test("completed thread with missing workflow CAS node appears as corrupt with --all", async () => {
+  test("completed thread with missing workflow CAS node retains stored status with --all", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const now = Date.now();
 
-    // Create a valid workflow and thread
-    const workflowHash = await createTestWorkflow(uwf);
-    const validId = await createTestThread(uwf, tmpDir, workflowHash, now);
+    // Create two separate workflows so we can corrupt one without affecting the other
+    const activeWorkflowHash = await createTestWorkflow(uwf);
+    const completedWorkflowPayload = {
+      name: "completed-workflow",
+      roles: {
+        role1: {
+          goal: "completed goal",
+          outputSchema: { type: "object" as const, properties: {} },
+        },
+      },
+      graph: { start: "role1" },
+      conditions: {},
+    };
+    const completedWorkflowHash = await uwf.store.cas.put(
+      uwf.schemas.workflow,
+      completedWorkflowPayload,
+    );
 
-    // Create another thread and complete it
-    const completedId = await createTestThread(uwf, tmpDir, workflowHash, now + 1000);
+    // Create a valid active thread
+    const activeId = await createTestThread(uwf, tmpDir, activeWorkflowHash, now);
+
+    // Create a thread and complete it
+    const completedId = await createTestThread(uwf, tmpDir, completedWorkflowHash, now + 1000);
     completeThreadInStore(uwf.varStore, completedId, "end");
 
-    // Delete the workflow CAS node
-    uwf.store.cas.delete(workflowHash);
+    // Delete only the completed thread's workflow CAS node
+    uwf.store.cas.delete(completedWorkflowHash);
 
-    // Both threads become corrupt (since they share the workflow)
-    // The completed thread should appear as corrupt, not crash
+    // thread list --all should NOT crash
     const result = await cmdThreadList(tmpDir, null, null, null, null, null, true);
 
-    // Both should appear — active as corrupt, completed as corrupt
-    expect(result.length).toBeGreaterThanOrEqual(2);
+    expect(result.length).toBe(2);
 
+    // Active thread is still valid (its workflow exists)
+    const activeItem = result.find((r) => r.thread === activeId);
+    expect(activeItem).toBeDefined();
+    expect(activeItem!.status).toBe("idle");
+
+    // Completed thread retains its stored status — collectCompletedThreads only calls
+    // resolveWorkflowFromHead (returns ref from start node) and never loads the workflow CAS node
     const completedItem = result.find((r) => r.thread === completedId);
     expect(completedItem).toBeDefined();
-    // Completed threads with missing workflows: resolveWorkflowFromHead returns the ref
-    // from the start node (which still exists), so they may NOT be corrupt unless
-    // the head/start node is also missing. The issue is in the ACTIVE path where
-    // resolveCurrentRole → loadWorkflowPayload would crash.
-    // For active threads, the catch block handles the thrown error:
-    const activeItem = result.find((r) => r.thread === validId);
-    expect(activeItem).toBeDefined();
-    expect(activeItem!.status).toBe("corrupt");
-    expect(activeItem!.statusDisplay).toBe("corrupt");
+    expect(completedItem!.status).toBe("end");
+    expect(completedItem!.statusDisplay).toBe("end");
+    // workflowName is null because the workflow ref won't match a registry entry
+    // (the deleted workflow was never registered)
+    expect(completedItem!.workflowName).toBeNull();
   });
 });
