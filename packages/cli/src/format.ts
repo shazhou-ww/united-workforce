@@ -4,6 +4,9 @@ import { Liquid } from "liquidjs";
 import { stringify } from "yaml";
 import type { UwfSchemaHashes } from "./schemas.js";
 import {
+  renderConfigGet,
+  renderConfigList,
+  renderConfigSet,
   renderStepList,
   renderStepShow,
   renderThreadCancel,
@@ -60,6 +63,9 @@ export const TEXT_RENDERERS: Record<string, TextRenderer> = {
   "workflow show": renderWorkflowShow,
   "step list": renderStepList,
   "step show": renderStepShow,
+  "config list": renderConfigList,
+  "config get": renderConfigGet,
+  "config set": renderConfigSet,
 };
 
 /** Look up a registered text renderer by command path. */

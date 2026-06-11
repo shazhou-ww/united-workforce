@@ -238,3 +238,49 @@ export function renderThreadCancel(data: unknown): string {
     `Cancelled  ${cancelled}`,
   ].join("\n");
 }
+
+// ── Config renderers ────────────────────────────────────────────────
+
+/**
+ * Flatten a nested object into dot-notation key-value lines.
+ * Arrays are rendered as compact JSON; scalars as strings.
+ */
+function flattenConfig(obj: Record<string, unknown>, prefix: string): string[] {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (Array.isArray(value)) {
+      lines.push(`${fullKey}\t${JSON.stringify(value)}`);
+    } else if (value !== null && typeof value === "object") {
+      lines.push(...flattenConfig(value as Record<string, unknown>, fullKey));
+    } else {
+      lines.push(`${fullKey}\t${String(value)}`);
+    }
+  }
+  return lines;
+}
+
+export function renderConfigList(data: unknown): string {
+  const obj = asObject(data);
+  if (Object.keys(obj).length === 0) return "";
+  return flattenConfig(obj as Record<string, unknown>, "").join("\n");
+}
+
+export function renderConfigGet(data: unknown): string {
+  const obj = asObject(data) as Record<string, unknown>;
+  const value = obj.value;
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return flattenConfig(value as Record<string, unknown>, "").join("\n");
+  }
+  if (Array.isArray(value)) return JSON.stringify(value);
+  return String(value);
+}
+
+export function renderConfigSet(data: unknown): string {
+  const obj = asObject(data) as Record<string, unknown>;
+  const key = asString(obj.key as string | undefined);
+  const value = obj.value;
+  const rendered = Array.isArray(value) ? JSON.stringify(value) : String(value ?? "");
+  return `${key} = ${rendered}`;
+}
