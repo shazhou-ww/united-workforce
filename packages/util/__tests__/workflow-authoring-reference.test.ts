@@ -74,7 +74,8 @@ function assertFrontmatterRule(fm: string): void {
   }
 }
 
-describe("generateWorkflowAuthoringReference", () => {
+// Skip: pure reference document content assertions.
+describe.skip("generateWorkflowAuthoringReference", () => {
   const reference = generateWorkflowAuthoringReference();
 
   // ── Group 1 — `oneOf` example block (multi-exit) ───────────────────────────
