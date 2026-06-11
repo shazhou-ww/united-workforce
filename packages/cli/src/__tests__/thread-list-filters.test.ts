@@ -13,6 +13,7 @@ import {
   completeThread as completeThreadInStore,
   createUwfStore,
   loadAllThreads,
+  saveWorkflowRegistry,
   setThread,
 } from "../store.js";
 
@@ -904,5 +905,93 @@ describe("corrupt thread resilience (#250)", () => {
     const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
     expect(result).toHaveLength(1);
     expect(result[0].status).toBe("corrupt");
+  });
+});
+
+// ── orphan thread detection (#286) ────────────────────────────────────────────
+
+describe("orphan thread detection (#286)", () => {
+  test("thread list includes workflowName when workflow is in registry", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    // Register the workflow in registry
+    saveWorkflowRegistry(uwf.varStore, "test-workflow", workflowHash);
+
+    const threadId = await createTestThread(uwf, tmpDir, workflowHash, Date.now());
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].thread).toBe(threadId);
+    expect(result[0].workflowName).toBe("test-workflow");
+  });
+
+  test("thread list returns workflowName: null for orphaned threads", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    // Do NOT register the workflow — thread is orphaned
+    const threadId = await createTestThread(uwf, tmpDir, workflowHash, Date.now());
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].thread).toBe(threadId);
+    expect(result[0].workflowName).toBeNull();
+  });
+
+  test("mixed registered and orphaned threads in the same list", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+
+    // Register the workflow
+    saveWorkflowRegistry(uwf.varStore, "test-workflow", workflowHash);
+
+    // Create a thread using the registered workflow
+    const now = Date.now();
+    const registeredId = await createTestThread(uwf, tmpDir, workflowHash, now);
+
+    // Create a second workflow (different hash), not registered
+    const orphanWorkflowPayload = {
+      name: "orphan-workflow",
+      roles: {
+        role1: {
+          goal: "orphan goal",
+          outputSchema: { type: "object" as const, properties: {} },
+        },
+      },
+      graph: { start: "role1" },
+      conditions: {},
+    };
+    const orphanHash = await uwf.store.cas.put(uwf.schemas.workflow, orphanWorkflowPayload);
+    const orphanId = await createTestThread(uwf, tmpDir, orphanHash, now + 1000);
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
+    expect(result).toHaveLength(2);
+
+    // Sorted newest first, so orphan (later timestamp) comes first
+    const orphanItem = result.find((r) => r.thread === orphanId);
+    const registeredItem = result.find((r) => r.thread === registeredId);
+
+    expect(orphanItem).toBeDefined();
+    expect(orphanItem!.workflowName).toBeNull();
+
+    expect(registeredItem).toBeDefined();
+    expect(registeredItem!.workflowName).toBe("test-workflow");
+  });
+
+  test("corrupt threads have workflowName: null", async () => {
+    const uwf = await makeUwfStore(tmpDir);
+    const workflowHash = await createTestWorkflow(uwf);
+    saveWorkflowRegistry(uwf.varStore, "test-workflow", workflowHash);
+
+    // Create a thread then corrupt it by deleting its head CAS node
+    const corruptId = await createTestThread(uwf, tmpDir, workflowHash, Date.now());
+    const corruptEntry = loadAllThreads(uwf.varStore)[corruptId];
+    uwf.store.cas.delete(corruptEntry.head);
+
+    const result = await cmdThreadList(tmpDir, null, null, null, null, null, false);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe("corrupt");
+    expect(result[0].workflowName).toBeNull();
   });
 });
