@@ -1,5 +1,5 @@
-import { access, readFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 
 import type { JSONSchema } from "@ocas/core";
 import { putSchema, validate } from "@ocas/core";
@@ -12,6 +12,7 @@ import {
   discoverProjectWorkflows,
   findRegistryName,
   loadWorkflowRegistry,
+  resolveProjectWorkflowFile,
   resolveWorkflowHash,
   saveWorkflowRegistry,
   type UwfStore,
@@ -210,111 +211,6 @@ function isFilePath(input: string): boolean {
   );
 }
 
-/**
- * Check if a workflow file exists at the given path.
- */
-async function workflowFileExists(dir: string, name: string, ext: string): Promise<string | null> {
-  const candidate = resolvePath(dir, `${name}${ext}`);
-  try {
-    await access(candidate);
-    return candidate;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Search for a workflow file in a given directory (checks both .workflows/ and .workflow/).
- * `.workflows/` (primary) takes priority over `.workflow/` (legacy fallback).
- */
-async function findWorkflowInDir(dir: string, name: string): Promise<string | null> {
-  // Check .workflows/ directory first (primary)
-  for (const ext of [".yaml", ".yml"]) {
-    const result = await workflowFileExists(resolvePath(dir, ".workflows"), name, ext);
-    if (result !== null) {
-      return result;
-    }
-  }
-  for (const indexName of ["index.yaml", "index.yml"]) {
-    const candidate = resolvePath(dir, ".workflows", name, indexName);
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {
-      /* not found */
-    }
-  }
-
-  // Check .workflow/ directory as fallback (legacy)
-  for (const ext of [".yaml", ".yml"]) {
-    const result = await workflowFileExists(resolvePath(dir, ".workflow"), name, ext);
-    if (result !== null) {
-      return result;
-    }
-  }
-  for (const indexName of ["index.yaml", "index.yml"]) {
-    const candidate = resolvePath(dir, ".workflow", name, indexName);
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {
-      /* not found */
-    }
-  }
-
-  return null;
-}
-
-/** Check if a directory contains a .git marker (directory or file). */
-async function hasGitMarker(dir: string): Promise<boolean> {
-  try {
-    await access(join(dir, ".git"));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Traverse parent directories looking for a workflow named `name` under
- * `.workflows/` (primary) or `.workflow/` (legacy fallback). Within each
- * directory the lookup checks flat YAML files (`<name>.yaml`/`.yml`) and
- * folder-based layouts (`<name>/index.yaml`/`.yml`).
- * Returns the absolute path if found, otherwise null.
- * Stops at filesystem root or .git directory.
- */
-async function findWorkflowInParents(startDir: string, name: string): Promise<string | null> {
-  let currentDir = resolvePath(startDir);
-  const root = resolvePath("/");
-
-  while (true) {
-    const found = await findWorkflowInDir(currentDir, name);
-    if (found !== null) {
-      return found;
-    }
-
-    // Stop at .git boundary (repo root)
-    if (await hasGitMarker(currentDir)) {
-      break;
-    }
-
-    // Stop at filesystem root
-    if (currentDir === root) {
-      break;
-    }
-
-    // Move to parent directory
-    const parentDir = dirname(currentDir);
-    if (parentDir === currentDir) {
-      // Reached filesystem root
-      break;
-    }
-    currentDir = parentDir;
-  }
-
-  return null;
-}
-
 async function materializeLocalWorkflowForShow(uwf: UwfStore, filePath: string): Promise<CasRef> {
   let text: string;
   try {
@@ -384,8 +280,9 @@ async function resolveWorkflowCasRefForShow(
     return materializeLocalWorkflowForShow(uwf, absolutePath);
   }
 
-  // Strategy 3: Local discovery (parent directory traversal)
-  const localPath = await findWorkflowInParents(projectRoot, trimmed);
+  // Strategy 3: Local discovery (reuses discoverProjectWorkflows from store.ts)
+  const localEntries = await discoverProjectWorkflows(projectRoot);
+  const localPath = resolveProjectWorkflowFile(localEntries, trimmed);
   if (localPath !== null) {
     return materializeLocalWorkflowForShow(uwf, localPath);
   }
