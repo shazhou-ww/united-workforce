@@ -57,12 +57,14 @@ export function buildClaudeCodePrompt(ctx: AgentContext): string {
 
 function spawnClaude(
   args: string[],
+  cwd: string = process.cwd(),
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn(CLAUDE_COMMAND, args, {
       env: process.env,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
+      cwd,
     });
 
     let stdout = "";
@@ -93,6 +95,7 @@ function spawnClaude(
 function spawnClaudeRun(
   prompt: string,
   model: string | null,
+  cwd: string,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
@@ -107,13 +110,14 @@ function spawnClaudeRun(
   if (model !== null) {
     args.push("--model", model);
   }
-  return spawnClaude(args);
+  return spawnClaude(args, cwd);
 }
 
 function spawnClaudeResume(
   sessionId: string,
   message: string,
   model: string | null,
+  cwd: string,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     "-p",
@@ -130,7 +134,7 @@ function spawnClaudeResume(
   if (model !== null) {
     args.push("--model", model);
   }
-  return spawnClaude(args);
+  return spawnClaude(args, cwd);
 }
 
 export async function processClaudeOutput(
@@ -194,6 +198,7 @@ export async function processClaudeOutput(
 
 async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<AgentRunResult> {
   const fullPrompt = buildClaudeCodePrompt(ctx);
+  const cwd = ctx.start.cwd !== "" ? ctx.start.cwd : process.cwd();
 
   log("K7R2M4N8", `prompt for role=${ctx.role} (length=${fullPrompt.length}):\n${fullPrompt}`);
 
@@ -223,6 +228,7 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
           cachedSessionId,
           resumePrompt,
           model,
+          cwd,
         );
         const result = await processClaudeOutput(
           stdout,
@@ -252,7 +258,7 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
   }
 
   const startMs = Date.now();
-  const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt, model);
+  const { stdout, stderr, exitCode } = await spawnClaudeRun(fullPrompt, model, cwd);
   const result = await processClaudeOutput(
     stdout,
     stderr,
@@ -280,7 +286,8 @@ async function continueClaudeCode(
   model: string | null,
 ): Promise<AgentRunResult> {
   const startMs = Date.now();
-  const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message, model);
+  const cwd = process.cwd();
+  const { stdout, stderr, exitCode } = await spawnClaudeResume(sessionId, message, model, cwd);
   return processClaudeOutput(stdout, stderr, exitCode, store, "", Date.now() - startMs); // wall-clock elapsed, not CC result line duration
 }
 
