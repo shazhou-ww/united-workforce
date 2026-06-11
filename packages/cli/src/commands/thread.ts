@@ -43,6 +43,7 @@ import {
   isThreadRunning,
   readMarker,
 } from "../background/index.js";
+import { acquireSlot, DEFAULT_MAX_RUNNING, installSlotCleanup } from "../concurrency/index.js";
 import { createIncludeTag } from "../include.js";
 import { evaluate } from "../moderator/index.js";
 import {
@@ -60,6 +61,7 @@ import {
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
+import { getConfigPath, getNestedValue, loadConfig, parseDotPath } from "./config.js";
 import {
   type ChainState,
   collectOrderedSteps,
@@ -1422,6 +1424,25 @@ export function validateCount(count: number): void {
   }
 }
 
+/**
+ * Resolve the effective maxRunning limit.
+ * Priority: config file > DEFAULT_MAX_RUNNING (2).
+ */
+async function resolveMaxRunning(storageRoot: string): Promise<number> {
+  try {
+    const configPath = getConfigPath(storageRoot);
+    const config = loadConfig(configPath);
+    const path = parseDotPath("concurrency.maxRunning");
+    const value = getNestedValue(config, path);
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+  } catch {
+    // Config file missing or invalid — fall through to default
+  }
+  return DEFAULT_MAX_RUNNING;
+}
+
 export async function cmdThreadExec(
   storageRoot: string,
   threadId: ThreadId,
@@ -1462,6 +1483,13 @@ export async function cmdThreadExec(
     processStartTime: getProcessStartTime(process.pid),
   });
 
+  // Resolve concurrency limit: config > default
+  const effectiveMaxRunning = await resolveMaxRunning(storageRoot);
+
+  // Acquire concurrency slot (blocks if at capacity)
+  const slotHandle = await acquireSlot(storageRoot, effectiveMaxRunning);
+  const uninstallCleanup = installSlotCleanup(slotHandle);
+
   try {
     const results: StepOutput[] = [];
     for (let i = 0; i < count; i++) {
@@ -1473,6 +1501,8 @@ export async function cmdThreadExec(
     }
     return results;
   } finally {
+    uninstallCleanup();
+    await slotHandle.release();
     await deleteMarker(storageRoot, threadId);
   }
 }
