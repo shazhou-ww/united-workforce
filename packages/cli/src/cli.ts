@@ -618,7 +618,7 @@ program
   .command("setup")
   .description(
     "Configure the default agent. Run without --agent for interactive wizard.\n" +
-      "LLM provider/model configuration lives per-adapter in <storage>/agents/<adapter>.yaml.",
+      "LLM provider/model configuration lives in <storage>/config.yaml under providers and models.",
   )
   .option("--agent <name>", "Default agent adapter (e.g. hermes → uwf-hermes)")
   .action((opts: { agent?: string }) => {

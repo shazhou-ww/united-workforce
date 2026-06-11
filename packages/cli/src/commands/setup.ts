@@ -263,8 +263,8 @@ export function _checkAdapterAvailability(agentName: string): string[] {
 
 /**
  * Non-interactive setup. Engine config is LLM-free — only writes
- * agents + defaultAgent. Each adapter owns its own LLM configuration in
- * `<storageRoot>/agents/<adapter>.yaml`.
+ * agents + defaultAgent. LLM provider/model configuration lives in
+ * config.yaml under `providers` and `models`.
  */
 export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>> {
   const { storageRoot } = args;
@@ -296,8 +296,7 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
 
 /**
  * Interactive setup — prompts the user only for the default agent. LLM
- * configuration is per-adapter, so this command no longer collects any
- * provider/api-key/model information.
+ * configuration lives in config.yaml under `providers` and `models`.
  */
 export async function cmdSetupInteractive(storageRoot: string): Promise<Record<string, unknown>> {
   const rl = createInterface({ input, output });
@@ -309,9 +308,12 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
 
     await cmdSetup({ agent: agentName, storageRoot });
     console.log("Setup complete! Get started:\n");
-    console.log("  uwf workflow put <workflow.yaml>   Register a workflow");
-    console.log('  uwf thread start <name> -p "..."   Start a thread');
-    console.log("  uwf thread step <thread-id>        Execute next step");
+    console.log("  uwf workflow list                  List available workflows");
+    console.log("  uwf workflow add <workflow.yaml>    Register a workflow");
+    console.log('  uwf thread start <name> -p "..."    Start a thread');
+    console.log("  uwf thread exec <thread-id>         Execute next step");
+    console.log("");
+    console.log("LLM config: edit ~/.uwf/config.yaml (providers + models sections).");
     console.log("");
 
     return null as unknown as Record<string, unknown>;
