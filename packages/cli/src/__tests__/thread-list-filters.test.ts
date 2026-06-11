@@ -5,7 +5,7 @@ import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { createThreadIndexEntry } from "@united-workforce/protocol";
 import { extractUlidTimestamp, generateUlid } from "@united-workforce/util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { createMarker, deleteMarker } from "../background/index.js";
+import { createMarker, deleteMarker, getProcessStartTime } from "../background/index.js";
 import { cmdThreadList } from "../commands/thread.js";
 import { parseTimeInput } from "../commands/thread-time-parser.js";
 import type { UwfStore } from "../store.js";
@@ -67,6 +67,7 @@ async function markThreadRunning(storageRoot: string, threadId: ThreadId, workfl
     workflow,
     pid: process.pid, // Use current process PID so isPidAlive returns true
     startedAt: Date.now(),
+    processStartTime: getProcessStartTime(process.pid),
   });
 }
 

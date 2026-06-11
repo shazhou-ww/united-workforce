@@ -337,12 +337,13 @@ describe("uwf thread poke - guard errors", () => {
   test("2.2 thread running rejects poke", async () => {
     const { casDir, workflowHash } = await setupThread();
     // Create background marker to simulate running
-    const { createMarker } = await import("../background/index.js");
+    const { createMarker, getProcessStartTime } = await import("../background/index.js");
     await createMarker(tmpDir, {
       thread: THREAD_ID,
       workflow: workflowHash,
       pid: process.pid,
       startedAt: Date.now(),
+      processStartTime: getProcessStartTime(process.pid),
     });
 
     const result = runUwf(["thread", "poke", THREAD_ID, "-p", "prompt"], casDir);

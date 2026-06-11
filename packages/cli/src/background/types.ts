@@ -6,4 +6,5 @@ export type RunningMarker = {
   workflow: CasRef;
   pid: number;
   startedAt: number;
+  processStartTime: number | null;
 };

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { putSchema } from "@ocas/core";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
-import { createMarker, deleteMarker } from "../background/index.js";
+import { createMarker, deleteMarker, getProcessStartTime } from "../background/index.js";
 import { cmdThreadList, cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import { completeThread, createUwfStore, loadActiveThreads, setThread } from "../store.js";
 
@@ -352,6 +352,7 @@ describe("currentRole field", () => {
         workflow,
         pid: process.pid,
         startedAt: Date.now(),
+        processStartTime: getProcessStartTime(process.pid),
       });
 
       try {

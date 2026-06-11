@@ -35,7 +35,14 @@ import type { AdapterOutput } from "@united-workforce/util-agent";
 import { getEnvPath, loadWorkflowConfig } from "@united-workforce/util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
-import { createMarker, deleteMarker, isThreadRunning } from "../background/index.js";
+import {
+  createMarker,
+  deleteMarker,
+  getProcessStartTime,
+  isMarkerValid,
+  isThreadRunning,
+  readMarker,
+} from "../background/index.js";
 import { createIncludeTag } from "../include.js";
 import { evaluate } from "../moderator/index.js";
 import {
@@ -1436,6 +1443,7 @@ export async function cmdThreadExec(
     workflow: workflowHash,
     pid: process.pid,
     startedAt: Date.now(),
+    processStartTime: getProcessStartTime(process.pid),
   });
 
   try {
@@ -1793,7 +1801,9 @@ export type CancelOutput = {
 };
 
 /**
- * Stop background execution of a thread (but keep thread active)
+ * Stop background execution of a thread (but keep thread active).
+ * Validates process identity before sending signals to prevent killing
+ * unrelated processes when PIDs are recycled.
  */
 export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Promise<StopOutput> {
   const uwf = await createUwfStore(storageRoot);
@@ -1802,15 +1812,26 @@ export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Pr
     fail(`thread not active: ${threadId}`);
   }
 
-  // Check if thread is running in background and terminate it
-  const runningMarker = await isThreadRunning(storageRoot, threadId);
-  if (runningMarker === null) {
+  // Read the raw marker to check process identity
+  const marker = await readMarker(storageRoot, threadId);
+  if (marker === null) {
     process.stderr.write(`Warning: thread ${threadId} is not currently running\n`);
     return { thread: threadId, stopped: false };
   }
 
+  // Validate that the marker's PID still belongs to the same process
+  if (!isMarkerValid(marker)) {
+    // Stale marker — PID was recycled or process died. Do NOT send a signal.
+    process.stderr.write(
+      `Warning: thread ${threadId} was not actually running (stale marker cleaned up)\n`,
+    );
+    await deleteMarker(storageRoot, threadId);
+    return { thread: threadId, stopped: false };
+  }
+
+  // Process identity confirmed — safe to send SIGTERM
   try {
-    process.kill(runningMarker.pid, "SIGTERM");
+    process.kill(marker.pid, "SIGTERM");
   } catch {
     // Process may have already exited, ignore error
   }
@@ -1820,7 +1841,9 @@ export async function cmdThreadStop(storageRoot: string, threadId: ThreadId): Pr
 }
 
 /**
- * Cancel a thread (stop execution + move to history)
+ * Cancel a thread (stop execution + move to history).
+ * Validates process identity before sending signals to prevent killing
+ * unrelated processes when PIDs are recycled.
  */
 export async function cmdThreadCancel(
   storageRoot: string,
@@ -1832,14 +1855,18 @@ export async function cmdThreadCancel(
     fail(`thread not active: ${threadId}`);
   }
 
-  // Check if thread is running in background and terminate it
-  const runningMarker = await isThreadRunning(storageRoot, threadId);
-  if (runningMarker !== null) {
-    try {
-      process.kill(runningMarker.pid, "SIGTERM");
-    } catch {
-      // Process may have already exited, ignore error
+  // Read the raw marker and validate process identity before sending signals
+  const marker = await readMarker(storageRoot, threadId);
+  if (marker !== null) {
+    if (isMarkerValid(marker)) {
+      // Process identity confirmed — safe to send SIGTERM
+      try {
+        process.kill(marker.pid, "SIGTERM");
+      } catch {
+        // Process may have already exited, ignore error
+      }
     }
+    // Always delete the marker (stale or not) — cancellation proceeds
     await deleteMarker(storageRoot, threadId);
   }
 

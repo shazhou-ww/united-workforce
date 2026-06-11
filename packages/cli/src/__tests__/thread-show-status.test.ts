@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
-import { createMarker, deleteMarker } from "../background/index.js";
+import { createMarker, deleteMarker, getProcessStartTime } from "../background/index.js";
 import { cmdThreadShow, cmdThreadStart } from "../commands/thread.js";
 import { completeThread, createUwfStore, loadAllThreads, setThread } from "../store.js";
 
@@ -170,6 +170,7 @@ describe("thread show status field", () => {
       workflow,
       pid: process.pid,
       startedAt: Date.now(),
+      processStartTime: getProcessStartTime(process.pid),
     });
 
     try {
