@@ -291,7 +291,9 @@ export async function _registerBundledExamples(storageRoot: string): Promise<str
   if (examplesDir === null) return [];
 
   const registered: string[] = [];
-  const files = readdirSync(examplesDir).filter((f) => f.endsWith(".yaml")).sort();
+  const files = readdirSync(examplesDir)
+    .filter((f) => f.endsWith(".yaml"))
+    .sort();
 
   for (const file of files) {
     try {
