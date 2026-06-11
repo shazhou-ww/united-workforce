@@ -331,5 +331,43 @@ uwf prompt workflow-authoring  # workflow YAML design guide
 uwf prompt adapter-developing  # building agent adapters
 uwf prompt bootstrap           # this guide
 \`\`\`
+
+## What's next — introduce uwf to the user
+
+After setup is complete, give the user a brief introduction to what uwf can do
+and invite them to try it. Cover these three things:
+
+1. **Run workflows** — execute pre-built workflows to automate multi-step tasks.
+   uwf ships with example workflows they can try right away.
+2. **Create workflows** — design custom YAML workflows for their own recurring tasks
+   (code review, issue triage, release pipelines, etc.). Use \`uwf prompt workflow-authoring\`
+   for the authoring guide.
+3. **Debug & improve workflows** — iterate on workflow definitions, inspect thread state
+   with \`uwf thread show\`, replay failed steps with \`uwf thread poke\`, and refine
+   role procedures based on real execution results.
+
+**Quick demo — suggest the user try a built-in example:**
+
+\`\`\`bash
+# Register the debate example
+uwf workflow add examples/debate.yaml
+
+# Start a debate on any topic
+uwf thread start debate -p "Should AI agents be given autonomy to make decisions without human oversight?"
+
+# Run it (agents argue for/against, then a host summarizes)
+uwf thread exec <thread-id>
+\`\`\`
+
+Other built-in examples to explore:
+
+| Example | Description |
+|---------|-------------|
+| \`analyze-topic.yaml\` | Single-role topic analysis |
+| \`debate.yaml\` | Multi-role structured debate |
+| \`solve-issue.yaml\` | TDD-driven issue resolution |
+| \`review-pr.yaml\` | Automated PR code review |
+
+Run \`ls examples/\` in the uwf repository to see all available examples.
 `;
 }
