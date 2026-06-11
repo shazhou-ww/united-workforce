@@ -133,8 +133,8 @@ roles:
           - CLI `--help` text (if flags/commands are added or changed)
 
       If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
-      or repeated attempts fail), set $status=failed with a reason.
-    output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or failed (with reason)."
+      or repeated attempts fail), output $status: "$SUSPEND" with a reason so a human can intervene.
+    output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or $SUSPEND (with reason) if stuck."
     frontmatter:
       oneOf:
         - properties:
@@ -142,10 +142,6 @@ roles:
             branch: { type: string }
             worktree: { type: string }
           required: [$status, branch, worktree]
-        - properties:
-            $status: { const: "failed" }
-            reason: { type: string }
-          required: [$status, reason]
   reviewer:
     description: "Code standards compliance check"
     goal: "You are a code reviewer. You verify code standards compliance — NOT functionality (that's the tester's job)."
@@ -295,7 +291,6 @@ graph:
     continue: { role: "developer", prompt: "Continue work on existing branch {{ branch }} at worktree {{ worktree }}. Implement the revised specs (comma-separated): {{ specFiles | join: \", \" }}. Repo: {{ repoPath }}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:
     done: { role: "reviewer", prompt: "Review branch {{ branch }} at {{ worktree }} for code standards compliance." }
-    failed: { role: "$END", prompt: "Developer failed: {{ reason }}. Ending workflow." }
   reviewer:
     rejected: { role: "developer", prompt: "Reviewer rejected: {{ comments }}. Fix the issues at {{ worktree }}." }
     approved: { role: "tester", prompt: "Review passed. Verify implementation against spec files on branch {{ branch }} at {{ worktree }}." }

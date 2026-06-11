@@ -26,17 +26,14 @@ roles:                         # named actors
     procedure: |               # step-by-step instructions
       1. Do this
       2. Do that
+      3. If stuck, output $status: "$SUSPEND" with a reason
     output: "..."              # what the agent should produce
     frontmatter:               # JSON Schema for structured output
-      oneOf:
-        - properties:
-            $status: { const: "ready" }
-            plan: { type: string }
-          required: [$status, plan]
-        - properties:
-            $status: { const: "failed" }
-            error: { type: string }
-          required: [$status, error]
+      type: object
+      properties:
+        $status: { const: "ready" }
+        plan: { type: string }
+      required: [$status, plan]
 
 graph:                         # status-based routing
   $START:
@@ -44,7 +41,6 @@ graph:                         # status-based routing
     resume: { role: planner, prompt: "Review the previous run output and continue." }
   planner:
     ready: { role: developer, prompt: "Implement {{ plan }}." }
-    failed: { role: $END, prompt: "Failed: {{ error }}" }
 \`\`\`
 
 ## Role Definition
@@ -83,9 +79,9 @@ frontmatter:
         result: { type: string }
       required: [$status, result]
     - properties:
-        $status: { const: "failed" }
-        error: { type: string }
-      required: [$status, error]
+        $status: { const: "rejected" }
+        comments: { type: string }
+      required: [$status, comments]
 \`\`\`
 
 **Single-exit (flat schema)** — same syntax, just no \`oneOf\` wrapper:
@@ -198,15 +194,44 @@ graph:
     rejected: { role: developer, prompt: "Fix: {{ comments }}" }  # loop back
 \`\`\`
 
-### Fail Routing
+### Failure Handling — Use \`$SUSPEND\`, Not \`failed → $END\`
 
-Route failures to a cleanup role or \`$END\`:
+**Design principle: workflow graphs should only contain forward paths and retry loops — never \`failed → $END\`.**
+
+Failure is an exception that requires human intervention, not a normal workflow exit. When a role cannot proceed:
+
+1. The role emits \`$status: "$SUSPEND"\` with a \`reason\` explaining what went wrong
+2. The engine pauses the thread in \`suspended\` state
+3. A human reviews the situation and resumes with \`uwf thread resume <id> -p "..."\`
+
+This preserves all prior work in the thread — compared to \`failed → $END\` which terminates the thread and loses the ability to continue.
+
+**Status categories:**
+- ✅ Forward: \`done\`, \`ready\`, \`approved\`, \`passed\`, \`merged\`
+- 🔁 Retry: \`rejected\`, \`fix_code\`, \`fix_spec\`
+- ⏸ Pause: \`$SUSPEND\` (engine-level, not a graph edge)
 
 \`\`\`yaml
+# ✅ Correct — only forward path; failure suspends for human
+roles:
+  developer:
+    procedure: |
+      If you cannot complete the task, output $status: "$SUSPEND" with reason.
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: "done" }
+        summary: { type: string }
+      required: [$status, summary]
 graph:
   developer:
     done: { role: reviewer, prompt: "Review changes." }
-    failed: { role: cleanup, prompt: "Clean up: {{ error }}" }
+
+# ❌ Wrong — failed terminates the thread, losing all prior work
+graph:
+  developer:
+    done: { role: reviewer, prompt: "Review changes." }
+    failed: { role: $END, prompt: "Failed: {{ error }}" }
 \`\`\`
 
 ### Cross-cwd Execution
@@ -433,9 +458,9 @@ ocas get <output-hash>
 
 ## Common Pitfalls
 
-- **Missing graph edge** — if a role can produce \`$status: failed\` but the graph has no \`failed\` edge, the moderator will error
+- **Missing graph edge** — if a role can produce a \`$status\` value but the graph has no matching edge, the moderator will error
 - **Template field mismatch** — referencing \`{{ branch }}\` in an edge prompt but the source schema has \`branchName\` instead
 - **Overly complex roles** — a role with 20 steps should be split; each role should be completable in one agent turn
-- **No fail path** — always handle failure; route to cleanup or \`$END\`
+- **\`failed → $END\` anti-pattern** — never route failure to \`$END\`; use \`$SUSPEND\` so work is preserved and humans can intervene
 `;
 }
