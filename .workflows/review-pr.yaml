@@ -150,6 +150,11 @@ roles:
       9. **Documentation** — README, JSDoc, inline comments for non-obvious logic.
       10. **Style** — Naming conventions, no console.log in production, consistent patterns.
 
+      **Scope: code quality only.**
+      Do NOT comment on merge status, mergeability, rebase needs, or CI state — those are
+      the merger role's responsibility. Your `suggestions` field must contain only code-level
+      improvements, never operational/merge concerns.
+
       **Your single decision: can this PR merge?**
 
       Classify each finding into one of three tiers:
@@ -232,7 +237,11 @@ roles:
 
       If `selfReview` is false and there are no suggestions, skip issue creation and submit the approval.
 
-      If there ARE suggestions, open ONE consolidated tracking issue (not one per suggestion).
+      If there ARE suggestions, first filter out any that are about merge/rebase/conflict/CI status —
+      those belong to the merger role and must NOT become issues. Only code-quality suggestions survive.
+      If no suggestions remain after filtering, skip issue creation entirely.
+
+      Then open ONE consolidated tracking issue (not one per suggestion).
       First, search existing issues to avoid duplicates:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
