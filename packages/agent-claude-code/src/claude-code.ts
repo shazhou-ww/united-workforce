@@ -22,6 +22,51 @@ const log = createLogger({ sink: { kind: "stderr" } });
 const CLAUDE_COMMAND = "claude";
 const CLAUDE_MAX_TURNS = 90;
 
+const STDERR_TRUNCATE_LIMIT = 500;
+
+const NOT_LOGGED_IN_MESSAGE = "Claude Code is not logged in. Run `claude login` first.";
+const API_KEY_ERROR_MESSAGE = "Claude Code API key error. Check your API key configuration.";
+
+const API_KEY_PATTERNS: readonly RegExp[] = [
+  /invalid api key/i,
+  /ANTHROPIC_API_KEY/i,
+  /authentication/i,
+  /unauthorized/i,
+];
+
+/**
+ * Pure helper: map a captured `claude` subprocess failure (`exitCode`, `stderr`)
+ * to an actionable, user-facing error message. Recognises common patterns
+ * (`Not logged in`, API key errors) and falls back to a generic
+ * `claude exited with code <n>: <truncated stderr>` for unknown failures.
+ *
+ * Pure / no I/O — safe to unit test without spawning a subprocess.
+ */
+export function mapClaudeError(exitCode: number | null, stderr: string): string {
+  const trimmed = stderr.trim();
+  const codeText = exitCode === null ? "null" : String(exitCode);
+
+  if (/not logged in/i.test(trimmed)) {
+    return `claude exited with code ${codeText}: ${NOT_LOGGED_IN_MESSAGE}`;
+  }
+
+  for (const pattern of API_KEY_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return `claude exited with code ${codeText}: ${API_KEY_ERROR_MESSAGE}`;
+    }
+  }
+
+  if (trimmed === "") {
+    return `claude exited with code ${codeText}`;
+  }
+
+  const snippet =
+    trimmed.length > STDERR_TRUNCATE_LIMIT
+      ? `${trimmed.slice(0, STDERR_TRUNCATE_LIMIT)}…`
+      : trimmed;
+  return `claude exited with code ${codeText}: ${snippet}`;
+}
+
 /** Assemble system prompt, task, and prior step outputs for Claude Code. */
 export function buildClaudeCodePrompt(ctx: AgentContext): string {
   const roleDef = ctx.workflow.roles[ctx.role];
@@ -86,8 +131,7 @@ function spawnClaude(
         resolve({ stdout, stderr, exitCode: code });
         return;
       }
-      const detail = stderr.trim() !== "" ? ` stderr=${stderr.trim()}` : "";
-      reject(new Error(`claude exited with code ${code ?? "null"}${detail}`));
+      reject(new Error(mapClaudeError(code, stderr)));
     });
   });
 }
@@ -200,7 +244,10 @@ async function runClaudeCode(ctx: AgentContext, model: string | null): Promise<A
   const fullPrompt = buildClaudeCodePrompt(ctx);
   const cwd = ctx.start.cwd !== "" ? ctx.start.cwd : process.cwd();
 
-  log("K7R2M4N8", `prompt for role=${ctx.role} (length=${fullPrompt.length}):\n${fullPrompt}`);
+  log("K7R2M4N8", `prompt for role=${ctx.role} length=${fullPrompt.length}`);
+  if (process.env.UWF_DEBUG === "1" || process.env.UWF_DEBUG === "true") {
+    log("D8X3M4P7", `prompt body for role=${ctx.role}:\n${fullPrompt}`);
+  }
 
   // Try resuming a cached session.  This covers both normal re-entry
   // (e.g. reviewer reject → developer re-entry) AND the case where a
