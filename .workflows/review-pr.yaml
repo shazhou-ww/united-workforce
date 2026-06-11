@@ -322,10 +322,15 @@ roles:
       - If `merged: true`: output $status=merged
       - Otherwise: output $status=merge_failed
 
-      **Step 5 — Clean up worktree (on successful merge):**
+      **Step 5 — Clean up worktree (MANDATORY, even if merge failed):**
+      This step is critical — leftover worktrees contaminate biome check,
+      vitest (picks up stale tests), and git status. Always run it.
       ```bash
       cd <repo-root>
-      git worktree remove .worktrees/review/pr-<number> 2>/dev/null || true
+      git worktree remove .worktrees/review/pr-<number> --force 2>/dev/null || true
+      rm -rf .worktrees/review/pr-<number> 2>/dev/null || true
+      git worktree prune
+      git branch -D pr-<number> 2>/dev/null || true
       ```
 
     output: "Report the merge result. Set $status to merged, ci_failed, conflict, or merge_failed."
