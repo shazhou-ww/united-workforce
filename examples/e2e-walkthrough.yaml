@@ -265,20 +265,20 @@ graph:
     new: { role: "bootstrap", prompt: "Set up the Docker container and verify uwf is runnable." }
     resume: { role: "bootstrap", prompt: "Review the previous run output and continue the walkthrough." }
   bootstrap:
-    pass: { role: "config-and-registry", prompt: "Container {{{containerName}}} is ready. Validate config and workflow registration." }
-    fail: { role: "$END", prompt: "Bootstrap failed: {{{error}}}. No container was created." }
+    pass: { role: "config-and-registry", prompt: "Container {{ containerName }} is ready. Validate config and workflow registration." }
+    fail: { role: "$END", prompt: "Bootstrap failed: {{ error }}. No container was created." }
   config-and-registry:
-    pass: { role: "thread-ops", prompt: "Config and registry OK. Workflow '{{{workflowName}}}' registered. Container: {{{containerName}}}. Now test thread operations." }
-    fail: { role: "cleanup", prompt: "Config/registry failed: {{{error}}}. Clean up container {{{containerName}}}." }
+    pass: { role: "thread-ops", prompt: "Config and registry OK. Workflow '{{ workflowName }}' registered. Container: {{ containerName }}. Now test thread operations." }
+    fail: { role: "cleanup", prompt: "Config/registry failed: {{ error }}. Clean up container {{ containerName }}." }
   thread-ops:
-    pass: { role: "inspect", prompt: "Thread ops OK. threadId={{{threadId}}}, workflowName={{{workflowName}}}, containerName={{{containerName}}}. Now test inspect operations." }
-    fail: { role: "cleanup", prompt: "Thread ops failed: {{{error}}}. Clean up container {{{containerName}}}." }
+    pass: { role: "inspect", prompt: "Thread ops OK. threadId={{ threadId }}, workflowName={{ workflowName }}, containerName={{ containerName }}. Now test inspect operations." }
+    fail: { role: "cleanup", prompt: "Thread ops failed: {{ error }}. Clean up container {{ containerName }}." }
   inspect:
-    pass: { role: "cancel-and-fork", prompt: "Inspect OK. threadId={{{threadId}}}, lastStepHash={{{lastStepHash}}}, workflowName={{{workflowName}}}, containerName={{{containerName}}}. Now test cancel, fork, and logs." }
-    fail: { role: "cleanup", prompt: "Inspect failed: {{{error}}}. Clean up container {{{containerName}}}." }
+    pass: { role: "cancel-and-fork", prompt: "Inspect OK. threadId={{ threadId }}, lastStepHash={{ lastStepHash }}, workflowName={{ workflowName }}, containerName={{ containerName }}. Now test cancel, fork, and logs." }
+    fail: { role: "cleanup", prompt: "Inspect failed: {{ error }}. Clean up container {{ containerName }}." }
   cancel-and-fork:
-    pass: { role: "cleanup", prompt: "All tests passed! {{{summary}}}. Clean up container {{{containerName}}}." }
-    fail: { role: "cleanup", prompt: "Cancel/fork failed: {{{error}}}. Clean up container {{{containerName}}}." }
+    pass: { role: "cleanup", prompt: "All tests passed! {{ summary }}. Clean up container {{ containerName }}." }
+    fail: { role: "cleanup", prompt: "Cancel/fork failed: {{ error }}. Clean up container {{ containerName }}." }
   cleanup:
-    pass: { role: "$END", prompt: "E2E walkthrough complete. {{{summary}}}" }
-    fail: { role: "$END", prompt: "Cleanup failed: {{{error}}}. Manual cleanup may be needed." }
+    pass: { role: "$END", prompt: "E2E walkthrough complete. {{ summary }}" }
+    fail: { role: "$END", prompt: "Cleanup failed: {{ error }}. Manual cleanup may be needed." }

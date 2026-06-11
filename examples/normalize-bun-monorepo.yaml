@@ -4,110 +4,110 @@ graph:
   ci:
     done:
       role: solve-issue-workflow
-      prompt: CI configured. Register solve-issue workflow for repo at {{{repoPath}}}.
+      prompt: CI configured. Register solve-issue workflow for repo at {{ repoPath }}.
     skipped:
       role: solve-issue-workflow
       prompt: "ci already configured, skipped."
     failed:
       role: solve-issue-workflow
-      prompt: CI setup failed ({{{reason}}}), but continue. Register solve-issue workflow for repo at {{{repoPath}}}.
+      prompt: CI setup failed ({{ reason }}), but continue. Register solve-issue workflow for repo at {{ repoPath }}.
   biome:
     done:
       role: package-metadata
-      prompt: Biome configured. Standardize package metadata for repo at {{{repoPath}}}.
+      prompt: Biome configured. Standardize package metadata for repo at {{ repoPath }}.
     skipped:
       role: package-metadata
       prompt: "biome already configured, skipped."
     failed:
       role: package-metadata
-      prompt: Biome setup failed ({{{reason}}}), but continue. Standardize package metadata for repo at {{{repoPath}}}.
+      prompt: Biome setup failed ({{ reason }}), but continue. Standardize package metadata for repo at {{ repoPath }}.
   $START:
     new:
       role: workspace
-      prompt: Set up bun workspace structure for repo at {{{repoPath}}}.
+      prompt: Set up bun workspace structure for repo at {{ repoPath }}.
     resume:
       role: workspace
-      prompt: Review the previous run output and continue setting up the bun workspace structure for repo at {{{repoPath}}}.
+      prompt: Review the previous run output and continue setting up the bun workspace structure for repo at {{ repoPath }}.
   release:
     done:
       role: testing
-      prompt: Release pipeline configured. Set up vitest for repo at {{{repoPath}}}.
+      prompt: Release pipeline configured. Set up vitest for repo at {{ repoPath }}.
     skipped:
       role: testing
       prompt: "release already configured, skipped."
     failed:
       role: testing
-      prompt: Release pipeline failed ({{{reason}}}), but continue. Set up vitest for repo at {{{repoPath}}}.
+      prompt: Release pipeline failed ({{ reason }}), but continue. Set up vitest for repo at {{ repoPath }}.
   testing:
     done:
       role: ci
-      prompt: Testing configured. Set up Gitea CI for repo at {{{repoPath}}}.
+      prompt: Testing configured. Set up Gitea CI for repo at {{ repoPath }}.
     skipped:
       role: ci
       prompt: "testing already configured, skipped."
     failed:
       role: ci
-      prompt: Testing setup failed ({{{reason}}}), but continue. Set up Gitea CI for repo at {{{repoPath}}}.
+      prompt: Testing setup failed ({{ reason }}), but continue. Set up Gitea CI for repo at {{ repoPath }}.
   committer:
     failed:
       role: $END
-      prompt: "Commit failed: {{{reason}}}."
+      prompt: "Commit failed: {{ reason }}."
     committed:
       role: $END
-      prompt: "Normalization committed: {{{commitHash}}}."
+      prompt: "Normalization committed: {{ commitHash }}."
     no_changes:
       role: $END
       prompt: Repo already normalized, no changes needed.
   workspace:
     done:
       role: typescript
-      prompt: Workspace ready. Configure TypeScript for repo at {{{repoPath}}}.
+      prompt: Workspace ready. Configure TypeScript for repo at {{ repoPath }}.
     skipped:
       role: typescript
       prompt: "workspace already configured, skipped."
     failed:
       role: typescript
-      prompt: Workspace setup failed ({{{reason}}}), but continue. Configure TypeScript for repo at {{{repoPath}}}.
+      prompt: Workspace setup failed ({{ reason }}), but continue. Configure TypeScript for repo at {{ repoPath }}.
   guardrails:
     done:
       role: committer
-      prompt: All normalization complete. Commit changes in repo at {{{repoPath}}}.
+      prompt: All normalization complete. Commit changes in repo at {{ repoPath }}.
     skipped:
       role: committer
       prompt: "guardrails already configured, skipped."
     failed:
       role: committer
-      prompt: Guardrails failed ({{{reason}}}), but commit whatever was done in repo at {{{repoPath}}}.
+      prompt: Guardrails failed ({{ reason }}), but commit whatever was done in repo at {{ repoPath }}.
   typescript:
     done:
       role: biome
-      prompt: TypeScript configured. Set up Biome for repo at {{{repoPath}}}.
+      prompt: TypeScript configured. Set up Biome for repo at {{ repoPath }}.
     skipped:
       role: biome
       prompt: "typescript already configured, skipped."
     failed:
       role: biome
-      prompt: TypeScript setup failed ({{{reason}}}), but continue. Set up Biome for repo at {{{repoPath}}}.
+      prompt: TypeScript setup failed ({{ reason }}), but continue. Set up Biome for repo at {{ repoPath }}.
   package-metadata:
     done:
       role: release
-      prompt: Package metadata standardized. Configure release pipeline for repo at {{{repoPath}}}.
+      prompt: Package metadata standardized. Configure release pipeline for repo at {{ repoPath }}.
     skipped:
       role: release
       prompt: "package-metadata already configured, skipped."
     failed:
       role: release
-      prompt: Package metadata failed ({{{reason}}}), but continue. Configure release pipeline for repo at {{{repoPath}}}.
+      prompt: Package metadata failed ({{ reason }}), but continue. Configure release pipeline for repo at {{ repoPath }}.
   solve-issue-workflow:
     done:
       role: guardrails
-      prompt: Solve-issue workflow placed in .workflows/. Install guardrails for repo at {{{repoPath}}}.
+      prompt: Solve-issue workflow placed in .workflows/. Install guardrails for repo at {{ repoPath }}.
     skipped:
       role: guardrails
       prompt: "solve-issue-workflow already configured, skipped."
     failed:
       role: guardrails
-      prompt: Solve-issue workflow failed ({{{reason}}}), but continue. Install guardrails for repo at {{{repoPath}}}.
+      prompt: Solve-issue workflow failed ({{ reason }}), but continue. Install guardrails for repo at {{ repoPath }}.
 roles:
   ci:
     goal: You configure Gitea Actions CI for build, lint, and test on push/PR.
