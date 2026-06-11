@@ -1038,10 +1038,10 @@ function resolveEvaluateArgs(
 function loadWorkflowPayload(uwf: UwfStore, workflowRef: CasRef): WorkflowPayload {
   const node = uwf.store.cas.get(workflowRef);
   if (node === null) {
-    fail(`workflow CAS node not found: ${workflowRef}`);
+    throw new Error(`workflow CAS node not found: ${workflowRef}`);
   }
   if (node.type !== uwf.schemas.workflow) {
-    fail(`node ${workflowRef} is not a Workflow`);
+    throw new Error(`node ${workflowRef} is not a Workflow`);
   }
   return node.payload as WorkflowPayload;
 }
