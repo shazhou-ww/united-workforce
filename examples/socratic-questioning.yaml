@@ -12,7 +12,7 @@ roles:
 
       ## Rules
       1. Check Thread Progress to see how many times you have responded.
-      2. On your 4th response, you MUST output $status: synthesis (your refined position).
+      2. On your 3rd response, you MUST output $status: synthesis (your refined position).
       3. Be honest — if a question reveals a gap, say so and adjust.
       4. Build on previous exchanges, don't repeat yourself.
       5. Keep responses focused (under 300 words).
