@@ -283,8 +283,8 @@ graph:
     new: { role: "planner", prompt: "Analyze the issue and write behavior specs in specs/." }
     resume: { role: "planner", prompt: "Review the previous run output and continue the work." }
   planner:
-    ready: { role: "developer", prompt: "Implement the behavior defined in spec files (comma-separated): {{ specFiles }}. Worktree: {{ worktree }}, branch: {{ branch }}. Repo: {{ repoPath }}. Do NOT create a new worktree — the planner already created it." }
-    continue: { role: "developer", prompt: "Continue work on existing branch {{ branch }} at worktree {{ worktree }}. Implement the revised specs (comma-separated): {{ specFiles }}. Repo: {{ repoPath }}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
+    ready: { role: "developer", prompt: "Implement the behavior defined in spec files (comma-separated): {{ specFiles | join: \", \" }}. Worktree: {{ worktree }}, branch: {{ branch }}. Repo: {{ repoPath }}. Do NOT create a new worktree — the planner already created it." }
+    continue: { role: "developer", prompt: "Continue work on existing branch {{ branch }} at worktree {{ worktree }}. Implement the revised specs (comma-separated): {{ specFiles | join: \", \" }}. Repo: {{ repoPath }}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:
     done: { role: "reviewer", prompt: "Review branch {{ branch }} at {{ worktree }} for code standards compliance." }
     failed: { role: "$END", prompt: "Developer failed: {{ reason }}. Ending workflow." }
