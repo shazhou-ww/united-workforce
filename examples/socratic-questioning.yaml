@@ -61,15 +61,53 @@ roles:
             summary: { type: string }
           required: [$status, summary]
 
+  reporter:
+    description: "Generates an HTML report of the completed dialogue"
+    goal: "Produce a self-contained, visually polished HTML report that faithfully reproduces the entire dialogue with no paraphrasing or summarization of the original content."
+    capabilities: [run_command, write_file, read_file]
+    procedure: |
+      You are a report generator. Your job is to produce an HTML file from the raw dialogue transcript.
+
+      ## Steps
+      1. Read Thread Progress to get the thread ID.
+      2. Run: `uwf thread read <thread-id>` to get the full dialogue transcript.
+      3. Design and write a self-contained HTML file (inline CSS, no external deps) that presents the dialogue beautifully.
+      4. Save the HTML file to `/tmp/socratic-report-<thread-id>.html`.
+
+      ## HTML Report Requirements
+      - Title: the original topic/prompt
+      - Each step rendered as a card with role label (🧠 Thinker / ❓ Questioner), step number, and timestamp
+      - Thinker's frontmatter insights/synthesis highlighted in a callout box
+      - Questioner's questions displayed prominently
+      - Final synthesis section with special visual treatment
+      - Questioner's concluding summary at the end
+      - Clean typography, responsive layout, dark/light theme friendly
+      - All content must come verbatim from `uwf thread read` output — do NOT paraphrase or omit anything
+
+      ## Rules
+      1. You MUST use `uwf thread read` to get the dialogue — do NOT use your context/memory of the conversation.
+      2. The report must be completely self-contained (inline styles, no CDN links).
+      3. Output the file path in your response body.
+    output: "Confirmation that the report was generated, with the file path."
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: done }
+        reportPath: { type: string }
+      required: [$status, reportPath]
+
 graph:
   $START:
     new: { role: thinker, prompt: "State your initial position on the topic. Be clear about what you believe and why." }
     resume: { role: thinker, prompt: "Continue the dialogue from where you left off." }
 
   thinker:
-    respond: { role: questioner, prompt: "The thinker says:\n\n{{ $body }}\n\nAsk a probing question to help them examine this further." }
-    synthesis: { role: questioner, prompt: "The thinker has reached a synthesis:\n\n{{ $body }}\n\nBriefly summarize the journey of this dialogue." }
+    respond: { role: questioner, prompt: "The thinker says:\n\n{{ _body }}\n\nAsk a probing question to help them examine this further." }
+    synthesis: { role: questioner, prompt: "The thinker has reached a synthesis:\n\n{{ _body }}\n\nBriefly summarize the journey of this dialogue." }
 
   questioner:
-    ask: { role: thinker, prompt: "The questioner asks:\n\n{{ $body }}\n\nReflect on this question and respond honestly." }
-    done: { role: "$END", prompt: "Dialogue complete." }
+    ask: { role: thinker, prompt: "The questioner asks:\n\n{{ _body }}\n\nReflect on this question and respond honestly." }
+    done: { role: reporter, prompt: "The dialogue is complete. Generate the HTML report." }
+
+  reporter:
+    done: { role: "$END", prompt: "Report generated." }

@@ -1,4 +1,4 @@
-import type { StepContext } from "@united-workforce/protocol";
+import type { StepContext, ThreadId } from "@united-workforce/protocol";
 
 /**
  * Build a compact thread-progress summary so the agent knows where it is
@@ -6,13 +6,21 @@ import type { StepContext } from "@united-workforce/protocol";
  *
  * Example output:
  *   ## Thread Progress
+ *   Thread: 06FBBPEG427CT3MMVB86AV8030
  *   Thread step 6. You (proponent) have spoken 2 times before this turn.
  */
-export function buildThreadProgress(steps: StepContext[], role: string): string {
+export function buildThreadProgress(
+  steps: StepContext[],
+  role: string,
+  threadId?: ThreadId,
+): string {
   const totalSteps = steps.length;
   const roleVisits = steps.filter((s) => s.role === role).length;
 
   const parts = [`## Thread Progress`];
+  if (threadId !== undefined) {
+    parts.push(`Thread: ${threadId}`);
+  }
   if (totalSteps === 0) {
     parts.push(
       `This is the first step of the thread. You (${role}) are speaking for the first time.`,

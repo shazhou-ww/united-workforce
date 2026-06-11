@@ -55,17 +55,10 @@ function generateMockData(schema: SchemaObj): Record<string, string> {
   for (const key of Object.keys(props)) {
     mock[key] = `mock_${key}`;
   }
+  // _body is engine-injected (markdown body after frontmatter), not in the schema.
+  // Always provide it so templates referencing {{ _body }} pass strict validation.
+  mock._body = "mock__body";
   return mock;
-}
-
-/**
- * Pre-process a template to replace `$`-prefixed variables (like `$status`)
- * which are invalid in LiquidJS syntax but always valid at runtime.
- * Replaces `{{ $varName }}` with a literal placeholder so the strict render
- * does not reject them.
- */
-function sanitizeReservedVars(template: string): string {
-  return template.replace(/\{\{\s*\$\w+\s*\}\}/g, "RESERVED");
 }
 
 /** Extract variable name from a LiquidJS UndefinedVariableError message. */
@@ -92,7 +85,7 @@ function validateMultiExitTemplates(
     if (!variant) continue;
     const mockData = generateMockData(variant);
     try {
-      strictEngine.parseAndRenderSync(sanitizeReservedVars(target.prompt), mockData);
+      strictEngine.parseAndRenderSync(target.prompt, mockData);
     } catch (err) {
       const varName = extractVarName(err);
       errors.push(
@@ -114,7 +107,7 @@ function validateFlatTemplates(
 
   for (const [status, target] of Object.entries(graphEntry)) {
     try {
-      strictEngine.parseAndRenderSync(sanitizeReservedVars(target.prompt), mockData);
+      strictEngine.parseAndRenderSync(target.prompt, mockData);
     } catch (err) {
       const varName = extractVarName(err);
       errors.push(
@@ -285,7 +278,7 @@ function checkStatusEdges(
 }
 
 /** Reserved property names that must not appear in frontmatter schemas. */
-const RESERVED_PROPERTIES = new Set(["$body"]);
+const RESERVED_PROPERTIES = new Set(["_body"]);
 
 /** Check that frontmatter schemas do not define reserved property names. */
 function checkReservedProperties(roleName: string, fm: unknown, errors: string[]): void {

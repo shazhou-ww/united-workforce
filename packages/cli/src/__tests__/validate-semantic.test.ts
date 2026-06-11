@@ -402,13 +402,13 @@ describe("Suite 4: Template Variable Existence (LiquidJS strict-render)", () => 
     expect(errors).toEqual([]);
   });
 
-  test("4.4 $status variable is always valid", () => {
+  test("4.4 $status in template is rejected ($ prefix invalid in LiquidJS)", () => {
     const wf = makeWorkflow();
     wf.graph.writer = {
       done: { role: "reviewer", prompt: "Status: {{ $status }}", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(errors).toEqual([]);
+    expect(errors.length).toBeGreaterThan(0);
   });
 });
 
@@ -523,7 +523,7 @@ describe("Suite 6: Multiple Errors Collection", () => {
 });
 
 describe("Suite 7: Reserved Frontmatter Properties", () => {
-  test("7.1 flat schema with $body property is rejected", () => {
+  test("7.1 flat schema with _body property is rejected", () => {
     const wf = makeWorkflow();
     wf.roles.writer = {
       ...wf.roles.writer,
@@ -531,17 +531,17 @@ describe("Suite 7: Reserved Frontmatter Properties", () => {
         type: "object",
         properties: {
           $status: { const: "done" },
-          $body: { type: "string" },
+          _body: { type: "string" },
         },
         required: ["$status"],
       } as unknown as string,
     };
     wf.graph.writer = { done: { role: "reviewer", prompt: "ok", location: null } };
     const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("$body") && e.includes("reserved"))).toBe(true);
+    expect(errors.some((e) => e.includes("_body") && e.includes("reserved"))).toBe(true);
   });
 
-  test("7.2 oneOf schema with $body in a variant is rejected", () => {
+  test("7.2 oneOf schema with _body in a variant is rejected", () => {
     const wf = makeWorkflow();
     wf.roles.writer = {
       ...wf.roles.writer,
@@ -550,7 +550,7 @@ describe("Suite 7: Reserved Frontmatter Properties", () => {
           {
             properties: {
               $status: { const: "done" },
-              $body: { type: "string" },
+              _body: { type: "string" },
             },
             required: ["$status"],
           },
@@ -569,12 +569,12 @@ describe("Suite 7: Reserved Frontmatter Properties", () => {
       failed: { role: "$END", prompt: "failed", location: null },
     };
     const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("$body") && e.includes("reserved"))).toBe(true);
+    expect(errors.some((e) => e.includes("_body") && e.includes("reserved"))).toBe(true);
   });
 
-  test("7.3 schema without $body passes", () => {
+  test("7.3 schema without _body passes", () => {
     const wf = makeWorkflow();
     const errors = validateWorkflow(wf);
-    expect(errors.some((e) => e.includes("$body"))).toBe(false);
+    expect(errors.some((e) => e.includes("_body"))).toBe(false);
   });
 });

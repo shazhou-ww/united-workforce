@@ -59,7 +59,7 @@ const run: AgentRunFn = async (ctx: AgentContext): Promise<AgentRunResult> => {
     ? \`\${ctx.outputFormatInstruction}\\n\\n\${buildRolePrompt(roleDef)}\`
     : buildContinuationPrompt(ctx.steps, ctx.role, ctx.edgePrompt);
 
-  const userPrompt = \`\${buildThreadProgress(ctx.steps, ctx.role)}\\n\\n\${ctx.edgePrompt}\`;
+  const userPrompt = \`\${buildThreadProgress(ctx.steps, ctx.role, ctx.threadId)}\\n\\n\${ctx.edgePrompt}\`;
   const assembledPrompt = \`\${systemPrompt}\\n\\n\${userPrompt}\`;
 
   // Reuse a cached LLM session per (thread, role) so the adapter doesn't
@@ -214,7 +214,7 @@ Use these helpers from \`@united-workforce/util-agent\` to assemble the prompt a
 |--------|---------|
 | \`buildRolePrompt(roleDef)\` | Assemble Goal/Capabilities/Prepare/Procedure/Output sections from a \`RoleDefinition\` |
 | \`buildContinuationPrompt(steps, role, edgePrompt)\` | Re-entry prompt: steps since last visit + current edge prompt |
-| \`buildThreadProgress(steps, role)\` | One-line "Thread step N. You (role) have spoken K times." progress hint |
+| \`buildThreadProgress(steps, role, threadId?)\` | Thread ID + "Thread step N. You (role) have spoken K times." progress hint |
 | \`buildOutputFormatInstruction(schema)\` | Convert a frontmatter JSON Schema into a deliverable-format instruction (engine pre-builds this into \`ctx.outputFormatInstruction\`) |
 | \`buildSuspendOutput(reason)\` | Emit a \`$SUSPEND\` coroutine yield (see Coroutine Yield section) |
 | \`buildFrontmatterRetryPrompt(formatInstruction)\` | Minimal prompt for \`continue()\` retries: "work is done, just fix the YAML" |
