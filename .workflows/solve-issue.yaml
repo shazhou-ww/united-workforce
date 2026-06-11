@@ -110,13 +110,15 @@ roles:
       6. If bounced back from reviewer or tester: read the feedback carefully, then execute the actual fix commands — edit files, run build, run tests. Never output "done" without tool calls.
       7. Assess the change type:
          - **Pure documentation/prompt changes** (only .md files, prompt template literals, YAML workflow prose,
-           comments, or non-executable text): skip writing automated tests. These changes are verified by
-           human review, not test assertions. Proceed directly to step 9.
+           comments, or non-executable text): skip writing automated tests AND skip build/test verification
+           (steps 8b–8c). Make the edits, add a changeset, and proceed directly to step 11.
+           The tester role will catch any issues — be optimistic here.
          - **Code changes** (logic, types, CLI behavior, APIs, config parsing): write tests first based on
            the Given/When/Then scenarios in the spec files (TDD red-green cycle).
-      8. Implement the changes (code or docs)
-      9. Ensure `pnpm run build` passes with no errors
-      10. Run `pnpm test` to verify all existing tests still pass
+      8. Implement the changes (code or docs). For code changes only:
+         a. Implement the changes
+         b. Ensure `pnpm run build` passes with no errors
+         c. Run `pnpm test` to verify all existing tests still pass
 
       After implementation, before reporting done:
       11. Add a changeset file (`.changeset/<short-slug>.md`) with correct bump type:
