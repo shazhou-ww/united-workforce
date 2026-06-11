@@ -87,13 +87,13 @@ roles:
          npx proman bump
          ```
          Record the output — it lists bumped packages and their new versions.
-         If it fails, abort: `git checkout main`, output `$status: failed`.
+         If it fails, abort: `git checkout main`, output `$status: "$SUSPEND"` with the error so a human can investigate.
 
       3. Build and test to verify the bump is clean:
          ```bash
          pnpm build && pnpm test
          ```
-         If either fails, abort: `git checkout main`, output `$status: failed`.
+         If either fails, abort: `git checkout main`, output `$status: "$SUSPEND"` with the error so a human can investigate.
 
       4. Emit `$SUSPEND` with the list of bumped packages and new versions for user confirmation.
 
@@ -127,7 +127,7 @@ roles:
            "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<PR_NUMBER>/merge" \
            -d '{"Do":"merge","merge_message_field":"release: bump versions"}'
          ```
-         If merge fails, output `$status: failed` with reason.
+         If merge fails, output `$status: "$SUSPEND"` with reason so a human can resolve.
 
       4. Update local main:
          ```bash
@@ -136,7 +136,7 @@ roles:
 
       5. Output `$status: merged` with packages, repo, and repoPath.
 
-    output: "merged after user confirms versions, or $SUSPEND while waiting"
+    output: "merged after user confirms versions, or $SUSPEND while waiting/on error"
     frontmatter:
       oneOf:
         - properties:
@@ -145,10 +145,6 @@ roles:
             repo: { type: string }
             repoPath: { type: string }
           required: [$status, packages, repo, repoPath]
-        - properties:
-            $status: { const: "failed" }
-            reason: { type: string }
-          required: [$status, reason]
 
   publisher:
     description: "Publish packages to npm, tag, verify, sync"
@@ -166,7 +162,7 @@ roles:
          npx proman publish
          ```
          This handles: build → test → check → npm publish → git tag → push.
-         If it fails, output `$status: failed` with details on which packages succeeded/failed.
+         If it fails, output `$status: "$SUSPEND"` with details on which packages succeeded/failed.
 
       3. Verify published packages on npm:
          For each non-private package in `proman.yaml`, check:
@@ -189,7 +185,7 @@ roles:
 
       6. Output `$status: released` with packages, tags, githubSync.
 
-    output: "released, failed, or verify_failed"
+    output: "released, or $SUSPEND on error/verification failure"
     frontmatter:
       oneOf:
         - properties:
@@ -198,16 +194,6 @@ roles:
             tags: { type: string }
             githubSync: { type: string }
           required: [$status, packages, tags]
-        - properties:
-            $status: { const: "failed" }
-            reason: { type: string }
-            partialPublish: { type: string }
-          required: [$status, reason]
-        - properties:
-            $status: { const: "verify_failed" }
-            reason: { type: string }
-            packages: { type: string }
-          required: [$status, reason]
 
 graph:
   $START:
@@ -219,8 +205,5 @@ graph:
     not_ready: { role: "$END", prompt: "⏸ Release aborted: {{ reason }}" }
   bumper:
     merged: { role: "publisher", prompt: "Publish {{ repo }} from {{ repoPath }}. Bumped packages:\n{{ packages }}" }
-    failed: { role: "$END", prompt: "❌ Bump failed: {{ reason }}" }
   publisher:
     released: { role: "$END", prompt: "✅ Released {{ packages }}. Tags: {{ tags }}. GitHub: {{ githubSync }}" }
-    failed: { role: "$END", prompt: "❌ Release failed: {{ reason }}" }
-    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{ reason }}" }
