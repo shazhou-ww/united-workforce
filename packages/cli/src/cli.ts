@@ -47,6 +47,7 @@ import {
   toThreadStartPayload,
   toThreadStatusPayload,
   toValidateResultPayload,
+  toWorkflowAddPayload,
   toWorkflowDetailPayload,
   toWorkflowListPayload,
 } from "./output-mappers.js";
@@ -126,7 +127,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowAdd(storageRoot, file);
-      writeRawOutput(result);
+      await writeOutput(toWorkflowAddPayload(result), "workflow-add", storageRoot);
     });
   });
 

@@ -1,6 +1,10 @@
 import type { CasRef, StartOutput, StepOutput } from "@united-workforce/protocol";
 import type { ThreadListItemWithStatus } from "./commands/thread.js";
-import type { WorkflowListEntry, WorkflowShowOutput } from "./commands/workflow.js";
+import type {
+  WorkflowAddOutput,
+  WorkflowListEntry,
+  WorkflowShowOutput,
+} from "./commands/workflow.js";
 
 /**
  * Mappers that convert the existing rich command outputs into the
@@ -247,6 +251,15 @@ export function toWorkflowListPayload(entries: WorkflowListEntry[]): WorkflowLis
       description: "",
     })),
   };
+}
+
+export type WorkflowAddPayload = {
+  name: string;
+  hash: string;
+};
+
+export function toWorkflowAddPayload(out: WorkflowAddOutput): WorkflowAddPayload {
+  return { name: out.name, hash: out.hash };
 }
 
 export type ValidateResultPayload = {
