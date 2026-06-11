@@ -346,22 +346,11 @@ and invite them to try it. Cover these three things:
    with \`uwf thread show\`, replay failed steps with \`uwf thread poke\`, and refine
    role procedures based on real execution results.
 
-**Quick demo — suggest the user try a built-in example:**
+**Discover & try built-in examples:**
 
-The following workflows are pre-registered during setup:
-
-| Workflow | Description |
-|----------|-------------|
-| \`debate\` | Multi-role structured debate — two scholars argue for/against, a host summarizes |
-| \`analyze-topic\` | Single-role topic analysis with structured findings |
-| \`socratic-questioning\` | Socratic dialogue — a questioner helps examine beliefs through probing questions |
-| \`brainstorm\` | Diverge with wild ideas, then converge into 3 actionable proposals |
-
-Suggest the user try one right away. Example:
-
-\`\`\`bash
-uwf thread start debate -p "Will AI take away human jobs, or create more than it destroys?"
-uwf thread exec <thread-id>
-\`\`\`
+Run \`uwf workflow list\` to see which workflows are registered (setup auto-registers
+several built-in examples). Show the user what's available, then invite them to try
+one — for instance, suggest a fun debate topic like "AI 是否会抢了人类的工作？" and
+offer to kick it off for them.
 `;
 }
