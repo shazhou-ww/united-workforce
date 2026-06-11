@@ -992,6 +992,15 @@ type EvaluateLastOutput = Record<string, unknown>;
 
 const STATUS_KEY = "$status";
 
+/**
+ * Strip YAML frontmatter (---...---) from a raw markdown string,
+ * returning only the body portion.
+ */
+function stripFrontmatter(raw: string): string {
+  const match = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return match ? raw.slice(match[0].length).trim() : raw.trim();
+}
+
 function resolveEvaluateArgs(
   uwf: UwfStore,
   chain: ChainState,
@@ -1010,6 +1019,13 @@ function resolveEvaluateArgs(
     typeof raw === "object" && raw !== null && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
       : {};
+
+  // Inject $body — the markdown body (after frontmatter) from the last step's
+  // assistant output. Workflow edge prompts can reference it via {{ $body }}.
+  const content = extractLastAssistantContent(uwf, lastStep.detail);
+  if (content !== null) {
+    base.$body = stripFrontmatter(content);
+  }
 
   return {
     lastRole: lastStep.role,

@@ -138,6 +138,20 @@ graph:
 
 The fields referenced must exist in the source role's frontmatter schema.
 
+#### The \`$body\` Variable
+
+Edge prompts can access \`{{ $body }}\` — the markdown body (after frontmatter) from the previous step's output. This is useful when you want the full prose response, not just the structured frontmatter fields:
+
+\`\`\`yaml
+graph:
+  thinker:
+    respond:
+      role: questioner
+      prompt: "The thinker says:\\n\\n{{ $body }}\\n\\nAsk a probing question."
+\`\`\`
+
+\`$body\` is automatically injected by the engine. It strips the \`---...---\` frontmatter block and returns the remaining content. If there is no body, it resolves to an empty string.
+
 ### Liquid Template Capabilities
 
 Edge prompts use the [LiquidJS](https://liquidjs.com/) engine, which supports filters and loops beyond simple field interpolation.

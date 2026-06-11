@@ -67,9 +67,9 @@ graph:
     resume: { role: thinker, prompt: "Continue the dialogue from where you left off." }
 
   thinker:
-    respond: { role: questioner, prompt: "The thinker says:\n\n{{ insight }}\n\nAsk a probing question to help them examine this further." }
-    synthesis: { role: questioner, prompt: "The thinker has reached a synthesis:\n\nRevised position: {{ revisedPosition }}\nKey insights: {{ keyInsights }}\n\nBriefly summarize the journey of this dialogue." }
+    respond: { role: questioner, prompt: "The thinker says:\n\n{{ $body }}\n\nAsk a probing question to help them examine this further." }
+    synthesis: { role: questioner, prompt: "The thinker has reached a synthesis:\n\n{{ $body }}\n\nBriefly summarize the journey of this dialogue." }
 
   questioner:
-    ask: { role: thinker, prompt: "The questioner asks:\n\n{{ question }}\n\nReflect on this question and respond honestly." }
+    ask: { role: thinker, prompt: "The questioner asks:\n\n{{ $body }}\n\nReflect on this question and respond honestly." }
     done: { role: "$END", prompt: "Dialogue complete." }
