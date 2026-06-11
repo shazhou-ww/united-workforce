@@ -41,6 +41,7 @@ import { evaluate } from "../moderator/index.js";
 import {
   completeThread,
   createUwfStore,
+  findRegistryName,
   getThread,
   loadActiveThreads,
   loadHistoryThreads,
@@ -48,6 +49,7 @@ import {
   resolveWorkflowHash,
   setThread,
   type UwfStore,
+  type WorkflowRegistry,
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
@@ -557,6 +559,8 @@ export type ThreadListItemWithStatus = ThreadListItem & {
   currentRole: string | null;
   /** Display label with status marker for suspended threads */
   statusDisplay: string;
+  /** Resolved workflow name from registry, or null if orphaned (hash not in registry) */
+  workflowName: string | null;
 };
 
 export type ThreadShowOutput = StepOutput & {
@@ -569,6 +573,7 @@ async function threadListItemFromActive(
   uwf: UwfStore,
   threadId: ThreadId,
   head: CasRef,
+  registry: WorkflowRegistry,
 ): Promise<ThreadListItemWithStatus | null> {
   const workflow = resolveWorkflowFromHead(uwf, head);
   if (workflow === null) {
@@ -580,6 +585,7 @@ async function threadListItemFromActive(
       status: "corrupt",
       currentRole: null,
       statusDisplay: "corrupt",
+      workflowName: null,
     };
   }
 
@@ -593,6 +599,7 @@ async function threadListItemFromActive(
     status,
     currentRole: resolveCurrentRole(uwf, head, workflow),
     statusDisplay,
+    workflowName: findRegistryName(registry, workflow),
   };
 }
 
@@ -600,6 +607,7 @@ async function collectActiveThreads(
   storageRoot: string,
   uwf: UwfStore,
   index: ThreadsIndex,
+  registry: WorkflowRegistry,
 ): Promise<ThreadListItemWithStatus[]> {
   const items: ThreadListItemWithStatus[] = [];
   for (const [threadId, entry] of Object.entries(index)) {
@@ -609,6 +617,7 @@ async function collectActiveThreads(
         uwf,
         threadId as ThreadId,
         entry.head,
+        registry,
       );
       if (item !== null) {
         items.push(item);
@@ -623,6 +632,7 @@ async function collectActiveThreads(
         status: "corrupt",
         currentRole: null,
         statusDisplay: "corrupt",
+        workflowName: null,
       });
     }
   }
@@ -632,6 +642,7 @@ async function collectActiveThreads(
 function collectCompletedThreads(
   uwf: UwfStore,
   activeIds: Set<ThreadId>,
+  registry: WorkflowRegistry,
 ): ThreadListItemWithStatus[] {
   const items: ThreadListItemWithStatus[] = [];
   const history = loadHistoryThreads(uwf.varStore);
@@ -649,6 +660,7 @@ function collectCompletedThreads(
           status,
           currentRole: null,
           statusDisplay: status,
+          workflowName: workflow !== null ? findRegistryName(registry, workflow) : null,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -660,6 +672,7 @@ function collectCompletedThreads(
           status: "corrupt",
           currentRole: null,
           statusDisplay: "corrupt",
+          workflowName: null,
         });
       }
     }
@@ -711,6 +724,7 @@ export async function cmdThreadList(
 ): Promise<ThreadListItemWithStatus[]> {
   const uwf = await createUwfStore(storageRoot);
   const index = loadActiveThreads(uwf.varStore);
+  const registry = loadWorkflowRegistry(uwf.varStore);
 
   // Resolve the effective filter:
   //   - explicit --status wins (showAll has no effect)
@@ -719,7 +733,7 @@ export async function cmdThreadList(
     statusFilter !== null ? statusFilter : showAll ? null : ["idle", "running", "corrupt"];
 
   // Collect active threads
-  let items = await collectActiveThreads(storageRoot, uwf, index);
+  let items = await collectActiveThreads(storageRoot, uwf, index, registry);
 
   // Collect completed threads (if relevant for status filter)
   const includeCompleted =
@@ -728,7 +742,7 @@ export async function cmdThreadList(
     effectiveFilter.includes("cancelled");
   if (includeCompleted) {
     const activeIds = new Set(items.map((i) => i.thread));
-    const completedItems = collectCompletedThreads(uwf, activeIds);
+    const completedItems = collectCompletedThreads(uwf, activeIds, registry);
     items = items.concat(completedItems);
   }
 
