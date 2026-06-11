@@ -521,3 +521,60 @@ describe("Suite 6: Multiple Errors Collection", () => {
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("Suite 7: Reserved Frontmatter Properties", () => {
+  test("7.1 flat schema with $body property is rejected", () => {
+    const wf = makeWorkflow();
+    wf.roles.writer = {
+      ...wf.roles.writer,
+      frontmatter: {
+        type: "object",
+        properties: {
+          $status: { const: "done" },
+          $body: { type: "string" },
+        },
+        required: ["$status"],
+      } as unknown as string,
+    };
+    wf.graph.writer = { done: { role: "reviewer", prompt: "ok", location: null } };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("$body") && e.includes("reserved"))).toBe(true);
+  });
+
+  test("7.2 oneOf schema with $body in a variant is rejected", () => {
+    const wf = makeWorkflow();
+    wf.roles.writer = {
+      ...wf.roles.writer,
+      frontmatter: {
+        oneOf: [
+          {
+            properties: {
+              $status: { const: "done" },
+              $body: { type: "string" },
+            },
+            required: ["$status"],
+          },
+          {
+            properties: {
+              $status: { const: "failed" },
+              reason: { type: "string" },
+            },
+            required: ["$status", "reason"],
+          },
+        ],
+      } as unknown as string,
+    };
+    wf.graph.writer = {
+      done: { role: "reviewer", prompt: "ok", location: null },
+      failed: { role: "$END", prompt: "failed", location: null },
+    };
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("$body") && e.includes("reserved"))).toBe(true);
+  });
+
+  test("7.3 schema without $body passes", () => {
+    const wf = makeWorkflow();
+    const errors = validateWorkflow(wf);
+    expect(errors.some((e) => e.includes("$body"))).toBe(false);
+  });
+});

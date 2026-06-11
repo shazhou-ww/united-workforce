@@ -284,6 +284,32 @@ function checkStatusEdges(
   }
 }
 
+/** Reserved property names that must not appear in frontmatter schemas. */
+const RESERVED_PROPERTIES = new Set(["$body"]);
+
+/** Check that frontmatter schemas do not define reserved property names. */
+function checkReservedProperties(roleName: string, fm: unknown, errors: string[]): void {
+  const schemasToCheck: SchemaObj[] = [];
+
+  if (isOneOfSchema(fm)) {
+    schemasToCheck.push(...(fm.oneOf as SchemaObj[]));
+  } else if (typeof fm === "object" && fm !== null) {
+    schemasToCheck.push(fm as SchemaObj);
+  }
+
+  for (const schema of schemasToCheck) {
+    const props = schema.properties as Record<string, unknown> | undefined;
+    if (!props) continue;
+    for (const key of Object.keys(props)) {
+      if (RESERVED_PROPERTIES.has(key)) {
+        errors.push(
+          `role "${roleName}" frontmatter must not define reserved property "${key}" — it is injected by the engine`,
+        );
+      }
+    }
+  }
+}
+
 /** Check status-edge consistency and template vars for each role. */
 function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void {
   for (const [roleName, role] of Object.entries(payload.roles)) {
@@ -293,6 +319,8 @@ function checkRoleConsistency(payload: WorkflowPayload, errors: string[]): void 
 
     const fm = role.frontmatter as unknown;
     const graphKeys = new Set(Object.keys(graphEntry));
+
+    checkReservedProperties(roleName, fm, errors);
 
     if (isOneOfSchema(fm)) {
       const variants = fm.oneOf as SchemaObj[];
