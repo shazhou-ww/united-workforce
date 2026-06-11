@@ -56,6 +56,6 @@ CAS data lives under \`~/.ocas/\`:
 
 Config lives under \`~/.uwf/\`:
 - \`config.yaml\` — engine config (LLM-free): \`agents\`, \`defaultAgent\`, \`agentOverrides\`
-- \`agents/<adapter>.yaml\` — per-adapter LLM configuration (each adapter owns its own)
+- LLM configuration is per-adapter via environment variables (e.g. \`CLAUDE_MODEL\`, \`ANTHROPIC_API_KEY\`)
 `;
 }

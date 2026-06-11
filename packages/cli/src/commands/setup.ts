@@ -312,8 +312,7 @@ export async function _registerBundledExamples(storageRoot: string): Promise<str
 
 /**
  * Non-interactive setup. Engine config is LLM-free — only writes
- * agents + defaultAgent. LLM provider/model configuration lives in
- * config.yaml under `providers` and `models`.
+ * agents + defaultAgent. Each adapter owns its own LLM configuration.
  */
 export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>> {
   const { storageRoot } = args;
@@ -348,8 +347,8 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
 }
 
 /**
- * Interactive setup — prompts the user only for the default agent. LLM
- * configuration lives in config.yaml under `providers` and `models`.
+ * Interactive setup — prompts the user only for the default agent.
+ * Each adapter owns its own LLM configuration.
  */
 export async function cmdSetupInteractive(storageRoot: string): Promise<Record<string, unknown>> {
   const rl = createInterface({ input, output });
@@ -365,8 +364,6 @@ export async function cmdSetupInteractive(storageRoot: string): Promise<Record<s
     console.log("  uwf workflow add <workflow.yaml>    Register a workflow");
     console.log('  uwf thread start <name> -p "..."    Start a thread');
     console.log("  uwf thread exec <thread-id>         Execute next step");
-    console.log("");
-    console.log("LLM config: edit ~/.uwf/config.yaml (providers + models sections).");
     console.log("");
 
     return null as unknown as Record<string, unknown>;
