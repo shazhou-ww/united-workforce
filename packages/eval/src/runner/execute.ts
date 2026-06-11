@@ -33,11 +33,16 @@ function runUwf(args: string[], cwd: string): string {
           ? err.stderr
           : err.stderr.toString("utf8");
     const detail = stderr.trim() !== "" ? `: ${stderr.trim()}` : "";
-    throw new Error(`uwf ${args[0]} ${args[1]} failed${detail}`);
+    // Find the subcommand group + subcommand by skipping leading global flags
+    // (e.g. `--format raw-json`). The first non-flag token is the group.
+    const groupIdx = args.findIndex((a) => !a.startsWith("--"));
+    const group = groupIdx >= 0 ? (args[groupIdx] ?? "") : "";
+    const subcmd = groupIdx >= 0 ? (args[groupIdx + 1] ?? "") : "";
+    throw new Error(`uwf ${group} ${subcmd} failed${detail}`);
   }
 }
 
-/** Parse the thread ID from `uwf thread start` JSON output (`{ workflow, thread }`). */
+/** Parse the thread ID from `uwf thread start --format raw-json` output (`{ threadId, workflowHash }`). */
 function parseThreadId(stdout: string): string {
   let parsed: unknown;
   try {
@@ -46,27 +51,51 @@ function parseThreadId(stdout: string): string {
     throw new Error(`uwf thread start did not emit valid JSON: ${stdout || "(empty)"}`);
   }
   const obj = parsed as Record<string, unknown>;
-  const thread = obj.thread;
-  if (typeof thread !== "string" || thread === "") {
-    throw new Error(`uwf thread start output missing thread id: ${stdout}`);
+  const threadId = obj.threadId;
+  if (typeof threadId !== "string" || threadId === "") {
+    throw new Error(`uwf thread start output missing threadId: ${stdout}`);
   }
-  return thread;
+  return threadId;
 }
 
 /**
  * Execute a workflow: create a thread, then run it for up to `maxSteps` steps.
  * Shells out to the uwf CLI rather than importing it directly.
+ *
+ * Both `thread start` and `thread exec` are invoked with `--format raw-json`
+ * so the legacy bare-value JSON shape is emitted (the 0.6 default is text).
+ * See `specs/cli-ocas-envelope-in-repo-consumer-migration.md`.
  */
 export async function execute(input: ExecuteInput): Promise<ExecuteResult> {
   const startOut = runUwf(
-    ["thread", "start", input.workflow, "-p", input.prompt, "--cwd", input.workDir],
+    [
+      "--format",
+      "raw-json",
+      "thread",
+      "start",
+      input.workflow,
+      "-p",
+      input.prompt,
+      "--cwd",
+      input.workDir,
+    ],
     input.workDir,
   );
   const threadId = parseThreadId(startOut);
   log(LOG_START, `thread started thread=${threadId} workflow=${input.workflow}`);
 
   runUwf(
-    ["thread", "exec", threadId, "--agent", input.agent, "-c", String(input.maxSteps)],
+    [
+      "--format",
+      "raw-json",
+      "thread",
+      "exec",
+      threadId,
+      "--agent",
+      input.agent,
+      "-c",
+      String(input.maxSteps),
+    ],
     input.workDir,
   );
   log(LOG_EXEC, `thread executed thread=${threadId} maxSteps=${input.maxSteps}`);
