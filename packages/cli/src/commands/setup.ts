@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
+import { cmdWorkflowAdd } from "./workflow.js";
 
 export type SetupArgs = {
   agent: string;
@@ -261,6 +263,51 @@ export function _checkAdapterAvailability(agentName: string): string[] {
   return warnings;
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Bundled example workflows
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Resolve the examples/ directory bundled with the CLI package. */
+function _findExamplesDir(): string | null {
+  // Walk up from this file (src/commands/ or dist/commands/) to the package root
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, "examples");
+    if (existsSync(candidate) && statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+/**
+ * Register bundled example workflows. Non-destructive — silently skips
+ * any that fail (e.g. already registered with same hash).
+ * Returns list of successfully registered workflow names.
+ */
+export async function _registerBundledExamples(storageRoot: string): Promise<string[]> {
+  const examplesDir = _findExamplesDir();
+  if (examplesDir === null) return [];
+
+  const registered: string[] = [];
+  const files = readdirSync(examplesDir).filter((f) => f.endsWith(".yaml")).sort();
+
+  for (const file of files) {
+    try {
+      const result = await cmdWorkflowAdd(storageRoot, join(examplesDir, file));
+      registered.push(result.name);
+      console.error(`  ✓ ${result.name}`);
+    } catch {
+      // Skip silently — workflow may already exist or be invalid
+    }
+  }
+
+  return registered;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 /**
  * Non-interactive setup. Engine config is LLM-free — only writes
  * agents + defaultAgent. LLM provider/model configuration lives in
@@ -287,10 +334,14 @@ export async function cmdSetup(args: SetupArgs): Promise<Record<string, unknown>
     console.error(`⚠ ${w}`);
   }
 
+  // Auto-register bundled example workflows
+  const registeredExamples = await _registerBundledExamples(storageRoot);
+
   return {
     configPath,
     defaultAgent: merged.defaultAgent,
     adapterWarnings,
+    registeredExamples,
   };
 }
 
