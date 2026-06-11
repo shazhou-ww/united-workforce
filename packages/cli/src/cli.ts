@@ -35,9 +35,9 @@ import {
 import { formatOutput, type OutputFormat } from "./format.js";
 import { resolveStorageRoot } from "./store.js";
 
-function writeOutput(data: unknown): void {
+function writeOutput(data: unknown, commandPath?: string | null): void {
   const fmt = program.opts().format as OutputFormat;
-  process.stdout.write(`${formatOutput(data, fmt)}\n`);
+  process.stdout.write(`${formatOutput(data, fmt, commandPath)}\n`);
 }
 
 function runAction(action: () => Promise<void>): void {
@@ -60,7 +60,7 @@ program
       "  workflow → thread → step → turn",
   )
   .version(pkg.default.version, "-V, --version");
-program.option("--format <fmt>", "Output format: json or yaml", "json");
+program.option("--format <fmt>", "Output format: json, yaml, or text", "json");
 
 const workflow = program
   .command("workflow")
@@ -691,7 +691,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigList(storageRoot);
-      writeOutput(result);
+      writeOutput(result, "config list");
     });
   });
 
@@ -706,7 +706,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigGet(storageRoot, key);
-      writeOutput({ value: result });
+      writeOutput({ value: result }, "config get");
     });
   });
 
@@ -719,7 +719,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigSet(storageRoot, key, value);
-      writeOutput(result);
+      writeOutput(result, "config set");
     });
   });
 
