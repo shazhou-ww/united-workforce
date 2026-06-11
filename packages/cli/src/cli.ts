@@ -747,7 +747,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigList(storageRoot);
-      writeRawOutput(result);
+      writeRawOutput(result, "config list");
     });
   });
 
@@ -762,7 +762,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigGet(storageRoot, key);
-      writeRawOutput({ value: result });
+      writeRawOutput({ value: result }, "config get");
     });
   });
 
@@ -775,7 +775,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigSet(storageRoot, key, value);
-      writeRawOutput(result);
+      writeRawOutput(result, "config set");
     });
   });
 
