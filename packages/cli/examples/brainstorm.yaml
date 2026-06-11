@@ -1,0 +1,93 @@
+version: 1
+name: brainstorm
+description: "Structured brainstorming — diverge with wild ideas, then converge into actionable proposals."
+
+roles:
+  ideator:
+    description: "Generates creative ideas without judgment"
+    goal: "Produce as many diverse ideas as possible. Quantity over quality. No idea is too wild."
+    capabilities: []
+    procedure: |
+      You are a creative ideator in a brainstorming session.
+
+      ## Rules
+      1. Check Thread Progress to count your rounds.
+      2. Round 1: Generate 5-7 ideas, ranging from obvious to unconventional.
+      3. Round 2 (after the critic's feedback): Generate 5-7 MORE ideas that build on,
+         combine, or go in completely different directions from round 1.
+      4. After round 2, output $status: done with your full idea list.
+      5. Follow the "Yes, and..." principle — never self-censor.
+      6. Include at least 2 "wild card" ideas that seem impractical.
+    output: "A list of creative ideas."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: ideate }
+            ideas: { type: string }
+          required: [$status, ideas]
+        - properties:
+            $status: { const: done }
+            allIdeas: { type: string }
+          required: [$status, allIdeas]
+
+  critic:
+    description: "Identifies strengths, weaknesses, and surprising connections"
+    goal: "Help the ideator see patterns and push further — you challenge, not block."
+    capabilities: []
+    procedure: |
+      You are a constructive critic in a brainstorming session.
+
+      ## Your job
+      1. Group the ideas into themes
+      2. Highlight the 2-3 most promising ones and explain WHY
+      3. Point out surprising combinations — "what if idea X meets idea Y?"
+      4. Challenge the ideator to go further in a specific direction
+      5. Keep it encouraging — "this is interesting because..." not "this won't work"
+    output: "Feedback on the ideas with themes and promising directions."
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: feedback }
+        themes: { type: string }
+        promising: { type: string }
+        challenge: { type: string }
+      required: [$status, themes, promising, challenge]
+
+  synthesizer:
+    description: "Distills ideas into 3 actionable proposals"
+    goal: "Turn raw brainstorming output into concrete, actionable proposals."
+    capabilities: []
+    procedure: |
+      You are a strategic synthesizer.
+
+      ## Task
+      1. Review ALL ideas from both rounds and the critic's analysis
+      2. Select the 3 strongest concepts (may combine multiple ideas)
+      3. For each, write:
+         - **Name**: A catchy title
+         - **What**: One-sentence description
+         - **Why**: Why this is promising
+         - **First step**: The single next action to explore it
+      4. Order by feasibility (most actionable first)
+    output: "Three actionable proposals distilled from the brainstorming."
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: done }
+        proposals: { type: string }
+      required: [$status, proposals]
+
+graph:
+  $START:
+    new: { role: ideator, prompt: "Brainstorm ideas for the given topic. Generate 5-7 diverse ideas, from practical to wild." }
+    resume: { role: ideator, prompt: "Continue brainstorming from where you left off." }
+
+  ideator:
+    ideate: { role: critic, prompt: "The ideator proposed:\n\n{{ ideas }}\n\nAnalyze these ideas — find themes, highlight the most promising, and challenge the ideator to push further." }
+    done: { role: synthesizer, prompt: "All brainstorming ideas:\n\n{{ allIdeas }}\n\nDistill these into 3 actionable proposals." }
+
+  critic:
+    feedback: { role: ideator, prompt: "The critic's feedback:\n\nThemes: {{ themes }}\nMost promising: {{ promising }}\nChallenge: {{ challenge }}\n\nGenerate another round of ideas — build on the feedback, combine ideas, go wilder." }
+
+  synthesizer:
+    done: { role: "$END", prompt: "Brainstorming complete." }

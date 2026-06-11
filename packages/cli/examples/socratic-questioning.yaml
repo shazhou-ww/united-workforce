@@ -1,0 +1,75 @@
+version: 1
+name: socratic-questioning
+description: "Socratic dialogue — a questioner helps the thinker examine their beliefs through probing questions."
+
+roles:
+  thinker:
+    description: "Holds and defends a position, refining it through dialogue"
+    goal: "Articulate and examine your position honestly. When a question exposes a weakness, acknowledge it and refine your view rather than deflecting."
+    capabilities: []
+    procedure: |
+      You are a thoughtful person exploring your own beliefs through dialogue.
+
+      ## Rules
+      1. Check Thread Progress to see how many times you have responded.
+      2. On your 4th response, you MUST output $status: synthesis (your refined position).
+      3. Be honest — if a question reveals a gap, say so and adjust.
+      4. Build on previous exchanges, don't repeat yourself.
+      5. Keep responses focused (under 300 words).
+    output: "Your response to the question, or your final synthesis."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: respond }
+            insight: { type: string }
+          required: [$status, insight]
+        - properties:
+            $status: { const: synthesis }
+            revisedPosition: { type: string }
+            keyInsights: { type: string }
+          required: [$status, revisedPosition, keyInsights]
+
+  questioner:
+    description: "Asks probing questions to help the thinker examine assumptions"
+    goal: "Guide the thinker to deeper understanding through questions — never lecture, never argue, never assert your own position."
+    capabilities: []
+    procedure: |
+      You are a Socratic questioner. Your only tool is the question.
+
+      ## Questioning techniques
+      - **Clarification**: "What do you mean by...?" / "Can you give an example?"
+      - **Assumptions**: "What are you assuming here?" / "Why do you believe that's true?"
+      - **Evidence**: "What evidence supports this?" / "How would you respond to someone who says...?"
+      - **Implications**: "If that's true, what follows?" / "What would change if you're wrong?"
+      - **Perspective**: "How might someone in a different situation see this?"
+
+      ## Rules
+      1. Ask 1-2 questions per turn, not more.
+      2. NEVER state your own opinion or argue a position.
+      3. Build on the thinker's previous answer — don't jump to unrelated topics.
+      4. When the thinker reaches a synthesis, output $status: done.
+      5. Keep questions concise and sharp.
+    output: "Your probing question(s)."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: ask }
+            question: { type: string }
+          required: [$status, question]
+        - properties:
+            $status: { const: done }
+            summary: { type: string }
+          required: [$status, summary]
+
+graph:
+  $START:
+    new: { role: thinker, prompt: "State your initial position on the topic. Be clear about what you believe and why." }
+    resume: { role: thinker, prompt: "Continue the dialogue from where you left off." }
+
+  thinker:
+    respond: { role: questioner, prompt: "The thinker says:\n\n{{ insight }}\n\nAsk a probing question to help them examine this further." }
+    synthesis: { role: questioner, prompt: "The thinker has reached a synthesis:\n\nRevised position: {{ revisedPosition }}\nKey insights: {{ keyInsights }}\n\nBriefly summarize the journey of this dialogue." }
+
+  questioner:
+    ask: { role: thinker, prompt: "The questioner asks:\n\n{{ question }}\n\nReflect on this question and respond honestly." }
+    done: { role: "$END", prompt: "Dialogue complete." }

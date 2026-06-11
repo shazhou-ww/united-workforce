@@ -4,6 +4,7 @@
   "files": [
     "src",
     "dist",
+    "examples",
     "package.json"
   ],
   "type": "module",
