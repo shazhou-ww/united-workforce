@@ -6,6 +6,7 @@ import type { UwfSchemaHashes } from "./schemas.js";
 import {
   renderStepList,
   renderStepShow,
+  renderThreadCancel,
   renderThreadList,
   renderThreadShow,
   renderThreadStart,
@@ -54,6 +55,7 @@ export const TEXT_RENDERERS: Record<string, TextRenderer> = {
   "thread list": renderThreadList,
   "thread show": renderThreadShow,
   "thread start": renderThreadStart,
+  "thread cancel": renderThreadCancel,
   "workflow list": renderWorkflowList,
   "workflow show": renderWorkflowShow,
   "step list": renderStepList,
