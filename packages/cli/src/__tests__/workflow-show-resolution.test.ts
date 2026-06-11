@@ -19,6 +19,7 @@ async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
 
 function makeMinimalPayload(name: string, description: string): WorkflowPayload {
   return {
+    version: 1,
     name,
     description,
     roles: {

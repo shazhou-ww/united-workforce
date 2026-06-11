@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RoleDefinition, Target, WorkflowPayload } from "@united-workforce/protocol";
+import { CURRENT_WORKFLOW_VERSION } from "@united-workforce/protocol";
 import YAML from "yaml";
 import type { WorkFlowSteps, WorkFlowTransition, WorkflowSummary } from "../shared/types.ts";
 
@@ -71,7 +72,7 @@ function stepsToPayload(name: string, description: string, steps: WorkFlowSteps)
     };
   }
 
-  return { name, description, roles, graph };
+  return { version: CURRENT_WORKFLOW_VERSION, name, description, roles, graph };
 }
 
 export async function listWorkflows(): Promise<WorkflowSummary[]> {
@@ -98,6 +99,7 @@ export async function getWorkflow(name: string): Promise<WorkFlowSteps> {
 export async function createWorkflow(name: string, description: string): Promise<void> {
   await ensureDir();
   const payload: WorkflowPayload = {
+    version: CURRENT_WORKFLOW_VERSION,
     name,
     description,
     roles: {},

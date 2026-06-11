@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
+import { basename, dirname, isAbsolute, resolve as resolvePath } from "node:path";
 
 import type { JSONSchema } from "@ocas/core";
 import { putSchema, validate } from "@ocas/core";
@@ -17,7 +17,12 @@ import {
   saveWorkflowRegistry,
   type UwfStore,
 } from "../store.js";
-import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
+import {
+  checkWorkflowFilenameConsistency,
+  isCasRef,
+  isMissingVersion,
+  parseWorkflowPayload,
+} from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
 
 export type WorkflowOrigin = "local" | "global";
@@ -106,6 +111,7 @@ export async function materializeWorkflowPayload(
     };
   }
   return {
+    version: raw.version,
     name: raw.name,
     description: raw.description,
     roles,
@@ -177,6 +183,12 @@ export async function cmdWorkflowAdd(
   const payload = parseWorkflowPayload(raw);
   if (payload === null) {
     fail("invalid workflow YAML: expected WorkflowPayload shape");
+  }
+
+  if (isMissingVersion(raw)) {
+    process.stderr.write(
+      `warning: workflow YAML "${basename(filePath)}" is missing top-level \`version\` field; falling back to version 1. Add \`version: 1\` to silence this warning.\n`,
+    );
   }
 
   const filenameError = checkWorkflowFilenameConsistency(filePath, payload);

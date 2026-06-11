@@ -1,3 +1,4 @@
+version: 1
 name: test-count
 description: 3-step linear pipeline (analyst -> developer -> reviewer -> $END)
 roles:

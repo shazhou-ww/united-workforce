@@ -1,3 +1,4 @@
+version: 1
 name: test-loop
 description: Branching test where the reviewer can reject and loop back to the developer
 roles:

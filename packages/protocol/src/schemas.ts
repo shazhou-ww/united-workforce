@@ -46,8 +46,9 @@ export const SUSPEND_OUTPUT_SCHEMA: JSONSchema = {
 export const WORKFLOW_SCHEMA: JSONSchema = {
   title: "Workflow",
   type: "object",
-  required: ["name", "description", "roles", "graph"],
+  required: ["version", "name", "description", "roles", "graph"],
   properties: {
+    version: { type: "integer" },
     name: { type: "string" },
     description: { type: "string" },
     roles: {

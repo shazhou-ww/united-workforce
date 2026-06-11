@@ -1,3 +1,4 @@
+version: 1
 name: "solve-issue"
 description: "TDD-driven issue resolution for small, focused changes. Loop protection relies on engine maxRounds. Uses pnpm."
 roles:

@@ -1,3 +1,4 @@
+version: 1
 name: "analyze-topic"
 description: "Single-role topic analysis using four-phase role description"
 roles:
