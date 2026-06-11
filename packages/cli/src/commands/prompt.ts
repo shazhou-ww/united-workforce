@@ -175,7 +175,7 @@ defaultAgent: hermes
 agentOverrides: {}
 \`\`\`
 
-**LLM configuration** is per-adapter, stored in \`~/.uwf/agents/<adapter>.yaml\`. Each adapter manages its own provider, model, and API key settings independently.
+**LLM configuration** is per-adapter — each adapter manages its own provider, model, and API key settings independently (typically via environment variables like \`CLAUDE_MODEL\`, \`ANTHROPIC_API_KEY\`, etc.). The engine config (\`~/.uwf/config.yaml\`) is LLM-free.
 
 Verify with \`cat ~/.uwf/config.yaml\`.
 
