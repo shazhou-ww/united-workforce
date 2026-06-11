@@ -18,7 +18,7 @@ export function getSlotsDir(storageRoot: string): string {
 }
 
 /**
- * Count active slot files (alive PIDs only). Cleans stale slots as a side-effect.
+ * Count active slot files (alive PIDs only). Stale slots are skipped but not removed.
  */
 export async function countActiveSlots(storageRoot: string): Promise<number> {
   const slotsDir = getSlotsDir(storageRoot);
