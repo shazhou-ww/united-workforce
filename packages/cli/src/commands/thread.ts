@@ -1426,12 +1426,9 @@ export function validateCount(count: number): void {
 
 /**
  * Resolve the effective maxRunning limit.
- * Priority: CLI flag > config file > DEFAULT_MAX_RUNNING (2).
+ * Priority: config file > DEFAULT_MAX_RUNNING (2).
  */
-async function resolveMaxRunning(storageRoot: string, flagValue: number | null): Promise<number> {
-  if (flagValue !== null) {
-    return flagValue;
-  }
+async function resolveMaxRunning(storageRoot: string): Promise<number> {
   try {
     const configPath = getConfigPath(storageRoot);
     const config = loadConfig(configPath);
@@ -1453,7 +1450,6 @@ export async function cmdThreadExec(
   count: number,
   background: boolean,
   backgroundWorker: boolean,
-  maxConcurrent: number | null = null,
 ): Promise<StepOutput[]> {
   validateCount(count);
 
@@ -1487,8 +1483,8 @@ export async function cmdThreadExec(
     processStartTime: getProcessStartTime(process.pid),
   });
 
-  // Resolve concurrency limit: --max-concurrent flag > config > default
-  const effectiveMaxRunning = await resolveMaxRunning(storageRoot, maxConcurrent);
+  // Resolve concurrency limit: config > default
+  const effectiveMaxRunning = await resolveMaxRunning(storageRoot);
 
   // Acquire concurrency slot (blocks if at capacity)
   const slotHandle = await acquireSlot(storageRoot, effectiveMaxRunning);

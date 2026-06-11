@@ -140,7 +140,6 @@ thread
   .argument("<thread-id>", "Thread ULID")
   .option("--agent <cmd>", "Override agent command")
   .option("-c, --count <number>", "Number of steps to run (default: 1)")
-  .option("--max-concurrent <number>", "Override concurrency limit (default: config or 2)")
   .option("--background", "Run in background and return immediately")
   .option("--_background-worker", "Internal flag for background worker process", false)
   .action(
@@ -149,7 +148,6 @@ thread
       opts: {
         agent: string | undefined;
         count: string | undefined;
-        maxConcurrent: string | undefined;
         background: boolean;
         _backgroundWorker: boolean;
       },
@@ -158,14 +156,8 @@ thread
       runAction(async () => {
         const agentOverride = opts.agent ?? null;
         const count = opts.count !== undefined ? Number(opts.count) : 1;
-        const maxConcurrent = opts.maxConcurrent !== undefined ? Number(opts.maxConcurrent) : null;
         const background = opts.background ?? false;
         const backgroundWorker = opts._backgroundWorker ?? false;
-
-        if (maxConcurrent !== null && (!Number.isInteger(maxConcurrent) || maxConcurrent < 1)) {
-          process.stderr.write("--max-concurrent must be a positive integer\n");
-          process.exit(1);
-        }
 
         const results = await cmdThreadExec(
           storageRoot,
@@ -174,7 +166,6 @@ thread
           count,
           background,
           backgroundWorker,
-          maxConcurrent,
         );
         if (results.length === 1) {
           writeOutput(results[0]);

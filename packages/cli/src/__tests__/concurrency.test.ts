@@ -250,27 +250,6 @@ describe("slot lifecycle during exec", () => {
   });
 });
 
-// ── Spec: concurrency-cli-flag-override ──────────────────────────────────────
-
-describe("resolveMaxRunning respects --max-concurrent flag", () => {
-  test("flag value overrides config value", async () => {
-    // When --max-concurrent 4 is given, the limit is 4
-    // This is tested via acquireSlot with maxRunning=4
-    const slotsDir = getSlotsDir(tmpDir);
-    await mkdir(slotsDir, { recursive: true });
-
-    // Create 3 slots (parent PID alive)
-    const blockerPid = process.ppid;
-    await writeFile(join(slotsDir, `${blockerPid}.slot`), "", "utf8");
-
-    // With maxRunning=4, should succeed (2 < 4)
-    const handle = await acquireSlot(tmpDir, 4);
-    expect(handle).toHaveProperty("release");
-
-    await handle.release();
-  });
-});
-
 // ── Spec: concurrency-config-set-max-running ─────────────────────────────────
 
 describe("config set concurrency.maxRunning", () => {
