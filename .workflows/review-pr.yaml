@@ -1,4 +1,5 @@
 name: "review-pr"
+version: 1
 description: "Code review workflow for Gitea PRs. Fetches PR context, performs structured review, and submits feedback or merges."
 roles:
   fetcher:

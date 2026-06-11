@@ -1,4 +1,5 @@
 name: "release"
+version: 1
 description: "Release workflow for proman-managed monorepo with $SUSPEND gate for PR review."
 roles:
   preflight:

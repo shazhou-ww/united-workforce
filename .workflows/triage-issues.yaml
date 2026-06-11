@@ -1,4 +1,5 @@
 name: triage-issues
+version: 1
 description: "Triage open issues: classify with labels and assign to version milestones."
 
 roles:
