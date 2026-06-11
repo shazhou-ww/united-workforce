@@ -63,7 +63,7 @@ export function buildHermesPrompt(ctx: AgentContext): string {
   }
 
   // Inject thread progress so the agent knows step count and role visit count
-  parts.push(buildThreadProgress(ctx.steps, ctx.role), "");
+  parts.push(buildThreadProgress(ctx.steps, ctx.role, ctx.threadId), "");
 
   if (!ctx.isFirstVisit) {
     // Re-entry: show only steps since last visit, meta only

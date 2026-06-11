@@ -77,7 +77,7 @@ export function buildClaudeCodePrompt(ctx: AgentContext): string {
   }
 
   // Inject thread progress so the agent knows step count and role visit count
-  parts.push(buildThreadProgress(ctx.steps, ctx.role), "");
+  parts.push(buildThreadProgress(ctx.steps, ctx.role, ctx.threadId), "");
 
   parts.push(rolePrompt, "", "## Task", ctx.start.prompt);
 

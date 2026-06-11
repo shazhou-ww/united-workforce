@@ -1020,11 +1020,11 @@ function resolveEvaluateArgs(
       ? (raw as Record<string, unknown>)
       : {};
 
-  // Inject $body — the markdown body (after frontmatter) from the last step's
-  // assistant output. Workflow edge prompts can reference it via {{ $body }}.
+  // Inject _body — the markdown body (after frontmatter) from the last step's
+  // assistant output. Workflow edge prompts can reference it via {{ _body }}.
   const content = extractLastAssistantContent(uwf, lastStep.detail);
   if (content !== null) {
-    base.$body = stripFrontmatter(content);
+    base._body = stripFrontmatter(content);
   }
 
   return {

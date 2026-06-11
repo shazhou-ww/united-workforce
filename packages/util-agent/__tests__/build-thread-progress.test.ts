@@ -1,4 +1,4 @@
-import type { StepContext } from "@united-workforce/protocol";
+import type { StepContext, ThreadId } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
 import { buildThreadProgress } from "../src/build-thread-progress.js";
 
@@ -17,6 +17,8 @@ function makeStep(role: string): StepContext {
     content: null,
   };
 }
+
+const THREAD_ID = "06FBBPEG427CT3MMVB86AV8030" as ThreadId;
 
 describe("buildThreadProgress", () => {
   test("first step of thread", () => {
@@ -55,5 +57,15 @@ describe("buildThreadProgress", () => {
     const result = buildThreadProgress(steps, "proponent");
     expect(result).toContain("Thread step 7");
     expect(result).toContain("spoken 3 times");
+  });
+
+  test("includes thread ID when provided", () => {
+    const result = buildThreadProgress([], "proponent", THREAD_ID);
+    expect(result).toContain(`Thread: ${THREAD_ID}`);
+  });
+
+  test("omits thread ID when not provided", () => {
+    const result = buildThreadProgress([], "proponent");
+    expect(result).not.toContain("Thread:");
   });
 });
