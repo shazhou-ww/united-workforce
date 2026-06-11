@@ -77,6 +77,40 @@ roles:
         proposals: { type: string }
       required: [$status, proposals]
 
+  reporter:
+    description: "Generates an HTML report of the completed brainstorming session"
+    goal: "Produce a self-contained, visually polished HTML report that faithfully reproduces the entire brainstorming session with no paraphrasing."
+    capabilities: [run_command, write_file, read_file]
+    procedure: |
+      You are a report generator for a brainstorming session.
+
+      ## Steps
+      1. Read Thread Progress to get the thread ID.
+      2. Run: `uwf thread read <thread-id>` to get the full session transcript.
+      3. Design and write a self-contained HTML file that presents the brainstorming beautifully.
+      4. Save to `/tmp/brainstorm-report-<thread-id>.html`.
+
+      ## HTML Report Requirements
+      - Title: the original brainstorming topic
+      - Divergence phase: each ideation round as a card with numbered ideas
+      - Critic's feedback in a distinct styled section (themes, promising ideas, challenge)
+      - Convergence phase: the 3 final proposals with special visual treatment
+      - Timeline showing the flow: ideate → critique → ideate → synthesize
+      - Clean typography, responsive layout, dark/light theme friendly
+      - All content verbatim from `uwf thread read` — do NOT paraphrase
+
+      ## Rules
+      1. You MUST use `uwf thread read` to get the data — do NOT rely on context.
+      2. Completely self-contained (inline styles, no CDN links).
+      3. Output the file path in your response body.
+    output: "Confirmation that the report was generated, with the file path."
+    frontmatter:
+      type: object
+      properties:
+        $status: { const: done }
+        reportPath: { type: string }
+      required: [$status, reportPath]
+
 graph:
   $START:
     new: { role: ideator, prompt: "Brainstorm ideas for the given topic. Generate 5-7 diverse ideas, from practical to wild." }
@@ -90,4 +124,7 @@ graph:
     feedback: { role: ideator, prompt: "The critic's feedback:\n\nThemes: {{ themes }}\nMost promising: {{ promising }}\nChallenge: {{ challenge }}\n\nGenerate another round of ideas — build on the feedback, combine ideas, go wilder." }
 
   synthesizer:
-    done: { role: "$END", prompt: "Brainstorming complete." }
+    done: { role: reporter, prompt: "Brainstorming complete. Here are the final proposals:\n\n{{ proposals }}\n\nGenerate a polished HTML report of the entire session." }
+
+  reporter:
+    done: { role: "$END", prompt: "Report generated." }
