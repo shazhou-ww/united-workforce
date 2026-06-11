@@ -421,11 +421,11 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     expect(finalEntry!.head).toBe(results[2].head);
   });
 
-  test("6. mustache edge prompt renders planner variables into the worker step", {
+  test("6. Liquid edge prompt renders planner variables into the worker step", {
     timeout: 30_000,
   }, async () => {
-    await writeMockConfig("e2e-mustache.mock.yaml");
-    const workflowHash = await addWorkflow("e2e-mustache.workflow.yaml", "test-mustache");
+    await writeMockConfig("e2e-liquid.mock.yaml");
+    const workflowHash = await addWorkflow("e2e-liquid.workflow.yaml", "test-liquid");
 
     const start = await cmdThreadStart(uwfHome, workflowHash, "Plan the task", uwfHome, tmpDir);
     const threadId = start.thread;
@@ -444,7 +444,7 @@ describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
     const plannerStep = getStepNode(store, step1.head);
     expect(getStatus(store, plannerStep.output)).toBe("ready");
 
-    // The worker step's edgePrompt is the mustache-rendered template.
+    // The worker step's edgePrompt is the Liquid-rendered template.
     const workerStep = getStepNode(store, step2.head);
     expect(workerStep.role).toBe("worker");
     expect(workerStep.edgePrompt).toContain("fix/42-auth");

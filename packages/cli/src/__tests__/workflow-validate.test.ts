@@ -95,7 +95,7 @@ function makeMinimalPayload(name: string): unknown {
   };
 }
 
-/** Build a valid writer→reviewer workflow with mustache var. */
+/** Build a valid writer→reviewer workflow with Liquid var. */
 function makeMultiRolePayload(name: string): unknown {
   return {
     name,
@@ -246,7 +246,7 @@ describe("workflow validate — Suite A: Success Path", () => {
     expect(result.stderr).toBe("");
   });
 
-  test("A.2 valid multi-role workflow with mustache vars exits 0 silent", async () => {
+  test("A.2 valid multi-role workflow with Liquid vars exits 0 silent", async () => {
     const file = join(tmpDir, "writer-flow.yaml");
     await writeFile(file, stringify(makeMultiRolePayload("writer-flow")));
 
@@ -635,7 +635,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     graph.$START = {
       new: { role: "writer", prompt: "Begin", location: null },
     };
-    // 3) bad mustache variable
+    // 3) bad Liquid variable
     graph.writer = {
       done: { role: "$END", prompt: "Use {{ missing }}", location: null },
     };
