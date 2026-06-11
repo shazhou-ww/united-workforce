@@ -119,14 +119,14 @@ graph:
     resume: { role: proponent, prompt: "The debate continues." }
 
   proponent:
-    speak: { role: opponent, prompt: "Proponent argues:\n\n{{{argument}}}\n\nYou are the opponent. Counter this argument." }
-    conceded: { role: host, prompt: "The proponent conceded: {{{reason}}}\n\nPlease summarize the debate." }
-    final: { role: opponent, prompt: "Proponent's closing statement:\n\n{{{closing}}}\n\nYou are the opponent. Deliver your final response." }
+    speak: { role: opponent, prompt: "Proponent argues:\n\n{{ argument }}\n\nYou are the opponent. Counter this argument." }
+    conceded: { role: host, prompt: "The proponent conceded: {{ reason }}\n\nPlease summarize the debate." }
+    final: { role: opponent, prompt: "Proponent's closing statement:\n\n{{ closing }}\n\nYou are the opponent. Deliver your final response." }
 
   opponent:
-    speak: { role: proponent, prompt: "Opponent argues:\n\n{{{argument}}}\n\nYou are the proponent. Counter this argument." }
-    conceded: { role: host, prompt: "The opponent conceded: {{{reason}}}\n\nPlease summarize the debate." }
-    final: { role: host, prompt: "Opponent's closing statement:\n\n{{{closing}}}\n\nThe debate is over. Please summarize." }
+    speak: { role: proponent, prompt: "Opponent argues:\n\n{{ argument }}\n\nYou are the proponent. Counter this argument." }
+    conceded: { role: host, prompt: "The opponent conceded: {{ reason }}\n\nPlease summarize the debate." }
+    final: { role: host, prompt: "Opponent's closing statement:\n\n{{ closing }}\n\nThe debate is over. Please summarize." }
 
   host:
     done: { role: "$END", prompt: "Summary complete." }
