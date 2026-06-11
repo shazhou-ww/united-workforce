@@ -233,38 +233,42 @@ afterEach(async () => {
 });
 
 // ── Suite A: Success Path ────────────────────────────────────────────────────
+//
+// Note: Issue #308 makes validate an envelope-emitting command. Default
+// `--format text` renders `✓ valid` (or `✗ invalid (N errors)`) to stdout.
+// Tests below assert the new envelope contract.
 
 describe("workflow validate — Suite A: Success Path", () => {
-  test("A.1 valid single-role workflow exits 0 silent", async () => {
+  test("A.1 valid single-role workflow exits 0 with text envelope", async () => {
     const file = join(tmpDir, "test-wf.yaml");
     await writeFile(file, stringify(makeMinimalPayload("test-wf")));
 
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 
-  test("A.2 valid multi-role workflow with Liquid vars exits 0 silent", async () => {
+  test("A.2 valid multi-role workflow with Liquid vars exits 0 with text envelope", async () => {
     const file = join(tmpDir, "writer-flow.yaml");
     await writeFile(file, stringify(makeMultiRolePayload("writer-flow")));
 
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 
-  test("A.3 valid oneOf multi-exit workflow exits 0 silent", async () => {
+  test("A.3 valid oneOf multi-exit workflow exits 0 with text envelope", async () => {
     const file = join(tmpDir, "review-flow.yaml");
     await writeFile(file, stringify(makeOneOfPayload("review-flow")));
 
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 
@@ -307,16 +311,16 @@ graph:
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 
-  test("A.5 --format yaml does not change silent success output", async () => {
+  test("A.5 --format raw-json emits bare valid envelope value", async () => {
     const file = join(tmpDir, "test-wf.yaml");
     await writeFile(file, stringify(makeMinimalPayload("test-wf")));
 
     // --format is a global option on `program`, must come before the subcommand
-    const args = [CLI_PATH, "--format", "yaml", "workflow", "validate", file];
+    const args = [CLI_PATH, "--format", "raw-json", "workflow", "validate", file];
     let result: RunResult;
     try {
       const stdout = execFileSync(process.execPath, args, {
@@ -340,7 +344,7 @@ graph:
     }
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({ valid: true, errors: [] });
     expect(result.stderr).toBe("");
   });
 });
@@ -415,9 +419,10 @@ describe("workflow validate — Suite D: Filename Consistency", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("workflow name mismatch:");
-    expect(result.stderr).toContain("foo-bar");
-    expect(result.stderr).toContain("baz-qux");
+    // text envelope contains the error in stdout
+    expect(result.stdout).toContain("workflow name mismatch:");
+    expect(result.stdout).toContain("foo-bar");
+    expect(result.stdout).toContain("baz-qux");
   });
 
   test("D.2 index.yaml accepts directory name as workflow name", async () => {
@@ -429,12 +434,15 @@ describe("workflow validate — Suite D: Filename Consistency", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 });
 
 // ── Suite E: Semantic Errors ─────────────────────────────────────────────────
+//
+// Issue #308: errors are now rendered to stdout via the validate-result
+// envelope template (`✗ invalid (N errors)\n  - <error>...`). Exit code is 1.
 
 describe("workflow validate — Suite E: Semantic Errors", () => {
   test("E.1 graph prompt references variable absent from frontmatter", async () => {
@@ -478,9 +486,9 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("workflow validation failed:");
-    expect(result.stderr).toContain('template variable "prNumber"');
-    expect(result.stderr).toContain("commenter");
+    expect(result.stdout).toContain("✗ invalid");
+    expect(result.stdout).toContain('template variable "prNumber"');
+    expect(result.stdout).toContain("commenter");
   });
 
   test("E.2 multi-exit oneOf variant prompt references variable not in that variant", async () => {
@@ -549,8 +557,8 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('template variable "reason"');
-    expect(result.stderr).toContain('variant "approved"');
+    expect(result.stdout).toContain('template variable "reason"');
+    expect(result.stdout).toContain('variant "approved"');
   });
 
   test("E.3 graph references unknown role", async () => {
@@ -564,7 +572,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('unknown role "bogus"');
+    expect(result.stdout).toContain('unknown role "bogus"');
   });
 
   test("E.4 $START missing resume edge", async () => {
@@ -581,7 +589,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('$START must have edges with statuses "new" and "resume"');
+    expect(result.stdout).toContain('$START must have edges with statuses "new" and "resume"');
   });
 
   test("E.5 unreachable role exits 1", async () => {
@@ -609,7 +617,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("is not reachable from $START");
+    expect(result.stdout).toContain("is not reachable from $START");
   });
 
   test("E.6 $SUSPEND used as edge target exits 1", async () => {
@@ -623,7 +631,7 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("$SUSPEND");
+    expect(result.stdout).toContain("$SUSPEND");
   });
 
   test("E.7 multiple semantic errors are all reported", async () => {
@@ -646,16 +654,24 @@ describe("workflow validate — Suite E: Semantic Errors", () => {
     const result = runValidate(file);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("workflow validation failed:");
-    expect(result.stderr).toContain('unknown role "bogus"');
-    expect(result.stderr).toContain("$START must have edges");
-    expect(result.stderr).toContain("missing");
+    expect(result.stdout).toContain("✗ invalid");
+    expect(result.stdout).toContain('unknown role "bogus"');
+    expect(result.stdout).toContain("$START must have edges");
+    expect(result.stdout).toContain("missing");
     // each error is bullet-prefixed with `  - `
-    expect(result.stderr).toContain("  - ");
+    expect(result.stdout).toContain("  - ");
   });
 });
 
 // ── Suite F: Isolation From CAS / Store ──────────────────────────────────────
+//
+// Issue #308: validate now uses the unified envelope writer, which requires
+// the CAS store (for `@uwf/output/validate-result` schema lookup and the
+// `@ocas/template/text/<hash>` template). The store is initialized
+// idempotently on startup. These tests assert that:
+// - validate works without explicit OCAS_HOME
+// - validate runs idempotently (second run modifies nothing on success)
+// - validate does not modify the workflow registry on success
 
 describe("workflow validate — Suite F: Isolation From CAS / Store", () => {
   test("F.1 runs without OCAS_HOME set", async () => {
@@ -673,38 +689,32 @@ describe("workflow validate — Suite F: Isolation From CAS / Store", () => {
     const result = runValidate(file, [], env);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout.trim()).toBe("✓ valid");
     expect(result.stderr).toBe("");
   });
 
-  test("F.2 runs even when HOME is read-only (skip on win32)", {
+  test("F.2 runs even when ocas store is empty/uninitialized (skip on win32)", {
     skip: process.platform === "win32",
   }, async () => {
     const file = join(tmpDir, "ro-home-wf.yaml");
     await writeFile(file, stringify(makeMinimalPayload("ro-home-wf")));
 
-    const ro = join(tmpDir, "ro-home");
-    await mkdir(ro, { recursive: true });
-    await chmod(ro, 0o500); // r-x------
+    // Use a writable but empty OCAS_HOME — schema registration writes
+    // happen at startup but the validate command should still succeed.
+    const ocasHome = join(tmpDir, "fresh-ocas");
+    await mkdir(ocasHome, { recursive: true });
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    delete env.UWF_HOME;
+    env.OCAS_HOME = ocasHome;
 
-    try {
-      const env: NodeJS.ProcessEnv = { ...process.env };
-      delete env.OCAS_HOME;
-      delete env.UWF_HOME;
-      env.HOME = ro;
+    const result = runValidate(file, [], env);
 
-      const result = runValidate(file, [], env);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("");
-    } finally {
-      // restore permissions so afterEach can clean up
-      await chmod(ro, 0o755);
-    }
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("✓ valid");
+    expect(result.stderr).toBe("");
   });
 
-  test("F.3 does not modify registry on success", async () => {
+  test("F.3 does not modify workflow registry on success", async () => {
     const file = join(tmpDir, "reg-wf.yaml");
     await writeFile(file, stringify(makeMinimalPayload("reg-wf")));
 
@@ -712,18 +722,25 @@ describe("workflow validate — Suite F: Isolation From CAS / Store", () => {
     await mkdir(ocasHome, { recursive: true });
     const env: NodeJS.ProcessEnv = { ...process.env, OCAS_HOME: ocasHome, UWF_HOME: ocasHome };
 
+    // First run primes the schema/template registrations
+    const first = runValidate(file, [], env);
+    expect(first.exitCode).toBe(0);
+    expect(first.stdout.trim()).toBe("✓ valid");
+
+    // Capture state after registrations are present
     const beforeListing = await listingSnapshot(ocasHome);
 
-    const result = runValidate(file, [], env);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
+    // Second run must not modify the registry (no @uwf/registry/<name> binding)
+    const second = runValidate(file, [], env);
+    expect(second.exitCode).toBe(0);
+    expect(second.stdout.trim()).toBe("✓ valid");
+    expect(second.stderr).toBe("");
 
     const afterListing = await listingSnapshot(ocasHome);
     expect(afterListing).toEqual(beforeListing);
   });
 
-  test("F.4 does not write any nodes to CAS on success", async () => {
+  test("F.4 second run on the same workflow is idempotent (no further CAS writes)", async () => {
     const file = join(tmpDir, "cas-iso-wf.yaml");
     await writeFile(file, stringify(makeMinimalPayload("cas-iso-wf")));
 
@@ -731,10 +748,15 @@ describe("workflow validate — Suite F: Isolation From CAS / Store", () => {
     await mkdir(ocasHome, { recursive: true });
     const env: NodeJS.ProcessEnv = { ...process.env, OCAS_HOME: ocasHome, UWF_HOME: ocasHome };
 
+    // First run: schema/template registration is allowed to write to CAS
+    const first = runValidate(file, [], env);
+    expect(first.exitCode).toBe(0);
+
     const beforeListing = await listingSnapshot(ocasHome);
 
-    const result = runValidate(file, [], env);
-    expect(result.exitCode).toBe(0);
+    // Second run: registrations are idempotent → no new writes
+    const second = runValidate(file, [], env);
+    expect(second.exitCode).toBe(0);
 
     const afterListing = await listingSnapshot(ocasHome);
     expect(afterListing).toEqual(beforeListing);

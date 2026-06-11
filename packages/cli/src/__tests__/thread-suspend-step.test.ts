@@ -119,7 +119,7 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
       const cliPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "cli.js");
       const stdout = execFileSync(
         process.execPath,
-        [cliPath, "thread", "exec", threadId, "--agent", mockAgentPath],
+        [cliPath, "--format", "raw-json", "thread", "exec", threadId, "--agent", mockAgentPath],
         {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
@@ -133,7 +133,10 @@ describe("suspend step CAS chain and threads.yaml metadata", () => {
         },
       );
 
-      const cliOutput = JSON.parse(stdout.trim());
+      // thread exec envelope value: { threadId, workflowHash, steps: [...] }
+      const envelope = JSON.parse(stdout.trim());
+      expect(envelope.steps).toHaveLength(1);
+      const cliOutput = envelope.steps[0];
       expect(cliOutput.status).toBe("suspended");
       expect(cliOutput.head).toBe(stepHash);
       expect(cliOutput.suspendedRole).toBe("worker");

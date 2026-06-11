@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 
-import type { CasRef, ThreadId, ThreadStatus } from "@united-workforce/protocol";
+import type { CasRef, OutputSchemaName, ThreadId, ThreadStatus } from "@united-workforce/protocol";
 import { Command } from "commander";
 import { cmdConfigGet, cmdConfigList, cmdConfigSet } from "./commands/config.js";
 import { cmdLogClean, cmdLogList, cmdLogShow } from "./commands/log.js";
@@ -32,12 +32,60 @@ import {
   cmdWorkflowShow,
   cmdWorkflowValidate,
 } from "./commands/workflow.js";
-import { formatOutput, type OutputFormat } from "./format.js";
-import { resolveStorageRoot } from "./store.js";
+import {
+  formatOutput,
+  isOutputFormat,
+  type OutputFormat,
+  SUPPORTED_FORMATS,
+  writeEnvelope,
+} from "./format.js";
+import {
+  toStepDetailPayload,
+  toStepListPayload,
+  toThreadExecPayload,
+  toThreadListPayload,
+  toThreadStartPayload,
+  toThreadStatusPayload,
+  toValidateResultPayload,
+  toWorkflowDetailPayload,
+  toWorkflowListPayload,
+} from "./output-mappers.js";
+import { createUwfStore, resolveStorageRoot } from "./store.js";
 
-function writeOutput(data: unknown): void {
-  const fmt = program.opts().format as OutputFormat;
-  process.stdout.write(`${formatOutput(data, fmt)}\n`);
+function getFormat(): OutputFormat {
+  const raw = program.opts().format as string;
+  if (!isOutputFormat(raw)) {
+    process.stderr.write(
+      `Invalid --format: ${raw}. Must be one of: ${SUPPORTED_FORMATS.join(", ")}\n`,
+    );
+    process.exit(1);
+  }
+  return raw;
+}
+
+async function writeOutput(
+  payload: unknown,
+  schemaName: OutputSchemaName,
+  storageRoot: string,
+): Promise<void> {
+  const fmt = getFormat();
+  const uwf = await createUwfStore(storageRoot);
+  await writeEnvelope(payload, schemaName, {
+    format: fmt,
+    store: uwf.store,
+    schemas: uwf.schemas,
+  });
+}
+
+/**
+ * Legacy raw output for commands without an output schema (log/config/setup).
+ * Always emits bare JSON or YAML; ignores `text`/`raw-*` distinctions because
+ * these commands are not covered by the envelope refactor.
+ */
+function writeRawOutput(data: unknown): void {
+  const fmt = getFormat();
+  const legacy: "json" | "yaml" = fmt === "yaml" || fmt === "raw-yaml" ? "yaml" : "json";
+  process.stdout.write(`${formatOutput(data, legacy)}\n`);
 }
 
 function runAction(action: () => Promise<void>): void {
@@ -60,7 +108,11 @@ program
       "  workflow → thread → step → turn",
   )
   .version(pkg.default.version, "-V, --version");
-program.option("--format <fmt>", "Output format: json or yaml", "json");
+program.option(
+  "--format <fmt>",
+  "Output format: text (default), json, yaml, raw-json, raw-yaml",
+  "text",
+);
 
 const workflow = program
   .command("workflow")
@@ -74,7 +126,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowAdd(storageRoot, file);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -83,9 +135,13 @@ workflow
   .description("Validate a workflow YAML without registering it (CI-friendly)")
   .argument("<file>", "Workflow YAML file")
   .action((file: string) => {
+    const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      await cmdWorkflowValidate(file);
-      // silent on success — do not call writeOutput
+      const errors = await cmdWorkflowValidate(file);
+      await writeOutput(toValidateResultPayload(errors), "validate-result", storageRoot);
+      if (errors.length > 0) {
+        process.exit(1);
+      }
     });
   });
 
@@ -97,7 +153,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowShow(storageRoot, id, process.cwd());
-      writeOutput(result);
+      await writeOutput(toWorkflowDetailPayload(result), "workflow-detail", storageRoot);
     });
   });
 
@@ -108,7 +164,7 @@ workflow
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdWorkflowList(storageRoot, process.cwd());
-      writeOutput(result);
+      await writeOutput(toWorkflowListPayload(result), "workflow-list", storageRoot);
     });
   });
 
@@ -130,7 +186,7 @@ thread
         process.cwd(),
         opts.cwd ?? process.cwd(),
       );
-      writeOutput(result);
+      await writeOutput(toThreadStartPayload(result), "thread-start", storageRoot);
     });
   });
 
@@ -167,11 +223,7 @@ thread
           background,
           backgroundWorker,
         );
-        if (results.length === 1) {
-          writeOutput(results[0]);
-        } else {
-          writeOutput(results);
-        }
+        await writeOutput(toThreadExecPayload(results), "thread-exec", storageRoot);
       });
     },
   );
@@ -184,7 +236,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadShow(storageRoot, threadId);
-      writeOutput(result);
+      await writeOutput(toThreadStatusPayload(result), "thread-status", storageRoot);
     });
   });
 
@@ -292,7 +344,7 @@ thread
           take,
           showAll,
         );
-        writeOutput(result);
+        await writeOutput(toThreadListPayload(result), "thread-list", storageRoot);
       });
     },
   );
@@ -314,7 +366,7 @@ thread
         supplement,
         agentOverride,
       );
-      writeOutput(result);
+      await writeOutput(toThreadStatusPayload(result), "thread-status", storageRoot);
     });
   });
 
@@ -334,7 +386,7 @@ thread
         opts.prompt,
         agentOverride,
       );
-      writeOutput(result);
+      await writeOutput(toThreadStatusPayload(result), "thread-status", storageRoot);
     });
   });
 
@@ -346,7 +398,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadStop(storageRoot, threadId);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -358,7 +410,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadCancel(storageRoot, threadId);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -401,7 +453,7 @@ step
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdStepList(storageRoot, threadId);
-      writeOutput(result);
+      await writeOutput(toStepListPayload(result), "step-list", storageRoot);
     });
   });
 
@@ -413,7 +465,11 @@ step
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const detail = await cmdStepShow(storageRoot, stepHash as CasRef);
-      writeOutput(detail);
+      await writeOutput(
+        toStepDetailPayload(stepHash as CasRef, detail),
+        "step-detail",
+        storageRoot,
+      );
     });
   });
 
@@ -475,7 +531,7 @@ step
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdStepFork(storageRoot, stepHash as CasRef);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -626,7 +682,7 @@ program
     runAction(async () => {
       if (opts.agent !== undefined && opts.agent !== "") {
         const result = await cmdSetup({ agent: opts.agent, storageRoot });
-        writeOutput(result);
+        writeRawOutput(result);
       } else {
         await cmdSetupInteractive(storageRoot);
       }
@@ -642,7 +698,7 @@ log
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdLogList(storageRoot);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -665,7 +721,7 @@ log
           process: opts.process ?? null,
           date: opts.date ?? null,
         });
-        writeOutput(result);
+        writeRawOutput(result);
       });
     },
   );
@@ -678,7 +734,7 @@ log
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdLogClean(storageRoot, opts.before);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -691,7 +747,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigList(storageRoot);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 
@@ -706,7 +762,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigGet(storageRoot, key);
-      writeOutput({ value: result });
+      writeRawOutput({ value: result });
     });
   });
 
@@ -719,7 +775,7 @@ config
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdConfigSet(storageRoot, key, value);
-      writeOutput(result);
+      writeRawOutput(result);
     });
   });
 

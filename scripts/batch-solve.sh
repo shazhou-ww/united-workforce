@@ -54,16 +54,18 @@ for i in "${!ISSUES[@]}"; do
 
   # Start thread
   PROMPT="Fix issue #${ISSUE} in ${REPO}. Read the issue first with 'tea issues ${ISSUE} -r ${REPO}' for full spec."
-  THREAD_JSON=$(uwf thread start solve-issue -p "$PROMPT" 2>&1)
-  THREAD_ID=$(echo "$THREAD_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['thread'])")
+  THREAD_JSON=$(uwf --format raw-json thread start solve-issue -p "$PROMPT")
+  THREAD_ID=$(echo "$THREAD_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['threadId'])")
   echo "│ Thread: $THREAD_ID"
 
   # Run steps
   echo "│ Running (max $COUNT steps)..."
   # shellcheck disable=SC2086
-  if STEP_OUTPUT=$(uwf thread step "$THREAD_ID" $AGENT_FLAG -c "$COUNT" 2>&1); then
-    # Check if done
-    LAST_DONE=$(echo "$STEP_OUTPUT" | python3 -c "import json,sys; lines=sys.stdin.read().strip(); data=json.loads(lines); print(data[-1].get('done', False))")
+  if STEP_OUTPUT=$(uwf --format raw-json thread exec "$THREAD_ID" $AGENT_FLAG -c "$COUNT" 2>&1); then
+    # Check if done — payload is { threadId, workflowHash, steps: [...] }
+    # where each step has { head, status, done, role, ... }. The run is
+    # complete when the last step's `done` flag is true (workflow hit $END).
+    LAST_DONE=$(echo "$STEP_OUTPUT" | python3 -c "import json,sys; data=json.loads(sys.stdin.read().strip()); steps=data.get('steps') or []; last=steps[-1] if steps else {}; print(last.get('done', False))")
     if [[ "$LAST_DONE" == "True" ]]; then
       echo "│ ✅ Done!"
       PASSED=$((PASSED + 1))

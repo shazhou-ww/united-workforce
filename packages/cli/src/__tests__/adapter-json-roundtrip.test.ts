@@ -131,7 +131,7 @@ describe("C1: adapter JSON round-trip integration", () => {
     try {
       stdout = execFileSync(
         process.execPath,
-        [cliPath, "thread", "exec", threadId, "--agent", mockAgentPath],
+        [cliPath, "--format", "raw-json", "thread", "exec", threadId, "--agent", mockAgentPath],
         {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
@@ -162,15 +162,17 @@ describe("C1: adapter JSON round-trip integration", () => {
       throw new Error(`CLI exited with code ${exitCode}\nstdout: ${stdout}\nstderr: ${stderr}`);
     }
 
-    // Parse CLI output
+    // Parse CLI output (raw-json envelope value: { threadId, workflowHash, steps: [...] })
     const cliOutput = JSON.parse(stdout.trim());
-    expect(cliOutput).toHaveProperty("thread", threadId);
-    expect(cliOutput).toHaveProperty("head", stepHash);
-    expect(cliOutput.head).toMatch(/^[0-9A-HJ-NP-TV-Z]{13}$/);
+    expect(cliOutput).toHaveProperty("threadId", threadId);
+    expect(cliOutput.steps).toHaveLength(1);
+    const firstStep = cliOutput.steps[0];
+    expect(firstStep).toHaveProperty("head", stepHash);
+    expect(firstStep.head).toMatch(/^[0-9A-HJ-NP-TV-Z]{13}$/);
 
     // Verify the CAS step node exists and has correct metadata
     const storeAfter = await openStore(casDir);
-    const stepNode = storeAfter.cas.get(cliOutput.head as CasRef);
+    const stepNode = storeAfter.cas.get(firstStep.head as CasRef);
     expect(stepNode).not.toBeNull();
 
     const payload = stepNode!.payload as StepNodePayload;

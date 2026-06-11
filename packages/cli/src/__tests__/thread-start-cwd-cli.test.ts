@@ -150,16 +150,28 @@ graph:
     // Verify CLI accepts --cwd option (no error thrown)
     const output = execFileSync(
       process.execPath,
-      [uwfBin, "thread", "start", "test-cwd-cli", "-p", "test prompt", "--cwd", testCwd],
+      [
+        uwfBin,
+        "--format",
+        "raw-json",
+        "thread",
+        "start",
+        "test-cwd-cli",
+        "-p",
+        "test prompt",
+        "--cwd",
+        testCwd,
+      ],
       {
         env: { ...process.env, UWF_HOME: storageRoot, OCAS_HOME: casDir },
         encoding: "utf8",
       },
     );
 
+    // raw-json envelope value for thread-start: { threadId, workflowHash }
     const result = JSON.parse(output);
-    expect(result.thread).toBeDefined();
-    expect(result.workflow).toBeDefined();
+    expect(result.threadId).toBeDefined();
+    expect(result.workflowHash).toBeDefined();
 
     // The fact that we got here without throwing means CLI accepted the --cwd option
     // The actual cwd functionality is tested by the other tests using cmdThreadStart directly

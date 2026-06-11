@@ -201,18 +201,18 @@ graph:
 WF
 fi
 
-OUT=$(run_test "uwf workflow add" bash -c "$UWF workflow add $EXAMPLE_WF")
+OUT=$(run_test "uwf workflow add" bash -c "$UWF --format raw-json workflow add $EXAMPLE_WF")
 run_test "workflow add returns hash" bash -c "echo '$OUT' | jq -e '.hash'"
 
-OUT=$(run_test "uwf workflow list" bash -c "$UWF workflow list")
-run_test "workflow list is non-empty" bash -c "echo '$OUT' | jq -e 'length > 0'"
+OUT=$(run_test "uwf workflow list" bash -c "$UWF --format raw-json workflow list")
+run_test "workflow list is non-empty" bash -c "echo '$OUT' | jq -e '.items | length > 0'"
 
 # Get workflow name
-WF_NAME=$(echo "$OUT" | jq -r '.[0].name // empty')
+WF_NAME=$(echo "$OUT" | jq -r '.items[0].name // empty')
 run_test "workflow has a name" bash -c "[ -n '$WF_NAME' ]"
 
-OUT=$(run_test "uwf workflow show" bash -c "$UWF workflow show $WF_NAME")
-run_test "workflow show returns roles" bash -c "echo '$OUT' | jq -e '.payload.roles'"
+OUT=$(run_test "uwf workflow show" bash -c "$UWF --format raw-json workflow show $WF_NAME")
+run_test "workflow show returns roles" bash -c "echo '$OUT' | jq -e '.roles'"
 
 # ============================================================
 # Phase 4: Thread lifecycle
@@ -221,16 +221,16 @@ echo "" >&2
 echo "=== Phase 4: Thread lifecycle ===" >&2
 
 # Start a thread
-OUT=$(run_test "uwf thread start" bash -c "$UWF thread start $WF_NAME -p 'E2E test: what is 2+2?'")
-THREAD_ID=$(echo "$OUT" | jq -r '.thread // empty')
+OUT=$(run_test "uwf thread start" bash -c "$UWF --format raw-json thread start $WF_NAME -p 'E2E test: what is 2+2?'")
+THREAD_ID=$(echo "$OUT" | jq -r '.threadId // empty')
 run_test "thread start returns thread ID" bash -c "[ -n '$THREAD_ID' ]"
 
 # List threads
-OUT=$(run_test "uwf thread list" bash -c "$UWF thread list")
-run_test "thread appears in list" bash -c "echo '$OUT' | jq -e '.[] | select(.thread==\"$THREAD_ID\")'"
+OUT=$(run_test "uwf thread list" bash -c "$UWF --format raw-json thread list")
+run_test "thread appears in list" bash -c "echo '$OUT' | jq -e '.items[] | select(.threadId==\"$THREAD_ID\")'"
 
 # Show thread
-OUT=$(run_test "uwf thread show" bash -c "$UWF thread show $THREAD_ID")
+OUT=$(run_test "uwf thread show" bash -c "$UWF --format raw-json thread show $THREAD_ID")
 run_test "thread show returns head" bash -c "echo '$OUT' | jq -e '.head'"
 
 # Execute one step
@@ -238,8 +238,8 @@ EXEC_ARGS=""
 if [ -n "$AGENT" ]; then
   EXEC_ARGS="--agent $AGENT"
 fi
-OUT=$(run_test "uwf thread exec (1 step)" bash -c "$UWF thread exec $THREAD_ID $EXEC_ARGS")
-run_test "thread exec returns step info" bash -c "echo '$OUT' | jq -e '.head'"
+OUT=$(run_test "uwf thread exec (1 step)" bash -c "$UWF --format raw-json thread exec $THREAD_ID $EXEC_ARGS")
+run_test "thread exec returns step info" bash -c "echo '$OUT' | jq -e '.steps[-1].head'"
 
 # ============================================================
 # Phase 5: Read & Inspect
@@ -248,17 +248,18 @@ echo "" >&2
 echo "=== Phase 5: Read & Inspect ===" >&2
 
 # Step list
-OUT=$(run_test "uwf step list" bash -c "$UWF step list $THREAD_ID")
-STEP_COUNT=$(echo "$OUT" | jq '.steps | length')
-run_test "step list has steps" bash -c "[ $STEP_COUNT -gt 1 ]"
+OUT=$(run_test "uwf step list" bash -c "$UWF --format raw-json step list $THREAD_ID")
+STEP_COUNT=$(echo "$OUT" | jq '.items | length')
+# The 0.6 payload has no synthetic start entry — every items[] is a real step.
+run_test "step list has steps" bash -c "[ $STEP_COUNT -ge 1 ]"
 
 # Get last step hash
-LAST_STEP=$(echo "$OUT" | jq -r '.steps[-1].hash // empty')
+LAST_STEP=$(echo "$OUT" | jq -r '.items[-1].hash // empty')
 run_test "last step has hash" bash -c "[ -n '$LAST_STEP' ]"
 
 # Step show
 if [ -n "$LAST_STEP" ]; then
-  OUT=$(run_test "uwf step show" bash -c "$UWF step show $LAST_STEP")
+  OUT=$(run_test "uwf step show" bash -c "$UWF --format raw-json step show $LAST_STEP")
   run_test "step show returns role" bash -c "echo '$OUT' | jq -e '.role'"
 fi
 
@@ -286,17 +287,17 @@ echo "" >&2
 echo "=== Phase 6: Cancel & Fork ===" >&2
 
 # Start a second thread for cancel test
-OUT=$(run_test "thread start (for cancel)" bash -c "$UWF thread start $WF_NAME -p 'E2E cancel test'")
-CANCEL_THREAD=$(echo "$OUT" | jq -r '.thread // empty')
+OUT=$(run_test "thread start (for cancel)" bash -c "$UWF --format raw-json thread start $WF_NAME -p 'E2E cancel test'")
+CANCEL_THREAD=$(echo "$OUT" | jq -r '.threadId // empty')
 
 if [ -n "$CANCEL_THREAD" ]; then
   OUT=$(run_test "uwf thread cancel" bash -c "$UWF thread cancel $CANCEL_THREAD")
-  run_test "cancelled thread status" bash -c "$UWF thread list --status cancelled | jq -e '.[] | select(.thread==\"$CANCEL_THREAD\")'"
+  run_test "cancelled thread status" bash -c "$UWF --format raw-json thread list --status cancelled | jq -e '.items[] | select(.threadId==\"$CANCEL_THREAD\")'"
 fi
 
 # Fork from the first thread's last step
 if [ -n "$LAST_STEP" ]; then
-  OUT=$(run_test "uwf step fork" bash -c "$UWF step fork $LAST_STEP")
+  OUT=$(run_test "uwf step fork" bash -c "$UWF --format raw-json step fork $LAST_STEP")
   FORK_THREAD=$(echo "$OUT" | jq -r '.thread // empty')
   run_test "fork creates new thread" bash -c "[ -n '$FORK_THREAD' ] && [ '$FORK_THREAD' != '$THREAD_ID' ]"
 fi

@@ -1,4 +1,3 @@
-import type { StepEntry } from "@united-workforce/protocol";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -11,21 +10,33 @@ import {
 // Mock the shared read-steps helper so the judges never shell out to `uwf`.
 vi.mock("../src/judge/builtin/read-steps.js", () => ({
   readThreadSteps: vi.fn(),
+  readStepDetail: vi.fn(),
 }));
 
-import { readThreadSteps } from "../src/judge/builtin/read-steps.js";
+import type { StepDetail, StepListEntry } from "../src/judge/builtin/read-steps.js";
+import { readStepDetail, readThreadSteps } from "../src/judge/builtin/read-steps.js";
 
 const mockedReadSteps = vi.mocked(readThreadSteps);
+const mockedReadDetail = vi.mocked(readStepDetail);
 
-function makeStep(overrides: Partial<StepEntry>): StepEntry {
+/** Build a step-list entry with the new 0.6 shape. */
+function makeStep(overrides: Partial<StepListEntry>): StepListEntry {
   return {
     hash: "HASH000000000",
     role: "worker",
-    output: "---\n$status: done\n---\n\nbody",
-    detail: "DETAIL0000000",
-    agent: "hermes",
-    timestamp: 0,
     durationMs: 0,
+    ...overrides,
+  };
+}
+
+/** Build a step-detail payload (returned by `uwf step show <hash> --format raw-json`). */
+function makeDetail(overrides: Partial<StepDetail>): StepDetail {
+  return {
+    hash: "HASH000000000",
+    role: "worker",
+    agent: "hermes",
+    durationMs: 0,
+    frontmatter: { $status: "done" },
     usage: null,
     ...overrides,
   };
@@ -33,14 +44,20 @@ function makeStep(overrides: Partial<StepEntry>): StepEntry {
 
 beforeEach(() => {
   mockedReadSteps.mockReset();
+  mockedReadDetail.mockReset();
 });
 
 describe("frontmatter-compliance judge", () => {
   test("all steps have valid frontmatter → score 1.0", async () => {
     mockedReadSteps.mockReturnValue([
-      makeStep({ role: "a", output: "---\n$status: done\n---\n\nwork" }),
-      makeStep({ role: "b", output: "---\n$status: needs_input\n---\nmore" }),
+      makeStep({ hash: "A", role: "a" }),
+      makeStep({ hash: "B", role: "b" }),
     ]);
+    mockedReadDetail.mockImplementation((hash) => {
+      if (hash === "A")
+        return makeDetail({ hash: "A", role: "a", frontmatter: { $status: "done" } });
+      return makeDetail({ hash: "B", role: "b", frontmatter: { $status: "needs_input" } });
+    });
 
     const result = await runFrontmatterJudge("T1");
     const data = result.data as { stepsTotal: number; stepsValid: number; invalidSteps: unknown[] };
@@ -53,10 +70,16 @@ describe("frontmatter-compliance judge", () => {
 
   test("some steps missing $status → partial score", async () => {
     mockedReadSteps.mockReturnValue([
-      makeStep({ role: "a", output: "---\n$status: done\n---\nok" }),
-      makeStep({ role: "b", output: "---\nfoo: bar\n---\nmissing status" }),
-      makeStep({ role: "c", output: "no frontmatter at all" }),
+      makeStep({ hash: "A", role: "a" }),
+      makeStep({ hash: "B", role: "b" }),
+      makeStep({ hash: "C", role: "c" }),
     ]);
+    mockedReadDetail.mockImplementation((hash) => {
+      if (hash === "A")
+        return makeDetail({ hash: "A", role: "a", frontmatter: { $status: "done" } });
+      if (hash === "B") return makeDetail({ hash: "B", role: "b", frontmatter: { foo: "bar" } });
+      return makeDetail({ hash: "C", role: "c", frontmatter: {} });
+    });
 
     const result = await runFrontmatterJudge("T2");
     const data = result.data as {
@@ -86,32 +109,12 @@ describe("frontmatter-compliance judge", () => {
   });
 
   test("empty-string $status counts as invalid", async () => {
-    mockedReadSteps.mockReturnValue([makeStep({ role: "a", output: '---\n$status: ""\n---\nx' })]);
+    mockedReadSteps.mockReturnValue([makeStep({ hash: "A", role: "a" })]);
+    mockedReadDetail.mockReturnValue(
+      makeDetail({ hash: "A", role: "a", frontmatter: { $status: "" } }),
+    );
 
     const result = await runFrontmatterJudge("T4");
-    expect(result.score).toBe(0);
-  });
-
-  test("parsed object output with $status → score 1.0", async () => {
-    mockedReadSteps.mockReturnValue([
-      makeStep({ role: "a", output: { $status: "done", summary: "fixed" } as unknown as string }),
-      makeStep({ role: "b", output: { $status: "reviewed" } as unknown as string }),
-    ]);
-
-    const result = await runFrontmatterJudge("T5");
-    const data = result.data as { stepsTotal: number; stepsValid: number; invalidSteps: unknown[] };
-
-    expect(result.score).toBe(1.0);
-    expect(data.stepsTotal).toBe(2);
-    expect(data.stepsValid).toBe(2);
-  });
-
-  test("parsed object output missing $status → score 0", async () => {
-    mockedReadSteps.mockReturnValue([
-      makeStep({ role: "a", output: { summary: "no status field" } as unknown as string }),
-    ]);
-
-    const result = await runFrontmatterJudge("T6");
     expect(result.score).toBe(0);
   });
 });
@@ -119,15 +122,22 @@ describe("frontmatter-compliance judge", () => {
 describe("token-stats judge", () => {
   test("steps with usage → sums correctly", async () => {
     mockedReadSteps.mockReturnValue([
-      makeStep({
-        role: "a",
-        usage: { turns: 2, inputTokens: 100, outputTokens: 50, duration: 1.5 },
-      }),
-      makeStep({
+      makeStep({ hash: "A", role: "a" }),
+      makeStep({ hash: "B", role: "b" }),
+    ]);
+    mockedReadDetail.mockImplementation((hash) => {
+      if (hash === "A")
+        return makeDetail({
+          hash: "A",
+          role: "a",
+          usage: { turns: 2, inputTokens: 100, outputTokens: 50, duration: 1.5 },
+        });
+      return makeDetail({
+        hash: "B",
         role: "b",
         usage: { turns: 3, inputTokens: 200, outputTokens: 75, duration: 2.0 },
-      }),
-    ]);
+      });
+    });
 
     const result = await runTokenStatsJudge("T1");
     const data = result.data as {
@@ -153,9 +163,12 @@ describe("token-stats judge", () => {
 
   test("steps with null usage → zeros", async () => {
     mockedReadSteps.mockReturnValue([
-      makeStep({ role: "a", usage: null }),
-      makeStep({ role: "b", usage: null }),
+      makeStep({ hash: "A", role: "a" }),
+      makeStep({ hash: "B", role: "b" }),
     ]);
+    mockedReadDetail.mockImplementation((hash) =>
+      makeDetail({ hash, role: hash === "A" ? "a" : "b", usage: null }),
+    );
 
     const result = await runTokenStatsJudge("T2");
     const data = result.data as {

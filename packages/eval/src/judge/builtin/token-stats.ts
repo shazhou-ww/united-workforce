@@ -1,7 +1,7 @@
 import { createLogger } from "@united-workforce/util";
 
 import { EVAL_JUDGE_TOKEN_STATS_SCHEMA } from "../../storage/index.js";
-import { readThreadSteps } from "./read-steps.js";
+import { readStepDetail, readThreadSteps } from "./read-steps.js";
 import type { BuiltinJudgeOutput } from "./types.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
@@ -30,7 +30,8 @@ export async function runTokenStatsJudge(threadId: string): Promise<BuiltinJudge
   const perStep: PerStepStats[] = [];
 
   for (const step of steps) {
-    const usage = step.usage;
+    const detail = readStepDetail(step.hash);
+    const usage = detail.usage;
     const inputTokens = usage !== null ? usage.inputTokens : 0;
     const outputTokens = usage !== null ? usage.outputTokens : 0;
     const turns = usage !== null ? usage.turns : 0;
