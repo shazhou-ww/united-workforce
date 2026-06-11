@@ -8,76 +8,81 @@ roles:
       - git
     procedure: |
       You will receive a PR number and repo slug (owner/repo) in the task prompt.
+      Complete ALL steps within 10 tool calls. Do NOT read file contents or explore directories.
+      If a command fails, use the fallback approach immediately — do not debug.
 
-      **Step 0 — Self-review detection:**
-      Check who authored the PR and who is the current authenticated user:
+      **Step 1 — Fetch PR metadata + self-review detection (1 call):**
+      Combine self-review check and metadata collection into a single script:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      PR_AUTHOR=$(curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.user.login')
-      CURRENT_USER=$(curl -s "https://git.shazhou.work/api/v1/user" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.login')
+      API="https://git.shazhou.work/api/v1"
+      REPO="<owner/repo>"
+      PR=<number>
+
+      CURRENT_USER=$(curl -s "$API/user" -H "Authorization: token $GITEA_TOKEN" | jq -r '.login')
+      PR_JSON=$(curl -s "$API/repos/$REPO/pulls/$PR" -H "Authorization: token $GITEA_TOKEN")
+      PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login')
+      SELF_REVIEW=$( [ "$PR_AUTHOR" = "$CURRENT_USER" ] && echo true || echo false )
+
+      echo "$PR_JSON" | jq "{
+        title: .title, body: .body,
+        additions: .additions, deletions: .deletions, changed_files: .changed_files,
+        head_ref: .head.ref, head_sha: .head.sha,
+        state: .state, mergeable: .mergeable,
+        labels: [.labels[]?.name]
+      }"
+      echo "SELF_REVIEW=$SELF_REVIEW"
+      echo "CURRENT_USER=$CURRENT_USER"
       ```
-      If `$PR_AUTHOR == $CURRENT_USER`, set `selfReview: true` in your output frontmatter.
-      Self-review is allowed — you still collect full context and proceed normally. The flag tells
-      downstream roles to skip approve/reject API calls (Gitea blocks self-review submissions).
-      If not self-review, set `selfReview: false` (explicit — never omit the field). Proceed to Step 1 regardless.
+      If `SELF_REVIEW=true`, set `selfReview: true` in your output frontmatter.
+      Self-review is allowed — proceed normally. The flag tells downstream roles to skip
+      approve/reject API calls (Gitea blocks self-review submissions).
 
-      **Step 1 — Set up worktree:**
-      1. cd into the local repo clone
-      2. `git fetch origin`
-      3. Get the PR branch name:
-         ```bash
-         tea pr <number> -r <owner/repo> -o json | jq -r '.head.name'
-         ```
-      4. Create an isolated worktree (or reuse if it exists):
-         ```bash
-         git worktree add .worktrees/review/pr-<number> origin/<branch> 2>/dev/null || \
-           (cd .worktrees/review/pr-<number> && git checkout <branch> && git pull origin <branch>)
-         ```
-      5. Record the worktree path for downstream roles.
-
-      **Step 2 — Collect PR diff:**
-      Use `tea` to get the actual PR diff (NOT `git diff` which may include unrelated commits):
+      **Step 2 — Validate environment + set up worktree (1-2 calls):**
       ```bash
-      tea pr <number> -r <owner/repo> --comments -o json
-      ```
-      This gives you the PR description, labels, and comments.
+      cd <local-repo-clone>
 
-      For the actual file diff, use the Gitea API:
+      # Verify remote matches expected repo
+      REMOTE_URL=$(git remote get-url origin)
+      echo "Remote: $REMOTE_URL"
+      if ! echo "$REMOTE_URL" | grep -qi "<owner/repo>\|<owner>/<repo>"; then
+        echo "WARNING: remote origin does not match expected repo <owner/repo>"
+      fi
+
+      # Fetch PR ref and create worktree — use PR refspec, NOT branch name
+      git fetch origin +refs/pull/<number>/head:refs/heads/pr-<number> 2>&1
+      git worktree remove .worktrees/review/pr-<number> --force 2>/dev/null
+      git worktree add .worktrees/review/pr-<number> pr-<number> 2>&1
+
+      echo "Worktree: $(pwd)/.worktrees/review/pr-<number>"
+      cd .worktrees/review/pr-<number> && git log --oneline -1
+      ```
+      Record the worktree path for downstream roles.
+
+      **Step 3 — Collect PR diff (1 call):**
+      Use the Gitea API `.diff` endpoint to get the complete diff in one call:
       ```bash
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>/files" \
-        -H "Authorization: token $(cfg get GITEA_TOKEN)" | jq '.[].filename'
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>.diff" \
+        -H "Authorization: token $GITEA_TOKEN"
       ```
+      This returns the full unified diff. Extract the list of changed files from the diff headers.
 
-      Then for each changed file, get the patch:
-      ```bash
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>/files" \
-        -H "Authorization: token $(cfg get GITEA_TOKEN)" | jq -r '.[] | "=== \(.filename) ===\n\(.patch)"'
-      ```
-
-      **Step 3 — Collect existing reviews:**
-      Use the Gitea API (NOT `tea pr review-comments` which is broken):
+      **Step 4 — Collect existing reviews (1 call):**
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/pulls/<number>/reviews" \
         -H "Authorization: token $GITEA_TOKEN" \
         | jq '[.[] | {state, body, reviewer: .user.login}]'
       ```
-      This returns all previous reviews with their state (APPROVED, REQUEST_CHANGES) and body.
-      Pass this to the reviewer so they know what has already been flagged and don't repeat.
+      Pass this to the reviewer so they know what has already been flagged.
 
       **Self-approval shortcut:** If the existing reviews show that `$CURRENT_USER` has already
       submitted an APPROVED review on this PR, output `$status: already_approved` immediately.
-      There is no need to re-review — skip directly to merger.
 
-      **Step 4 — Collect PR metadata:**
-      - PR title and description
-      - Changed file count and line counts (+/-)
-      - Which packages/layers are affected
-      - Whether a changeset exists in the diff
-
-      Output all collected context for the reviewer.
+      **Step 5 — Output:**
+      Compile all collected context (metadata, diff summary, changed files, reviews, worktree path)
+      and output with the appropriate frontmatter.
 
     output: "Output the PR metadata, diff summary, changed files list, existing reviews, worktree path, and selfReview flag."
     frontmatter:
