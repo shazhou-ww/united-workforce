@@ -3,6 +3,15 @@ import type { OutputSchemaName } from "@united-workforce/protocol";
 import { Liquid } from "liquidjs";
 import { stringify } from "yaml";
 import type { UwfSchemaHashes } from "./schemas.js";
+import {
+  renderStepList,
+  renderStepShow,
+  renderThreadList,
+  renderThreadShow,
+  renderThreadStart,
+  renderWorkflowList,
+  renderWorkflowShow,
+} from "./text-renderers.js";
 
 /**
  * Five output formats supported by the uwf CLI. `text` is the default and
@@ -26,15 +35,75 @@ export function isOutputFormat(v: string): v is OutputFormat {
 }
 
 /**
- * @deprecated Legacy two-format helper kept for tests that import it. Production
- * code uses `writeEnvelope`. Removed in a follow-up after dashboards migrate.
+ * Per-command text renderer registry. Maps a fully-qualified command path
+ * (e.g. `"thread list"`, `"workflow show"`) to a function that converts
+ * the command's payload into a human-readable string.
+ *
+ * Renderers must:
+ * - Always return a `string` (never `undefined`).
+ * - Tolerate missing/null fields without throwing.
+ *
+ * The Liquid template path inside `writeEnvelope` is the primary rendering
+ * implementation. This registry exists so callers without a CAS store
+ * (tests, library consumers) can resolve `text` rendering, and so
+ * `formatOutput(data, "text", commandPath)` returns a meaningful string.
  */
-export function formatOutput(data: unknown, format: "json" | "yaml"): string {
+export type TextRenderer = (data: unknown) => string;
+
+export const TEXT_RENDERERS: Record<string, TextRenderer> = {
+  "thread list": renderThreadList,
+  "thread show": renderThreadShow,
+  "thread start": renderThreadStart,
+  "workflow list": renderWorkflowList,
+  "workflow show": renderWorkflowShow,
+  "step list": renderStepList,
+  "step show": renderStepShow,
+};
+
+/** Look up a registered text renderer by command path. */
+export function getTextRenderer(commandPath: string): TextRenderer | undefined {
+  return TEXT_RENDERERS[commandPath];
+}
+
+/** Register (or override) a text renderer for a command path. */
+export function registerTextRenderer(commandPath: string, renderer: TextRenderer): void {
+  TEXT_RENDERERS[commandPath] = renderer;
+}
+
+/**
+ * Format a payload as a string in the requested output format.
+ *
+ * For `"text"`, `formatOutput` looks up the registered renderer for
+ * `commandPath` (when provided) and falls back to a JSON serialization when
+ * no renderer is registered. The result is always a `string` — never
+ * `undefined`. For `"json"` and `"yaml"` the bare value is serialized.
+ * For `"raw-json"` and `"raw-yaml"` the output is identical to `"json"` /
+ * `"yaml"` (both modes emit the bare value; envelope wrapping happens in
+ * `writeEnvelope`).
+ *
+ * Note: this is the legacy in-process formatter used by raw output paths
+ * (`thread cancel`, `step fork`, `setup`, `log/config`) and tests. Production
+ * commands with a registered output schema go through `writeEnvelope`.
+ */
+export function formatOutput(data: unknown, format: OutputFormat, commandPath?: string): string {
   switch (format) {
     case "json":
+    case "raw-json":
       return JSON.stringify(data);
     case "yaml":
+    case "raw-yaml":
       return stringify(data, { aliasDuplicateObjects: false }).trimEnd();
+    case "text": {
+      if (commandPath !== undefined) {
+        const renderer = TEXT_RENDERERS[commandPath];
+        if (renderer !== undefined) {
+          return renderer(data);
+        }
+      }
+      // Fallback: JSON pretty-printed so `formatOutput(_, "text")` never returns
+      // `"undefined"` (the bug from issue #327).
+      return JSON.stringify(data, null, 2);
+    }
   }
 }
 

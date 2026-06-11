@@ -79,13 +79,13 @@ async function writeOutput(
 
 /**
  * Legacy raw output for commands without an output schema (log/config/setup).
- * Always emits bare JSON or YAML; ignores `text`/`raw-*` distinctions because
- * these commands are not covered by the envelope refactor.
+ * Always emits text/JSON/YAML based on the active --format. For `text`
+ * (the default) it renders via the per-command registry when available
+ * and falls back to JSON.
  */
-function writeRawOutput(data: unknown): void {
+function writeRawOutput(data: unknown, commandPath?: string): void {
   const fmt = getFormat();
-  const legacy: "json" | "yaml" = fmt === "yaml" || fmt === "raw-yaml" ? "yaml" : "json";
-  process.stdout.write(`${formatOutput(data, legacy)}\n`);
+  process.stdout.write(`${formatOutput(data, fmt, commandPath)}\n`);
 }
 
 function runAction(action: () => Promise<void>): void {
