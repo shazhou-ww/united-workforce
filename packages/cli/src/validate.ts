@@ -1,5 +1,6 @@
 import { basename, dirname } from "node:path";
 import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
+import { CURRENT_WORKFLOW_VERSION } from "@united-workforce/protocol";
 
 const CAS_REF_PATTERN = /^[0-9A-HJKMNP-TV-Z]{13}$/;
 
@@ -113,12 +114,26 @@ export function parseWorkflowPayload(raw: unknown): WorkflowPayload | null {
   if (typeof raw.name !== "string" || typeof raw.description !== "string") {
     return null;
   }
+  // version is optional in legacy YAML — falls back to CURRENT_WORKFLOW_VERSION.
+  // When present, it MUST be an integer (booleans, strings, floats are rejected).
+  if (raw.version !== undefined) {
+    if (
+      typeof raw.version !== "number" ||
+      !Number.isInteger(raw.version) ||
+      typeof raw.version === "boolean"
+    ) {
+      return null;
+    }
+  }
   if (!isStringRecord(raw.roles, isRoleDefinition) || !isGraph(raw.graph)) {
     return null;
   }
 
   // Normalize location field: undefined → null
   const normalized = { ...raw } as WorkflowPayload;
+  if (normalized.version === undefined || normalized.version === null) {
+    normalized.version = CURRENT_WORKFLOW_VERSION;
+  }
   for (const roleName of Object.keys(normalized.graph)) {
     const statusMap = normalized.graph[roleName];
     if (statusMap !== undefined) {
@@ -134,4 +149,16 @@ export function parseWorkflowPayload(raw: unknown): WorkflowPayload | null {
   }
 
   return normalized;
+}
+
+/**
+ * Returns true when the parsed YAML document had no top-level `version` field.
+ * Used by `uwf workflow add` to emit a deprecation warning while still
+ * accepting legacy workflow YAML.
+ */
+export function isMissingVersion(raw: unknown): boolean {
+  if (!isRecord(raw)) {
+    return false;
+  }
+  return raw.version === undefined;
 }

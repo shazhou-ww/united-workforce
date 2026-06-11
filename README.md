@@ -15,6 +15,24 @@ Workflow state lives entirely on disk: CAS nodes under `~/.ocas/` for definition
 
 Agents are pluggable CLI binaries (`uwf-hermes`, `uwf-builtin`, `uwf-claude-code`, or custom commands). The engine spawns the configured agent with `<thread-id>` and `<role>`, sets `UWF_EDGE_PROMPT` from the graph transition, and captures both the agent's markdown output and a detail CAS node for session replay.
 
+## Workflow YAML Format
+
+Workflow definitions are YAML files with a top-level `version` field:
+
+```yaml
+version: 1
+name: solve-issue
+description: Resolve a Gitea/GitHub issue end-to-end.
+roles:
+  planner: { goal: "...", ... }
+  developer: { goal: "...", ... }
+graph:
+  planner: { ready: developer }
+  developer: { done: $END }
+```
+
+The `version` field is an integer identifying the YAML format version. Legacy YAML without `version` is accepted (falls back to `1`) but `uwf workflow add` will emit a warning.
+
 ## Install
 
 ```bash
