@@ -1,3 +1,4 @@
+version: 1
 name: "solve-issue"
 description: "TDD-driven issue resolution. Planner creates worktree + writes specs/ files, developer implements, tester verifies against specs. Uses pnpm."
 roles:

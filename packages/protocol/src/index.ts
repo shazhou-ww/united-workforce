@@ -49,4 +49,4 @@ export type {
   WorkflowName,
   WorkflowPayload,
 } from "./types.js";
-export { SUSPEND_STATUS } from "./types.js";
+export { CURRENT_WORKFLOW_VERSION, SUSPEND_STATUS } from "./types.js";

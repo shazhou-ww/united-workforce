@@ -81,11 +81,17 @@ export type SuspendOutput = {
 };
 
 export type WorkflowPayload = {
+  /** Workflow format version. Integer; current version is 1.
+   *  Legacy YAML without a version field falls back to 1 during parsing. */
+  version: number;
   name: string;
   description: string;
   roles: Record<string, RoleDefinition>;
   graph: Record<string, Record<string, Target>>;
 };
+
+/** Current workflow YAML format version. New workflows should declare this. */
+export const CURRENT_WORKFLOW_VERSION = 1 as const;
 
 // ── 4.3 Thread 节点 ─────────────────────────────────────────────────
 

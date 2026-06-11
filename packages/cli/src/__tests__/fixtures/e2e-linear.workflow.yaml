@@ -1,3 +1,4 @@
+version: 1
 name: test-linear
 description: Simple 2-step linear test (planner -> worker -> $END)
 roles:

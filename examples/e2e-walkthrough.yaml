@@ -1,3 +1,4 @@
+version: 1
 name: "e2e-walkthrough"
 description: "End-to-end walkthrough of uwf CLI. Dogfooding: uwf tests uwf. Each role validates a phase of the CLI surface inside an isolated Docker container. Uses pnpm."
 roles:

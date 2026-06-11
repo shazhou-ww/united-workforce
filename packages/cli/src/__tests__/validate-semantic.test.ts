@@ -5,6 +5,7 @@ import { validateWorkflow } from "../validate-semantic.js";
 /** Build a valid two-role workflow that passes all checks. */
 function makeWorkflow(overrides?: Partial<WorkflowPayload>): WorkflowPayload {
   const base: WorkflowPayload = {
+    version: 1,
     name: "test-workflow",
     description: "A test workflow",
     roles: {

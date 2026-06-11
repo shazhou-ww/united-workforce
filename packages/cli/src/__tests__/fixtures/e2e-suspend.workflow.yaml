@@ -1,3 +1,4 @@
+version: 1
 name: test-suspend
 description: Planner can suspend for more info or finish when ready
 roles:
