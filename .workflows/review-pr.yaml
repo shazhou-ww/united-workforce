@@ -157,15 +157,21 @@ roles:
 
       **Your single decision: can this PR merge?**
 
-      Classify each finding into one of three tiers:
+      Classify each finding strictly:
 
-      - **Must fix, small effort** → request_changes. The author can fix it in this PR cycle. Examples: typo in user-facing text, missing null check, wrong variable name.
-      - **Must fix, large effort, does not block this merge** → approve with `suggestions`. These become tracked issues for follow-up. Examples: architectural inconsistency that needs broader refactor, missing test coverage for a complex edge case, cross-cutting concern that spans multiple files.
-      - **Nice-to-have / stylistic / not strictly necessary** → do NOT report. Skip entirely. Reviewer time is better spent on real issues.
+      1. **Broken — doesn't work without fixing** → request_changes. The code is incorrect, won't compile, crashes, or produces wrong results.
+      2. **Works but must be fixed** — the code functions but has a real problem (security hole, data loss risk, violated invariant, missing error handling that will bite users):
+         - 2a. **Small effort** (fixable in this PR cycle) → request_changes.
+         - 2b. **Large effort** (needs broader refactor, cross-cutting changes) → approve with `suggestions`. Only this category produces follow-up issues.
+      3. **Everything else** — nice-to-have, stylistic, defensive, "would be better if" → do NOT report. Skip entirely. Approve without suggestions.
+
+      The bar for `suggestions` is HIGH: the issue must be real (not hypothetical),
+      must require fixing (not just improvement), and must be too large for this PR.
+      If in doubt, it's category 3 — skip it.
 
       Decision:
-      - **approve** — No must-fix-small items. May have suggestions (must-fix-large only).
-      - **request_changes** — Has at least one must-fix item that is small enough to address in this PR cycle. List ALL such issues in `issues`.
+      - **approve** — No category 1 or 2a items. May have suggestions (category 2b only).
+      - **request_changes** — Has at least one category 1 or 2a item. List ALL such issues in `issues`.
 
       **Rules:**
       - Do NOT repeat issues already raised in existing reviews (provided in task prompt). If a previous review flagged an issue and it's still present, mention it briefly as "previously flagged, still unresolved" but do NOT write a full new finding for it.
