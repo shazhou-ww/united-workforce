@@ -96,7 +96,7 @@ workflow
   .action((id: string) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
-      const result = await cmdWorkflowShow(storageRoot, id);
+      const result = await cmdWorkflowShow(storageRoot, id, process.cwd());
       writeOutput(result);
     });
   });

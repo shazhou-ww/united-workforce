@@ -1,0 +1,284 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { stringify } from "yaml";
+import { cmdWorkflowShow } from "../commands/workflow.js";
+import type { UwfStore } from "../store.js";
+import { createUwfStore, saveWorkflowRegistry } from "../store.js";
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
+  const casDir = join(storageRoot, "cas");
+  await mkdir(casDir, { recursive: true });
+  process.env.OCAS_HOME = casDir;
+  return createUwfStore(storageRoot);
+}
+
+function makeMinimalPayload(name: string, description: string): WorkflowPayload {
+  return {
+    name,
+    description,
+    roles: {
+      worker: {
+        description: "worker role",
+        goal: "do work",
+        capabilities: [],
+        procedure: "",
+        output: "",
+        frontmatter: {
+          type: "object",
+          properties: {
+            $status: { const: "done" },
+          },
+          required: ["$status"],
+        } as unknown as CasRef,
+      },
+    },
+    graph: {
+      $START: {
+        new: { role: "worker", prompt: "start working", location: null },
+        resume: { role: "worker", prompt: "resume working", location: null },
+      },
+      worker: { done: { role: "$END", prompt: "done", location: null } },
+    },
+  };
+}
+
+async function storeWorkflow(uwf: UwfStore, name: string): Promise<CasRef> {
+  const payload = makeMinimalPayload(name, "Test workflow");
+  return await uwf.store.cas.put(uwf.schemas.workflow, payload);
+}
+
+async function createWorkflowYaml(name: string, version: string | null = null): Promise<string> {
+  const payload = makeMinimalPayload(
+    name,
+    version !== null ? `Test workflow (${version})` : "Test workflow",
+  );
+  const yaml = stringify(payload);
+  return yaml;
+}
+
+// ── fixture ───────────────────────────────────────────────────────────────────
+
+let tmpDir: string;
+let storageRoot: string;
+let projectRoot: string;
+
+beforeEach(async () => {
+  tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-wf-show-test-"));
+  storageRoot = join(tmpDir, "storage");
+  projectRoot = join(tmpDir, "project");
+  await mkdir(storageRoot, { recursive: true });
+  await mkdir(projectRoot, { recursive: true });
+});
+
+afterEach(async () => {
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
+// ── Strategy 1: CAS Hash Resolution ───────────────────────────────────────────
+
+describe("Strategy 1: CAS Hash Resolution", () => {
+  test("should resolve valid 13-char Crockford Base32 hash", async () => {
+    const uwf = await makeUwfStore(storageRoot);
+    const hash = await storeWorkflow(uwf, "test-workflow");
+
+    const result = await cmdWorkflowShow(storageRoot, hash, projectRoot);
+
+    expect(result.hash).toBe(hash);
+    expect(result.payload.name).toBe("test-workflow");
+    expect(result.name).toBeNull(); // not in registry
+  });
+
+  test("should fail on invalid hash format (non-Crockford characters)", async () => {
+    await makeUwfStore(storageRoot);
+
+    await expect(cmdWorkflowShow(storageRoot, "123456789ABCD", projectRoot)).rejects.toThrow();
+  });
+
+  test("should fail on valid-format hash not present in CAS", async () => {
+    await makeUwfStore(storageRoot);
+    const fakeHash = "0000000000000"; // valid format, doesn't exist
+
+    await expect(cmdWorkflowShow(storageRoot, fakeHash, projectRoot)).rejects.toThrow();
+  });
+});
+
+// ── Strategy 2: File Path Resolution ──────────────────────────────────────────
+
+describe("Strategy 2: File Path Resolution", () => {
+  test("should load workflow from absolute file path", async () => {
+    await makeUwfStore(storageRoot);
+    const yamlPath = join(tmpDir, "test-workflow.yaml");
+    await writeFile(yamlPath, await createWorkflowYaml("test-workflow"));
+
+    const result = await cmdWorkflowShow(storageRoot, yamlPath, projectRoot);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("test-workflow");
+    expect(result.payload.description).toBe("Test workflow");
+  });
+
+  test("should load workflow from relative file path", async () => {
+    await makeUwfStore(storageRoot);
+    const yamlPath = "test-workflow.yaml";
+    await writeFile(join(projectRoot, yamlPath), await createWorkflowYaml("test-workflow"));
+
+    const result = await cmdWorkflowShow(storageRoot, yamlPath, projectRoot);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("test-workflow");
+  });
+
+  test("should fail when file path does not exist", async () => {
+    await makeUwfStore(storageRoot);
+
+    await expect(cmdWorkflowShow(storageRoot, "./nonexistent.yaml", projectRoot)).rejects.toThrow();
+  });
+});
+
+// ── Strategy 3: Local Discovery (Parent Traversal) ────────────────────────────
+
+describe("Strategy 3: Local Discovery", () => {
+  test("should find workflow in current directory .workflows/", async () => {
+    await makeUwfStore(storageRoot);
+    const workflowDir = join(projectRoot, ".workflows");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", projectRoot);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("solve-issue");
+  });
+
+  test("should find workflow in parent directory .workflows/", async () => {
+    await makeUwfStore(storageRoot);
+    const workflowDir = join(projectRoot, ".workflows");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(join(workflowDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const subdir = join(projectRoot, "packages", "cli", "src");
+    await mkdir(subdir, { recursive: true });
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", subdir);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("solve-issue");
+  });
+
+  test("should prefer .workflows/ over .workflow/ directory", async () => {
+    await makeUwfStore(storageRoot);
+    const primaryDir = join(projectRoot, ".workflows");
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(primaryDir, { recursive: true });
+    await mkdir(legacyDir, { recursive: true });
+
+    await writeFile(
+      join(primaryDir, "solve-issue.yaml"),
+      await createWorkflowYaml("solve-issue", "primary"),
+    );
+    await writeFile(
+      join(legacyDir, "solve-issue.yaml"),
+      await createWorkflowYaml("solve-issue", "legacy"),
+    );
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", projectRoot);
+
+    expect(result.payload.description).toBe("Test workflow (primary)");
+  });
+
+  test("should find workflow in folder-based layout (.workflows/<name>/index.yaml)", async () => {
+    await makeUwfStore(storageRoot);
+    const workflowDir = join(projectRoot, ".workflows", "solve-issue");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(join(workflowDir, "index.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", projectRoot);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("solve-issue");
+  });
+
+  test("should resolve from legacy .workflow/ when .workflows/ is absent", async () => {
+    await makeUwfStore(storageRoot);
+    const legacyDir = join(projectRoot, ".workflow");
+    await mkdir(legacyDir, { recursive: true });
+    await writeFile(join(legacyDir, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", projectRoot);
+
+    expect(result.hash).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
+    expect(result.payload.name).toBe("solve-issue");
+  });
+});
+
+// ── Strategy 4: Global Registry Fallback ──────────────────────────────────────
+
+describe("Strategy 4: Global Registry Resolution", () => {
+  test("should resolve workflow from global registry when not found locally", async () => {
+    const uwf = await makeUwfStore(storageRoot);
+    const hash = await storeWorkflow(uwf, "deploy-pipeline");
+    saveWorkflowRegistry(uwf.varStore, "deploy-pipeline", hash);
+
+    const isolatedRoot = join(tmpDir, "isolated");
+    await mkdir(isolatedRoot, { recursive: true });
+
+    const result = await cmdWorkflowShow(storageRoot, "deploy-pipeline", isolatedRoot);
+
+    expect(result.hash).toBe(hash);
+    expect(result.name).toBe("deploy-pipeline"); // found in registry
+  });
+
+  test("should fail when workflow not found in any strategy", async () => {
+    await makeUwfStore(storageRoot);
+
+    await expect(cmdWorkflowShow(storageRoot, "nonexistent", tmpDir)).rejects.toThrow();
+  });
+});
+
+// ── Strategy Priority Order ───────────────────────────────────────────────────
+
+describe("Resolution Priority", () => {
+  test("should use explicit file path over local discovery", async () => {
+    await makeUwfStore(storageRoot);
+
+    // Setup: Create workflow in .workflows/ AND as explicit file
+    const workflowDir = join(projectRoot, ".workflows");
+    await mkdir(workflowDir, { recursive: true });
+    await writeFile(
+      join(workflowDir, "solve-issue.yaml"),
+      await createWorkflowYaml("solve-issue", "discovery"),
+    );
+
+    const explicitPath = join(projectRoot, "custom-solve-issue.yaml");
+    await writeFile(explicitPath, await createWorkflowYaml("custom-solve-issue", "explicit"));
+
+    // Execute with explicit path
+    const result = await cmdWorkflowShow(storageRoot, explicitPath, projectRoot);
+
+    expect(result.payload.description).toBe("Test workflow (explicit)");
+  });
+
+  test("should use local discovery over global registry", async () => {
+    const uwf = await makeUwfStore(storageRoot);
+
+    // Setup: Register globally
+    const payload = makeMinimalPayload("solve-issue", "Test workflow (global)");
+    const globalHash = await uwf.store.cas.put(uwf.schemas.workflow, payload);
+    saveWorkflowRegistry(uwf.varStore, "solve-issue", globalHash);
+
+    // Setup: Create local .workflows/
+    const workflowDir = join(projectRoot, ".workflows");
+    await mkdir(workflowDir, { recursive: true });
+    const localYaml = await createWorkflowYaml("solve-issue", "local");
+    await writeFile(join(workflowDir, "solve-issue.yaml"), localYaml);
+
+    const result = await cmdWorkflowShow(storageRoot, "solve-issue", projectRoot);
+
+    expect(result.payload.description).toBe("Test workflow (local)");
+  });
+});
