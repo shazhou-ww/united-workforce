@@ -25,12 +25,19 @@ const OUTPUT_SCHEMA = {
 // ── fixture ──────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let savedOcasHome: string | undefined;
 
 beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-roundtrip-test-"));
 });
 
 afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
   await rm(tmpDir, { recursive: true, force: true });
 });
 

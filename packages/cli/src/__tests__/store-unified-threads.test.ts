@@ -1,23 +1,17 @@
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   completeThread,
-  createUwfStore,
+  type createUwfStore,
   getThread,
   loadActiveThreads,
   loadHistoryThreads,
   setThread,
 } from "../store.js";
-
-async function makeUwfStore(storageRoot: string) {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
+import { makeUwfStore } from "./thread-test-helpers.js";
 
 async function seedThreadHead(
   uwf: Awaited<ReturnType<typeof createUwfStore>>,
@@ -26,9 +20,25 @@ async function seedThreadHead(
   return (await uwf.store.cas.put(uwf.schemas.text, label)) as CasRef;
 }
 
+let tmpDir: string;
+let savedOcasHome: string | undefined;
+
+beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
+  tmpDir = await mkdtemp(join(tmpdir(), "uwf-store-test-"));
+});
+
+afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
 describe("unified thread storage", () => {
   test("loadActiveThreads excludes completed threads", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-active-test-"));
     const uwf = await makeUwfStore(tmpDir);
 
     const threadId1 = "01JTEST000000000000ACTIVE1" as ThreadId;
@@ -59,7 +69,6 @@ describe("unified thread storage", () => {
   });
 
   test("loadActiveThreads excludes cancelled threads", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-active-test-"));
     const uwf = await makeUwfStore(tmpDir);
 
     const threadId1 = "01JTEST000000000000ACTIVE3" as ThreadId;
@@ -90,7 +99,6 @@ describe("unified thread storage", () => {
   });
 
   test("loadHistoryThreads only returns completed and cancelled", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-history-test-"));
     const uwf = await makeUwfStore(tmpDir);
 
     const threadId1 = "01JTEST000000000000HISTOR1" as ThreadId;
@@ -132,7 +140,6 @@ describe("unified thread storage", () => {
   });
 
   test("completeThread marks thread as completed", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-complete-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const threadId = "01JTEST000000000000COMPLE1" as ThreadId;
     const head = await seedThreadHead(uwf, "active-head");
@@ -155,7 +162,6 @@ describe("unified thread storage", () => {
   });
 
   test("completeThread marks thread as cancelled", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-complete-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const threadId = "01JTEST000000000000COMPLE2" as ThreadId;
     const head = await seedThreadHead(uwf, "active-head");
@@ -178,7 +184,6 @@ describe("unified thread storage", () => {
   });
 
   test("completeThread clears suspend metadata", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-complete-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const threadId = "01JTEST000000000000COMPLE3" as ThreadId;
     const head = await seedThreadHead(uwf, "suspended-head");
@@ -201,7 +206,6 @@ describe("unified thread storage", () => {
   });
 
   test("completeThread handles non-existent thread gracefully", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-complete-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const threadId = "01JTEST000000000000NOEXIST" as ThreadId;
 
@@ -213,7 +217,6 @@ describe("unified thread storage", () => {
   });
 
   test("status and completedAt tags are persisted and loaded", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-tags-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const threadId = "01JTEST000000000000TAGTEST" as ThreadId;
     const head = await seedThreadHead(uwf, "test-head");

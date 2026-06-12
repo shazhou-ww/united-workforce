@@ -1,22 +1,16 @@
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   completeThread,
-  createUwfStore,
+  type createUwfStore,
   getThread,
   loadHistoryThreads,
   setThread,
 } from "../store.js";
-
-async function makeUwfStore(storageRoot: string) {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
+import { makeUwfStore } from "./thread-test-helpers.js";
 
 async function seedHistoryHead(
   uwf: Awaited<ReturnType<typeof createUwfStore>>,
@@ -25,9 +19,25 @@ async function seedHistoryHead(
   return (await uwf.store.cas.put(uwf.schemas.text, label)) as CasRef;
 }
 
+let tmpDir: string;
+let savedOcasHome: string | undefined;
+
+beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
+  tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
+});
+
+afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
 describe("thread cancel status", () => {
   test("cancelled thread has status 'cancelled'", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const threadId = "01JTEST000000000000CANCEL1" as ThreadId;
     const uwf = await makeUwfStore(tmpDir);
     const head = await seedHistoryHead(uwf, "cancelled-head");
@@ -48,7 +58,6 @@ describe("thread cancel status", () => {
   });
 
   test("completed thread has status 'completed'", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const threadId = "01JTEST000000000000CANCEL2" as ThreadId;
     const uwf = await makeUwfStore(tmpDir);
     const head = await seedHistoryHead(uwf, "completed-head");
@@ -69,7 +78,6 @@ describe("thread cancel status", () => {
   });
 
   test("loadHistoryThreads returns completed and cancelled", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const head1 = await seedHistoryHead(uwf, "head1");
     const head2 = await seedHistoryHead(uwf, "head2");
@@ -103,7 +111,6 @@ describe("thread cancel status", () => {
   });
 
   test("mixed completed and cancelled entries preserve distinct statuses", async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), "uwf-cancel-test-"));
     const uwf = await makeUwfStore(tmpDir);
     const head1 = await seedHistoryHead(uwf, "head1");
     const head2 = await seedHistoryHead(uwf, "head2");

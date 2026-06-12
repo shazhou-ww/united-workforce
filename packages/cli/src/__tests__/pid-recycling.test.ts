@@ -13,16 +13,10 @@ import {
   listRunningThreads,
   readMarker,
 } from "../background/index.js";
-import { createUwfStore, type UwfStore } from "../store.js";
+import type { UwfStore } from "../store.js";
+import { makeUwfStore } from "./thread-test-helpers.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
 
 async function createTestWorkflow(uwf: UwfStore): Promise<CasRef> {
   const workflowPayload = {
@@ -42,12 +36,19 @@ async function createTestWorkflow(uwf: UwfStore): Promise<CasRef> {
 // ── test setup ────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let savedOcasHome: string | undefined;
 
 beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
   tmpDir = await mkdtemp(join(tmpdir(), "pid-recycling-test-"));
 });
 
 afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
   await rm(tmpDir, { recursive: true, force: true });
 });
 

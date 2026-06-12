@@ -6,17 +6,10 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { stringify } from "yaml";
 import { cmdThreadStart } from "../commands/thread.js";
 import { cmdWorkflowList } from "../commands/workflow.js";
-import type { UwfStore } from "../store.js";
-import { createUwfStore, discoverProjectWorkflows } from "../store.js";
+import { discoverProjectWorkflows } from "../store.js";
+import { makeUwfStore } from "./thread-test-helpers.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
 
 function makeMinimalPayload(name: string, description: string): WorkflowPayload {
   return {
@@ -62,8 +55,10 @@ async function createWorkflowYaml(name: string, version: string | null = null): 
 let tmpDir: string;
 let storageRoot: string;
 let projectRoot: string;
+let savedOcasHome: string | undefined;
 
 beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
   tmpDir = await mkdtemp(join(tmpdir(), "uwf-wf-list-recursive-"));
   storageRoot = join(tmpDir, "storage");
   projectRoot = join(tmpDir, "project");
@@ -72,6 +67,11 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
   await rm(tmpDir, { recursive: true, force: true });
 });
 

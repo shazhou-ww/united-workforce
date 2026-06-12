@@ -1,6 +1,20 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import type { CasRef, ThreadId, ThreadIndexEntry } from "@united-workforce/protocol";
 import { createThreadIndexEntry } from "@united-workforce/protocol";
-import { createUwfStore, setThread } from "../store.js";
+import { createUwfStore, setThread, type UwfStore } from "../store.js";
+
+/**
+ * Create an isolated UwfStore backed by a tmpdir.
+ * Sets process.env.OCAS_HOME so CAS resolves to the test's directory.
+ * Callers MUST save/restore OCAS_HOME in afterEach.
+ */
+export async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
+  const casDir = join(storageRoot, "cas");
+  await mkdir(casDir, { recursive: true });
+  process.env.OCAS_HOME = casDir;
+  return createUwfStore(storageRoot);
+}
 
 async function ensureHeadInCas(
   uwf: Awaited<ReturnType<typeof createUwfStore>>,

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootstrap, putSchema, type Store } from "@ocas/core";
@@ -11,8 +11,8 @@ import {
   THREAD_READ_DEFAULT_QUOTA,
 } from "../commands/thread.js";
 import type { UwfStore } from "../store.js";
-import { completeThread, createUwfStore, setThread } from "../store.js";
-import { seedThreads } from "./thread-test-helpers.js";
+import { completeThread, setThread } from "../store.js";
+import { makeUwfStore, seedThreads } from "./thread-test-helpers.js";
 
 // ── schemas used in tests ────────────────────────────────────────────────────
 
@@ -54,13 +54,6 @@ const DETAIL_SCHEMA = {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
-
 async function registerDetailSchemas(store: Store) {
   await bootstrap(store);
   const [turn, detail] = await Promise.all([
@@ -73,12 +66,19 @@ async function registerDetailSchemas(store: Store) {
 // ── fixture ───────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let savedOcasHome: string | undefined;
 
 beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
   tmpDir = await mkdtemp(join(tmpdir(), "cli-uwf-test-"));
 });
 
 afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
   await rm(tmpDir, { recursive: true, force: true });
 });
 

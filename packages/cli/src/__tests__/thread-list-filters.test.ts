@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CasRef, ThreadId } from "@united-workforce/protocol";
@@ -16,16 +16,9 @@ import {
   saveWorkflowRegistry,
   setThread,
 } from "../store.js";
+import { makeUwfStore } from "./thread-test-helpers.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-async function makeUwfStore(storageRoot: string): Promise<UwfStore> {
-  const casDir = join(storageRoot, "cas");
-  await mkdir(casDir, { recursive: true });
-  // Set OCAS_HOME to use the test's CAS directory
-  process.env.OCAS_HOME = casDir;
-  return createUwfStore(storageRoot);
-}
 
 async function createTestWorkflow(uwf: UwfStore): Promise<CasRef> {
   const workflowPayload = {
@@ -84,12 +77,19 @@ async function completeThread(
 // ── test setup ────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
+let savedOcasHome: string | undefined;
 
 beforeEach(async () => {
+  savedOcasHome = process.env.OCAS_HOME;
   tmpDir = await mkdtemp(join(tmpdir(), "thread-list-filters-test-"));
 });
 
 afterEach(async () => {
+  if (savedOcasHome === undefined) {
+    delete process.env.OCAS_HOME;
+  } else {
+    process.env.OCAS_HOME = savedOcasHome;
+  }
   await rm(tmpDir, { recursive: true, force: true });
 });
 
