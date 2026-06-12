@@ -1,4 +1,5 @@
 import type { CasRef, StartOutput, StepOutput } from "@united-workforce/protocol";
+import { extractUlidTimestamp } from "@united-workforce/util";
 import type { ThreadListItemWithStatus } from "./commands/thread.js";
 import type {
   WorkflowAddOutput,
@@ -68,29 +69,10 @@ export function toThreadListPayload(items: ThreadListItemWithStatus[]): ThreadLi
       workflowName: it.workflowName,
       status: it.status,
       currentRole: it.currentRole,
-      startedAt: extractUlidTime(it.thread),
+      startedAt: extractUlidTimestamp(it.thread),
       completedAt: null,
     })),
   };
-}
-
-function extractUlidTime(ulid: string): number | null {
-  // Best-effort: if it's a 26-char Crockford Base32 ULID, the first 10 chars
-  // are the timestamp. Returning null when malformed avoids polluting output.
-  if (ulid.length !== 26) return null;
-  try {
-    const ts = ulid.slice(0, 10);
-    let n = 0;
-    const ALPHA = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-    for (const ch of ts) {
-      const v = ALPHA.indexOf(ch.toUpperCase());
-      if (v === -1) return null;
-      n = n * 32 + v;
-    }
-    return n;
-  } catch {
-    return null;
-  }
 }
 
 export type ThreadExecPayload = {
