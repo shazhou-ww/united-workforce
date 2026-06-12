@@ -13,6 +13,7 @@ import {
   renderThreadList,
   renderThreadShow,
   renderThreadStart,
+  renderThreadStop,
   renderWorkflowList,
   renderWorkflowShow,
 } from "./text-renderers.js";
@@ -59,6 +60,7 @@ export const TEXT_RENDERERS: Record<string, TextRenderer> = {
   "thread show": renderThreadShow,
   "thread start": renderThreadStart,
   "thread cancel": renderThreadCancel,
+  "thread stop": renderThreadStop,
   "workflow list": renderWorkflowList,
   "workflow show": renderWorkflowShow,
   "step list": renderStepList,
