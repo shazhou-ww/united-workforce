@@ -241,6 +241,17 @@ export const WORKFLOW_LIST_OUTPUT_SCHEMA: JSONSchema = {
   additionalProperties: false,
 };
 
+export const WORKFLOW_ADD_OUTPUT_SCHEMA: JSONSchema = {
+  title: "@uwf/output/workflow-add",
+  type: "object",
+  required: ["name", "hash"],
+  properties: {
+    name: { type: "string" },
+    hash: { type: "string" },
+  },
+  additionalProperties: false,
+};
+
 export const VALIDATE_RESULT_OUTPUT_SCHEMA: JSONSchema = {
   title: "@uwf/output/validate-result",
   type: "object",
@@ -260,6 +271,7 @@ export const OUTPUT_SCHEMAS = {
   "thread-exec": THREAD_EXEC_OUTPUT_SCHEMA,
   "step-detail": STEP_DETAIL_OUTPUT_SCHEMA,
   "step-list": STEP_LIST_OUTPUT_SCHEMA,
+  "workflow-add": WORKFLOW_ADD_OUTPUT_SCHEMA,
   "workflow-detail": WORKFLOW_DETAIL_OUTPUT_SCHEMA,
   "workflow-list": WORKFLOW_LIST_OUTPUT_SCHEMA,
   "validate-result": VALIDATE_RESULT_OUTPUT_SCHEMA,

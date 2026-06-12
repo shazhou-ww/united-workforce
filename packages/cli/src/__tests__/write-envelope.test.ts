@@ -159,6 +159,79 @@ describe("writeEnvelope — text format (Liquid template)", () => {
     expect(out).toContain('  - unknown role "bogus"');
     expect(out).toContain("  - $START missing resume edge");
   });
+
+  test("renders workflow-add as Registered/Hash key-value lines", async () => {
+    const payload = { name: "review-pr", hash: "2TBP6T37TZAJZ" };
+    const { result, output } = captureStdout(async () =>
+      writeEnvelope(payload, "workflow-add", { format: "text", store, schemas }),
+    );
+    await result;
+
+    const out = output.join("");
+    expect(out).toBe("Registered  review-pr\nHash        2TBP6T37TZAJZ\n");
+    // No JSON envelope leakage
+    expect(out).not.toContain("{");
+    expect(out).not.toContain("undefined");
+    // Single trailing newline
+    expect(out.endsWith("\n")).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+  });
+
+  test("workflow-add tolerates empty hash field without throwing", async () => {
+    const payload = { name: "review-pr", hash: "" };
+    const { result, output } = captureStdout(async () =>
+      writeEnvelope(payload, "workflow-add", { format: "text", store, schemas }),
+    );
+    await result;
+
+    const out = output.join("");
+    // Renders without throwing; empty hash leaves trailing whitespace
+    expect(out).toContain("Registered  review-pr");
+    expect(out).toContain("Hash        ");
+    expect(out).not.toContain("undefined");
+  });
+});
+
+describe("writeEnvelope — workflow-add formats", () => {
+  test("json format wraps payload in {type,value} envelope", async () => {
+    const payload = { name: "review-pr", hash: "2TBP6T37TZAJZ" };
+    const { result, output } = captureStdout(async () =>
+      writeEnvelope(payload, "workflow-add", { format: "json", store, schemas }),
+    );
+    await result;
+
+    const out = output.join("");
+    const parsed = JSON.parse(out);
+    expect(parsed).toEqual({
+      type: schemas.outputs["workflow-add"],
+      value: { name: "review-pr", hash: "2TBP6T37TZAJZ" },
+    });
+  });
+
+  test("raw-json format emits bare payload (legacy 0.5.0 shape)", async () => {
+    const payload = { name: "review-pr", hash: "2TBP6T37TZAJZ" };
+    const { result, output } = captureStdout(async () =>
+      writeEnvelope(payload, "workflow-add", { format: "raw-json", store, schemas }),
+    );
+    await result;
+
+    const out = output.join("");
+    expect(out).toBe('{"name":"review-pr","hash":"2TBP6T37TZAJZ"}\n');
+  });
+
+  test("yaml format emits envelope with type and value keys", async () => {
+    const payload = { name: "review-pr", hash: "2TBP6T37TZAJZ" };
+    const { result, output } = captureStdout(async () =>
+      writeEnvelope(payload, "workflow-add", { format: "yaml", store, schemas }),
+    );
+    await result;
+
+    const out = output.join("");
+    expect(out).toContain(`type: ${schemas.outputs["workflow-add"]}`);
+    expect(out).toContain("value:");
+    expect(out).toContain("name: review-pr");
+    expect(out).toContain("hash: 2TBP6T37TZAJZ");
+  });
 });
 
 describe("writeEnvelope — schema lookup", () => {

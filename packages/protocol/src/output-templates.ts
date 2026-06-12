@@ -51,6 +51,9 @@ const WORKFLOW_LIST_TEMPLATE = `NAME          HASH           SOURCE     DESCRIPT
 {{ item.name | append: "             " | slice: 0, 13 }} {{ item.hash }}  {{ item.source | append: "          " | slice: 0, 10 }} {{ item.description }}
 {%- endfor %}`;
 
+const WORKFLOW_ADD_TEMPLATE = `Registered  {{ name }}
+Hash        {{ hash }}`;
+
 const VALIDATE_RESULT_TEMPLATE = `{%- if valid -%}
 ✓ valid
 {%- else -%}
@@ -67,6 +70,7 @@ export const OUTPUT_TEMPLATES: Record<OutputSchemaName, string> = {
   "thread-exec": THREAD_EXEC_TEMPLATE,
   "step-detail": STEP_DETAIL_TEMPLATE,
   "step-list": STEP_LIST_TEMPLATE,
+  "workflow-add": WORKFLOW_ADD_TEMPLATE,
   "workflow-detail": WORKFLOW_DETAIL_TEMPLATE,
   "workflow-list": WORKFLOW_LIST_TEMPLATE,
   "validate-result": VALIDATE_RESULT_TEMPLATE,

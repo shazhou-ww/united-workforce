@@ -10,6 +10,7 @@ import {
   THREAD_START_OUTPUT_SCHEMA,
   THREAD_STATUS_OUTPUT_SCHEMA,
   VALIDATE_RESULT_OUTPUT_SCHEMA,
+  WORKFLOW_ADD_OUTPUT_SCHEMA,
   WORKFLOW_DETAIL_OUTPUT_SCHEMA,
   WORKFLOW_LIST_OUTPUT_SCHEMA,
 } from "../output-schemas.js";
@@ -21,7 +22,7 @@ function setupStore() {
 }
 
 describe("CLI output schemas — exports and identity", () => {
-  test("OUTPUT_SCHEMAS map covers all nine output schema names", () => {
+  test("OUTPUT_SCHEMAS map covers all ten output schema names", () => {
     expect(Object.keys(OUTPUT_SCHEMAS).sort()).toEqual([
       "step-detail",
       "step-list",
@@ -30,6 +31,7 @@ describe("CLI output schemas — exports and identity", () => {
       "thread-start",
       "thread-status",
       "validate-result",
+      "workflow-add",
       "workflow-detail",
       "workflow-list",
     ]);
@@ -271,6 +273,61 @@ describe("WORKFLOW_LIST_OUTPUT_SCHEMA", () => {
     const node = store.cas.get(ref);
     if (node === null) throw new Error("unreachable");
     expect(validate(store, node)).toBe(true);
+  });
+});
+
+describe("WORKFLOW_ADD_OUTPUT_SCHEMA", () => {
+  test("accepts a workflow-add payload", () => {
+    const store = setupStore();
+    const hash = putSchema(store, WORKFLOW_ADD_OUTPUT_SCHEMA);
+    const ref = store.cas.put(hash, {
+      name: "review-pr",
+      hash: "2TBP6T37TZAJZ",
+    });
+    const node = store.cas.get(ref);
+    if (node === null) throw new Error("unreachable");
+    expect(validate(store, node)).toBe(true);
+  });
+
+  test("rejects payload missing name", () => {
+    const store = setupStore();
+    const hash = putSchema(store, WORKFLOW_ADD_OUTPUT_SCHEMA);
+    const ref = store.cas.put(hash, { hash: "2TBP6T37TZAJZ" });
+    const node = store.cas.get(ref);
+    if (node === null) throw new Error("unreachable");
+    expect(validate(store, node)).toBe(false);
+  });
+
+  test("rejects payload missing hash", () => {
+    const store = setupStore();
+    const hash = putSchema(store, WORKFLOW_ADD_OUTPUT_SCHEMA);
+    const ref = store.cas.put(hash, { name: "review-pr" });
+    const node = store.cas.get(ref);
+    if (node === null) throw new Error("unreachable");
+    expect(validate(store, node)).toBe(false);
+  });
+
+  test("rejects payload with extra unknown field", () => {
+    const store = setupStore();
+    const hash = putSchema(store, WORKFLOW_ADD_OUTPUT_SCHEMA);
+    const ref = store.cas.put(hash, {
+      name: "review-pr",
+      hash: "2TBP6T37TZAJZ",
+      extra: "nope",
+    });
+    const node = store.cas.get(ref);
+    if (node === null) throw new Error("unreachable");
+    expect(validate(store, node)).toBe(false);
+  });
+
+  test("schema title is @uwf/output/workflow-add", () => {
+    expect((WORKFLOW_ADD_OUTPUT_SCHEMA as { title?: string }).title).toBe(
+      "@uwf/output/workflow-add",
+    );
+  });
+
+  test("outputSchemaVarName('workflow-add') returns @uwf/output/workflow-add", () => {
+    expect(outputSchemaVarName("workflow-add")).toBe("@uwf/output/workflow-add");
   });
 });
 
