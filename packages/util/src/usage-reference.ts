@@ -105,6 +105,33 @@ start → exec (repeat) → thread reaches $END → auto-end (status: end)
                        → or: cancel to abort
 \`\`\`
 
+### Thread States
+
+| Status | Meaning | Transitions |
+|--------|---------|-------------|
+| \`idle\` | Created or between steps, ready to exec | → \`running\` (exec) / \`cancelled\` (cancel) |
+| \`running\` | Agent currently executing | → \`idle\` (step done) / \`suspended\` ($SUSPEND) / \`end\` ($END) |
+| \`suspended\` | Paused by agent or resource limit, waiting for human | → resume / cancel |
+| \`end\` | Workflow reached $END, archived | → resume (re-enter via $START.resume) |
+| \`cancelled\` | Manually aborted, archived | terminal |
+
+### Controlling Execution
+
+\`\`\`bash
+# Stop: kill the background process, thread stays idle (can exec again)
+uwf thread stop <thread-id>
+
+# Cancel: terminate thread permanently, move to history
+uwf thread cancel <thread-id>
+\`\`\`
+
+**\`stop\` vs \`cancel\`**: \`stop\` only kills the running background process — the thread
+remains \`idle\` and you can \`exec\` it again later. \`cancel\` is permanent: the thread
+moves to \`cancelled\` status in history and cannot be resumed.
+
+Use \`stop\` when you need to free resources temporarily (e.g. memory pressure from
+concurrent threads). Use \`cancel\` when the thread is no longer needed.
+
 ### Suspend and Resume (\`$SUSPEND\`)
 
 Any role may yield control by emitting \`$status: "$SUSPEND"\` with a \`reason\` string in its
@@ -210,7 +237,7 @@ uwf log clean --before <date>      # delete old logs
 ## Global Options
 
 \`\`\`
-uwf --format <json|yaml>           # output format (default: json)
+uwf --format <fmt>                 # output format: text (default), json, yaml, raw-json, raw-yaml
 uwf -V, --version                  # print version
 \`\`\`
 
