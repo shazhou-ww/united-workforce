@@ -22,7 +22,7 @@ Suspend  {{ suspendMessage }}{% endif %}`;
 
 const THREAD_LIST_TEMPLATE = `THREAD                      WORKFLOW       STATUS     ROLE       STARTED
 {%- for item in items %}
-{{ item.threadId }}  {{ item.workflowHash }}  {{ item.status | append: "          " | slice: 0, 9 }} {{ item.currentRole | default: "-" | append: "          " | slice: 0, 10 }} {% if item.startedAt %}{{ item.startedAt | date: "%Y-%m-%d %H:%M" }}{% else %}-{% endif %}
+{{ item.threadId }}  {{ item.workflowHash }}  {{ item.status | append: "          " | slice: 0, 9 }} {{ item.currentRole | default: "-" | append: "          " | slice: 0, 10 }} {% if item.startedAt %}{{ item.startedAt | divided_by: 1000 | date: "%Y-%m-%d %H:%M" }}{% else %}-{% endif %}
 {%- endfor %}`;
 
 const THREAD_EXEC_TEMPLATE = `{%- for step in steps -%}
