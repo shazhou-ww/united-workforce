@@ -1,5 +1,174 @@
 # @united-workforce/cli
 
+## 0.5.0 — 2026-06-12
+
+- Bundle 3 general-purpose example workflows (debate, brainstorm, socratic-questioning) into the CLI package. `uwf setup` now auto-registers them so users can run them immediately without manual `workflow add`.
+  
+  Add `$body` as an engine-injected Liquid template variable in edge prompts. `{{ $body }}` resolves to the markdown body (after frontmatter) from the previous step's output, enabling full prose to flow between roles instead of only frontmatter field summaries. Defining `$body` in a frontmatter schema is rejected by the validator as a reserved property.
+- **BREAKING**: `uwf` CLI commands now emit ocas envelopes (`{ type, value }`) by default, with text rendering as the default format.
+  
+  Five output formats are supported via `--format`:
+  
+  | Format | Shape | Use case |
+  |--------|-------|----------|
+  | `text` (default) | Liquid-rendered human-readable view | Interactive terminal use |
+  | `json` | `{"type": "<schemaHash>", "value": <payload>}` | Self-describing JSON for downstream parsers |
+  | `yaml` | YAML envelope (type, value keys) | Self-describing YAML |
+  | `raw-json` | bare `<payload>` | **0.5.0 backward compat** — drop-in replacement for old `json` |
+  | `raw-yaml` | bare `<payload>` | **0.5.0 backward compat** — drop-in replacement for old `yaml` |
+  
+  Migration: scripts that consumed `uwf ... --format json` (parsing the bare value) must switch to `--format raw-json` to preserve the previous output shape, or update their parsers to read from the `value` field of the envelope.
+  
+  New protocol exports:
+  - `OUTPUT_SCHEMAS` map and individual `*_OUTPUT_SCHEMA` constants for the 9 CLI output schemas (thread-start, thread-status, thread-list, thread-exec, step-detail, step-list, workflow-detail, workflow-list, validate-result)
+  - `OUTPUT_TEMPLATES` map and `outputSchemaVarName(name)` helper
+  
+  The CLI registers all output schemas and `@ocas/template/text/<schemaHash>` templates idempotently on first use via `registerUwfSchemas`.
+  
+  `uwf workflow validate` now emits a structured `validate-result` envelope on stdout (`✓ valid` / `✗ invalid (N errors)`) instead of writing errors to stderr; exit codes are preserved (0 for valid, 1 for invalid).
+  
+  **In-repo consumer migration** (`@united-workforce/eval` patch): the eval runner (`runner/execute.ts`) and the builtin judges (`judge/builtin/read-steps.ts`, `frontmatter.ts`, `token-stats.ts`) now invoke the CLI with `--format raw-json` and read the new payload field names (`threadId`, `workflowHash`, `items`, `steps`). The `step list` payload no longer contains a synthetic start entry, so the judges drop the legacy `.slice(1)` and fetch per-step `frontmatter`/`usage` via a follow-up `uwf step show <hash>` call. Repo helper scripts `scripts/e2e-walkthrough.sh` and `scripts/batch-solve.sh` were migrated in lockstep (jq/python paths updated to match the new payload shape).
+- Migrate `examples/debate.yaml` from Handlebars triple-brace `{{{var}}}` syntax to Liquid `{{ var }}` syntax. The 0.4.0 LiquidJS-based validator rejected the old syntax with six `template variable "unknown" not found` errors. Fixes #300.
+- Migrate remaining example workflows from Handlebars triple-brace `{{{var}}}` syntax to Liquid `{{ var }}` syntax. Updates `examples/e2e-walkthrough.yaml` (12 occurrences), `examples/normalize-bun-monorepo.yaml` (22 occurrences), and `examples/solve-issue.yaml` (11 occurrences). The 0.4.0 LiquidJS-based validator rejected the old syntax with `template variable "unknown" not found` errors. Fixes #307.
+- Fix `formatOutput(data, "text")` returning `undefined` (issue #327).
+  
+  `OutputFormat` already included `"text"` per #320, but the legacy
+  `formatOutput` helper still only exhaustively matched `"json" | "yaml"` —
+  calling it with `"text"` fell through the switch and returned `undefined`.
+  That bug was masked in production because the CLI's `writeRawOutput`
+  narrowed the format down to `"json" | "yaml"` before calling
+  `formatOutput`. Tests and library consumers that called `formatOutput`
+  directly with `"text"` got the literal string `"undefined"` printed.
+  
+  Changes:
+  
+  - `formatOutput(data, format, commandPath?)` now accepts the full
+    `OutputFormat` union (`text | json | yaml | raw-json | raw-yaml`) and
+    always returns a `string`.
+  - New `TEXT_RENDERERS` registry of type
+    `Record<string, (data: unknown) => string>` provides per-command text
+    renderers for `thread list`, `thread show`, `thread start`,
+    `workflow list`, `workflow show`, `step list`, and `step show`. The
+    rendererss tolerate missing/null fields and never return `undefined`.
+  - `getTextRenderer(commandPath)` and `registerTextRenderer(commandPath, fn)`
+    expose the registry for library consumers.
+  - When `formatOutput` is called with `"text"` and no `commandPath` (or no
+    matching renderer), it falls back to a pretty-printed JSON serialization
+    rather than `undefined`.
+  - `writeRawOutput` in the CLI was simplified to forward the active format
+    directly to `formatOutput`, so `--format text` is consistently honored
+    for the legacy raw-output commands (`thread cancel`, `step fork`,
+    `setup`, `log`, `config`).
+- fix(cli): render `thread cancel` output via the per-command text renderer
+  
+  `uwf thread cancel <thread-id>` previously produced raw JSON under the
+  default `--format text` because the cancel `.action()` did not pass a
+  `commandPath` to `writeRawOutput`, and `TEXT_RENDERERS` had no entry
+  for `"thread cancel"`. This adds `renderThreadCancel` and registers it,
+  matching the pattern introduced in #329 for the other CLI commands.
+  JSON / YAML output is unchanged.
+  
+  Fixes #331
+- Fix `uwf workflow add` defaulting to raw JSON output (issue #334).
+  
+  `workflow add` was the only data-producing CLI command that did not migrate
+  to the per-command renderer registry introduced in #329. It still called
+  `writeRawOutput(result)`, so the default `--format text` printed
+  `{"name":"...","hash":"..."}` raw JSON instead of human-readable text.
+  
+  Changes:
+  
+  - New `WORKFLOW_ADD_OUTPUT_SCHEMA` registered under `@uwf/output/workflow-add`
+    with `name` and `hash` string fields (`additionalProperties: false`).
+  - New `OUTPUT_TEMPLATES["workflow-add"]` Liquid template renders the result
+    as labelled key-value lines:
+  
+    ```
+    Registered  review-pr
+    Hash        2TBP6T37TZAJZ
+    ```
+  
+  - New `WorkflowAddPayload` type and `toWorkflowAddPayload` mapper in
+    `@united-workforce/cli/src/output-mappers.ts`.
+  - The `workflow add` action now calls
+    `writeOutput(toWorkflowAddPayload(result), "workflow-add", storageRoot)`
+    so all five formats (`text`, `json`, `yaml`, `raw-json`, `raw-yaml`) are
+    honored consistently with every other data-producing command.
+- fix(cli): route `thread stop` output through text renderer (#341)
+  
+  `uwf thread stop` was emitting raw JSON (`{"thread":"...","stopped":false}`)
+  instead of a human-readable text view under the default `--format text`. This
+  mirrors the gap previously fixed for `thread cancel` (#331) and `workflow add`
+  (#334).
+  
+  - Added `renderThreadStop` to `packages/cli/src/text-renderers.ts`.
+  - Registered `"thread stop"` in the `TEXT_RENDERERS` map in `format.ts`.
+  - Updated `cli.ts` to pass `"thread stop"` as the `commandPath` to
+    `writeRawOutput`, so `formatOutput` resolves the new renderer.
+  
+  JSON / YAML output formats are unchanged.
+- fix(cli): route `log list` and `log show` output through text renderer (#342)
+  
+  `uwf log list` and `uwf log show` were emitting raw JSON arrays instead of a
+  human-readable text view under the default `--format text`. This mirrors the
+  gap previously fixed for `thread cancel` (#331), `workflow add` (#334), and
+  `thread stop` (#341).
+  
+  - Added `renderLogList` and `renderLogShow` to
+    `packages/cli/src/text-renderers.ts`.
+  - Registered `"log list"` and `"log show"` in the `TEXT_RENDERERS` map in
+    `format.ts`.
+  - Updated `cli.ts` to pass `"log list"` / `"log show"` as the `commandPath`
+    to `writeRawOutput`, so `formatOutput` resolves the new renderers.
+  
+  JSON / YAML output formats are unchanged.
+- Fix `uwf thread list --format text` rendering year `58414-12-06` (issue #351). The `THREAD_LIST_TEMPLATE` in `packages/protocol/src/output-templates.ts` piped `item.startedAt` (Unix milliseconds, per `THREAD_LIST_OUTPUT_SCHEMA`) directly into LiquidJS's `| date` filter, which expects Unix seconds. The template now converts ms→s via `| divided_by: 1000` before `| date`, so `STARTED` cells render correctly (e.g. `2026-06-12 05:25`). Adds protocol-level regression-guard tests that reject any future template piping a ms-typed schema field (`startedAt`, `completedAt`, `startedAtMs`, `completedAtMs`, `timestamp`) into `| date` without prior conversion.
+- fix: rename `$body` to `_body` for LiquidJS compatibility
+  
+  PR #262 replaced Mustache with LiquidJS but `$body` uses a `$` prefix which is
+  invalid in Liquid template syntax. Rename the engine-injected variable from
+  `$body` to `_body` so edge prompt templates work correctly.
+  
+  - `thread.ts`: inject `_body` instead of `$body`
+  - `validate-semantic.ts`: remove `sanitizeReservedVars` workaround, add `_body` to mock data for strict validation
+  - `workflow-authoring-reference.ts`: update docs to `_body`
+  - `socratic-questioning.yaml`: update template references
+  - `build-thread-progress`: add optional `threadId` parameter so agents can reference their own thread ID
+- Fix thread list crash when workflow CAS node is missing or has wrong type
+  
+  Replace `fail()` (process.exit) with `throw new Error()` in `loadWorkflowPayload` so errors are catchable by the try/catch blocks in `collectActiveThreads` and `collectCompletedThreads`. Threads with missing or invalid workflow references now appear as `corrupt` instead of crashing the entire `uwf thread list` command.
+- Fix test suite polluting global CAS store (~/.ocas/)
+  
+  - Add vitest `globalSetup` to detect `OCAS_HOME`/`UWF_HOME` env var leaks between test files
+  - Centralize `makeUwfStore` helper into `thread-test-helpers.ts` (was copy-pasted in 10 files)
+  - Add `OCAS_HOME` save/restore in `afterEach` for all 13 leaking test files
+  - Add `afterEach` cleanup to `thread-cancel-status.test.ts` and `store-unified-threads.test.ts` (had none)
+- Fix `uwf thread list` startedAt timestamp showing dates far in the future
+  (e.g. year 2195 for threads created in 2026). The local `extractUlidTime`
+  helper in `packages/cli/src/output-mappers.ts` manually decoded the first
+  10 Crockford Base32 chars of a ULID as `n = n * 32 + v`, returning the
+  raw 50-bit value without stripping the 2 padding bits introduced by
+  `encodeCrockfordBase32Bits`. This produced timestamps 4× the real value.
+  
+  The helper has been removed in favor of `extractUlidTimestamp` from
+  `@united-workforce/util`, which delegates to
+  `decodeCrockfordBase32Bits(timestampPart, 48)` and handles padding
+  correctly. A new unit test
+  (`packages/cli/src/__tests__/output-mapper-thread-list-startedat.test.ts`)
+  covers the round-trip across several timestamps and the
+  malformed-ULID-null fallback.
+  
+  Fixes #343.
+- Remove stale LLM provider/model references from bootstrap prompt and BOOTSTRAP.md. Engine config is now LLM-free — `uwf setup` only takes `--agent`. Config shows only `agents`, `defaultAgent`, `agentOverrides`.
+- Add step-level concurrency control for `uwf thread exec`
+  
+  - New `concurrency/` module with file-based slot management (`acquireSlot`, `releaseSlot`, `countActiveSlots`, `cleanStaleSlots`, `installSlotCleanup`)
+  - `concurrency.maxRunning` config key for persistent limit (`uwf config set concurrency.maxRunning <n>`)
+  - Default limit: 2 concurrent agent processes (when no config provided)
+  - Race protection via double-check-after-write with automatic rollback
+  - Signal handlers (SIGINT/SIGTERM) release the slot on abnormal exit
+  - Stale slot cleanup: detects dead PIDs and removes orphaned slot files
+
 ## 0.4.0 — 2026-06-11
 
 - docs: rewrite `adapter-developing` prompt for v0.4 contract (#214)
