@@ -295,3 +295,61 @@ export function renderConfigSet(data: unknown): string {
   const rendered = Array.isArray(value) ? JSON.stringify(value) : String(value ?? "");
   return `${key} = ${rendered}`;
 }
+
+// ── Log renderers ───────────────────────────────────────────────────
+
+type LogListItem = {
+  name: string;
+  size: number;
+  date: string;
+};
+
+type LogEntry = {
+  ts: string;
+  pid: string;
+  tag: string;
+  msg: string;
+  thread: string | null;
+  workflow: string | null;
+};
+
+function formatSize(bytes: unknown): string {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) return "-";
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}K`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}M`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}G`;
+}
+
+export function renderLogList(data: unknown): string {
+  const items = asArray(data) as LogListItem[];
+  if (items.length === 0) return "No log files.";
+  const lines: string[] = ["DATE        SIZE      NAME"];
+  for (const item of items) {
+    const it = asObject(item);
+    const date = pad(asString(it.date), 11);
+    const size = pad(formatSize(it.size), 9);
+    const name = asString(it.name);
+    lines.push(`${date} ${size} ${name}`);
+  }
+  return lines.join("\n");
+}
+
+export function renderLogShow(data: unknown): string {
+  const items = asArray(data) as LogEntry[];
+  if (items.length === 0) return "No log entries.";
+  const lines: string[] = [];
+  for (const item of items) {
+    const it = asObject(item);
+    const ts = asString(it.ts);
+    const pid = asString(it.pid);
+    const tag = asString(it.tag);
+    const msg = asString(it.msg, "");
+    const thread = typeof it.thread === "string" && it.thread.length > 0 ? it.thread : null;
+    const parts = [ts, `pid=${pid}`, tag];
+    if (thread !== null) parts.push(`thread=${thread}`);
+    parts.push(msg);
+    lines.push(parts.join(" "));
+  }
+  return lines.join("\n");
+}

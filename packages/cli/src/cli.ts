@@ -699,7 +699,7 @@ log
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdLogList(storageRoot);
-      writeRawOutput(result);
+      writeRawOutput(result, "log list");
     });
   });
 
@@ -722,7 +722,7 @@ log
           process: opts.process ?? null,
           date: opts.date ?? null,
         });
-        writeRawOutput(result);
+        writeRawOutput(result, "log show");
       });
     },
   );

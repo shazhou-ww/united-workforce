@@ -7,6 +7,8 @@ import {
   renderConfigGet,
   renderConfigList,
   renderConfigSet,
+  renderLogList,
+  renderLogShow,
   renderStepList,
   renderStepShow,
   renderThreadCancel,
@@ -68,6 +70,8 @@ export const TEXT_RENDERERS: Record<string, TextRenderer> = {
   "config list": renderConfigList,
   "config get": renderConfigGet,
   "config set": renderConfigSet,
+  "log list": renderLogList,
+  "log show": renderLogShow,
 };
 
 /** Look up a registered text renderer by command path. */
