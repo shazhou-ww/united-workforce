@@ -399,7 +399,7 @@ thread
     const storageRoot = resolveStorageRoot();
     runAction(async () => {
       const result = await cmdThreadStop(storageRoot, threadId);
-      writeRawOutput(result);
+      writeRawOutput(result, "thread stop");
     });
   });
 

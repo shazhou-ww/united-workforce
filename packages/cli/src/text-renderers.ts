@@ -76,6 +76,11 @@ type ThreadCancelPayload = {
   cancelled: boolean;
 };
 
+type ThreadStopPayload = {
+  thread: string;
+  stopped: boolean;
+};
+
 type StepDetailPayload = {
   hash: string;
   role: string;
@@ -237,6 +242,12 @@ export function renderThreadCancel(data: unknown): string {
     `Status     cancelled`,
     `Cancelled  ${cancelled}`,
   ].join("\n");
+}
+
+export function renderThreadStop(data: unknown): string {
+  const p = asObject(data) as Partial<ThreadStopPayload>;
+  const stopped = typeof p.stopped === "boolean" ? (p.stopped ? "yes" : "no") : "-";
+  return [`Thread   ${asString(p.thread)}`, `Stopped  ${stopped}`].join("\n");
 }
 
 // ── Config renderers ────────────────────────────────────────────────
