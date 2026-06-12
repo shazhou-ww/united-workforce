@@ -9,7 +9,14 @@ if (process.argv.includes("--version") || process.argv.includes("-V")) {
 
 import { createHermesAgent } from "./hermes.js";
 import { isResumeDisabled } from "./session-cache.js";
+import { resolveHermesTimeoutMs } from "./timeout.js";
+
+const timeoutResult = resolveHermesTimeoutMs(process.argv.slice(2), process.env);
+if (!timeoutResult.ok) {
+  process.stderr.write(`${timeoutResult.error}\n`);
+  process.exit(1);
+}
 
 const resumeDisabled = isResumeDisabled(process.env.UWF_HERMES_RESUME ?? null);
-const main = createHermesAgent(resumeDisabled);
+const main = createHermesAgent(resumeDisabled, timeoutResult.value);
 void main();

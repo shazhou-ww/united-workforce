@@ -6,3 +6,9 @@ export {
   createHermesAgent,
   snapshotTurns,
 } from "./hermes.js";
+export type { ResolveTimeoutResult } from "./timeout.js";
+export {
+  DEFAULT_PROMPT_TIMEOUT_MS,
+  formatTimeoutSuspendMessage,
+  resolveHermesTimeoutMs,
+} from "./timeout.js";
