@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.3.0 — 2026-06-12
+
+- **BREAKING**: `uwf` CLI commands now emit ocas envelopes (`{ type, value }`) by default, with text rendering as the default format.
+  
+  Five output formats are supported via `--format`:
+  
+  | Format | Shape | Use case |
+  |--------|-------|----------|
+  | `text` (default) | Liquid-rendered human-readable view | Interactive terminal use |
+  | `json` | `{"type": "<schemaHash>", "value": <payload>}` | Self-describing JSON for downstream parsers |
+  | `yaml` | YAML envelope (type, value keys) | Self-describing YAML |
+  | `raw-json` | bare `<payload>` | **0.5.0 backward compat** — drop-in replacement for old `json` |
+  | `raw-yaml` | bare `<payload>` | **0.5.0 backward compat** — drop-in replacement for old `yaml` |
+  
+  Migration: scripts that consumed `uwf ... --format json` (parsing the bare value) must switch to `--format raw-json` to preserve the previous output shape, or update their parsers to read from the `value` field of the envelope.
+  
+  New protocol exports:
+  - `OUTPUT_SCHEMAS` map and individual `*_OUTPUT_SCHEMA` constants for the 9 CLI output schemas (thread-start, thread-status, thread-list, thread-exec, step-detail, step-list, workflow-detail, workflow-list, validate-result)
+  - `OUTPUT_TEMPLATES` map and `outputSchemaVarName(name)` helper
+  
+  The CLI registers all output schemas and `@ocas/template/text/<schemaHash>` templates idempotently on first use via `registerUwfSchemas`.
+  
+  `uwf workflow validate` now emits a structured `validate-result` envelope on stdout (`✓ valid` / `✗ invalid (N errors)`) instead of writing errors to stderr; exit codes are preserved (0 for valid, 1 for invalid).
+  
+  **In-repo consumer migration** (`@united-workforce/eval` patch): the eval runner (`runner/execute.ts`) and the builtin judges (`judge/builtin/read-steps.ts`, `frontmatter.ts`, `token-stats.ts`) now invoke the CLI with `--format raw-json` and read the new payload field names (`threadId`, `workflowHash`, `items`, `steps`). The `step list` payload no longer contains a synthetic start entry, so the judges drop the legacy `.slice(1)` and fetch per-step `frontmatter`/`usage` via a follow-up `uwf step show <hash>` call. Repo helper scripts `scripts/e2e-walkthrough.sh` and `scripts/batch-solve.sh` were migrated in lockstep (jq/python paths updated to match the new payload shape).
+- Fix `uwf workflow add` defaulting to raw JSON output (issue #334).
+  
+  `workflow add` was the only data-producing CLI command that did not migrate
+  to the per-command renderer registry introduced in #329. It still called
+  `writeRawOutput(result)`, so the default `--format text` printed
+  `{"name":"...","hash":"..."}` raw JSON instead of human-readable text.
+  
+  Changes:
+  
+  - New `WORKFLOW_ADD_OUTPUT_SCHEMA` registered under `@uwf/output/workflow-add`
+    with `name` and `hash` string fields (`additionalProperties: false`).
+  - New `OUTPUT_TEMPLATES["workflow-add"]` Liquid template renders the result
+    as labelled key-value lines:
+  
+    ```
+    Registered  review-pr
+    Hash        2TBP6T37TZAJZ
+    ```
+  
+  - New `WorkflowAddPayload` type and `toWorkflowAddPayload` mapper in
+    `@united-workforce/cli/src/output-mappers.ts`.
+  - The `workflow add` action now calls
+    `writeOutput(toWorkflowAddPayload(result), "workflow-add", storageRoot)`
+    so all five formats (`text`, `json`, `yaml`, `raw-json`, `raw-yaml`) are
+    honored consistently with every other data-producing command.
+- Fix `uwf thread list --format text` rendering year `58414-12-06` (issue #351). The `THREAD_LIST_TEMPLATE` in `packages/protocol/src/output-templates.ts` piped `item.startedAt` (Unix milliseconds, per `THREAD_LIST_OUTPUT_SCHEMA`) directly into LiquidJS's `| date` filter, which expects Unix seconds. The template now converts ms→s via `| divided_by: 1000` before `| date`, so `STARTED` cells render correctly (e.g. `2026-06-12 05:25`). Adds protocol-level regression-guard tests that reject any future template piping a ms-typed schema field (`startedAt`, `completedAt`, `startedAtMs`, `completedAtMs`, `timestamp`) into `| date` without prior conversion.
+
 ## 0.2.0 — 2026-06-11
 
 - feat: record failed steps in CAS and track retry lineage

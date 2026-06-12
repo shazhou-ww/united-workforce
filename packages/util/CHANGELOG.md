@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0 — 2026-06-12
+
+- Bundle 3 general-purpose example workflows (debate, brainstorm, socratic-questioning) into the CLI package. `uwf setup` now auto-registers them so users can run them immediately without manual `workflow add`.
+  
+  Add `$body` as an engine-injected Liquid template variable in edge prompts. `{{ $body }}` resolves to the markdown body (after frontmatter) from the previous step's output, enabling full prose to flow between roles instead of only frontmatter field summaries. Defining `$body` in a frontmatter schema is rejected by the validator as a reserved property.
+- fix: rename `$body` to `_body` for LiquidJS compatibility
+  
+  PR #262 replaced Mustache with LiquidJS but `$body` uses a `$` prefix which is
+  invalid in Liquid template syntax. Rename the engine-injected variable from
+  `$body` to `_body` so edge prompt templates work correctly.
+  
+  - `thread.ts`: inject `_body` instead of `$body`
+  - `validate-semantic.ts`: remove `sanitizeReservedVars` workaround, add `_body` to mock data for strict validation
+  - `workflow-authoring-reference.ts`: update docs to `_body`
+  - `socratic-questioning.yaml`: update template references
+  - `build-thread-progress`: add optional `threadId` parameter so agents can reference their own thread ID
+
 ## 0.1.5 — 2026-06-11
 
 - docs: rewrite `adapter-developing` prompt for v0.4 contract (#214)
