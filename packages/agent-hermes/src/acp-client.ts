@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { buildSuspendOutput } from "@united-workforce/util-agent";
+import { DEFAULT_PROMPT_TIMEOUT_MS, formatTimeoutSuspendMessage } from "./timeout.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OWN_VERSION = (
@@ -19,9 +20,6 @@ function resolveHermesCommand(): string {
   return override !== undefined && override !== "" ? override : "hermes";
 }
 const PROTOCOL_VERSION = 1;
-
-/** Default per-request timeout (also the prompt suspend threshold). */
-const PROMPT_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Raised when a JSON-RPC request exceeds its timeout. */
 export class AcpTimeoutError extends Error {}
@@ -60,6 +58,17 @@ export class HermesAcpClient {
 
   /** Accumulated assistant text chunks from agent_message_chunk updates. */
   private messageChunks: string[] = [];
+
+  /**
+   * Per-prompt timeout in milliseconds. Resolved from CLI flag / env var /
+   * default by `resolveHermesTimeoutMs` in `cli.ts`. Defaulted here so
+   * direct library callers (and existing tests) keep working unchanged.
+   */
+  private readonly promptTimeoutMs: number;
+
+  constructor(promptTimeoutMs: number = DEFAULT_PROMPT_TIMEOUT_MS) {
+    this.promptTimeoutMs = promptTimeoutMs;
+  }
 
   /** Spawn hermes acp, initialize, create session */
   async connect(cwd: string): Promise<string> {
@@ -122,13 +131,12 @@ export class HermesAcpClient {
           sessionId: this.sessionId,
           prompt: [{ type: "text", text }],
         },
-        PROMPT_TIMEOUT_MS,
+        this.promptTimeoutMs,
       );
     } catch (err) {
       if (err instanceof AcpTimeoutError) {
-        const minutes = Math.round(PROMPT_TIMEOUT_MS / 60000);
         return {
-          text: buildSuspendOutput(`hermes prompt timed out after ${minutes} minutes`),
+          text: buildSuspendOutput(formatTimeoutSuspendMessage(this.promptTimeoutMs)),
           sessionId: this.sessionId,
           usage: null,
         };
@@ -184,7 +192,7 @@ export class HermesAcpClient {
   private sendRequest(
     method: string,
     params: Record<string, unknown>,
-    timeoutMs = PROMPT_TIMEOUT_MS,
+    timeoutMs: number = DEFAULT_PROMPT_TIMEOUT_MS,
   ): Promise<JsonRpcResponse> {
     const id = this.nextId++;
     return new Promise<JsonRpcResponse>((resolve, reject) => {
