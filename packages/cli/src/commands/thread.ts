@@ -1563,6 +1563,95 @@ export async function cmdThreadExec(
   }
 }
 
+const JOIN_POLL_INTERVAL_MS = 1000;
+
+/**
+ * Block until a running thread finishes (marker disappears), then return the
+ * final thread state in the same `StepOutput[]` format that `cmdThreadExec`
+ * produces.
+ *
+ * - If the thread is currently running → poll until it stops, then return
+ *   its final state.
+ * - If the thread is not running → return its current state immediately.
+ *
+ * An optional `timeoutMs` aborts the wait with an error when exceeded.
+ */
+export async function cmdThreadJoin(
+  storageRoot: string,
+  threadId: ThreadId,
+  timeoutMs: number | null,
+): Promise<StepOutput[]> {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
+    fail(`thread not found: ${threadId}`);
+  }
+
+  // Wait for running marker to disappear
+  const deadline = timeoutMs !== null ? Date.now() + timeoutMs : null;
+
+  while ((await isThreadRunning(storageRoot, threadId)) !== null) {
+    if (deadline !== null && Date.now() >= deadline) {
+      fail(`join timed out after ${timeoutMs}ms — thread ${threadId} is still running`);
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, JOIN_POLL_INTERVAL_MS);
+    });
+  }
+
+  // Thread is no longer running — read final state.
+  // Re-open the store to get the latest state written by the worker.
+  const freshUwf = await createUwfStore(storageRoot);
+  const freshEntry = getThread(freshUwf.varStore, threadId);
+  if (freshEntry === null) {
+    fail(`thread disappeared after join: ${threadId}`);
+  }
+
+  const activeHead = freshEntry.head;
+  const workflowHash = resolveWorkflowFromHead(freshUwf, activeHead);
+  if (workflowHash === null) {
+    fail(`failed to resolve workflow from head: ${activeHead}`);
+  }
+
+  // Build the StepOutput matching exec's format
+  if (freshEntry.status === "end" || freshEntry.status === "cancelled") {
+    return [
+      {
+        workflow: workflowHash,
+        thread: threadId,
+        head: activeHead,
+        status: freshEntry.status,
+        currentRole: null,
+        suspendedRole: null,
+        suspendMessage: null,
+        done: true,
+        background: null,
+        error: null,
+      },
+    ];
+  }
+
+  // Active thread — resolve detailed status
+  const status = await resolveActiveThreadStatus(storageRoot, threadId, freshUwf, activeHead);
+  const currentRole = resolveCurrentRole(freshUwf, activeHead, workflowHash);
+  const suspendFields = resolveSuspendFieldsForShow(freshEntry, status, freshUwf, activeHead);
+
+  return [
+    {
+      workflow: workflowHash,
+      thread: threadId,
+      head: activeHead,
+      status,
+      currentRole,
+      suspendedRole: suspendFields.suspendedRole,
+      suspendMessage: suspendFields.suspendMessage,
+      done: false,
+      background: null,
+      error: null,
+    },
+  ];
+}
+
 async function resolveActiveThreadWorkflowHash(
   storageRoot: string,
   threadId: ThreadId,
