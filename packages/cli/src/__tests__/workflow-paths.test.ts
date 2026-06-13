@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { CasRef, WorkflowPayload } from "@united-workforce/protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { stringify } from "yaml";
-import { cmdConfigSet, getConfigPath, loadWorkflowPaths } from "../commands/config.js";
+import { getConfigPath, loadWorkflowPaths } from "../commands/config.js";
 import { cmdThreadStart } from "../commands/thread.js";
 import { cmdWorkflowList } from "../commands/workflow.js";
 import { discoverWorkflowPathsEntries, saveWorkflowRegistry, type UwfStore } from "../store.js";
@@ -133,10 +133,7 @@ describe("discoverWorkflowPathsEntries", () => {
     await mkdir(dir1, { recursive: true });
     await writeFile(join(dir1, "solve-issue.yaml"), await createWorkflowYaml("solve-issue"));
 
-    const entries = await discoverWorkflowPathsEntries([
-      join(tmpDir, "nonexistent"),
-      dir1,
-    ]);
+    const entries = await discoverWorkflowPathsEntries([join(tmpDir, "nonexistent"), dir1]);
 
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe("solve-issue");
