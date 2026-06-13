@@ -61,7 +61,13 @@ import {
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
-import { getConfigPath, getNestedValue, loadConfig, parseDotPath } from "./config.js";
+import {
+  getConfigPath,
+  getNestedValue,
+  loadConfig,
+  loadWorkflowPaths,
+  parseDotPath,
+} from "./config.js";
 import {
   type ChainState,
   collectOrderedSteps,
@@ -346,6 +352,49 @@ async function findWorkflowInParents(startDir: string, name: string): Promise<st
   return null;
 }
 
+/**
+ * Search for a workflow by name directly in a directory (not inside .workflows/).
+ * Used for workflowPaths resolution — each path dir contains YAMLs at top level.
+ * Checks flat files (<name>.yaml/.yml) and folder layout (<name>/index.yaml/.yml).
+ */
+async function findWorkflowInPath(dir: string, name: string): Promise<string | null> {
+  // Check flat YAML files
+  for (const ext of [".yaml", ".yml"]) {
+    const result = await workflowFileExists(dir, name, ext);
+    if (result !== null) {
+      return result;
+    }
+  }
+  // Check folder-based layout (<name>/index.yaml)
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const candidate = resolvePath(dir, name, indexName);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
+  }
+  return null;
+}
+
+/**
+ * Search workflowPaths directories for a workflow by name.
+ * Searches each directory in order; first match wins.
+ */
+async function findWorkflowInPaths(
+  dirs: ReadonlyArray<string>,
+  name: string,
+): Promise<string | null> {
+  for (const dir of dirs) {
+    const found = await findWorkflowInPath(dir, name);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
+}
+
 async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promise<CasRef> {
   let text: string;
   try {
@@ -419,6 +468,13 @@ async function resolveWorkflowCasRef(
   const localPath = await findWorkflowInParents(projectRoot, trimmed);
   if (localPath !== null) {
     return materializeLocalWorkflow(uwf, localPath);
+  }
+
+  // Strategy 3.5: workflowPaths global directories
+  const workflowPaths = loadWorkflowPaths(uwf.storageRoot);
+  const pathsFile = await findWorkflowInPaths(workflowPaths, trimmed);
+  if (pathsFile !== null) {
+    return materializeLocalWorkflow(uwf, pathsFile);
   }
 
   // Strategy 4: Global registry fallback
