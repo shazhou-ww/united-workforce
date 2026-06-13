@@ -56,7 +56,7 @@ async function findIndexWorkflow(
  * Scan a single directory for workflow entries (flat YAML files + folder/index.yaml).
  * Returns discovered entries. Returns empty array if directory does not exist.
  */
-async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
+export async function scanWorkflowDir(dir: string): Promise<ProjectWorkflowEntry[]> {
   let dirents: Dirent[];
   try {
     dirents = await readdir(dir, { withFileTypes: true });
@@ -157,6 +157,30 @@ export async function discoverProjectWorkflows(startDir: string): Promise<Projec
 /** Default filesystem root for uwf data (`~/.uwf`). */
 export function getDefaultStorageRoot(): string {
   return join(homedir(), ".uwf");
+}
+
+/**
+ * Discover workflows from workflowPaths directories.
+ * Each directory is scanned directly for YAML files (like scanWorkflowDir).
+ * Earlier dirs in the list take priority on name collisions.
+ */
+export async function discoverWorkflowPathsEntries(
+  dirs: ReadonlyArray<string>,
+): Promise<ProjectWorkflowEntry[]> {
+  const seen = new Set<string>();
+  const result: ProjectWorkflowEntry[] = [];
+
+  for (const dir of dirs) {
+    const entries = await scanWorkflowDir(dir);
+    for (const entry of entries) {
+      if (!seen.has(entry.name)) {
+        seen.add(entry.name);
+        result.push(entry);
+      }
+    }
+  }
+
+  return result;
 }
 
 /**

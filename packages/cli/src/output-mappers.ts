@@ -229,7 +229,8 @@ export function toWorkflowListPayload(entries: WorkflowListEntry[]): WorkflowLis
     items: entries.map((e) => ({
       name: e.name,
       hash: e.hash,
-      source: e.origin === "local" ? ".workflows" : "registry",
+      source:
+        e.origin === "local" ? ".workflows" : e.origin === "paths" ? "workflowPaths" : "registry",
       description: "",
     })),
   };
