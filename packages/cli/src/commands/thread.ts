@@ -174,6 +174,13 @@ async function resolveActiveThreadStatus(
     return "running";
   }
 
+  // Check the persisted entry status first — agent failure suspends the thread
+  // via markThreadSuspended() without producing a $SUSPEND output in CAS.
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry !== null && entry.status === "suspended") {
+    return "suspended";
+  }
+
   const chain = walkChain(uwf, head);
   const { lastOutput } = resolveEvaluateArgs(uwf, chain);
   if (readSuspendReason(lastOutput) !== null) {
@@ -233,9 +240,20 @@ function buildResumePrompt(graphPrompt: string, supplement: string | null): stri
   return `${graphPrompt}\n\n${supplement}`;
 }
 
+/**
+ * Error thrown by failStep so that callers can catch it, persist
+ * thread state (e.g. suspend), and then re-throw / exit.
+ */
+class StepFailureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StepFailureError";
+  }
+}
+
 function failStep(plog: ProcessLogger, message: string): never {
   plog.log(PL_STEP_ERROR, message, null);
-  fail(message);
+  throw new StepFailureError(message);
 }
 
 /**
@@ -1434,7 +1452,18 @@ export async function cmdThreadPoke(
   // Spawn the agent. The agent will create a new StepNode with prev=oldHead (it reads
   // the active thread head). After the agent returns, we rewrite that node's prev so
   // that the new head replaces the old head instead of appending after it.
-  const agentResult = spawnAgent(plog, agent, threadId, role, prompt, effectiveCwd);
+  let agentResult: AdapterOutput;
+  try {
+    agentResult = spawnAgent(plog, agent, threadId, role, prompt, effectiveCwd);
+  } catch (e) {
+    if (e instanceof StepFailureError) {
+      // Fatal agent failure in poke — persist suspended state before propagating
+      const uwfErr = await createUwfStore(storageRoot);
+      const errEntry = getThread(uwfErr.varStore, threadId) ?? entry;
+      setThread(uwfErr.varStore, threadId, markThreadSuspended(errEntry, role, e.message));
+    }
+    throw e;
+  }
   const agentStepHash = agentResult.stepHash as CasRef;
 
   plog.log(PL_AGENT_DONE, `agent returned head=${agentStepHash}`, null);
@@ -1906,6 +1935,51 @@ async function cmdThreadStepOnce(
   });
 
   loadDotenv({ path: getEnvPath(storageRoot) });
+
+  // Wrap agent execution in a try-catch: when the agent command crashes
+  // (non-zero exit, unparseable output, invalid CAS node, etc.), failStep throws
+  // StepFailureError. We catch it to persist suspended state before re-throwing
+  // so the CLI still exits non-zero.
+  try {
+    return await executeAndProcessAgentStep(
+      storageRoot,
+      threadId,
+      headHash,
+      workflowHash,
+      workflow,
+      role,
+      edgePrompt,
+      effectiveCwd,
+      agent,
+      plog,
+    );
+  } catch (e) {
+    if (e instanceof StepFailureError) {
+      // Fatal agent failure — persist suspended state before propagating
+      const uwfErr = await createUwfStore(storageRoot);
+      const errEntry = getThread(uwfErr.varStore, threadId) ?? createThreadIndexEntry(headHash);
+      setThread(uwfErr.varStore, threadId, markThreadSuspended(errEntry, role, e.message));
+    }
+    throw e;
+  }
+}
+
+/**
+ * Execute the agent command and process the result. Separated from cmdThreadStepOnce
+ * so that fatal failures (StepFailureError) can be caught and handled by the caller.
+ */
+async function executeAndProcessAgentStep(
+  storageRoot: string,
+  threadId: ThreadId,
+  headHash: CasRef,
+  workflowHash: CasRef,
+  workflow: WorkflowPayload,
+  role: string,
+  edgePrompt: string,
+  effectiveCwd: string,
+  agent: AgentConfig,
+  plog: ProcessLogger,
+): Promise<StepOutput> {
   const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
   const newHead = agentResult.stepHash as CasRef;
 
@@ -1923,22 +1997,28 @@ async function cmdThreadStepOnce(
   // next exec (until eventual success records `previousAttempts` linking the
   // failed step hashes).
   if (agentResult.isError === true) {
+    const errorMsg = agentResult.errorMessage ?? "agent reported error";
     plog.log(
       PL_AGENT_ERROR,
-      `agent reported recoverable failure stepHash=${newHead} message=${agentResult.errorMessage ?? ""}`,
+      `agent reported recoverable failure stepHash=${newHead} message=${errorMsg}`,
       null,
     );
+
+    // Persist suspended state so `thread list --status suspended` reflects the failure.
+    const priorEntry = getThread(uwfAfter.varStore, threadId) ?? createThreadIndexEntry(headHash);
+    setThread(uwfAfter.varStore, threadId, markThreadSuspended(priorEntry, role, errorMsg));
+
     return {
       workflow: workflowHash,
       thread: threadId,
       head: headHash,
-      status: "idle",
+      status: "suspended",
       currentRole: role,
-      suspendedRole: null,
-      suspendMessage: null,
+      suspendedRole: role,
+      suspendMessage: errorMsg,
       done: false,
       background: null,
-      error: { stepHash: newHead, message: agentResult.errorMessage ?? "agent reported error" },
+      error: { stepHash: newHead, message: errorMsg },
     };
   }
 
