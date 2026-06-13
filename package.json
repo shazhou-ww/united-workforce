@@ -21,7 +21,7 @@
     "@agentclientprotocol/sdk": "^0.22.1",
     "@biomejs/biome": "^2.4.14",
     "@changesets/cli": "^2.31.0",
-    "@shazhou/proman": "^0.8.0",
+    "@shazhou/proman": "^0.9.3",
     "@types/node": "^25.7.0",
     "@types/xxhashjs": "^0.2.4",
     "@united-workforce/agent-hermes": "workspace:*",
