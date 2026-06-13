@@ -538,7 +538,7 @@ describe("uwf thread poke - edge cases", () => {
     expect(cliOutput.suspendMessage).toBeNull();
   });
 
-  test("6.2 agent failure leaves thread head unchanged", async () => {
+  test("6.2 agent failure leaves thread head unchanged and suspends thread", async () => {
     const { casDir, oldStepHash, failingAgentPath } = await setupThread();
     const result = runUwf(
       ["thread", "poke", THREAD_ID, "-p", "redo", "--agent", failingAgentPath],
@@ -550,5 +550,8 @@ describe("uwf thread poke - edge cases", () => {
     const uwf = await createUwfStore(tmpDir);
     const entry = getThread(uwf.varStore, THREAD_ID);
     expect(entry?.head).toBe(oldStepHash);
+    expect(entry?.status).toBe("suspended");
+    expect(entry?.suspendedRole).toBe("worker");
+    expect(entry?.suspendMessage).toContain("agent command failed");
   });
 });
