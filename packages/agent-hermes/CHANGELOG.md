@@ -1,5 +1,9 @@
 # @united-workforce/agent-hermes
 
+## 0.3.0 — 2026-06-14
+
+- Add `--timeout <seconds>` CLI flag and `UWF_HERMES_TIMEOUT=<seconds>` environment variable to `uwf-hermes` for configuring the per-prompt ACP `session/prompt` timeout (issue #358). Priority: `--timeout` flag > `UWF_HERMES_TIMEOUT` env > default (`10 * 60 * 1000` ms / 10 minutes, preserved as `DEFAULT_PROMPT_TIMEOUT_MS`). Values are interpreted as positive integer seconds; invalid values (non-numeric, zero, negative, decimal) cause `uwf-hermes` to exit non-zero with a descriptive error. Long-running roles (e.g. release publishers driving `proman publish`) can now extend the bound without recompiling. Resolution lives in a pure `resolveHermesTimeoutMs(argv, env)` helper for unit-testability, and the suspend message (`hermes prompt timed out after <minutes> minutes`) is derived from the resolved value. The flag is consumed in `cli.ts` before delegating to the shared agent runner, so it does not collide with `--thread`, `--role`, or `--prompt`. No effect on other adapters (`uwf-claude-code`, `uwf-builtin`).
+
 ## 0.2.0 — 2026-06-11
 
 - feat(util-agent): extend AgentOptions with `fork` / `cleanup` and add ask-session cache
