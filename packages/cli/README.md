@@ -68,7 +68,22 @@ The `json` and `yaml` envelopes carry the schema hash on the `type` field so con
 
 `thread read`, `step list`, and `step show` work on both active and ended threads.
 | `uwf thread stop <thread-id>` | Stop background execution (keep thread active) |
+| `uwf thread resume <thread-id> [-p <text>] [--agent <cmd>]` | Resume a suspended thread and re-run the suspended role |
+| `uwf thread poke <thread-id> -p <text> [--agent <cmd>] [-c <count>]` | Re-run the head step's agent with a supplementary prompt (replaces head step) |
 | `uwf thread cancel <thread-id>` | Cancel thread (stop + archive to history) |
+
+### Suspend / Resume
+
+When an agent emits `$status: "$SUSPEND"` in its frontmatter, the thread enters `suspended` status. A suspended thread **cannot be advanced with `exec`** — `exec` will detect the suspended head and return immediately without running any agent.
+
+To continue a suspended thread, use `resume`:
+
+```bash
+uwf thread resume <thread-id>                    # resume with workflow's default prompt
+uwf thread resume <thread-id> -p "version 1.2.0" # resume with supplementary context
+```
+
+> ⚠️ `exec` does not advance suspended threads — you **must** use `resume` to provide context and continue.
 
 Examples:
 
