@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Mock agent for smoke testing
 import { bootstrap, type JSONSchema, putSchema } from "@ocas/core";
 import { createAgent } from "../packages/uwf-agent-kit/src/index.js";

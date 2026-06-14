@@ -11,8 +11,8 @@ roles:
     procedure: |
       1. Start a Docker container with isolated storage.
          IMPORTANT: Mount the source code READ-ONLY to prevent the container
-         from overwriting host files (e.g. bun install would replace macOS bun with Linux bun).
-         Use a container-local HOME so bun/npm installs stay inside the container.
+         from overwriting host files (e.g. pnpm install would replace host lockfile with Linux paths).
+         Use a container-local HOME so npm installs stay inside the container.
          Add host.docker.internal mapping for LLM API access from inside the container.
          ```
          docker run -d --name uwf-e2e-$$ \
