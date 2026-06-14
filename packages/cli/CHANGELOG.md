@@ -1,5 +1,27 @@
 # @united-workforce/cli
 
+## 0.6.0 — 2026-06-14
+
+- Fix: agent step failure now transitions thread to suspended instead of idle
+  
+  When an agent step fails (either recoverable `isError: true` or fatal command crash),
+  the thread now enters `suspended` status with `suspendedRole` and `suspendMessage` set,
+  making failures visible to supervisors via `uwf thread list --status suspended`.
+  
+  Previously, agent failures left the thread in `idle` status, hiding the failure.
+  Threads suspended by agent failure can be resumed with `uwf thread resume -p "..."`.
+- Fix config list/get/set commands to use text renderers when `--format text` is specified. Previously these commands always output raw JSON regardless of format. Now `config list` renders flattened dot-notation key-value pairs, `config get` renders the bare value (or flattened object), and `config set` renders a `key = value` confirmation line.
+- feat: add `uwf thread join <thread-id>` command
+  
+  Blocks until a running thread finishes, then returns the final result in the
+  same `StepOutput[]` format as `uwf thread exec`. Supports `--timeout <seconds>`
+  to abort the wait.
+  
+  Fixes #365
+- feat: workflowPaths — global search paths for workflow discovery
+  
+  Add `workflowPaths` config key to `~/.uwf/config.yaml` that supports a list of global search directories for workflow discovery. Resolution order: local `.workflows/` → `workflowPaths` directories → registry (deprecated). Deprecate `uwf workflow add` in favor of workflowPaths.
+
 ## 0.5.0 — 2026-06-12
 
 - Bundle 3 general-purpose example workflows (debate, brainstorm, socratic-questioning) into the CLI package. `uwf setup` now auto-registers them so users can run them immediately without manual `workflow add`.

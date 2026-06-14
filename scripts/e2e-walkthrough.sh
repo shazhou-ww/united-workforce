@@ -18,7 +18,7 @@
 #      "no API key". Fix: re-run `uwf setup` or manually set `apiKey` in config.
 #   3. Bootstrap installs jq via apt-get which adds ~30s startup time.
 #      Consider baking a custom image or using node's JSON.parse instead.
-#   4. `bun install` in container may modify host's lockfile/node_modules.
+#   4. `pnpm install` in container may modify host's lockfile/node_modules.
 #      Consider `--frozen-lockfile` or read-only mount for non-essential paths.
 
 set -euo pipefail
@@ -82,10 +82,10 @@ API_KEY="$5"
 # Ensure tools are in PATH (derive HOME from REPO_DIR to avoid container HOME issues)
 REAL_HOME="${6:-$HOME}"
 export HOME="$REAL_HOME"
-export PATH="$REAL_HOME/.bun/bin:$REAL_HOME/.hermes/hermes-agent/venv/bin:$REAL_HOME/.local/share/npm/bin:$PATH"
+export PATH="$REAL_HOME/.hermes/hermes-agent/venv/bin:$REAL_HOME/.local/share/npm/bin:$PATH"
 
 # Resolve uwf and ocas
-UWF="bun $REPO_DIR/packages/cli/src/cli.ts"
+UWF="node $REPO_DIR/packages/cli/dist/cli.js"
 OCAS="ocas"
 
 PASS=0
@@ -355,14 +355,14 @@ echo "jq installed" >&2
 
 # All tools come from host via mount
 export HOME='$HOME'
-export PATH="$HOME/.bun/bin:$HOME/.hermes/hermes-agent/venv/bin:$HOME/.local/share/npm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="$HOME/.hermes/hermes-agent/venv/bin:$HOME/.local/share/npm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Ensure bun modules are resolved for this environment
+# Ensure modules are resolved for this environment
 cd '$REPO_DIR'
-echo "Running bun install..." >&2
-which bun >&2
-bun install 2>&1 | tail -3 >&2
-echo "bun install done" >&2
+echo "Running pnpm install..." >&2
+which pnpm >&2
+pnpm install 2>&1 | tail -3 >&2
+echo "pnpm install done" >&2
 
 # Run E2E (pass HOME explicitly as 6th arg)
 bash /e2e/run.sh '$REPO_DIR' '$AGENT' '$PROVIDER' '$MODEL' '$API_KEY' '$HOME'

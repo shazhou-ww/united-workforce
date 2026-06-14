@@ -260,7 +260,7 @@ export function createHermesAgent(
   });
 
   // Wrap to ensure ACP client is closed after agent completes,
-  // so the hermes subprocess exits and bun can terminate.
+  // so the hermes subprocess exits and the process can terminate.
   return async () => {
     try {
       await agentMain();

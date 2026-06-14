@@ -30,11 +30,11 @@ check_version() {
 }
 
 echo "=== Runtime ==="
-check_version "bun" "bun --version" \
-  "curl -fsSL https://bun.sh/install | bash"
-
 check_version "node" "node --version" \
   "Install Node.js 20+: https://nodejs.org/"
+
+check_version "pnpm" "pnpm --version" \
+  "Install pnpm: corepack enable && corepack prepare pnpm@latest --activate"
 
 check_version "python3" "python3 --version" \
   "Install Python 3.11+: https://www.python.org/ or use uv: curl -LsSf https://astral.sh/uv/install.sh | sh && uv python install 3.11"
@@ -56,19 +56,19 @@ check "repo at ~/repos/workflow or WORKFLOW_REPO set" \
   "[ -f '$REPO_DIR/packages/cli/src/cli.ts' ]" \
   "Clone the repo: git clone https://git.shazhou.work/shazhou/united-workforce ~/repos/workflow"
 
-# Check bun install
+# Check pnpm install
 check "node_modules installed" \
   "[ -d '$REPO_DIR/node_modules' ]" \
-  "cd $REPO_DIR && bun install"
+  "cd $REPO_DIR && pnpm install"
 
 # Check build
 check "packages built (dist/)" \
   "[ -f '$REPO_DIR/packages/cli/dist/cli.js' ]" \
-  "cd $REPO_DIR && bun run build"
+  "cd $REPO_DIR && pnpm run build"
 
 # Check uwf is runnable
-check_version "uwf" "bun $REPO_DIR/packages/cli/src/cli.ts --version" \
-  "cd $REPO_DIR && bun install && bun run build"
+check_version "uwf" "uwf --version" \
+  "cd $REPO_DIR && pnpm install && pnpm run build"
 
 # Check uwf symlink
 check "uwf in PATH" \
@@ -78,12 +78,12 @@ check "uwf in PATH" \
 # Check uwf-hermes
 check "uwf-hermes in PATH" \
   "command -v uwf-hermes" \
-  "bun link in packages/agent-hermes, or: echo '#!/usr/bin/env bun' > ~/.local/bin/uwf-hermes && echo 'import \"$REPO_DIR/packages/agent-hermes/src/cli.ts\"' >> ~/.local/bin/uwf-hermes && chmod +x ~/.local/bin/uwf-hermes"
+  "pnpm install in packages/agent-hermes, or: echo '#!/usr/bin/env node' > ~/.local/bin/uwf-hermes && echo 'import \"$REPO_DIR/packages/agent-hermes/dist/cli.js\"' >> ~/.local/bin/uwf-hermes && chmod +x ~/.local/bin/uwf-hermes"
 
 # Check uwf-claude-code
 check "uwf-claude-code in PATH" \
   "command -v uwf-claude-code" \
-  "Create wrapper: echo '#!/bin/bash\nexec bun run $REPO_DIR/packages/agent-claude-code/src/cli.ts \"\$@\"' > ~/.local/bin/uwf-claude-code && chmod +x ~/.local/bin/uwf-claude-code"
+  "Create wrapper: echo '#!/bin/bash\nexec node $REPO_DIR/packages/agent-claude-code/dist/cli.js \"\$@\"' > ~/.local/bin/uwf-claude-code && chmod +x ~/.local/bin/uwf-claude-code"
 
 echo ""
 echo "=== Config ==="

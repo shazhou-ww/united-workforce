@@ -6,7 +6,7 @@
 #
 # Examples:
 #   ./scripts/batch-solve.sh 448 449
-#   ./scripts/batch-solve.sh --agent "bun run $(pwd)/packages/agent-claude-code/src/cli.ts" 448 449
+#   ./scripts/batch-solve.sh --agent "pnpm --filter @united-workforce/agent-claude-code exec uwf-claude-code" 448 449
 #   ./scripts/batch-solve.sh --repo shazhou/united-workforce --count 15 448 449
 
 set -euo pipefail
