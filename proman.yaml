@@ -27,6 +27,10 @@ packages:
     path: packages/agent-mock
     type: cli
 
+  - name: "@united-workforce/agent-sumeru"
+    path: packages/agent-sumeru
+    type: cli
+
   - name: "@united-workforce/cli"
     path: packages/cli
     type: cli
