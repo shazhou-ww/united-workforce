@@ -10,6 +10,7 @@ import { createIncludeTag } from "../include.js";
 import {
   createUwfStore,
   discoverProjectWorkflows,
+  discoverWorkflowPathsEntries,
   findRegistryName,
   loadWorkflowRegistry,
   resolveProjectWorkflowFile,
@@ -24,8 +25,9 @@ import {
   parseWorkflowPayload,
 } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
+import { loadWorkflowPaths } from "./config.js";
 
-export type WorkflowOrigin = "local" | "global";
+export type WorkflowOrigin = "local" | "paths" | "global";
 
 export type WorkflowListEntry = {
   name: string;
@@ -160,6 +162,9 @@ export async function cmdWorkflowAdd(
   storageRoot: string,
   filePath: string,
 ): Promise<WorkflowAddOutput> {
+  process.stderr.write(
+    "warning: `uwf workflow add` is deprecated. Use workflowPaths in ~/.uwf/config.yaml instead. See issue #360.\n",
+  );
   let text: string;
   try {
     text = await readFile(filePath, "utf8");
@@ -295,6 +300,14 @@ async function resolveWorkflowCasRefForShow(
     return materializeLocalWorkflowForShow(uwf, localPath);
   }
 
+  // Strategy 3.5: workflowPaths global directories
+  const workflowPaths = loadWorkflowPaths(uwf.storageRoot);
+  const pathsEntries = await discoverWorkflowPathsEntries(workflowPaths);
+  const pathsFile = resolveProjectWorkflowFile(pathsEntries, trimmed);
+  if (pathsFile !== null) {
+    return materializeLocalWorkflowForShow(uwf, pathsFile);
+  }
+
   // Strategy 4: Global registry fallback
   const registry = loadWorkflowRegistry(uwf.varStore);
   const hash = resolveWorkflowHash(registry, trimmed);
@@ -344,18 +357,30 @@ export async function cmdWorkflowList(
 ): Promise<WorkflowListEntry[]> {
   const uwf = await createUwfStore(storageRoot);
   const localEntries = await discoverProjectWorkflows(projectRoot);
+  const workflowPaths = loadWorkflowPaths(storageRoot);
+  const pathsEntries = await discoverWorkflowPathsEntries(workflowPaths);
   const registry = loadWorkflowRegistry(uwf.varStore);
 
   const result: WorkflowListEntry[] = [];
-  const localNames = new Set<string>();
+  const seenNames = new Set<string>();
 
+  // Layer 1: local .workflows/ (highest priority)
   for (const entry of localEntries) {
-    localNames.add(entry.name);
+    seenNames.add(entry.name);
     result.push({ name: entry.name, hash: "(local)", origin: "local" });
   }
 
+  // Layer 2: workflowPaths directories
+  for (const entry of pathsEntries) {
+    if (!seenNames.has(entry.name)) {
+      seenNames.add(entry.name);
+      result.push({ name: entry.name, hash: "(paths)", origin: "paths" });
+    }
+  }
+
+  // Layer 3: global registry (lowest priority)
   for (const [name, hash] of Object.entries(registry)) {
-    if (!localNames.has(name)) {
+    if (!seenNames.has(name)) {
       result.push({ name, hash, origin: "global" });
     }
   }

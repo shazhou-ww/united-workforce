@@ -152,9 +152,18 @@ async function prepareSession(
  * A single ACP client is shared across run() and continue() calls so that
  * frontmatter retry loops keep the same Hermes session context.  The client
  * is closed once the agent process exits (via process.on("exit")).
+ *
+ * @param resumeDisabled Whether to disable session resume (UWF_HERMES_NO_RESUME).
+ * @param promptTimeoutMs Optional per-prompt timeout in milliseconds.
+ *   Resolved by `resolveHermesTimeoutMs` in `cli.ts`. When omitted, the
+ *   `HermesAcpClient` falls back to `DEFAULT_PROMPT_TIMEOUT_MS`.
  */
-export function createHermesAgent(resumeDisabled: boolean): () => Promise<void> {
-  const client = new HermesAcpClient();
+export function createHermesAgent(
+  resumeDisabled: boolean,
+  promptTimeoutMs?: number,
+): () => Promise<void> {
+  const client =
+    promptTimeoutMs === undefined ? new HermesAcpClient() : new HermesAcpClient(promptTimeoutMs);
 
   // Ensure cleanup regardless of how the process exits.
   process.on("exit", () => {

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve as resolvePath } from "node:path";
 import { parse, stringify } from "yaml";
 
 /**
@@ -26,6 +27,7 @@ const VALID_CONFIG_KEYS: Record<
     knownFields: ["maxRunning"],
     minDepth: 2,
   },
+  workflowPaths: { nested: false },
 };
 
 /**
@@ -222,6 +224,31 @@ function parseArgsValue(value: string): unknown {
 }
 
 /**
+ * Parse value for a top-level string array key (must be JSON array of strings).
+ */
+function parseStringArrayValue(value: string, keyName: string): unknown {
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) {
+        throw new Error("Value must be an array");
+      }
+      for (const item of parsed) {
+        if (typeof item !== "string") {
+          throw new Error(`All items must be strings, got ${typeof item}`);
+        }
+      }
+      return parsed;
+    } catch (error) {
+      throw new Error(
+        `Invalid JSON array for ${keyName}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  throw new Error(`Value for '${keyName}' must be a JSON array starting with '['`);
+}
+
+/**
  * Validate that we're not setting a property on a non-object
  */
 function validateParentPath(
@@ -265,9 +292,11 @@ export async function cmdConfigSet(
 
   const lastSegment = path[path.length - 1];
 
-  // Parse value if it's for an array key (args)
+  // Parse value if it's for an array key (args, workflowPaths)
   let parsedValue: unknown = value;
-  if (lastSegment === "args") {
+  if (path[0] === "workflowPaths") {
+    parsedValue = parseStringArrayValue(value, "workflowPaths");
+  } else if (lastSegment === "args") {
     parsedValue = parseArgsValue(value);
   } else if (lastSegment === "maxRunning") {
     const num = Number(value);
@@ -284,4 +313,46 @@ export async function cmdConfigSet(
   saveConfig(configPath, config);
 
   return { key, value: parsedValue };
+}
+
+/**
+ * Expand leading `~/` in a path to the user's home directory.
+ */
+function expandTilde(p: string): string {
+  if (p.startsWith("~/") || p === "~") {
+    return join(homedir(), p.slice(1));
+  }
+  return p;
+}
+
+/**
+ * Load workflowPaths from config and resolve to absolute paths.
+ * Returns empty array if config doesn't exist or key is missing.
+ */
+export function loadWorkflowPaths(storageRoot: string): string[] {
+  const configPath = getConfigPath(storageRoot);
+  if (!existsSync(configPath)) {
+    return [];
+  }
+
+  let config: Record<string, unknown>;
+  try {
+    config = loadConfig(configPath);
+  } catch {
+    return [];
+  }
+
+  const raw = config.workflowPaths;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const result: string[] = [];
+  for (const item of raw) {
+    if (typeof item === "string" && item.trim() !== "") {
+      const expanded = expandTilde(item.trim());
+      result.push(resolvePath(expanded));
+    }
+  }
+  return result;
 }

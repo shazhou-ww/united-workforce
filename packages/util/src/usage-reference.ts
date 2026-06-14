@@ -155,6 +155,10 @@ uwf thread resume <thread-id>
 uwf thread resume <thread-id> -p "Credentials are in ~/.secrets/api.env"
 \`\`\`
 
+**⚠️ \`exec\` does not advance suspended threads** — it echoes the current state
+(\`Step 1 <role> → suspended\`) and exits without doing any work. You **must** use
+\`thread resume\` (optionally with \`-p\`) to unblock the thread.
+
 \`thread resume\` also works on ended threads — it re-evaluates \`$START.resume\` and begins a
 new run from the workflow's resume entry point.
 
@@ -166,6 +170,90 @@ head step's role. Works on idle and suspended threads.
 
 \`\`\`bash
 uwf thread poke <thread-id> -p "Re-read the file and fix the import error"
+\`\`\`
+
+### Re-entry Patterns
+
+When a thread ends or gets stuck, there are several recovery strategies. **Always try
+\`resume\` first** — it is the safest and most common recovery path.
+
+#### Done Resume (preferred)
+
+\`resume\` works on ended threads (\`status: end\`) — it resets \`done\` to \`false\` and
+follows the \`$START.resume\` graph route (typically re-runs the planner with context
+from the previous run).
+
+\`\`\`bash
+uwf thread resume <thread-id>
+# After resume completes, continue with exec (not another resume):
+uwf thread exec <thread-id> --count 10
+\`\`\`
+
+**Pitfall — resume spawns an agent**: Resume is not just a flag flip. It runs the
+\`$START.resume\` target agent, which may take minutes. Use a generous timeout (300s+)
+or background mode. Verify with \`thread show\` that the head step changed before
+running \`exec\`.
+
+#### Poke to Override Stale State
+
+When \`resume\` runs the planner but the planner produces the wrong output (e.g. suspends
+because it can't find expected context), use \`poke\` to inject explicit instructions:
+
+\`\`\`bash
+uwf thread poke <thread-id> -p "PR #42 has review feedback. Read: tea pr 42 --comments"
+uwf thread exec <thread-id> --count 10
+\`\`\`
+
+**When to poke vs resume**: \`resume\` follows \`$START.resume\` blindly. \`poke\` replaces
+the head step with your instructions — use it when the agent produced the wrong output,
+not when you need to re-enter the whole workflow.
+
+#### Step Fork (parallel exploration only)
+
+Fork creates a **new thread** branching from a specific step. Use it only when you want
+to try a different approach while keeping the original thread intact:
+
+\`\`\`bash
+uwf step fork <step-hash>
+# → { "thread": "<new-thread-id>", "forkedFrom": { "step": "<hash>" } }
+uwf thread exec <new-thread-id> --count 10
+\`\`\`
+
+**Prefer resume over fork** — fork means a new thread, new worktree, lost continuity.
+
+#### Terminal-Status Threads (start fresh)
+
+When a thread ended via a terminal status routed to \`$END\` (e.g. \`rejected → $END\`),
+\`resume\` resets \`done\` but the next \`exec\` immediately re-evaluates the head step's
+status — if the graph still routes it to \`$END\`, the thread ends again instantly.
+
+**Solution**: Start a fresh thread instead of resuming. This is common with review
+workflows where \`rejected → $END\` is a terminal edge.
+
+\`\`\`bash
+# ❌ resume loops back to $END
+uwf thread resume <old-thread>
+
+# ✅ start fresh
+uwf thread start <workflow> -p "..."
+\`\`\`
+
+### Recovering a Stuck Thread
+
+When a background \`exec\` process exits unexpectedly (OOM, kill, timeout) and the
+thread shows \`status: running\` or is stuck at \`idle\`:
+
+\`\`\`bash
+# 1. Check thread state
+uwf thread show <thread-id>
+uwf step list <thread-id>
+
+# 2. If the thread is idle, just re-exec:
+uwf thread exec <thread-id> --count 10
+
+# 3. If code was committed but the workflow didn't finish,
+#    hand-finish (create PR, etc.) and cancel the thread:
+uwf thread cancel <thread-id>
 \`\`\`
 
 ## Step Commands
@@ -206,6 +294,24 @@ ocas schema list                # list schemas
 ocas schema get <hash>          # show schema definition
 \`\`\`
 
+**Design note**: CLI output commands (\`thread list\`, \`step show\`, etc.) only **read** from
+CAS (loading Liquid templates and schema hashes for rendering). They never **write** command
+result data into the store — output goes to stdout only.
+
+### CAS Troubleshooting
+
+**\`thread list\` shows corrupt threads**: If threads reference missing or stale workflow
+CAS nodes, they appear with \`status: "corrupt"\` in the listing. This can happen after
+upgrading uwf (old workflow schema mismatch) or from test suite pollution (batch-created
+thread variables left in the global store).
+
+**Fix**: Cancel corrupt threads with \`uwf thread cancel <thread-id>\`. For bulk cleanup,
+thread variables live in \`~/.ocas/vars/_store.db\` (SQLite, table \`vars\`).
+
+**Cleaning up idle threads from deregistered workflows**: After removing a workflow,
+old idle threads may linger with \`workflowName: null\`. Cancel them:
+\`uwf thread cancel <thread-id>\`.
+
 ## Config Commands
 
 Engine config lives in \`~/.uwf/config.yaml\` (override storage root with \`UWF_HOME\`).
@@ -222,6 +328,19 @@ Example:
 uwf config get defaultAgent
 uwf config set defaultAgent uwf-hermes
 \`\`\`
+
+### Concurrency Control
+
+Step-level concurrency limits how many agent processes can run simultaneously:
+
+\`\`\`bash
+uwf config set concurrency.maxRunning 3   # allow 3 concurrent agents (default: 2)
+uwf config get concurrency.maxRunning
+\`\`\`
+
+File-based slot management with race protection (double-check-after-write with automatic
+rollback) and signal handlers for cleanup on SIGINT/SIGTERM. Stale slots from dead PIDs
+are auto-cleaned on each exec.
 
 ## Log Commands
 
@@ -240,6 +359,34 @@ uwf log clean --before <date>      # delete old logs
 uwf --format <fmt>                 # output format: text (default), json, yaml, raw-json, raw-yaml
 uwf -V, --version                  # print version
 \`\`\`
+
+### Output Formats
+
+| Format | Output shape | Use case |
+|--------|-------------|----------|
+| \`text\` (default) | Human-readable rendered view | Interactive CLI, agent consumption |
+| \`json\` | ocas envelope \`{ type, value }\` | Programmatic: self-describing typed JSON |
+| \`yaml\` | ocas envelope in YAML | Programmatic: self-describing typed YAML |
+| \`raw-json\` | Bare JSON value (no envelope) | Backward compatibility with pre-0.5.0 scripts |
+| \`raw-yaml\` | Bare YAML value (no envelope) | Backward compatibility with pre-0.5.0 scripts |
+
+**Breaking change in v0.5.0**: Default output changed from bare JSON to \`text\`.
+Scripts that parse uwf stdout as JSON must add \`--format raw-json\` (or \`--format json\`
+and read from the \`.value\` field of the envelope).
+
+## Common Pitfalls
+
+**Agent loses workflow context in long sessions**: After many turns (100+), agents
+may stop producing valid frontmatter output, causing the step to fail with
+\`$status: "error"\` after retries. This happens when the agent's context window
+overflows or when it loses track of the workflow's output schema requirements.
+Recovery: \`resume\` → \`exec\` to re-enter with a fresh agent session.
+
+**Resume on terminal-status threads loops to $END**: When a thread ended via a
+terminal status (e.g. \`rejected → $END\`), \`resume\` resets \`done\` but the next
+\`exec\` re-evaluates the same status and routes to \`$END\` again. Use \`poke\` to
+replace the head step with new context that produces a different \`$status\`, or
+start a fresh thread. See "Terminal-Status Threads" under Re-entry Patterns.
 
 ## Other Prompt References
 
@@ -262,5 +409,22 @@ uwf --version
 
 # Then run uwf prompt bootstrap and follow the upgrade instructions
 \`\`\`
+
+### Migration: Removed Commands (v0.4.0)
+
+| Old command | Replacement |
+|-------------|-------------|
+| \`uwf thread steps <tid>\` | \`uwf step list <tid>\` |
+| \`uwf thread step-details <hash>\` | \`uwf step show <hash>\` |
+| \`uwf thread fork <hash>\` | \`uwf step fork <hash>\` |
+| \`uwf thread status <tid>\` | \`uwf thread show <tid>\` |
+
+### Migration: Renamed Variables (v0.4.1)
+
+| Old | New | Reason |
+|-----|-----|--------|
+| \`$body\` | \`_body\` | \`$\` prefix invalid in LiquidJS strict mode |
+
+Edge prompts using \`{{ $body }}\` must change to \`{{ _body }}\`.
 `;
 }

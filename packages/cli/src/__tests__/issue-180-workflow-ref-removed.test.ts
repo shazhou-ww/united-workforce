@@ -31,7 +31,7 @@ describe("issue #180 — _workflowRef ghost parameter cleanup", () => {
     for (const match of source.matchAll(callRe)) {
       callSites.push(match[1]);
     }
-    expect(callSites.length).toBe(3);
+    expect(callSites.length).toBe(4);
     for (const args of callSites) {
       const argCount = args
         .split(",")

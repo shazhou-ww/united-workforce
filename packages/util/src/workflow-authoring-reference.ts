@@ -462,5 +462,6 @@ ocas get <output-hash>
 - **Template field mismatch** — referencing \`{{ branch }}\` in an edge prompt but the source schema has \`branchName\` instead
 - **Overly complex roles** — a role with 20 steps should be split; each role should be completable in one agent turn
 - **\`failed → $END\` anti-pattern** — never route failure to \`$END\`; use \`$SUSPEND\` so work is preserved and humans can intervene
+- **Liquid \`date\` filter expects seconds, not milliseconds** — the engine data pipeline produces timestamps in milliseconds (e.g. \`startedAt\`, \`completedAt\`). LiquidJS's \`| date\` filter expects Unix seconds. Always convert first: \`{{ startedAt | divided_by: 1000 | date: "%Y-%m-%d %H:%M" }}\`. Without this, dates render as year ~58414. Text renderers in TypeScript use \`new Date(ms)\` which accepts milliseconds natively, so this pitfall only affects Liquid templates.
 `;
 }

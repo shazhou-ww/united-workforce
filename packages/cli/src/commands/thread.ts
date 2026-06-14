@@ -61,7 +61,13 @@ import {
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
-import { getConfigPath, getNestedValue, loadConfig, parseDotPath } from "./config.js";
+import {
+  getConfigPath,
+  getNestedValue,
+  loadConfig,
+  loadWorkflowPaths,
+  parseDotPath,
+} from "./config.js";
 import {
   type ChainState,
   collectOrderedSteps,
@@ -168,6 +174,13 @@ async function resolveActiveThreadStatus(
     return "running";
   }
 
+  // Check the persisted entry status first — agent failure suspends the thread
+  // via markThreadSuspended() without producing a $SUSPEND output in CAS.
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry !== null && entry.status === "suspended") {
+    return "suspended";
+  }
+
   const chain = walkChain(uwf, head);
   const { lastOutput } = resolveEvaluateArgs(uwf, chain);
   if (readSuspendReason(lastOutput) !== null) {
@@ -227,9 +240,20 @@ function buildResumePrompt(graphPrompt: string, supplement: string | null): stri
   return `${graphPrompt}\n\n${supplement}`;
 }
 
+/**
+ * Error thrown by failStep so that callers can catch it, persist
+ * thread state (e.g. suspend), and then re-throw / exit.
+ */
+class StepFailureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StepFailureError";
+  }
+}
+
 function failStep(plog: ProcessLogger, message: string): never {
   plog.log(PL_STEP_ERROR, message, null);
-  fail(message);
+  throw new StepFailureError(message);
 }
 
 /**
@@ -346,6 +370,49 @@ async function findWorkflowInParents(startDir: string, name: string): Promise<st
   return null;
 }
 
+/**
+ * Search for a workflow by name directly in a directory (not inside .workflows/).
+ * Used for workflowPaths resolution — each path dir contains YAMLs at top level.
+ * Checks flat files (<name>.yaml/.yml) and folder layout (<name>/index.yaml/.yml).
+ */
+async function findWorkflowInPath(dir: string, name: string): Promise<string | null> {
+  // Check flat YAML files
+  for (const ext of [".yaml", ".yml"]) {
+    const result = await workflowFileExists(dir, name, ext);
+    if (result !== null) {
+      return result;
+    }
+  }
+  // Check folder-based layout (<name>/index.yaml)
+  for (const indexName of ["index.yaml", "index.yml"]) {
+    const candidate = resolvePath(dir, name, indexName);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* not found */
+    }
+  }
+  return null;
+}
+
+/**
+ * Search workflowPaths directories for a workflow by name.
+ * Searches each directory in order; first match wins.
+ */
+async function findWorkflowInPaths(
+  dirs: ReadonlyArray<string>,
+  name: string,
+): Promise<string | null> {
+  for (const dir of dirs) {
+    const found = await findWorkflowInPath(dir, name);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
+}
+
 async function materializeLocalWorkflow(uwf: UwfStore, filePath: string): Promise<CasRef> {
   let text: string;
   try {
@@ -419,6 +486,13 @@ async function resolveWorkflowCasRef(
   const localPath = await findWorkflowInParents(projectRoot, trimmed);
   if (localPath !== null) {
     return materializeLocalWorkflow(uwf, localPath);
+  }
+
+  // Strategy 3.5: workflowPaths global directories
+  const workflowPaths = loadWorkflowPaths(uwf.storageRoot);
+  const pathsFile = await findWorkflowInPaths(workflowPaths, trimmed);
+  if (pathsFile !== null) {
+    return materializeLocalWorkflow(uwf, pathsFile);
   }
 
   // Strategy 4: Global registry fallback
@@ -1378,7 +1452,18 @@ export async function cmdThreadPoke(
   // Spawn the agent. The agent will create a new StepNode with prev=oldHead (it reads
   // the active thread head). After the agent returns, we rewrite that node's prev so
   // that the new head replaces the old head instead of appending after it.
-  const agentResult = spawnAgent(plog, agent, threadId, role, prompt, effectiveCwd);
+  let agentResult: AdapterOutput;
+  try {
+    agentResult = spawnAgent(plog, agent, threadId, role, prompt, effectiveCwd);
+  } catch (e) {
+    if (e instanceof StepFailureError) {
+      // Fatal agent failure in poke — persist suspended state before propagating
+      const uwfErr = await createUwfStore(storageRoot);
+      const errEntry = getThread(uwfErr.varStore, threadId) ?? entry;
+      setThread(uwfErr.varStore, threadId, markThreadSuspended(errEntry, role, e.message));
+    }
+    throw e;
+  }
   const agentStepHash = agentResult.stepHash as CasRef;
 
   plog.log(PL_AGENT_DONE, `agent returned head=${agentStepHash}`, null);
@@ -1505,6 +1590,95 @@ export async function cmdThreadExec(
     await slotHandle.release();
     await deleteMarker(storageRoot, threadId);
   }
+}
+
+const JOIN_POLL_INTERVAL_MS = 1000;
+
+/**
+ * Block until a running thread finishes (marker disappears), then return the
+ * final thread state in the same `StepOutput[]` format that `cmdThreadExec`
+ * produces.
+ *
+ * - If the thread is currently running → poll until it stops, then return
+ *   its final state.
+ * - If the thread is not running → return its current state immediately.
+ *
+ * An optional `timeoutMs` aborts the wait with an error when exceeded.
+ */
+export async function cmdThreadJoin(
+  storageRoot: string,
+  threadId: ThreadId,
+  timeoutMs: number | null,
+): Promise<StepOutput[]> {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
+    fail(`thread not found: ${threadId}`);
+  }
+
+  // Wait for running marker to disappear
+  const deadline = timeoutMs !== null ? Date.now() + timeoutMs : null;
+
+  while ((await isThreadRunning(storageRoot, threadId)) !== null) {
+    if (deadline !== null && Date.now() >= deadline) {
+      fail(`join timed out after ${timeoutMs}ms — thread ${threadId} is still running`);
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, JOIN_POLL_INTERVAL_MS);
+    });
+  }
+
+  // Thread is no longer running — read final state.
+  // Re-open the store to get the latest state written by the worker.
+  const freshUwf = await createUwfStore(storageRoot);
+  const freshEntry = getThread(freshUwf.varStore, threadId);
+  if (freshEntry === null) {
+    fail(`thread disappeared after join: ${threadId}`);
+  }
+
+  const activeHead = freshEntry.head;
+  const workflowHash = resolveWorkflowFromHead(freshUwf, activeHead);
+  if (workflowHash === null) {
+    fail(`failed to resolve workflow from head: ${activeHead}`);
+  }
+
+  // Build the StepOutput matching exec's format
+  if (freshEntry.status === "end" || freshEntry.status === "cancelled") {
+    return [
+      {
+        workflow: workflowHash,
+        thread: threadId,
+        head: activeHead,
+        status: freshEntry.status,
+        currentRole: null,
+        suspendedRole: null,
+        suspendMessage: null,
+        done: true,
+        background: null,
+        error: null,
+      },
+    ];
+  }
+
+  // Active thread — resolve detailed status
+  const status = await resolveActiveThreadStatus(storageRoot, threadId, freshUwf, activeHead);
+  const currentRole = resolveCurrentRole(freshUwf, activeHead, workflowHash);
+  const suspendFields = resolveSuspendFieldsForShow(freshEntry, status, freshUwf, activeHead);
+
+  return [
+    {
+      workflow: workflowHash,
+      thread: threadId,
+      head: activeHead,
+      status,
+      currentRole,
+      suspendedRole: suspendFields.suspendedRole,
+      suspendMessage: suspendFields.suspendMessage,
+      done: false,
+      background: null,
+      error: null,
+    },
+  ];
 }
 
 async function resolveActiveThreadWorkflowHash(
@@ -1761,6 +1935,51 @@ async function cmdThreadStepOnce(
   });
 
   loadDotenv({ path: getEnvPath(storageRoot) });
+
+  // Wrap agent execution in a try-catch: when the agent command crashes
+  // (non-zero exit, unparseable output, invalid CAS node, etc.), failStep throws
+  // StepFailureError. We catch it to persist suspended state before re-throwing
+  // so the CLI still exits non-zero.
+  try {
+    return await executeAndProcessAgentStep(
+      storageRoot,
+      threadId,
+      headHash,
+      workflowHash,
+      workflow,
+      role,
+      edgePrompt,
+      effectiveCwd,
+      agent,
+      plog,
+    );
+  } catch (e) {
+    if (e instanceof StepFailureError) {
+      // Fatal agent failure — persist suspended state before propagating
+      const uwfErr = await createUwfStore(storageRoot);
+      const errEntry = getThread(uwfErr.varStore, threadId) ?? createThreadIndexEntry(headHash);
+      setThread(uwfErr.varStore, threadId, markThreadSuspended(errEntry, role, e.message));
+    }
+    throw e;
+  }
+}
+
+/**
+ * Execute the agent command and process the result. Separated from cmdThreadStepOnce
+ * so that fatal failures (StepFailureError) can be caught and handled by the caller.
+ */
+async function executeAndProcessAgentStep(
+  storageRoot: string,
+  threadId: ThreadId,
+  headHash: CasRef,
+  workflowHash: CasRef,
+  workflow: WorkflowPayload,
+  role: string,
+  edgePrompt: string,
+  effectiveCwd: string,
+  agent: AgentConfig,
+  plog: ProcessLogger,
+): Promise<StepOutput> {
   const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
   const newHead = agentResult.stepHash as CasRef;
 
@@ -1778,22 +1997,28 @@ async function cmdThreadStepOnce(
   // next exec (until eventual success records `previousAttempts` linking the
   // failed step hashes).
   if (agentResult.isError === true) {
+    const errorMsg = agentResult.errorMessage ?? "agent reported error";
     plog.log(
       PL_AGENT_ERROR,
-      `agent reported recoverable failure stepHash=${newHead} message=${agentResult.errorMessage ?? ""}`,
+      `agent reported recoverable failure stepHash=${newHead} message=${errorMsg}`,
       null,
     );
+
+    // Persist suspended state so `thread list --status suspended` reflects the failure.
+    const priorEntry = getThread(uwfAfter.varStore, threadId) ?? createThreadIndexEntry(headHash);
+    setThread(uwfAfter.varStore, threadId, markThreadSuspended(priorEntry, role, errorMsg));
+
     return {
       workflow: workflowHash,
       thread: threadId,
       head: headHash,
-      status: "idle",
+      status: "suspended",
       currentRole: role,
-      suspendedRole: null,
-      suspendMessage: null,
+      suspendedRole: role,
+      suspendMessage: errorMsg,
       done: false,
       background: null,
-      error: { stepHash: newHead, message: agentResult.errorMessage ?? "agent reported error" },
+      error: { stepHash: newHead, message: errorMsg },
     };
   }
 

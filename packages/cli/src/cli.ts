@@ -16,6 +16,7 @@ import { cmdStepAsk, cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "
 import {
   cmdThreadCancel,
   cmdThreadExec,
+  cmdThreadJoin,
   cmdThreadList,
   cmdThreadPoke,
   cmdThreadRead,
@@ -412,6 +413,24 @@ thread
     runAction(async () => {
       const result = await cmdThreadCancel(storageRoot, threadId);
       writeRawOutput(result, "thread cancel");
+    });
+  });
+
+thread
+  .command("join")
+  .description("Block until a running thread finishes, then return the final result")
+  .argument("<thread-id>", "Thread ULID")
+  .option("--timeout <seconds>", "Max seconds to wait before giving up")
+  .action((threadId: string, opts: { timeout: string | undefined }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const timeoutMs = opts.timeout !== undefined ? Number(opts.timeout) * 1000 : null;
+      if (timeoutMs !== null && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
+        process.stderr.write("invalid --timeout: must be a positive number\n");
+        process.exit(1);
+      }
+      const results = await cmdThreadJoin(storageRoot, threadId, timeoutMs);
+      await writeOutput(toThreadExecPayload(results), "thread-exec", storageRoot);
     });
   });
 
