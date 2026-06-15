@@ -20,9 +20,25 @@ describe("util-agent public API — no LLM exports (issue #143)", () => {
     expect(keys).not.toContain("ResolvedLlmProvider");
   });
 
-  test("still exports engine-level surface: createAgent, loadWorkflowConfig, buildContext", () => {
+  test("still exports engine-level surface: createAgent, loadWorkflowConfig", () => {
     expect(utilAgent.createAgent).toBeDefined();
     expect(utilAgent.loadWorkflowConfig).toBeDefined();
-    expect(utilAgent.buildContext).toBeDefined();
+  });
+
+  test("Phase 4 cleanup (#381): adapter-only exports are removed from public API", () => {
+    const keys = Object.keys(utilAgent);
+    // session-cache helpers (per-agent SQLite cache) — replaced by broker session-store
+    expect(keys).not.toContain("getCachedSessionId");
+    expect(keys).not.toContain("setCachedSessionId");
+    expect(keys).not.toContain("getAskSessionId");
+    expect(keys).not.toContain("setAskSessionId");
+    expect(keys).not.toContain("getCachePath");
+    // External-CLI plumbing — broker no longer needs these
+    expect(keys).not.toContain("parseArgv");
+    expect(keys).not.toContain("buildContinuationPrompt");
+    expect(keys).not.toContain("buildThreadProgress");
+    expect(keys).not.toContain("buildContext");
+    expect(keys).not.toContain("buildContextWithMeta");
+    expect(keys).not.toContain("buildSuspendOutput");
   });
 });

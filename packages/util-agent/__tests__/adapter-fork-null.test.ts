@@ -16,8 +16,6 @@ const REPO_ROOT = join(__dirname, "..", "..", "..");
 const ADAPTERS: Array<{ name: string; path: string }> = [
   { name: "agent-mock", path: "packages/agent-mock/src/mock-agent.ts" },
   { name: "agent-builtin", path: "packages/agent-builtin/src/agent.ts" },
-  { name: "agent-hermes", path: "packages/agent-hermes/src/hermes.ts" },
-  { name: "agent-claude-code", path: "packages/agent-claude-code/src/claude-code.ts" },
 ];
 
 /** Find the matching `}` for the `{` at `openIdx` in `source`. */

@@ -24,7 +24,6 @@
     "@shazhou/proman": "^0.9.3",
     "@types/node": "^25.7.0",
     "@types/xxhashjs": "^0.2.4",
-    "@united-workforce/agent-hermes": "workspace:*",
     "@vitest/coverage-v8": "^4.1.8",
     "typescript": "^5.8.3",
     "vitest": "^3.2.1",

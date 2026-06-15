@@ -21,11 +21,8 @@
     { "path": "packages/util" },
     { "path": "packages/protocol" },
     { "path": "packages/util-agent" },
-    { "path": "packages/agent-hermes" },
     { "path": "packages/agent-builtin" },
     { "path": "packages/agent-mock" },
-    { "path": "packages/agent-claude-code" },
-    { "path": "packages/agent-sumeru" },
     { "path": "packages/broker" },
     { "path": "packages/cli" },
     { "path": "packages/eval" }

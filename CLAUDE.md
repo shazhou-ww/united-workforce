@@ -12,7 +12,7 @@ This monorepo implements a stateless workflow engine driven by a single-step CLI
 | **Thread** | A single execution of a workflow, identified by a ULID. State is an immutable CAS chain; active threads indexed as `@uwf/thread/*` variables; completed threads as `@uwf/history/*` variables. |
 | **Role** | A named actor within a workflow. Each role has a system prompt and a JSON Schema `outputSchema`. |
 | **Moderator** | Status-based graph evaluator — determines the next role (or `$END`) with zero LLM cost. |
-| **Agent** | An external CLI command (`uwf-hermes`, etc.) spawned by `uwf thread step`. Produces frontmatter markdown output. |
+| **Agent** | A Sumeru-hosted gateway session reached through `@united-workforce/broker` over HTTP. The `agent-builtin` package is the local in-process exception used for tools-bearing OpenAI-compatible runs. |
 | **CAS** | Content-Addressed Storage via `@ocas/core` — all workflow definitions, thread nodes, and outputs are immutable CAS nodes. |
 | **Registry** | `@uwf/registry/*` variables in `~/.ocas/variables.db` — maps workflow names to current CAS hashes. |
 
@@ -23,20 +23,24 @@ workflow/
   packages/
     protocol/         # @united-workforce/protocol — shared types (WorkflowPayload, StepNodePayload, WorkflowConfig, etc.)
     util/             # @united-workforce/util — Crockford Base32, ULID, logger, frontmatter parsing/validation
-    util-agent/       # @united-workforce/util-agent — createAgent factory, context builder, extract pipeline
-    agent-hermes/     # @united-workforce/agent-hermes — uwf-hermes CLI binary (spawns hermes chat)
-    agent-claude-code/ # @united-workforce/agent-claude-code — uwf-claude-code CLI binary
-    agent-builtin/    # @united-workforce/agent-builtin — uwf-builtin CLI binary
+    util-agent/       # @united-workforce/util-agent — createAgent factory, context builder, extract pipeline (in-process adapters)
+    broker/           # @united-workforce/broker — Sumeru gateway client (HTTP send/resume/poke + session-store)
+    agent-builtin/    # @united-workforce/agent-builtin — uwf-builtin in-process adapter (tools loop)
+    agent-mock/       # @united-workforce/agent-mock — uwf-mock in-process adapter for E2E tests
     cli/              # @united-workforce/cli — uwf CLI binary (includes status-based moderator in src/moderator/)
     dashboard/        # @united-workforce/dashboard — web dashboard (private, not published)
-  legacy-packages/       # Archived packages (preserved for reference, not active)
+    eval/             # @united-workforce/eval — evaluation harness
+  legacy-packages/    # Archived packages (preserved for reference, not part of the workspace)
+    agent-hermes/     # archived — replaced by broker (Phase 4 cleanup #381)
+    agent-claude-code/# archived — replaced by broker (Phase 4 cleanup #381)
+    agent-sumeru/     # archived — replaced by broker (Phase 4 cleanup #381)
   examples/              # Workflow YAML examples (solve-issue.yaml)
   docs/                  # Architecture docs
   biome.json             # root Biome config
   tsconfig.json          # root TypeScript config
 ```
 
-- Dependency layers: `protocol` → `util` → `util-agent` → `agent-hermes` / `agent-claude-code` / `agent-builtin` / `cli`
+- Dependency layers: `protocol` → `util` → `util-agent` → `broker` → `agent-builtin` / `agent-mock` / `cli`
 - Packages use `workspace:^` protocol (resolves to `^x.y.z` on publish)
 - External CAS: `@ocas/core` (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend)
 
