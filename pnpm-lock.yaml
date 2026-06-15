@@ -140,6 +140,19 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
+  packages/broker:
+    dependencies:
+      '@united-workforce/protocol':
+        specifier: workspace:^
+        version: link:../protocol
+      '@united-workforce/util':
+        specifier: workspace:^
+        version: link:../util
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   packages/cli:
     dependencies:
       '@ocas/core':
