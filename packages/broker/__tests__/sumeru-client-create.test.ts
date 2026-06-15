@@ -3,9 +3,13 @@
  * and the shape of the returned object.
  */
 
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { createSumeruClient } from "../src/sumeru-client/index.js";
+import {
+  createSumeruClient,
+  DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
+  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
+} from "../src/sumeru-client/index.js";
 
 describe("createSumeruClient", () => {
   test("returns an object with createSession + sendMessage methods", () => {
@@ -39,5 +43,112 @@ describe("createSumeruClient", () => {
     expect(() => createSumeruClient("http://127.0.0.1:7900")).not.toThrow();
     expect(() => createSumeruClient("http://127.0.0.1:7900/")).not.toThrow();
     expect(() => createSumeruClient("http://127.0.0.1:7900///")).not.toThrow();
+  });
+
+  test("accepts an optional options bag without throwing", () => {
+    expect(() => createSumeruClient("http://127.0.0.1:7900", {} as never)).not.toThrow();
+    expect(() =>
+      createSumeruClient("http://127.0.0.1:7900", {
+        sseTotalTimeoutMs: 60_000,
+        sseHeartbeatTimeoutMs: 30_000,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      createSumeruClient("http://127.0.0.1:7900", {
+        sseTotalTimeoutMs: null,
+        sseHeartbeatTimeoutMs: null,
+      }),
+    ).not.toThrow();
+  });
+
+  test("default constants are exported with the documented values", () => {
+    expect(DEFAULT_SSE_TOTAL_TIMEOUT_MS).toBe(300_000);
+    expect(DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS).toBe(45_000);
+  });
+});
+
+describe("createSumeruClient — default SSE timeouts", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Build an SSE Response whose body never enqueues bytes and never closes —
+   * `consumeSse` will hang forever in the absence of timers.
+   */
+  function buildHungSseResponse(): Response {
+    const stream = new ReadableStream<Uint8Array>({
+      // controller never enqueues, never closes.
+      start: () => undefined,
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+    });
+  }
+
+  test("createSumeruClient applies default SSE timeouts when options are omitted", async () => {
+    vi.stubGlobal("fetch", async () => buildHungSseResponse());
+    const client = createSumeruClient("http://127.0.0.1:7900");
+    const promise = client.sendMessage({ gateway: "g", sessionId: "s", content: "x" });
+    // Avoid an unhandled rejection if it rejects before we attach the
+    // expectation — the watchdog default (45_000ms) fires first.
+    promise.catch(() => undefined);
+
+    // Below the watchdog default — must not reject yet.
+    await vi.advanceTimersByTimeAsync(DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS - 1);
+    let settled = false;
+    promise.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    // Flush microtasks so any premature rejection would surface.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    // Crossing the watchdog default (45_000ms) MUST trigger a rejection
+    // because the stream emitted no events.
+    await vi.advanceTimersByTimeAsync(2);
+    await expect(promise).rejects.toThrow(
+      /sumeru SSE stream watchdog: no event received within 45000ms/,
+    );
+  });
+
+  test("default total timeout (300_000ms) fires when watchdog is disabled", async () => {
+    vi.stubGlobal("fetch", async () => buildHungSseResponse());
+    const client = createSumeruClient("http://127.0.0.1:7900", {
+      sseTotalTimeoutMs: null,
+      sseHeartbeatTimeoutMs: 10_000_000,
+    });
+    const promise = client.sendMessage({ gateway: "g", sessionId: "s", content: "x" });
+    promise.catch(() => undefined);
+
+    // 299_999ms — must not reject yet (default 300_000ms total timeout).
+    await vi.advanceTimersByTimeAsync(DEFAULT_SSE_TOTAL_TIMEOUT_MS - 1);
+    let settled = false;
+    promise.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    // 300_001ms — must reject with the documented message.
+    await vi.advanceTimersByTimeAsync(2);
+    await expect(promise).rejects.toThrow(/sumeru SSE stream timed out after 300000ms/);
   });
 });

@@ -25,6 +25,9 @@ import {
   createSumeruClient,
   SumeruSessionNotFoundError,
   SUMERU_SESSION_NOT_FOUND,
+  // SSE consumption defensive timer defaults (#391)
+  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
+  DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
   // Phase 2 — orchestrator
   createBroker,
 } from "@united-workforce/broker";
@@ -33,6 +36,7 @@ import type {
   SessionRecord,
   SessionStore,
   SumeruClient,
+  SumeruClientOptions,
   SumeruSendOutcome,
   CreateSessionArgs,
   SendMessageArgs,
@@ -104,6 +108,31 @@ console.log(outcome.done);                    // { turnCount, tokens, durationMs
 The client is stateless — `host` is captured in the closure and trailing
 slashes are normalised so subsequent path joins never produce `//gateways/`.
 No I/O happens at construction time.
+
+#### SSE timeouts (#391)
+
+`createSumeruClient` accepts an optional second argument that bounds the
+SSE consumption window so a stuck Sumeru stream never hangs the broker:
+
+```typescript
+const client = createSumeruClient("http://127.0.0.1:7900", {
+  // Wall-clock cap on one sendMessage SSE consumption.
+  // null (or absent) → DEFAULT_SSE_TOTAL_TIMEOUT_MS (300_000ms = 5min).
+  sseTotalTimeoutMs: 60_000,
+  // Per-event watchdog — reset on every consumed event (turn / heartbeat / …).
+  // null (or absent) → DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS (45_000ms ≈ 3× server heartbeat).
+  sseHeartbeatTimeoutMs: 30_000,
+});
+```
+
+When either timer fires the reader is cancelled and `sendMessage` rejects
+with one of:
+
+- `sumeru SSE stream timed out after Nms (gateway=…, session=…)`
+- `sumeru SSE stream watchdog: no event received within Nms (gateway=…, session=…)`
+
+Both timers are cleared on every exit path (success, error, or abort) so
+completed sends never leak a pending Node.js timer.
 
 ### Broker orchestration (Phase 2)
 

@@ -4,7 +4,7 @@
  * 404 typed error.
  */
 
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { createSumeruClient, SumeruSessionNotFoundError } from "../src/sumeru-client/index.js";
 import { installFetchStub, sseFrame } from "./fetch-stub.js";
@@ -307,5 +307,154 @@ describe("client.sendMessage — host normalisation", () => {
     const client = createSumeruClient("http://127.0.0.1:7900/");
     await client.sendMessage({ gateway: "g", sessionId: "s", content: "x" });
     expect(fetchStub.calls[0].url).toBe("http://127.0.0.1:7900/gateways/g/sessions/s/messages");
+  });
+});
+
+describe("client.sendMessage — SSE total timeout & watchdog (issue #391)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Build an SSE Response whose body is fully driven by the test — the
+   * caller receives the underlying `ReadableStreamDefaultController` and may
+   * enqueue (or refuse to enqueue) bytes whenever convenient.
+   */
+  function buildControllableSseResponse(): {
+    response: Response;
+    controller: ReadableStreamDefaultController<Uint8Array>;
+  } {
+    let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        controllerRef = c;
+      },
+    });
+    if (controllerRef === null) {
+      throw new Error("ReadableStream controller never wired");
+    }
+    return {
+      response: new Response(stream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+      }),
+      controller: controllerRef,
+    };
+  }
+
+  test("sendMessage rejects with timeout error when total timeout elapses", async () => {
+    const built = buildControllableSseResponse();
+    vi.stubGlobal("fetch", async () => built.response);
+
+    const client = createSumeruClient("http://127.0.0.1:7900", {
+      sseTotalTimeoutMs: 50,
+      sseHeartbeatTimeoutMs: null,
+    });
+    const promise = client.sendMessage({
+      gateway: "claude-code",
+      sessionId: "ses_abc",
+      content: "hello",
+    });
+    promise.catch(() => undefined);
+
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(promise).rejects.toThrow(
+      /sumeru SSE stream timed out after 50ms \(gateway=claude-code, session=ses_abc\)/,
+    );
+  });
+
+  test("sendMessage rejects with watchdog error when no events arrive within heartbeat window", async () => {
+    const built = buildControllableSseResponse();
+    vi.stubGlobal("fetch", async () => built.response);
+    const encoder = new TextEncoder();
+
+    const client = createSumeruClient("http://127.0.0.1:7900", {
+      sseTotalTimeoutMs: null,
+      sseHeartbeatTimeoutMs: 50,
+    });
+    const promise = client.sendMessage({
+      gateway: "claude-code",
+      sessionId: "ses_abc",
+      content: "hello",
+    });
+    promise.catch(() => undefined);
+
+    // Send one turn frame so the watchdog has something to "reset" against.
+    built.controller.enqueue(
+      encoder.encode(
+        sseFrame(1, "turn", {
+          type: "@sumeru/turn",
+          value: { index: 0, role: "user", content: "u", timestamp: "", toolCalls: null },
+        }),
+      ),
+    );
+    // Let microtasks settle so the reader consumes the frame & resets watchdog.
+    await Promise.resolve();
+    await Promise.resolve();
+    // Now go silent past the watchdog window.
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(promise).rejects.toThrow(
+      /sumeru SSE stream watchdog: no event received within 50ms \(gateway=claude-code, session=ses_abc\)/,
+    );
+  });
+
+  test("heartbeat events reset the watchdog and allow long-running streams", async () => {
+    const built = buildControllableSseResponse();
+    vi.stubGlobal("fetch", async () => built.response);
+    const encoder = new TextEncoder();
+
+    const client = createSumeruClient("http://127.0.0.1:7900", {
+      sseTotalTimeoutMs: null,
+      sseHeartbeatTimeoutMs: 50,
+    });
+    const promise = client.sendMessage({
+      gateway: "g",
+      sessionId: "s",
+      content: "x",
+    });
+
+    // Emit a heartbeat every 30ms for ~210ms — each one resets the 50ms
+    // watchdog. Then emit assistant turn + done.
+    for (let i = 0; i < 7; i += 1) {
+      await vi.advanceTimersByTimeAsync(30);
+      built.controller.enqueue(
+        encoder.encode(
+          sseFrame(i + 1, "heartbeat", { type: "@sumeru/heartbeat", value: { elapsed: 30 } }),
+        ),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    built.controller.enqueue(
+      encoder.encode(
+        sseFrame(100, "turn", {
+          type: "@sumeru/turn",
+          value: {
+            index: 1,
+            role: "assistant",
+            content: "ok",
+            timestamp: "",
+            toolCalls: null,
+          },
+        }),
+      ),
+    );
+    built.controller.enqueue(
+      encoder.encode(
+        sseFrame(101, "done", {
+          type: "@sumeru/summary",
+          value: { turnCount: 1, tokens: null, durationMs: 1 },
+        }),
+      ),
+    );
+    built.controller.close();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(promise).resolves.toMatchObject({ output: "ok" });
   });
 });

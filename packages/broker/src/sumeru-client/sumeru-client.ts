@@ -4,21 +4,26 @@
  * Uses the global `fetch` available in Node 18+. The client maintains no
  * connection pool because `uwf thread exec` invocations are short-lived.
  *
- * The factory `createSumeruClient(host)` returns a frozen object exposing
- * only the methods needed by `broker.send()`. `host` is normalised at
- * construction time (trailing slash stripped) so subsequent path joins
- * never produce `//gateways/...`.
+ * The factory `createSumeruClient(host, options?)` returns a frozen object
+ * exposing only the methods needed by `broker.send()`. `host` is normalised
+ * at construction time (trailing slash stripped) so subsequent path joins
+ * never produce `//gateways/...`. `options` plumbs the SSE total-timeout
+ * and per-event watchdog windows used to bound `consumeSse` (see
+ * issue #391).
  */
 
 import { SumeruSessionNotFoundError } from "./errors.js";
 import { createSseParser, type SseEvent } from "./sse.js";
-import type {
-  CreateSessionArgs,
-  SendMessageArgs,
-  SumeruClient,
-  SumeruDoneValue,
-  SumeruSendOutcome,
-  SumeruTurnValue,
+import {
+  type CreateSessionArgs,
+  DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
+  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
+  type SendMessageArgs,
+  type SumeruClient,
+  type SumeruClientOptions,
+  type SumeruDoneValue,
+  type SumeruSendOutcome,
+  type SumeruTurnValue,
 } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -91,9 +96,24 @@ function buildMessageErrorMessage(
  * - No I/O at construction time.
  * - The returned object is frozen and exposes exactly two methods:
  *   `createSession` and `sendMessage`.
+ * - `options` (issue #391):
+ *   - `sseTotalTimeoutMs` — wall-clock cap on one `sendMessage` SSE
+ *     consumption. Default 300_000ms. `null` (or absent) means default.
+ *   - `sseHeartbeatTimeoutMs` — per-event watchdog window. Default
+ *     45_000ms (3× server heartbeat). `null` (or absent) means default.
+ *   `undefined`, `{}`, and `{ sseTotalTimeoutMs: null, sseHeartbeatTimeoutMs: null }`
+ *   are all treated identically.
  */
-export function createSumeruClient(host: string): SumeruClient {
+export function createSumeruClient(host: string, options?: SumeruClientOptions): SumeruClient {
   const normalisedHost = host.replace(/\/+$/, "");
+  const sseTotalTimeoutMs =
+    options !== undefined && options.sseTotalTimeoutMs !== null
+      ? options.sseTotalTimeoutMs
+      : DEFAULT_SSE_TOTAL_TIMEOUT_MS;
+  const sseHeartbeatTimeoutMs =
+    options !== undefined && options.sseHeartbeatTimeoutMs !== null
+      ? options.sseHeartbeatTimeoutMs
+      : DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS;
 
   async function createSession(args: CreateSessionArgs): Promise<string> {
     const url = joinUrl(normalisedHost, `/gateways/${args.gateway}/sessions`);
@@ -167,7 +187,13 @@ export function createSumeruClient(host: string): SumeruClient {
       );
     }
 
-    return consumeSse(response.body);
+    return consumeSse({
+      body: response.body,
+      gateway: args.gateway,
+      sessionId: args.sessionId,
+      sseTotalTimeoutMs,
+      sseHeartbeatTimeoutMs,
+    });
   }
 
   return Object.freeze({ createSession, sendMessage });
@@ -199,18 +225,39 @@ function processEvents(events: Iterable<SseEvent>, state: SseState): void {
   }
 }
 
+type ReadResult = { done: boolean; value: Uint8Array | undefined };
+
 async function readSseStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   decoder: TextDecoder,
   parser: ReturnType<typeof createSseParser>,
   state: SseState,
+  abortPromise: Promise<never>,
+  resetWatchdog: () => void,
 ): Promise<void> {
   while (true) {
-    const { value, done: streamDone } = await reader.read();
-    if (streamDone) return;
-    const chunk = decoder.decode(value, { stream: true });
-    processEvents(parser.push(chunk), state);
-    if (isStreamFinished(state)) return;
+    // Swallow late rejection from a read() that loses the race against the
+    // abort timer — `reader.cancel()` (called in the finally block) will
+    // resolve/reject the promise after we've already thrown the timeout/
+    // watchdog error, and we don't want that to surface as unhandled.
+    const readPromise: Promise<ReadResult> = reader
+      .read()
+      .then((r) => ({ done: r.done, value: r.value }))
+      .catch((): ReadResult => ({ done: true, value: undefined }));
+    const next = (await Promise.race([readPromise, abortPromise])) as ReadResult;
+    if (next.done) return;
+    const chunk = decoder.decode(next.value, { stream: true });
+    const events = parser.push(chunk);
+    let consumedAny = false;
+    for (const evt of events) {
+      consumedAny = true;
+      applyOutcome(state, handleEvent(evt));
+      if (isStreamFinished(state)) {
+        if (consumedAny) resetWatchdog();
+        return;
+      }
+    }
+    if (consumedAny) resetWatchdog();
   }
 }
 
@@ -234,10 +281,20 @@ function finalizeOutcome(state: SseState): SumeruSendOutcome {
   };
 }
 
-async function consumeSse(body: ReadableStream<Uint8Array>): Promise<SumeruSendOutcome> {
+type ConsumeSseArgs = Readonly<{
+  body: ReadableStream<Uint8Array>;
+  gateway: string;
+  sessionId: string;
+  sseTotalTimeoutMs: number;
+  sseHeartbeatTimeoutMs: number;
+}>;
+
+type AbortKind = "total" | "watchdog";
+
+async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
   const decoder = new TextDecoder();
   const parser = createSseParser();
-  const reader = body.getReader();
+  const reader = args.body.getReader();
   const state: SseState = {
     assistantTurns: [],
     totalTurns: 0,
@@ -245,8 +302,57 @@ async function consumeSse(body: ReadableStream<Uint8Array>): Promise<SumeruSendO
     errorMessage: null,
   };
 
+  let totalTimer: ReturnType<typeof setTimeout> | null = null;
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  let abortReason: AbortKind | null = null;
+  let abortReject: ((err: Error) => void) | null = null;
+
+  const totalErrorMessage = `sumeru SSE stream timed out after ${args.sseTotalTimeoutMs}ms (gateway=${args.gateway}, session=${args.sessionId})`;
+  const watchdogErrorMessage = `sumeru SSE stream watchdog: no event received within ${args.sseHeartbeatTimeoutMs}ms (gateway=${args.gateway}, session=${args.sessionId})`;
+
+  function clearTotalTimer(): void {
+    if (totalTimer !== null) {
+      clearTimeout(totalTimer);
+      totalTimer = null;
+    }
+  }
+
+  function clearWatchdogTimer(): void {
+    if (watchdogTimer !== null) {
+      clearTimeout(watchdogTimer);
+      watchdogTimer = null;
+    }
+  }
+
+  function fireAbort(kind: AbortKind, message: string): void {
+    if (abortReason !== null) return;
+    abortReason = kind;
+    if (abortReject !== null) abortReject(new Error(message));
+  }
+
+  function resetWatchdog(): void {
+    clearWatchdogTimer();
+    watchdogTimer = setTimeout(() => {
+      fireAbort("watchdog", watchdogErrorMessage);
+    }, args.sseHeartbeatTimeoutMs);
+  }
+
+  totalTimer = setTimeout(() => {
+    fireAbort("total", totalErrorMessage);
+  }, args.sseTotalTimeoutMs);
+  resetWatchdog();
+
+  const abortPromise = new Promise<never>((_resolve, reject) => {
+    abortReject = reject;
+  });
+  // The abort promise may reject after `Promise.race` has already returned
+  // (e.g. when the watchdog fires concurrently with a successful drain).
+  // Attach a swallow-handler so the dangling rejection does NOT surface as
+  // an unhandled promise rejection.
+  abortPromise.catch(() => undefined);
+
   try {
-    await readSseStream(reader, decoder, parser, state);
+    await readSseStream(reader, decoder, parser, state, abortPromise, resetWatchdog);
     // Drain trailing partial frame (if any) and pull final residual decode bytes.
     const tail = decoder.decode();
     if (tail !== "") {
@@ -254,8 +360,10 @@ async function consumeSse(body: ReadableStream<Uint8Array>): Promise<SumeruSendO
     }
     processEvents(parser.drain(), state);
   } finally {
+    clearTotalTimer();
+    clearWatchdogTimer();
     try {
-      await reader.cancel();
+      await reader.cancel(abortReason === null ? undefined : abortReason);
     } catch {
       // ignore — partial reads must not leak the underlying socket
     }
