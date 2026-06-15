@@ -696,7 +696,7 @@ program
     "Configure the default agent. Run without --agent for interactive wizard.\n" +
       "Each adapter owns its own LLM configuration — the engine config is LLM-free.",
   )
-  .option("--agent <name>", "Default agent adapter (e.g. hermes → uwf-hermes)")
+  .option("--agent <name>", "Default agent adapter (e.g. builtin, or a Sumeru gateway alias)")
   .action((opts: { agent?: string }) => {
     const storageRoot = resolveStorageRoot();
     runAction(async () => {

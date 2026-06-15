@@ -71,19 +71,28 @@ Layer 1 — Shared infra
   util              Encoding, IDs, logging, frontmatter, paths
 
 Layer 2 — Agent framework
-  util-agent         createAgent factory, context builder, extract pipeline
+  util-agent        createAgent factory, context builder, extract pipeline
 
-Layer 3 — Agent implementations
-  agent-hermes      Hermes ACP agent (uwf-hermes)
+Layer 3 — Broker
+  broker            Sumeru gateway client (HTTP send/resume/poke + session-store)
+
+Layer 4 — In-process adapters
   agent-builtin     Built-in LLM + tools agent (uwf-builtin)
-  agent-claude-code Claude Code agent (uwf-claude-code)
+  agent-mock        Test-only mock adapter (uwf-mock)
 
-Layer 4 — CLI
+Layer 5 — CLI
   cli               uwf binary — thread lifecycle, registry, CAS, setup (includes status-based moderator)
 
 App (uses protocol; not in the runtime engine stack)
   dashboard         Web UI for visual workflow editing
+  eval              Evaluation harness
 ```
+
+> **Note (Phase 4 cleanup, #381):** the per-agent CLI binary packages
+> `agent-hermes`, `agent-claude-code`, and `agent-sumeru` have been
+> archived under [`legacy-packages/`](./legacy-packages/) and are no longer
+> published. Sumeru-hosted agents are now reached through `@united-workforce/broker`
+> over HTTP, configured as `agents.<name>: { host, gateway }` in `~/.uwf/config.yaml`.
 
 External CAS: [`@ocas/core`](https://www.npmjs.com/package/@ocas/core) (store API, hashing, schema validation) + `@ocas/fs` (filesystem backend).
 
@@ -97,10 +106,23 @@ See [docs/architecture.md](docs/architecture.md) for the full design — three-p
 | `protocol` | `@united-workforce/protocol` | Shared TypeScript types and JSON Schema constants | lib | [README](packages/protocol/README.md) |
 | `util-agent` | `@united-workforce/util-agent` | `createAgent` factory, context builder, extract pipeline | lib | [README](packages/util-agent/README.md) |
 | `util` | `@united-workforce/util` | Crockford Base32, ULID, logger, frontmatter parsing, storage paths | lib | [README](packages/util/README.md) |
-| `agent-hermes` | `@united-workforce/agent-hermes` | `uwf-hermes` — spawns Hermes chat via ACP | agent | [README](packages/agent-hermes/README.md) |
+| `broker` | `@united-workforce/broker` | Sumeru gateway HTTP client + `(threadId, role) → sessionId` session store | lib | [README](packages/broker/README.md) |
 | `agent-builtin` | `@united-workforce/agent-builtin` | `uwf-builtin` — built-in LLM agent with file/shell tools | agent | [README](packages/agent-builtin/README.md) |
-| `agent-claude-code` | `@united-workforce/agent-claude-code` | `uwf-claude-code` — spawns Claude Code CLI | agent | [README](packages/agent-claude-code/README.md) |
+| `agent-mock` | `@united-workforce/agent-mock` | `uwf-mock` — test-only mock adapter | agent | [README](packages/agent-mock/README.md) |
 | `dashboard` | `@united-workforce/dashboard` | Web graph editor for workflow YAML (private, alpha) | app | [README](packages/dashboard/README.md) |
+| `eval` | `@united-workforce/eval` | Evaluation harness for workflow runs | app | [README](packages/eval/README.md) |
+
+### Archived
+
+The following packages were the per-agent CLI adapters used before the
+broker rollout. They are preserved under [`legacy-packages/`](./legacy-packages/)
+for historical reference and are no longer published:
+
+| Package | Replacement | Source |
+|---------|-------------|--------|
+| `@united-workforce/agent-hermes` | `@united-workforce/broker` (Sumeru gateway) | [legacy-packages/agent-hermes](legacy-packages/agent-hermes/README.md) |
+| `@united-workforce/agent-claude-code` | `@united-workforce/broker` (Sumeru gateway) | [legacy-packages/agent-claude-code](legacy-packages/agent-claude-code/README.md) |
+| `@united-workforce/agent-sumeru` | `@united-workforce/broker` (Sumeru gateway) | [legacy-packages/agent-sumeru](legacy-packages/agent-sumeru/README.md) |
 
 ## CLI Reference
 

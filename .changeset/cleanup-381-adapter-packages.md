@@ -2,6 +2,7 @@
 "@united-workforce/util": minor
 "@united-workforce/util-agent": minor
 "@united-workforce/cli": patch
+"@united-workforce/eval": patch
 ---
 
 chore(cleanup): archive legacy per-agent CLI adapters (#381)
@@ -22,8 +23,18 @@ gateways are now reached through `@united-workforce/broker` over HTTP.
   describes the broker-based architecture instead of recommending
   per-agent CLI binary installs.
 - `@united-workforce/cli` setup/prompt commands no longer scan for or
-  recommend `uwf-hermes` / `uwf-claude-code` binaries.
+  recommend the per-agent CLI binaries; the `setup --agent` option
+  description in `cli.ts` was also updated so `uwf setup --help`
+  contains no legacy adapter substrings.
+- `@united-workforce/eval`'s `eval run --agent` default flipped from
+  the now-archived `uwf-hermes` to `uwf-builtin` so the default flow
+  stays runnable post-cleanup.
 - `scripts/publish-all.mjs` `publishOrder` updated to drop legacy
   adapter dirs and use the post-rename workspace package directories.
 - Repo-root `vitest.config.ts` excludes `legacy-packages/**` so archived
   adapter test files do not run in the workspace test pass.
+- Top-level `README.md` Architecture / Packages sections rewritten to
+  match the post-cleanup layout (broker added to Layer 3, archived
+  adapters moved into a dedicated Archived table that links into
+  `legacy-packages/`). `legacy-packages/agent-sumeru/CHANGELOG.md`
+  added so all three archived packages carry the same banner.

@@ -35,9 +35,9 @@ describe("util-agent public API — no LLM exports (issue #143)", () => {
     expect(keys).not.toContain("getCachePath");
     // External-CLI plumbing — broker no longer needs these
     expect(keys).not.toContain("parseArgv");
-    expect(keys).not.toContain("buildContinuationPrompt");
-    expect(keys).not.toContain("buildThreadProgress");
     expect(keys).not.toContain("buildContext");
+    // buildContinuationPrompt and buildThreadProgress remain public —
+    // broker-step.ts assembles the full agent prompt using them (#387).
     expect(keys).not.toContain("buildContextWithMeta");
     expect(keys).not.toContain("buildSuspendOutput");
   });
