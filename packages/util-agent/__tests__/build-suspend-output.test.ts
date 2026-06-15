@@ -2,9 +2,9 @@ import { bootstrap, createMemoryStore, putSchema } from "@ocas/core";
 import { SUSPEND_OUTPUT_SCHEMA, SUSPEND_STATUS } from "@united-workforce/protocol";
 import { describe, expect, test } from "vitest";
 
-import { buildSuspendOutput, trySuspendFastPath } from "../src/index.js";
+import { buildSuspendOutput, trySuspendFastPath } from "../src/frontmatter.js";
 
-describe("buildSuspendOutput — exported from public API", () => {
+describe("buildSuspendOutput — internal helper for in-process adapters", () => {
   test("is a function", () => {
     expect(typeof buildSuspendOutput).toBe("function");
   });

@@ -326,7 +326,7 @@ Example:
 
 \`\`\`bash
 uwf config get defaultAgent
-uwf config set defaultAgent uwf-hermes
+uwf config set defaultAgent claude-code
 \`\`\`
 
 ### Concurrency Control
@@ -395,14 +395,14 @@ For specific scenarios, run the corresponding \`uwf prompt\` command:
 | Scenario | Command | When to use |
 |----------|---------|-------------|
 | Writing workflow YAML | \`uwf prompt workflow-authoring\` | Designing roles, graphs, and edge prompts |
-| Building a new agent adapter | \`uwf prompt adapter-developing\` | Creating a new \`uwf-<name>\` CLI adapter |
+| Building a new agent integration | \`uwf prompt adapter-developing\` | Adding a Sumeru gateway / broker-side agent |
 
 ## Upgrading
 
 \`\`\`bash
 # Install the latest version
-pnpm add -g @united-workforce/cli@latest @united-workforce/agent-hermes@latest
-# or: npm install -g @united-workforce/cli@latest @united-workforce/agent-hermes@latest
+pnpm add -g @united-workforce/cli@latest
+# or: npm install -g @united-workforce/cli@latest
 
 # Verify
 uwf --version

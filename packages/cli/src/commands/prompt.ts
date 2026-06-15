@@ -82,71 +82,57 @@ npm prefix -g     # global prefix; bin is <prefix>/bin
 
 **All checks must pass before continuing.** If you had to modify PATH, verify the change persists by opening a new shell or sourcing your shell config.
 
-### Step 1 — Discover agents and install adapter
+### Step 1 — Install the CLI and pick an integration path
 
-**First, detect which supported agents are already installed on the user's machine:**
+uwf reaches an LLM/agent backend through one of two paths after Phase 4
+cleanup (#381):
 
-\`\`\`bash
-# Check for Hermes Agent
-which hermes 2>/dev/null && hermes --version
+- **Sumeru gateway via broker (preferred)** — your gateway runs out-of-process
+  and listens on \`http://host:port\`. The broker
+  (\`@united-workforce/broker\`) calls its \`send\` / \`resume\` / \`poke\` HTTP
+  endpoints. Most agents (chat sessions, hosted services, CLI subprocesses you
+  wrap) should ship as gateways.
+- **In-process \`createAgent\` adapter** — a local Node binary that runs inside
+  the same process as \`uwf\`. Used for tools-bearing OpenAI-compatible loops
+  (\`@united-workforce/agent-builtin\` ships \`uwf-builtin\`) or scripted E2E
+  fixtures (\`@united-workforce/agent-mock\` ships \`uwf-mock\`).
 
-# Check for Claude Code
-which claude 2>/dev/null && claude --version   # should show "X.Y.Z (Claude Code)"
-\`\`\`
-
-**Based on the results:**
-
-- **Only hermes found** → install \`uwf-hermes\` adapter
-- **Only claude found** → install \`uwf-claude-code\` adapter
-- **Both found** → ask the user which agent they want uwf to use as default
-- **Neither found** → the user must install at least one agent first:
-  - Hermes Agent: https://hermes-agent.nousresearch.com/docs
-  - Claude Code: \`npm install -g @anthropic-ai/claude-code\`
-
-**Install the uwf CLI and the chosen adapter** using pnpm or npm:
+**Install the uwf CLI** with pnpm or npm:
 
 \`\`\`bash
-# CLI (required)
 pnpm add -g @united-workforce/cli       # or: npm install -g @united-workforce/cli
-
-# Adapter — install the one matching the detected agent:
-pnpm add -g @united-workforce/agent-hermes       # or: npm i -g @united-workforce/agent-hermes
-pnpm add -g @united-workforce/agent-claude-code   # or: npm i -g @united-workforce/agent-claude-code
 \`\`\`
 
-**⚠ Adapter versions are independent from CLI versions.** Do NOT try to match adapter version to CLI version. Just install \`@latest\` (the default).
+If you plan to use the in-process built-in adapter, install it too:
 
-**After installing, verify that \`uwf\` and the adapter are available in PATH:**
+\`\`\`bash
+pnpm add -g @united-workforce/agent-builtin   # ships uwf-builtin
+\`\`\`
+
+**Verify that \`uwf\` is available in PATH:**
 
 \`\`\`bash
 uwf --version          # should print ${CLI_VERSION}
-uwf-hermes --version   # or: uwf-claude-code --version
 \`\`\`
 
-If either command is not found, the global bin directory is not in the current shell's PATH. **You must fix this before continuing:**
+If \`uwf\` is not found, the global bin directory is not in the current shell's PATH. **You must fix this before continuing:**
 
 1. Find where the binary was installed:
    \`\`\`bash
-   find ~/.local ~/.hermes /usr/local -name uwf -type f 2>/dev/null
-   npm prefix -g    # global prefix — bin is <prefix>/bin
+   pnpm bin -g       # for pnpm
+   npm prefix -g     # for npm (bin is <prefix>/bin)
    \`\`\`
 2. Add the directory to PATH permanently by appending to the user's shell config (e.g. \`~/.bashrc\`, \`~/.zshrc\`, \`~/.profile\`, or fish config):
    \`\`\`bash
    export PATH="<global-bin-dir>:$PATH"
    \`\`\`
-3. Source the updated config or open a new shell, then re-verify the commands work.
+3. Source the updated config or open a new shell, then re-verify the command works.
 
-**uwf-hermes** also requires the Hermes ACP plugin. Verify with \`hermes acp --help\`. If not available, install it:
-\`\`\`bash
-# Option A: install into hermes venv (recommended)
-source ~/.hermes/hermes-agent/.venv/bin/activate && pip install hermes-agent[acp]
-
-# Option B: pipx
-pipx install 'hermes-agent[acp]'
-
-# Option C: if installed from source
-pip install -e '.[acp]'
-\`\`\`
+**Legacy note:** The old per-agent CLI binaries and their npm packages have
+been moved to \`legacy-packages/\` and are no longer published. If you
+previously installed any \`@united-workforce/agent-*\` package targeting an
+external chat CLI, uninstall it and either run a Sumeru gateway or use
+\`uwf-builtin\`.
 
 ### Step 2 — Configure default agent
 
@@ -162,20 +148,20 @@ Or configure non-interactively:
 uwf setup --agent <adapter-command>
 \`\`\`
 
-**Note:** \`--agent\` takes an alias declared in your \`agents\` map (e.g. \`hermes\`, \`claude-code\`) — **not** an adapter command name. Each alias resolves to a \`{host, gateway}\` Sumeru endpoint that the broker contacts over HTTP. \`uwf thread exec --agent\` additionally accepts an inline \`"<host> <gateway>"\` pair for ad-hoc routing.
+**Note:** \`--agent\` takes an alias declared in your \`agents\` map (e.g. \`builtin\`, \`my-gateway\`) — **not** an adapter command name. Each alias resolves to a \`{host, gateway}\` Sumeru endpoint that the broker contacts over HTTP. \`uwf thread exec --agent\` additionally accepts an inline \`"<host> <gateway>"\` pair for ad-hoc routing.
 
 Config is saved to \`~/.uwf/config.yaml\`:
 
 \`\`\`yaml
 agents:
-  hermes:
+  my-gateway:
     host: http://127.0.0.1:7900
-    gateway: hermes
-defaultAgent: hermes
+    gateway: my-gateway
+defaultAgent: my-gateway
 agentOverrides: {}
 \`\`\`
 
-**LLM configuration** is per-adapter — each adapter manages its own provider, model, and API key settings independently (typically via environment variables like \`CLAUDE_MODEL\`, \`ANTHROPIC_API_KEY\`, etc.). The engine config (\`~/.uwf/config.yaml\`) is LLM-free.
+**LLM configuration** is per-adapter — Sumeru gateways own their own provider/model/API-key settings, and in-process adapters store theirs under \`~/.uwf/agents/<name>.yaml\`. The engine config (\`~/.uwf/config.yaml\`) is LLM-free.
 
 Verify with \`cat ~/.uwf/config.yaml\`.
 
@@ -261,15 +247,21 @@ npm install -g @united-workforce/cli@latest
 uwf --version   # should print ${CLI_VERSION}
 \`\`\`
 
-Also update your adapter(s):
+Also update any in-process adapter you have installed (skip if you only use
+Sumeru gateways via the broker):
 
 \`\`\`bash
 # pnpm
-pnpm add -g @united-workforce/agent-hermes@latest
+pnpm add -g @united-workforce/agent-builtin@latest
 
 # npm
-npm install -g @united-workforce/agent-hermes@latest
+npm install -g @united-workforce/agent-builtin@latest
 \`\`\`
+
+If you previously had any \`@united-workforce/agent-*\` package targeting an
+external chat CLI installed globally, uninstall it — those packages are
+archived under \`legacy-packages/\` as of #381 and no longer published. Reach
+the same backends via a Sumeru gateway in \`~/.uwf/config.yaml\` instead.
 
 ### Step 2 — Regenerate skills
 

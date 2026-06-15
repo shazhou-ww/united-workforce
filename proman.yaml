@@ -11,14 +11,6 @@ packages:
     path: packages/util-agent
     type: lib
 
-  - name: "@united-workforce/agent-hermes"
-    path: packages/agent-hermes
-    type: cli
-
-  - name: "@united-workforce/agent-claude-code"
-    path: packages/agent-claude-code
-    type: cli
-
   - name: "@united-workforce/agent-builtin"
     path: packages/agent-builtin
     type: cli
@@ -27,9 +19,9 @@ packages:
     path: packages/agent-mock
     type: cli
 
-  - name: "@united-workforce/agent-sumeru"
-    path: packages/agent-sumeru
-    type: cli
+  - name: "@united-workforce/broker"
+    path: packages/broker
+    type: lib
 
   - name: "@united-workforce/cli"
     path: packages/cli

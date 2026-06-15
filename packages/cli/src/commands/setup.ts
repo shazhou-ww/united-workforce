@@ -92,7 +92,7 @@ export function _parseWhichOutput(text: string): string[] {
 
 /**
  * Discover uwf-* agent binaries in PATH.
- * Returns sorted list of binary names (e.g., ["uwf-hermes", "uwf-claude-code"]).
+ * Returns sorted list of binary names (e.g., ["uwf-builtin", "uwf-mock"]).
  */
 export async function _discoverAgents(): Promise<string[]> {
   try {
@@ -106,7 +106,7 @@ export async function _discoverAgents(): Promise<string[]> {
 
 async function _tryWhichDiscovery(): Promise<string[] | null> {
   try {
-    const text = execFileSync("which", ["-a", "uwf-hermes", "uwf-claude-code", "uwf-cursor"], {
+    const text = execFileSync("which", ["-a", "uwf-builtin", "uwf-mock"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -136,13 +136,11 @@ export function _isBackspace(c: string): boolean {
 
 /** Known agent binary → display label mapping. */
 const KNOWN_AGENTS: Record<string, string> = {
-  "uwf-hermes": "Hermes (hermes-agent)",
-  "uwf-claude-code": "Claude Code",
-  "uwf-cursor": "Cursor",
-  "uwf-builtin": "Built-in (lightweight, no external agent)",
+  "uwf-builtin": "Built-in (in-process OpenAI-compatible tools loop)",
+  "uwf-mock": "Mock (scripted fixtures for E2E tests)",
 };
 
-/** Extract short agent name from binary name: uwf-claude-code → claude-code */
+/** Extract short agent name from binary name: uwf-builtin → builtin */
 export function _agentNameFromBinary(binary: string): string {
   return binary.replace(/^uwf-/, "");
 }
@@ -161,7 +159,7 @@ export function _printAgentMenu(agents: string[]): void {
 
 /**
  * Interactive agent selection. Discovers uwf-* binaries, lets user pick default.
- * Returns short agent name (e.g. "hermes", "claude-code").
+ * Returns short agent name (e.g. "builtin", "my-gateway").
  */
 export async function _promptAgentSelection(
   rl: ReturnType<typeof createInterface>,
@@ -172,17 +170,17 @@ export async function _promptAgentSelection(
   if (agents.length === 0) {
     console.log("  No uwf-* agent binaries found in PATH.\n");
     console.log("  Install one first, for example:");
-    console.log("    npm i -g @united-workforce/agent-hermes");
-    console.log("    npm i -g @united-workforce/agent-claude-code\n");
+    console.log("    npm i -g @united-workforce/agent-builtin");
+    console.log("  Or configure a Sumeru gateway in ~/.uwf/config.yaml under agents.<name>.host\n");
     const manual = (
-      await rl.question("Agent binary name (e.g. uwf-hermes), or press Enter to skip: ")
+      await rl.question("Agent name (e.g. uwf-builtin or my-gateway), or press Enter to skip: ")
     ).trim();
-    if (!manual) return "hermes";
+    if (!manual) return "builtin";
     return _agentNameFromBinary(manual.startsWith("uwf-") ? manual : `uwf-${manual}`);
   }
 
   if (agents.length === 1) {
-    const name = _agentNameFromBinary(agents[0] ?? "uwf-hermes");
+    const name = _agentNameFromBinary(agents[0] ?? "uwf-builtin");
     const label = KNOWN_AGENTS[agents[0] ?? ""] ?? agents[0];
     console.log(`  Found 1 agent: ${label} — auto-selected.\n`);
     return name;
@@ -192,7 +190,7 @@ export async function _promptAgentSelection(
   const choice = (await rl.question(`Choose default agent [1-${agents.length}]: `)).trim();
   const n = Number.parseInt(choice, 10);
   if (!Number.isNaN(n) && n >= 1 && n <= agents.length) {
-    const selected = agents[n - 1] ?? "uwf-hermes";
+    const selected = agents[n - 1] ?? "uwf-builtin";
     const name = _agentNameFromBinary(selected);
     console.log(`  → ${name}\n`);
     return name;
@@ -241,7 +239,9 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
 }
 
 /**
- * Check if the configured adapter binary (and its dependencies) are in PATH.
+ * Check if the configured adapter binary is in PATH (for in-process adapters).
+ * Sumeru gateway agents (configured via host/gateway in config.yaml) skip
+ * this check since they are reached over HTTP rather than as local binaries.
  * Returns warnings array — empty means all good.
  */
 export function _checkAdapterAvailability(agentName: string): string[] {
@@ -252,20 +252,8 @@ export function _checkAdapterAvailability(agentName: string): string[] {
     execFileSync("which", [binary], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
   } catch {
     warnings.push(
-      `${binary} not found in PATH. Install it: pnpm add -g @united-workforce/agent-${agentName}`,
+      `${binary} not found in PATH. Install it (e.g. pnpm add -g @united-workforce/agent-${agentName}), or configure a Sumeru gateway under agents.${agentName}.host in ~/.uwf/config.yaml.`,
     );
-    return warnings; // skip dependency check if adapter itself is missing
-  }
-
-  // uwf-hermes depends on hermes CLI
-  if (agentName === "hermes") {
-    try {
-      execFileSync("which", ["hermes"], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
-    } catch {
-      warnings.push(
-        'hermes CLI not found in PATH (required by uwf-hermes). Fix: export PATH="$HOME/.hermes/hermes-agent/.venv/bin:$PATH"',
-      );
-    }
   }
 
   return warnings;

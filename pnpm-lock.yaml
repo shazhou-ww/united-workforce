@@ -26,9 +26,6 @@ importers:
       '@types/xxhashjs':
         specifier: ^0.2.4
         version: 0.2.4
-      '@united-workforce/agent-hermes':
-        specifier: workspace:*
-        version: link:packages/agent-hermes
       '@vitest/coverage-v8':
         specifier: ^4.1.8
         version: 4.1.8(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
@@ -58,67 +55,7 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  packages/agent-claude-code:
-    dependencies:
-      '@ocas/core':
-        specifier: ^0.5.0
-        version: 0.5.0
-      '@united-workforce/protocol':
-        specifier: workspace:^
-        version: link:../protocol
-      '@united-workforce/util':
-        specifier: workspace:^
-        version: link:../util
-      '@united-workforce/util-agent':
-        specifier: workspace:^
-        version: link:../util-agent
-    devDependencies:
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
-
-  packages/agent-hermes:
-    dependencies:
-      '@ocas/core':
-        specifier: ^0.5.0
-        version: 0.5.0
-      '@united-workforce/protocol':
-        specifier: workspace:^
-        version: link:../protocol
-      '@united-workforce/util':
-        specifier: workspace:^
-        version: link:../util
-      '@united-workforce/util-agent':
-        specifier: workspace:^
-        version: link:../util-agent
-    devDependencies:
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
-
   packages/agent-mock:
-    dependencies:
-      '@ocas/core':
-        specifier: ^0.5.0
-        version: 0.5.0
-      '@united-workforce/protocol':
-        specifier: workspace:^
-        version: link:../protocol
-      '@united-workforce/util':
-        specifier: workspace:^
-        version: link:../util
-      '@united-workforce/util-agent':
-        specifier: workspace:^
-        version: link:../util-agent
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
-    devDependencies:
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
-
-  packages/agent-sumeru:
     dependencies:
       '@ocas/core':
         specifier: ^0.5.0

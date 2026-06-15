@@ -1,13 +1,8 @@
 # @united-workforce/agent-hermes
 
-## 0.3.2
-
-### Patch Changes
-
-- Updated dependencies [aeb2449]
-  - @united-workforce/protocol@0.4.0
-  - @united-workforce/util-agent@0.3.0
-  - @united-workforce/util@0.2.1
+> **⚠️ Archived (Phase 4 cleanup, #381):** This package is no longer
+> published. Superseded by `@united-workforce/broker`. No further releases
+> are planned.
 
 ## 0.3.1
 

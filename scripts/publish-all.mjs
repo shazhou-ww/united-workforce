@@ -15,14 +15,18 @@ const args = process.argv.slice(2);
 const tag = args.includes("--tag") ? args[args.indexOf("--tag") + 1] : null;
 const dryRun = args.includes("--dry-run");
 
+// Phase 4 cleanup (#381) — legacy per-agent CLI binaries have moved to
+// legacy-packages/ and are no longer published. Their npm versions have
+// been deprecated in favour of `@united-workforce/broker` (Sumeru gateway
+// client).
 const publishOrder = [
-  "workflow-protocol",
-  "workflow-util",
-  "workflow-util-agent",
-  "workflow-agent-hermes",
-  "workflow-agent-builtin",
-  "workflow-agent-claude-code",
-  "cli-workflow",
+  "protocol",
+  "util",
+  "util-agent",
+  "broker",
+  "agent-builtin",
+  "agent-mock",
+  "cli",
 ];
 
 const root = new URL("..", import.meta.url).pathname;
