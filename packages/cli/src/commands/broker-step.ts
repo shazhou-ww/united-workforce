@@ -20,6 +20,8 @@ import type {
   AgentAlias,
   AgentConfig,
   CasRef,
+  StartNodePayload,
+  StepContext,
   StepNodePayload,
   ThreadId,
   Usage,
@@ -28,14 +30,17 @@ import type {
 } from "@united-workforce/protocol";
 import { createLogger, type ProcessLogger } from "@united-workforce/util";
 import {
+  buildContinuationPrompt,
   buildFrontmatterRetryPrompt,
   buildOutputFormatInstruction,
+  buildRolePrompt,
+  buildThreadProgress,
   mergeUsage,
   tryFrontmatterFastPath,
   trySuspendFastPath,
 } from "@united-workforce/util-agent";
 import type { UwfStore } from "../store.js";
-import { fail } from "./shared.js";
+import { expandOutput, fail } from "./shared.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
 
@@ -184,6 +189,145 @@ function loadRoleSchemaHash(workflow: WorkflowPayload, role: string): CasRef {
   return roleDef.frontmatter as CasRef;
 }
 
+/**
+ * Build the output-format instruction for a role from its frontmatter schema in
+ * CAS. Returns an empty string when the schema node is missing.
+ */
+function loadOutputFormatInstruction(uwf: UwfStore, schemaHash: CasRef): string {
+  const node = uwf.store.cas.get(schemaHash);
+  if (node === null) {
+    return "";
+  }
+  return buildOutputFormatInstruction(node.payload as Record<string, unknown>);
+}
+
+/** Extract the last assistant turn's content from a detail node, or null. */
+function extractStepContent(uwf: UwfStore, detailRef: CasRef): string | null {
+  const detailNode = uwf.store.cas.get(detailRef);
+  if (detailNode === null) {
+    return null;
+  }
+  const detail = detailNode.payload as Record<string, unknown>;
+  const turns = detail.turns;
+  if (!Array.isArray(turns) || turns.length === 0) {
+    return null;
+  }
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const turnRef = turns[i];
+    if (typeof turnRef !== "string") {
+      continue;
+    }
+    const turnNode = uwf.store.cas.get(turnRef as CasRef);
+    if (turnNode === null) {
+      continue;
+    }
+    const turn = turnNode.payload as Record<string, unknown>;
+    if (
+      turn.role === "assistant" &&
+      typeof turn.content === "string" &&
+      turn.content.trim() !== ""
+    ) {
+      return turn.content;
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk the CAS step chain from `prevHash` back to the StartNode and return the
+ * steps in chronological order (oldest first) as StepContext records. Honors the
+ * caller-supplied `prev` pointer so poke replace-semantics (prev = old head's
+ * prev) produce the correct history. Mirrors the history assembly in
+ * util-agent's `buildContext`, but reuses the store the CLI already opened.
+ */
+function collectStepContexts(uwf: UwfStore, prevHash: CasRef | null): StepContext[] {
+  const newestFirst: StepNodePayload[] = [];
+  let hash: CasRef | null = prevHash;
+  while (hash !== null) {
+    const node = uwf.store.cas.get(hash);
+    if (node === null || node.type !== uwf.schemas.stepNode) {
+      break;
+    }
+    const payload = node.payload as StepNodePayload;
+    newestFirst.push(payload);
+    hash = payload.prev;
+  }
+
+  const chronological = [...newestFirst].reverse();
+  return chronological.map((step) => ({
+    role: step.role,
+    output: expandOutput(uwf, step.output),
+    detail: step.detail,
+    agent: step.agent,
+    edgePrompt: step.edgePrompt ?? "",
+    startedAtMs: step.startedAtMs,
+    completedAtMs: step.completedAtMs,
+    cwd: step.cwd ?? "",
+    assembledPrompt: step.assembledPrompt ?? null,
+    usage: step.usage ?? null,
+    previousAttempts: step.previousAttempts ?? null,
+    content: extractStepContent(uwf, step.detail),
+  }));
+}
+
+export type AssembleBrokerPromptArgs = {
+  workflow: WorkflowPayload;
+  role: string;
+  threadId: ThreadId;
+  /** The thread's initial task prompt (StartNode.prompt). */
+  startPrompt: string;
+  /** Prior steps in chronological order (oldest first). */
+  steps: StepContext[];
+  /** Moderator edge prompt that routed to this step. */
+  edgePrompt: string;
+  /** Frontmatter deliverable-format instruction for the role's output schema. */
+  outputFormatInstruction: string;
+};
+
+/**
+ * Assemble the full agent prompt for a broker step. Combines the five
+ * components the legacy agent-CLI path produced (output-format instruction,
+ * thread progress, role prompt, task prompt, and continuation/edge context) so
+ * `broker.send()` receives the same context the spawned-agent path did.
+ *
+ * Mirrors `buildClaudeCodePrompt` from the agent-claude-code adapter.
+ */
+export function assembleBrokerPrompt(args: AssembleBrokerPromptArgs): string {
+  const roleDef = args.workflow.roles[args.role];
+  const rolePrompt = roleDef !== undefined ? buildRolePrompt(roleDef) : "";
+  const isFirstVisit = !args.steps.some((s) => s.role === args.role);
+
+  const parts: string[] = [];
+
+  if (args.outputFormatInstruction !== "") {
+    parts.push(args.outputFormatInstruction, "");
+  }
+
+  // Inject thread progress so the agent knows step count and role visit count.
+  parts.push(buildThreadProgress(args.steps, args.role, args.threadId), "");
+
+  parts.push(rolePrompt, "", "## Task", args.startPrompt);
+
+  if (!isFirstVisit) {
+    // Re-entry (broker resumes the cached session): show only steps since the
+    // last visit, meta only.
+    parts.push("", buildContinuationPrompt(args.steps, args.role, args.edgePrompt));
+  } else if (args.steps.length > 0) {
+    // First visit with prior history: show steps with content for recent ones.
+    parts.push(
+      "",
+      buildContinuationPrompt(args.steps, args.role, args.edgePrompt, {
+        includeContent: true,
+        quota: 32000,
+      }),
+    );
+  } else {
+    parts.push("", "## Current Instruction", "", args.edgePrompt);
+  }
+
+  return parts.join("\n");
+}
+
 /** Persist the raw broker.send output as a CAS detail node — single assistant turn. */
 async function storeBrokerDetail(
   uwf: UwfStore,
@@ -218,6 +362,7 @@ type WriteStepNodeArgs = {
   startedAtMs: number;
   completedAtMs: number;
   cwd: string;
+  assembledPromptHash: CasRef | null;
   usage: Usage | null;
   previousAttempts: CasRef[] | null;
 };
@@ -235,7 +380,7 @@ async function writeBrokerStepNode(args: WriteStepNodeArgs): Promise<CasRef> {
     startedAtMs: args.startedAtMs,
     completedAtMs: args.completedAtMs,
     cwd: args.cwd,
-    assembledPrompt: null,
+    assembledPrompt: args.assembledPromptHash,
     usage: args.usage,
     previousAttempts: args.previousAttempts,
   };
@@ -331,14 +476,36 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
       null,
     );
 
+    // Assemble the full agent prompt (output-format instruction + thread
+    // progress + role prompt + task + continuation/edge context) so the broker
+    // path sends the same context the legacy spawned-agent path did, rather than
+    // the bare edge prompt.
+    const outputSchemaHash = loadRoleSchemaHash(args.workflow, args.role);
+    const outputFormatInstruction = loadOutputFormatInstruction(args.uwf, outputSchemaHash);
+    const startNode = args.uwf.store.cas.get(args.startHash);
+    const startPrompt = startNode !== null ? (startNode.payload as StartNodePayload).prompt : "";
+    const steps = collectStepContexts(args.uwf, args.prevHash);
+    const assembledPrompt = assembleBrokerPrompt({
+      workflow: args.workflow,
+      role: args.role,
+      threadId: args.threadId,
+      startPrompt,
+      steps,
+      edgePrompt: args.edgePrompt,
+      outputFormatInstruction,
+    });
+    const assembledPromptHash = (await args.uwf.store.cas.put(
+      args.uwf.schemas.text,
+      assembledPrompt,
+    )) as CasRef;
+
     const startedAtMs = Date.now();
     const primary = await broker.send({
       threadId: args.threadId,
       role: args.role,
-      prompt: args.edgePrompt,
+      prompt: assembledPrompt,
     });
 
-    const outputSchemaHash = loadRoleSchemaHash(args.workflow, args.role);
     let extracted = await tryExtract(args.uwf, primary.output, outputSchemaHash);
     let accumulatedUsage: Usage | null = brokerUsage(primary);
     let lastOutput = primary.output;
@@ -348,12 +515,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
     // Sumeru session, so the agent gets to "fix its frontmatter" with full
     // context preserved.
     for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
-      const roleSchema = args.uwf.store.cas.get(outputSchemaHash);
-      const instruction =
-        roleSchema !== null
-          ? buildOutputFormatInstruction(roleSchema.payload as Record<string, unknown>)
-          : "";
-      const correctionPrompt = buildFrontmatterRetryPrompt(instruction);
+      const correctionPrompt = buildFrontmatterRetryPrompt(outputFormatInstruction);
       log(
         PL_FRONTMATTER_RETRY,
         `frontmatter retry ${retry + 1}/${MAX_FRONTMATTER_RETRIES} thread=${args.threadId} role=${args.role}`,
@@ -407,6 +569,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
         startedAtMs,
         completedAtMs,
         cwd: args.effectiveCwd,
+        assembledPromptHash,
         usage: accumulatedUsage,
         previousAttempts: null,
       });
@@ -436,6 +599,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
       startedAtMs,
       completedAtMs,
       cwd: args.effectiveCwd,
+      assembledPromptHash,
       usage: accumulatedUsage,
       previousAttempts: args.previousAttempts,
     });
