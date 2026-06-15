@@ -1,4 +1,4 @@
-import * as broker from "@united-workforce/broker";
+import * as broker from "../src/index.js";
 import { describe, expect, test } from "vitest";
 
 describe("@united-workforce/broker public API surface", () => {
