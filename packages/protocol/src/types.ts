@@ -258,9 +258,23 @@ export type AgentAlias = string;
 export type WorkflowName = string;
 export type RoleName = string;
 
+/**
+ * Agent route for the broker.
+ *
+ * Phase 3 (#380) breaking change: replaces the legacy `{command, args}` CLI
+ * binary path with a Sumeru route. The CLI's `cmdThreadStepOnce` resolves an
+ * `AgentConfig` to a route and dispatches via `broker.send()`.
+ *
+ * Migration: rewrite `~/.uwf/config.yaml` so each `agents.<alias>` block uses
+ * `host` + `gateway` instead of `command` + `args`. There is no automatic
+ * translation — `loadWorkflowConfig` rejects legacy configs with a descriptive
+ * migration error.
+ */
 export type AgentConfig = {
-  command: string;
-  args: string[];
+  /** Sumeru host base URL, e.g. "http://127.0.0.1:7900". */
+  host: string;
+  /** Sumeru gateway slug, e.g. "claude-code". */
+  gateway: string;
 };
 
 /** ~/.uwf/config.yaml — engine config is LLM-free; LLM concerns belong to adapters. */

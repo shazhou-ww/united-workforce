@@ -44,7 +44,7 @@ argument by searching from cwd upward. Strategies are tried in priority order:
 \`\`\`
 uwf thread start <workflow> -p <prompt>           # create a thread (no execution)
 uwf thread exec <thread-id>                       # execute one moderator→agent→extract cycle
-               [--agent <cmd>]                    # override agent command
+               [--agent <alias|"host gw">]        # override agent (alias from agents map, or inline "<host> <gateway>" pair)
                [-c, --count <number>]             # run multiple steps (default: 1)
                [--background]                     # run in background
 uwf thread show <thread-id>                       # show thread head pointer

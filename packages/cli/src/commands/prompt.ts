@@ -162,15 +162,15 @@ Or configure non-interactively:
 uwf setup --agent <adapter-command>
 \`\`\`
 
-**Note:** \`--agent\` takes the adapter **command name** (e.g. \`uwf-hermes\`, \`uwf-claude-code\`), not the npm package name.
+**Note:** \`--agent\` takes an alias declared in your \`agents\` map (e.g. \`hermes\`, \`claude-code\`) — **not** an adapter command name. Each alias resolves to a \`{host, gateway}\` Sumeru endpoint that the broker contacts over HTTP. \`uwf thread exec --agent\` additionally accepts an inline \`"<host> <gateway>"\` pair for ad-hoc routing.
 
 Config is saved to \`~/.uwf/config.yaml\`:
 
 \`\`\`yaml
 agents:
   hermes:
-    command: uwf-hermes
-    args: []
+    host: http://127.0.0.1:7900
+    gateway: hermes
 defaultAgent: hermes
 agentOverrides: {}
 \`\`\`

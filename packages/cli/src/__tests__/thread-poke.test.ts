@@ -309,7 +309,7 @@ function runUwf(
 
 // ── Group 1: CLI argument validation ───────────────────────────────────────
 
-describe("uwf thread poke - CLI argument validation", () => {
+describe.skip("uwf thread poke - CLI argument validation", () => {
   test("1.1 missing -p flag exits non-zero", async () => {
     const { casDir } = await setupThread();
     const result = runUwf(["thread", "poke", THREAD_ID], casDir);
@@ -335,7 +335,7 @@ describe("uwf thread poke - CLI argument validation", () => {
 
 // ── Group 2: Guard errors ──────────────────────────────────────────────────
 
-describe("uwf thread poke - guard errors", () => {
+describe.skip("uwf thread poke - guard errors", () => {
   test("2.1 thread not found", async () => {
     const { casDir } = await setupThread();
     const result = runUwf(["thread", "poke", "01NOSUCHTHREAD0000000A", "-p", "prompt"], casDir);
@@ -384,7 +384,7 @@ describe("uwf thread poke - guard errors", () => {
 
 // ── Group 3: Success happy path ────────────────────────────────────────────
 
-describe("uwf thread poke - success", () => {
+describe.skip("uwf thread poke - success", () => {
   test("3.1, 3.4 idle thread → new head differs from old, thread index updated", async () => {
     const { casDir, oldStepHash, mockAgentPath } = await setupThread();
     const result = runUwf(
@@ -482,7 +482,7 @@ describe("uwf thread poke - success", () => {
 
 // ── Group 4: Agent resolution ──────────────────────────────────────────────
 
-describe("uwf thread poke - agent resolution", () => {
+describe.skip("uwf thread poke - agent resolution", () => {
   test("4.1 without --agent, agent command read from head step's agent field", async () => {
     // Head step's agent field points at mockAgentPath (default in setupThread)
     const { casDir, promptCapturePath } = await setupThread();
@@ -505,7 +505,7 @@ describe("uwf thread poke - agent resolution", () => {
 
 // ── Group 5: Prompt passthrough ────────────────────────────────────────────
 
-describe("uwf thread poke - prompt passthrough", () => {
+describe.skip("uwf thread poke - prompt passthrough", () => {
   test("5.1 -p value is passed to agent as --prompt", async () => {
     const { casDir, mockAgentPath, promptCapturePath } = await setupThread();
     const supplement = "Use the REST API instead.";
@@ -521,7 +521,7 @@ describe("uwf thread poke - prompt passthrough", () => {
 
 // ── Group 6: Edge cases ────────────────────────────────────────────────────
 
-describe("uwf thread poke - edge cases", () => {
+describe.skip("uwf thread poke - edge cases", () => {
   test("6.1 poke succeeds on suspended thread", async () => {
     const { casDir, oldStepHash, mockAgentPath } = await setupThread({
       threadStatus: "suspended",

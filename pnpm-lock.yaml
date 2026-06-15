@@ -161,6 +161,9 @@ importers:
       '@ocas/fs':
         specifier: ^0.4.1
         version: 0.4.1
+      '@united-workforce/broker':
+        specifier: workspace:^
+        version: link:../broker
       '@united-workforce/protocol':
         specifier: workspace:^
         version: link:../protocol

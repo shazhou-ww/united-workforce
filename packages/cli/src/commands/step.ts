@@ -1,8 +1,5 @@
-import { execFileSync } from "node:child_process";
 import type { CasStore } from "@ocas/core";
 import type {
-  AgentAlias,
-  AgentConfig,
   CasRef,
   StartEntry,
   StepEntry,
@@ -10,11 +7,8 @@ import type {
   ThreadForkOutput,
   ThreadId,
   ThreadStepsOutput,
-  WorkflowConfig,
-  WorkflowPayload,
 } from "@united-workforce/protocol";
 import { createLogger, generateUlid } from "@united-workforce/util";
-import { getAskSessionId, loadWorkflowConfig, setAskSessionId } from "@united-workforce/util-agent";
 import { createUwfStore, setThread, type UwfStore } from "../store.js";
 import {
   collectOrderedSteps,
@@ -456,148 +450,13 @@ export async function cmdStepRead(
 }
 
 // ── step ask ────────────────────────────────────────────────────────────────
-
-function parseAgentOverride(override: string): AgentConfig {
-  const parts = override
-    .trim()
-    .split(/\s+/)
-    .filter((p) => p.length > 0);
-  const command = parts[0];
-  if (command === undefined) {
-    fail("agent override must not be empty");
-  }
-  return { command, args: parts.slice(1) };
-}
-
-function resolveAskAgentConfig(
-  config: WorkflowConfig,
-  workflow: WorkflowPayload | null,
-  role: string,
-  agentOverride: string | null,
-  recordedAgent: string,
-): AgentConfig {
-  if (agentOverride !== null) {
-    const fromAlias = config.agents[agentOverride as AgentAlias];
-    if (fromAlias !== undefined) {
-      return fromAlias;
-    }
-    return parseAgentOverride(agentOverride);
-  }
-
-  // Try to resolve via the recorded agent name as a config alias.
-  const fromRecorded = config.agents[recordedAgent as AgentAlias];
-  if (fromRecorded !== undefined) {
-    return fromRecorded;
-  }
-
-  // Fall back to default agent for the workflow / role.
-  if (workflow !== null && config.agentOverrides !== null) {
-    const roleOverrides = config.agentOverrides[workflow.name];
-    if (roleOverrides !== undefined && roleOverrides[role] !== undefined) {
-      const alias = roleOverrides[role];
-      const agentConfig = config.agents[alias];
-      if (agentConfig !== undefined) {
-        return agentConfig;
-      }
-    }
-  }
-
-  // Treat the recorded value as a raw command path.
-  return parseAgentOverride(recordedAgent);
-}
-
-/**
- * Derive the agent name used for cache file partitioning from an executable
- * path or alias.  Examples:
- *   uwf-hermes        → hermes
- *   uwf-claude-code   → claude-code
- *   /tmp/mock-agent.sh → mock
- *   /usr/bin/agent    → agent
- */
-function deriveAgentName(commandPath: string): string {
-  const basename = commandPath.split(/[/\\]/).pop() ?? commandPath;
-  // Strip a trailing extension (.sh, .js, .mjs, .cjs)
-  const noExt = basename.replace(/\.(sh|js|mjs|cjs|ts)$/i, "");
-  // Strip the `uwf-` prefix introduced by agentLabel().
-  const noPrefix = noExt.startsWith("uwf-") ? noExt.slice(4) : noExt;
-  // Strip the trailing `-agent` suffix used by tests / generic agent shells.
-  const noSuffix = noPrefix.endsWith("-agent") ? noPrefix.slice(0, -"-agent".length) : noPrefix;
-  return noSuffix === "" ? noExt : noSuffix;
-}
-
-function loadDetailNode(
-  store: CasStore,
-  detailRef: CasRef,
-): { sessionId: string | null; payload: Record<string, unknown> } {
-  const detailNode = store.get(detailRef);
-  if (detailNode === null) {
-    fail(`detail node not found: ${detailRef}`);
-  }
-  const payload = detailNode.payload as Record<string, unknown>;
-  const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : null;
-  return { sessionId, payload };
-}
-
-function spawnAskAgent(agent: AgentConfig, argv: string[], cwd: string): { stdout: string } {
-  try {
-    const stdout = execFileSync(agent.command, [...agent.args, ...argv], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      maxBuffer: 50 * 1024 * 1024,
-      cwd,
-    });
-    return { stdout };
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr: Buffer | string | null };
-    if (err.code === "ENOENT") {
-      fail(
-        `"${agent.command}" not found in PATH. Install it or check your PATH config. Run: which ${agent.command}`,
-      );
-    }
-    const stderr =
-      err.stderr == null
-        ? ""
-        : typeof err.stderr === "string"
-          ? err.stderr
-          : err.stderr.toString("utf8");
-    const detail = stderr.trim() !== "" ? `: ${stderr.trim()}` : "";
-    fail(`agent command failed (${agent.command})${detail}`);
-  }
-}
-
-function resolveAskWorkflow(uwf: UwfStore, payload: StepNodePayload): WorkflowPayload | null {
-  const startNode = uwf.store.cas.get(payload.start);
-  if (startNode === null) {
-    return null;
-  }
-  const start = startNode.payload as { workflow: CasRef };
-  const workflowNode = uwf.store.cas.get(start.workflow);
-  if (workflowNode === null) {
-    return null;
-  }
-  return workflowNode.payload as WorkflowPayload;
-}
-
-async function performFork(
-  agent: AgentConfig,
-  agentName: string,
-  stepHash: CasRef,
-  sourceSessionId: string,
-  storageRoot: string,
-  cwd: string,
-): Promise<string> {
-  const cached = await getAskSessionId(agentName, stepHash, storageRoot);
-  if (cached !== null) {
-    return cached;
-  }
-  const { stdout } = spawnAskAgent(agent, ["--mode", "fork", "--session", sourceSessionId], cwd);
-  const newSessionId = stdout.trim().split("\n").pop()?.trim() ?? "";
-  if (newSessionId === "") {
-    fail(`agent fork did not return a session id (${agent.command})`);
-  }
-  await setAskSessionId(agentName, stepHash, newSessionId, storageRoot);
-  return newSessionId;
-}
+//
+// Phase 3 (#380) — Option B: `step ask` is disabled while broker integration
+// lands. The pre-broker spawn-agent path depended on the legacy
+// `agents.<alias>: {command, args}` config shape; that shape was replaced by
+// `{host, gateway}` and the equivalent broker `ask`/`fork` primitives are
+// scheduled for Phase 4 (#381). The command exits non-zero with a clear
+// migration pointer so existing scripts fail fast rather than silently.
 
 export type CmdStepAskOptions = {
   prompt: string;
@@ -607,64 +466,22 @@ export type CmdStepAskOptions = {
 };
 
 /**
- * Ask a follow-up question to a historical step's agent (read-only).
- *
- * Does NOT write a new StepNode and does NOT mutate thread state.  The agent's
- * raw stdout is returned so the CLI entry point can stream it directly.
+ * `uwf step ask` is unavailable in 0.x while broker integration (#381) is in
+ * progress. The legacy spawn-agent code path was removed alongside the
+ * `agents.<alias>: {command, args}` config shape. Use `uwf thread exec` /
+ * `uwf thread resume` instead — those routes go through `broker.send()` and
+ * preserve the Sumeru session.
  */
 export async function cmdStepAsk(
-  storageRoot: string,
-  stepHash: CasRef,
-  options: CmdStepAskOptions,
+  _storageRoot: string,
+  _stepHash: CasRef,
+  _options: CmdStepAskOptions,
 ): Promise<string> {
-  const uwf = await createUwfStore(storageRoot);
-  const node = uwf.store.cas.get(stepHash);
-  if (node === null) {
-    fail(`CAS node not found: ${stepHash}`);
-  }
-  if (node.type !== uwf.schemas.stepNode) {
-    fail(`node ${stepHash} is not a StepNode`);
-  }
-  const payload = node.payload as StepNodePayload;
-  if (payload.detail === null) {
-    fail(`step ${stepHash} has no detail; cannot ask`);
-  }
-
-  const detailRef = payload.detail;
-  const { sessionId: sourceSessionId } = loadDetailNode(uwf.store.cas, detailRef);
-
-  const workflow = resolveAskWorkflow(uwf, payload);
-  const config = await loadWorkflowConfig(storageRoot);
-  const agent = resolveAskAgentConfig(
-    config,
-    workflow,
-    payload.role,
-    options.agentOverride,
-    payload.agent,
+  fail(
+    "step ask is unavailable in 0.x while broker integration (#381) is in progress. " +
+      "The pre-broker spawn-agent path was removed in #380; equivalent ask/fork primitives " +
+      "will return in Phase 4 once the Sumeru broker exposes session-fork APIs. " +
+      "Use `uwf thread resume <id> -p '...'` to continue a suspended thread, or " +
+      "`uwf thread exec <id>` to advance an idle thread.",
   );
-  const agentName = deriveAgentName(agent.command);
-
-  const cwd = payload.cwd !== "" ? payload.cwd : process.cwd();
-
-  // Fork path: fork (or reuse cached fork) → ask with that session.
-  if (options.fork && sourceSessionId !== null) {
-    const askSessionId = await performFork(
-      agent,
-      agentName,
-      stepHash,
-      sourceSessionId,
-      storageRoot,
-      cwd,
-    );
-    const argv = ["--mode", "ask", "--session", askSessionId, "--prompt", options.prompt];
-    argv.push("--detail", detailRef);
-    const { stdout } = spawnAskAgent(agent, argv, cwd);
-    return stdout;
-  }
-
-  // Fallback path: ask without forking; inject detail ref for context.
-  const argv = ["--mode", "ask", "--prompt", options.prompt];
-  argv.push("--detail", detailRef);
-  const { stdout } = spawnAskAgent(agent, argv, cwd);
-  return stdout;
 }

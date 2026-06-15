@@ -14,7 +14,7 @@ const VALID_CONFIG_KEYS: Record<
 > = {
   agents: {
     nested: true,
-    knownFields: ["command", "args"],
+    knownFields: ["host", "gateway"],
   },
   agentOverrides: {
     nested: true,
@@ -204,26 +204,6 @@ export async function cmdConfigGet(storageRoot: string, key: string): Promise<un
 }
 
 /**
- * Parse value for args key (must be JSON array)
- */
-function parseArgsValue(value: string): unknown {
-  if (value.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(value);
-      if (!Array.isArray(parsed)) {
-        throw new Error("Value must be an array");
-      }
-      return parsed;
-    } catch (error) {
-      throw new Error(
-        `Invalid JSON array for args key: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  throw new Error("Value for 'args' key must be a JSON array starting with '['");
-}
-
-/**
  * Parse value for a top-level string array key (must be JSON array of strings).
  */
 function parseStringArrayValue(value: string, keyName: string): unknown {
@@ -292,12 +272,10 @@ export async function cmdConfigSet(
 
   const lastSegment = path[path.length - 1];
 
-  // Parse value if it's for an array key (args, workflowPaths)
+  // Parse value if it's for an array key (workflowPaths)
   let parsedValue: unknown = value;
   if (path[0] === "workflowPaths") {
     parsedValue = parseStringArrayValue(value, "workflowPaths");
-  } else if (lastSegment === "args") {
-    parsedValue = parseArgsValue(value);
   } else if (lastSegment === "maxRunning") {
     const num = Number(value);
     if (!Number.isInteger(num) || num < 1) {

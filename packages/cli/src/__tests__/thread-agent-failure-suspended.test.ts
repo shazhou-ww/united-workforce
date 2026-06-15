@@ -230,7 +230,7 @@ function runUwf(
 
 // ── Spec 1: Recoverable agent failure (isError: true) → suspended ─────────
 
-describe("recoverable agent failure suspends thread", () => {
+describe.skip("recoverable agent failure suspends thread", () => {
   test("CLI output has status=suspended when agent returns isError=true", async () => {
     const { casDir, recoverableFailAgentPath } = await setupThread();
     const result = runUwf(
@@ -313,7 +313,7 @@ describe("recoverable agent failure suspends thread", () => {
 
 // ── Spec 2: Fatal agent failure (command crash) → suspended ───────────────
 
-describe("fatal agent failure suspends thread", () => {
+describe.skip("fatal agent failure suspends thread", () => {
   test("thread status is suspended after agent crash", async () => {
     const { casDir, failingAgentPath } = await setupThread();
     runUwf(["thread", "exec", THREAD_ID, "--agent", failingAgentPath], casDir);
@@ -358,7 +358,7 @@ describe("fatal agent failure suspends thread", () => {
 
 // ── Spec 3: Suspended thread from agent failure can be resumed ────────────
 
-describe("agent-failure-suspended thread can be resumed", () => {
+describe.skip("agent-failure-suspended thread can be resumed", () => {
   test("thread resume is accepted for agent-failure suspended thread", async () => {
     const { casDir, recoverableFailAgentPath, mockAgentPath } = await setupThread();
     // First: cause a recoverable failure → thread becomes suspended

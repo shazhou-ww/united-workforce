@@ -206,6 +206,14 @@ export async function _promptAgentSelection(
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Default Sumeru host used when seeding a fresh agents.<alias> entry.
+ * Phase 3 (#380) breaking change — agents are routed through the broker via
+ * `host` + `gateway`, replacing the legacy `command` + `args` CLI binary
+ * path.
+ */
+const DEFAULT_SUMERU_HOST = "http://127.0.0.1:7900";
+
+/**
  * Merge setup args into config.yaml structure. Non-destructive — preserves
  * existing entries (including agentOverrides). Engine config is LLM-free, so
  * legacy provider/model fields are dropped on rewrite.
@@ -219,7 +227,7 @@ function mergeConfig(existing: Record<string, unknown>, args: SetupArgs): Record
 
   const agentName = _agentNameFromBinary(args.agent);
   if (!agents[agentName]) {
-    agents[agentName] = { command: `uwf-${agentName}`, args: [] };
+    agents[agentName] = { host: DEFAULT_SUMERU_HOST, gateway: agentName };
   }
 
   const merged: Record<string, unknown> = {
