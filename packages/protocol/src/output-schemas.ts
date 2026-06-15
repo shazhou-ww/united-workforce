@@ -135,6 +135,33 @@ const STEP_DETAIL_TURN: JSONSchema = {
   additionalProperties: true,
 };
 
+const STEP_DETAIL_USAGE: JSONSchema = {
+  anyOf: [
+    {
+      type: "object",
+      required: ["turns", "inputTokens", "outputTokens", "duration"],
+      properties: {
+        turns: { type: "integer" },
+        inputTokens: { type: "integer" },
+        outputTokens: { type: "integer" },
+        duration: { type: "number" },
+      },
+      additionalProperties: false,
+    },
+    { type: "null" },
+  ],
+};
+
+const STEP_DETAIL_NESTED: JSONSchema = {
+  anyOf: [
+    {
+      type: "object",
+      additionalProperties: true,
+    },
+    { type: "null" },
+  ],
+};
+
 export const STEP_DETAIL_OUTPUT_SCHEMA: JSONSchema = {
   title: "@uwf/output/step-detail",
   type: "object",
@@ -146,8 +173,10 @@ export const STEP_DETAIL_OUTPUT_SCHEMA: JSONSchema = {
     "startedAtMs",
     "completedAtMs",
     "durationMs",
+    "usage",
     "frontmatter",
     "turns",
+    "detail",
   ],
   properties: {
     hash: { type: "string" },
@@ -157,8 +186,10 @@ export const STEP_DETAIL_OUTPUT_SCHEMA: JSONSchema = {
     startedAtMs: NULLABLE_INTEGER,
     completedAtMs: NULLABLE_INTEGER,
     durationMs: NULLABLE_INTEGER,
+    usage: STEP_DETAIL_USAGE,
     frontmatter: { type: "object", additionalProperties: true },
     turns: { type: "array", items: STEP_DETAIL_TURN },
+    detail: STEP_DETAIL_NESTED,
   },
   additionalProperties: false,
 };

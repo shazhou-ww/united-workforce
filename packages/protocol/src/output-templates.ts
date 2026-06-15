@@ -33,7 +33,12 @@ const STEP_DETAIL_TEMPLATE = `Step    {{ hash }}
 Role    {{ role }}
 Agent   {{ agent }}
 Status  {{ status }}
-Duration {% if durationMs == nil %}-{% elsif durationMs >= 1000 %}{{ durationMs | divided_by: 1000.0 | round: 1 }}s{% else %}{{ durationMs }}ms{% endif %}`;
+Duration {% if durationMs == nil %}-{% elsif durationMs >= 1000 %}{{ durationMs | divided_by: 1000.0 | round: 1 }}s{% else %}{{ durationMs }}ms{% endif %}{% if usage %}
+Usage   {{ usage.inputTokens }} in / {{ usage.outputTokens }} out / {{ usage.turns }} turns{% endif %}{% if turns and turns.size > 0 %}
+Turns   {{ turns.size }}
+
+--- Content ---{% for turn in turns %}
+[{{ turn.role }}] {{ turn.content }}{% endfor %}{% endif %}`;
 
 const STEP_LIST_TEMPLATE = `HASH           ROLE        DURATION
 {%- for item in items %}
