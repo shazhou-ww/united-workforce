@@ -1,5 +1,14 @@
 # @united-workforce/agent-hermes
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [aeb2449]
+  - @united-workforce/protocol@0.4.0
+  - @united-workforce/util-agent@0.3.0
+  - @united-workforce/util@0.2.1
+
 ## 0.3.1
 
 ### Patch Changes
