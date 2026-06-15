@@ -171,9 +171,7 @@ export async function _promptAgentSelection(
     console.log("  No uwf-* agent binaries found in PATH.\n");
     console.log("  Install one first, for example:");
     console.log("    npm i -g @united-workforce/agent-builtin");
-    console.log(
-      "  Or configure a Sumeru gateway in ~/.uwf/config.yaml under agents.<name>.host\n",
-    );
+    console.log("  Or configure a Sumeru gateway in ~/.uwf/config.yaml under agents.<name>.host\n");
     const manual = (
       await rl.question("Agent name (e.g. uwf-builtin or my-gateway), or press Enter to skip: ")
     ).trim();

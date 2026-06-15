@@ -17,9 +17,9 @@ Guide for adding a new agent integration to the workflow engine.
 After Phase 3 (\`@united-workforce/broker\`) and Phase 4 cleanup (#381), the
 preferred way to plug a new LLM/agent backend into uwf is to expose it as a
 **Sumeru gateway** that the broker contacts over HTTP. The legacy per-agent
-CLI binaries (\`uwf-hermes\`, \`uwf-claude-code\`, \`uwf-sumeru\`) have been
-moved to \`legacy-packages/\` and are no longer published; their package
-hashes have been deprecated on npm.
+CLI binaries that used to live under \`packages/agent-<name>\` have been
+moved to \`legacy-packages/\` and are no longer published; their npm versions
+have been deprecated in favor of \`@united-workforce/broker\`.
 
 | Path | When to choose | Where it lives |
 |------|----------------|----------------|
@@ -33,7 +33,7 @@ The rest of this guide covers both paths.
 ### Wire-level shape
 
 The broker (\`@united-workforce/broker\`) calls your gateway's HTTP endpoints.
-Each call carries \`sessionId\`, \`role\`, and the assembled prompt; your
+Each call carries a \`sessionId\`, a \`role\`, and the assembled prompt; your
 gateway returns the agent's frontmatter markdown plus token usage.
 
 \`\`\`yaml
@@ -53,9 +53,9 @@ defaultAgent: my-agent
 3. Persist its own session state so subsequent \`send\` calls within the same
    thread can reuse the LLM context.
 4. Return frontmatter markdown that begins with a \`---\` block matching the
-   role's \`outputSchema\`. The CLI runs broker's
-   \`tryFrontmatterFastPath\` against your output and retries up to twice
-   with \`buildFrontmatterRetryPrompt\` if the YAML is malformed.
+   role's \`outputSchema\`. The CLI runs broker's \`tryFrontmatterFastPath\`
+   against your output and retries up to twice with
+   \`buildFrontmatterRetryPrompt\` if the YAML is malformed.
 5. Optionally yield with \`$status: "$SUSPEND"\` and a \`reason\` to pause the
    thread (rate limits, awaiting human input, token-budget exhaustion).
 
@@ -77,8 +77,8 @@ Study \`packages/broker/src/\` for:
 
 - \`broker.ts\` — \`createBroker(...)\`, \`broker.send()\`, \`broker.resume()\`,
   \`broker.poke()\`.
-- \`session-store/\` — replaces the old per-agent SQLite session caches that
-  used to live in \`util-agent/session-cache.ts\`.
+- \`session-store/\` — replaces the per-agent SQLite session caches that
+  used to live in \`util-agent/session-cache.ts\` (now archived).
 - \`packages/cli/src/commands/broker-step.ts\` — how the CLI orchestrates
   send → frontmatter extract → retry → persist.
 
@@ -144,32 +144,6 @@ The \`ctx\` object passed to your \`run\` function:
 | \`storageRoot\` | \`string\` | Resolved \`UWF_HOME\` (e.g. \`~/.uwf\`) |
 | \`casDir\` | \`string\` | Resolved \`OCAS_HOME\` (e.g. \`~/.ocas\`) |
 
-### Public helpers from \`@united-workforce/util-agent\`
-
-After Phase 4 cleanup, the public API is intentionally narrow — only the
-helpers consumed by \`cli\`, \`broker\`, \`agent-builtin\`, and \`agent-mock\`
-remain exported:
-
-| Helper | Purpose |
-|--------|---------|
-| \`createAgent(options)\` | Factory that wraps your \`run\` / \`continue\` into a CLI lifecycle |
-| \`buildRolePrompt(roleDef)\` | Assemble Goal/Capabilities/Prepare/Procedure/Output sections |
-| \`buildOutputFormatInstruction(schema)\` | Convert a frontmatter JSON Schema into a deliverable-format instruction |
-| \`buildFrontmatterRetryPrompt(formatInstruction)\` | Minimal prompt for \`continue()\` retries |
-| \`tryFrontmatterFastPath(raw, schema, store)\` | Try-and-parse frontmatter against a role schema |
-| \`trySuspendFastPath(raw, schema, store)\` | Try-and-parse a \`$SUSPEND\` coroutine yield |
-| \`mergeUsage(a, b)\` | Sum two \`Usage\` records across a primary run + retries |
-| \`registerAgentSchemas(store)\` | Register text / step-node / suspend-output schemas in CAS |
-| \`getEnvPath\` / \`getConfigPath\` / \`resolveStorageRoot\` / \`loadWorkflowConfig\` | Storage-root path helpers (used by the CLI when wiring contexts) |
-
-The legacy adapter-only helpers (\`buildContinuationPrompt\`,
-\`buildThreadProgress\`, \`buildContext\`, \`buildSuspendOutput\`,
-\`getCachedSessionId\` / \`setCachedSessionId\`, \`getAskSessionId\` /
-\`setAskSessionId\`, \`parseArgv\`, and the
-\`AgentCleanupFn\` / \`AgentContinueFn\` / \`AgentForkFn\` / \`AgentRunFn\` /
-\`AgentOptions\` / \`AdapterOutput\` types) live in the archived
-\`legacy-packages/\` adapters and are no longer part of the public surface.
-
 ### \`AgentRunResult\`
 
 \`\`\`typescript
@@ -188,6 +162,44 @@ type Usage = {
   duration: number;
 };
 \`\`\`
+
+The engine stores \`assembledPrompt\` as a CAS text node (visible via
+\`step read --prompt\`) and surfaces \`usage\` in \`step show\` and dashboards.
+
+### Public helpers from \`@united-workforce/util-agent\`
+
+After Phase 4 cleanup, the public API is intentionally narrow — only the
+helpers consumed by \`cli\`, \`broker\`, \`agent-builtin\`, and \`agent-mock\`
+remain exported:
+
+| Helper | Purpose |
+|--------|---------|
+| \`createAgent(options)\` | Factory that wraps your \`run\` / \`continue\` into a CLI lifecycle |
+| \`buildRolePrompt(roleDef)\` | Assemble Goal/Capabilities/Prepare/Procedure/Output sections |
+| \`buildOutputFormatInstruction(schema)\` | Convert a frontmatter JSON Schema into a deliverable-format instruction |
+| \`buildFrontmatterRetryPrompt(formatInstruction)\` | Minimal prompt for \`continue()\` retries |
+| \`tryFrontmatterFastPath(raw, schema, store)\` | Try-and-parse frontmatter against a role schema |
+| \`trySuspendFastPath(raw, schema, store)\` | Try-and-parse a \`$SUSPEND\` coroutine yield |
+| \`mergeUsage(a, b)\` | Sum two \`Usage\` records across a primary run + retries |
+| \`registerAgentSchemas(store)\` | Register text / step-node / suspend-output schemas in CAS |
+| \`getEnvPath\` / \`getConfigPath\` / \`resolveStorageRoot\` / \`loadWorkflowConfig\` | Storage-root path helpers (used by the CLI when wiring contexts) |
+
+The legacy adapter-only helpers (the per-agent SQLite session cache,
+external-CLI continuation prompt builder, thread-progress hint, \`buildContext\`,
+\`buildSuspendOutput\`, the argv parser, and the fork/cleanup adapter type
+aliases) live in the archived \`legacy-packages/\` adapters and are no longer
+part of the public surface — broker-hosted agents do not need them.
+
+### Frontmatter extraction
+
+The agent's \`output\` string must begin with a \`---\` delimited YAML block
+describing the role's deliverable. The engine attempts frontmatter extraction
+by parsing this leading block, validating it against the role's
+\`outputSchema\`, and storing the result as a CAS node. \`createAgent\` calls
+\`tryFrontmatterFastPath\` on your output; if extraction fails it calls your
+\`continue()\` with \`buildFrontmatterRetryPrompt()\` and tries again. After
+two retries the engine gives up and persists a failed StepNode (see
+*Failed Steps & previousAttempts* below).
 
 ### Adapter-owned LLM config
 
@@ -215,6 +227,61 @@ prompt plus optional \`-p\` supplementary context. Adapters typically emit
 \`$SUSPEND\` when they hit token budgets, rate limits, or detect missing
 information.
 
+### Failed steps & \`previousAttempts\`
+
+If frontmatter extraction fails after two retries, the engine persists a
+failed StepNode whose \`output\` ref points to an \`ErrorOutputPayload\`:
+
+\`\`\`typescript
+type ErrorOutputPayload = {
+  $status: "error";
+  error: string;
+  phase: string | null;   // e.g. "frontmatter_extraction"
+};
+\`\`\`
+
+Important: **the thread head is NOT advanced** when \`isError\` is true.
+The failed StepNode is recorded in CAS so its turns and usage are preserved,
+but routing does not progress.
+
+To bridge a failed attempt to a future successful retry, the engine stores
+the failed step hash in a per-(thread, role) variable
+(\`@uwf/thread-failed/<threadId>/<role>\`). When the same role next succeeds,
+the engine reads this variable and writes the failed hashes into the new
+step's \`previousAttempts: CasRef[] | null\` field. Tools like \`step show\`
+can then walk back through prior failed retry attempts.
+
+You generally do not interact with this machinery from the adapter —
+emitting valid frontmatter (or \`$SUSPEND\`) is enough.
+
+### Session detail
+
+Store your turn history as a CAS DAG so \`step read\`, \`step show\`, and
+dashboards can replay or inspect the run. Use \`registerAgentSchemas(store)\`
+once per process to register the standard schemas (returns hashes including
+\`schemas.text\` and \`schemas.stepNode\`), then write each turn as a CAS text
+node and reference them from a detail node:
+
+\`\`\`typescript
+import { registerAgentSchemas } from "@united-workforce/util-agent";
+
+const schemas = await registerAgentSchemas(ctx.store);
+
+const turnHashes: string[] = [];
+for (const turn of turns) {
+  const turnHash = await ctx.store.cas.put(schemas.text, JSON.stringify(turn));
+  turnHashes.push(turnHash);
+}
+
+const detailHash = await ctx.store.cas.put(
+  schemas.text,
+  JSON.stringify({ turns: turnHashes }),
+);
+\`\`\`
+
+The \`detailHash\` from the first \`run()\` call is preserved across
+\`continue()\` retries — the engine never overwrites it.
+
 ### Existing in-process adapters
 
 | Adapter | Package | Backend |
@@ -234,5 +301,21 @@ In either case the engine config stays LLM-free and you do NOT need to
 publish a \`@united-workforce/agent-<name>\` package — the legacy per-agent
 CLI binaries are preserved under \`legacy-packages/\` for historical
 reference only.
+
+## Checklist
+
+1. Decide on integration path: gateway (broker) vs in-process (\`createAgent\`).
+2. **Gateway path** — implement send/resume/poke HTTP endpoints; manage your
+   own session state; return frontmatter markdown.
+3. **In-process path** — implement \`run(ctx)\` and \`continue(sessionId, message, store)\`;
+   pass \`fork: null\` and \`cleanup: null\` unless you need them.
+4. Yield with \`$SUSPEND\` (\`---\\n$status: "$SUSPEND"\\nreason: ...\\n---\`)
+   when human input is needed.
+5. Store the adapter's LLM config under \`~/.uwf/agents/<name>.yaml\`. Engine
+   config remains LLM-free.
+6. Ensure output starts with a \`---\` frontmatter block matching the role's
+   \`outputSchema\`.
+7. Register your agent under \`agents\` in \`~/.uwf/config.yaml\` and test with
+   \`uwf thread exec --agent <name>\`.
 `;
 }

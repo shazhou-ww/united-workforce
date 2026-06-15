@@ -10,19 +10,19 @@ import { _agentNameFromBinary, _printAgentMenu, cmdSetup } from "../commands/set
 
 describe("_agentNameFromBinary", () => {
   test("strips uwf- prefix", () => {
-    expect(_agentNameFromBinary("uwf-hermes")).toBe("hermes");
+    expect(_agentNameFromBinary("uwf-builtin")).toBe("builtin");
   });
 
   test("strips uwf- prefix for compound names", () => {
-    expect(_agentNameFromBinary("uwf-claude-code")).toBe("claude-code");
+    expect(_agentNameFromBinary("uwf-some-gateway")).toBe("some-gateway");
   });
 
   test("returns as-is when no uwf- prefix", () => {
-    expect(_agentNameFromBinary("hermes")).toBe("hermes");
+    expect(_agentNameFromBinary("builtin")).toBe("builtin");
   });
 
-  test("handles uwf-builtin", () => {
-    expect(_agentNameFromBinary("uwf-builtin")).toBe("builtin");
+  test("handles uwf-mock", () => {
+    expect(_agentNameFromBinary("uwf-mock")).toBe("mock");
   });
 });
 
@@ -35,10 +35,10 @@ describe("_printAgentMenu", () => {
       logs.push(args.join(" "));
     });
 
-    _printAgentMenu(["uwf-hermes", "uwf-claude-code"]);
+    _printAgentMenu(["uwf-builtin", "uwf-mock"]);
 
-    expect(logs.some((l) => l.includes("Hermes"))).toBe(true);
-    expect(logs.some((l) => l.includes("Claude Code"))).toBe(true);
+    expect(logs.some((l) => l.includes("Built-in"))).toBe(true);
+    expect(logs.some((l) => l.includes("Mock"))).toBe(true);
 
     vi.restoreAllMocks();
   });
@@ -84,19 +84,19 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
   });
 
   test("preserves existing agents when adding new one", async () => {
-    await cmdSetup({ agent: "hermes", storageRoot });
+    await cmdSetup({ agent: "builtin", storageRoot });
     await cmdSetup({ agent: "claude-code", storageRoot });
 
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents.hermes).toBeDefined();
+    expect(config.agents.builtin).toBeDefined();
     expect(config.agents["claude-code"]).toBeDefined();
     expect(config.defaultAgent).toBe("claude-code");
   });
 
   test("updates defaultAgent on re-run with different agent", async () => {
-    await cmdSetup({ agent: "hermes", storageRoot });
+    await cmdSetup({ agent: "mock", storageRoot });
     const config1 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config1.defaultAgent).toBe("hermes");
+    expect(config1.defaultAgent).toBe("mock");
 
     await cmdSetup({ agent: "builtin", storageRoot });
     const config2 = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
@@ -104,17 +104,17 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
   });
 
   test("normalizes agent name with uwf- prefix to bare name", async () => {
-    const result = await cmdSetup({ agent: "uwf-hermes", storageRoot });
+    const result = await cmdSetup({ agent: "uwf-builtin", storageRoot });
 
-    expect(result.defaultAgent).toBe("hermes");
+    expect(result.defaultAgent).toBe("builtin");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents.hermes).toEqual({
+    expect(config.agents.builtin).toEqual({
       host: "http://127.0.0.1:7900",
-      gateway: "hermes",
+      gateway: "builtin",
     });
-    expect(config.defaultAgent).toBe("hermes");
+    expect(config.defaultAgent).toBe("builtin");
     // Verify no duplicate uwf- prefix
-    expect(config.agents["uwf-hermes"]).toBeUndefined();
+    expect(config.agents["uwf-builtin"]).toBeUndefined();
   });
 
   test("normalizes uwf-claude-code to claude-code", async () => {
@@ -137,18 +137,18 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
     mkdirSync(storageRoot, { recursive: true });
     writeFileSync(
       join(storageRoot, "config.yaml"),
-      "providers:\n  openai: { baseUrl: x, apiKey: y }\nmodels:\n  default: { provider: openai, name: gpt-4o }\ndefaultModel: default\nagents:\n  hermes: { host: 'http://127.0.0.1:7900', gateway: hermes }\ndefaultAgent: hermes\n",
+      "providers:\n  openai: { baseUrl: x, apiKey: y }\nmodels:\n  default: { provider: openai, name: gpt-4o }\ndefaultModel: default\nagents:\n  builtin: { host: 'http://127.0.0.1:7900', gateway: builtin }\ndefaultAgent: builtin\n",
       "utf8",
     );
-    await cmdSetup({ agent: "hermes", storageRoot });
+    await cmdSetup({ agent: "builtin", storageRoot });
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
     expect(config.providers).toBeUndefined();
     expect(config.models).toBeUndefined();
     expect(config.defaultModel).toBeUndefined();
-    expect(config.agents.hermes).toEqual({
+    expect(config.agents.builtin).toEqual({
       host: "http://127.0.0.1:7900",
-      gateway: "hermes",
+      gateway: "builtin",
     });
-    expect(config.defaultAgent).toBe("hermes");
+    expect(config.defaultAgent).toBe("builtin");
   });
 });

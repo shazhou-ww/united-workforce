@@ -1,0 +1,29 @@
+---
+"@united-workforce/util": minor
+"@united-workforce/util-agent": minor
+"@united-workforce/cli": patch
+---
+
+chore(cleanup): archive legacy per-agent CLI adapters (#381)
+
+Phase 4 cleanup of the broker rollout. The per-agent CLI binary packages
+(`agent-hermes`, `agent-claude-code`, `agent-sumeru`) have moved out of
+`packages/` into `legacy-packages/` and are no longer published — Sumeru
+gateways are now reached through `@united-workforce/broker` over HTTP.
+
+- `@united-workforce/util-agent` public surface trimmed to the symbols
+  still consumed by `cli`, `broker`, `agent-builtin`, and `agent-mock`.
+  The per-agent SQLite session cache, external-CLI continuation prompt
+  builder, thread-progress hint, `buildContext`, `buildSuspendOutput`,
+  the argv parser, and the fork/cleanup adapter type aliases are no
+  longer exported (they live in the archived adapters).
+- `@united-workforce/util` skill references (`uwf prompt usage` and
+  `uwf prompt adapter-developing`) rewritten so the rendered SKILL.md
+  describes the broker-based architecture instead of recommending
+  per-agent CLI binary installs.
+- `@united-workforce/cli` setup/prompt commands no longer scan for or
+  recommend `uwf-hermes` / `uwf-claude-code` binaries.
+- `scripts/publish-all.mjs` `publishOrder` updated to drop legacy
+  adapter dirs and use the post-rename workspace package directories.
+- Repo-root `vitest.config.ts` excludes `legacy-packages/**` so archived
+  adapter test files do not run in the workspace test pass.

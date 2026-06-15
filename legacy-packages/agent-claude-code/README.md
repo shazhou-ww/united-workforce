@@ -1,5 +1,10 @@
 # @united-workforce/agent-claude-code
 
+> **⚠️ Archived (Phase 4 cleanup, #381):** This package is no longer
+> published. It has been superseded by [`@united-workforce/broker`](../../packages/broker),
+> the Sumeru gateway client used by the `uwf` CLI for all out-of-process
+> agent integrations. Source preserved here for historical reference only.
+
 `uwf-claude-code` agent — spawns the Claude Code CLI and captures session detail.
 
 ## Overview
