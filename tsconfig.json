@@ -26,6 +26,7 @@
     { "path": "packages/agent-mock" },
     { "path": "packages/agent-claude-code" },
     { "path": "packages/agent-sumeru" },
+    { "path": "packages/broker" },
     { "path": "packages/cli" },
     { "path": "packages/eval" }
   ]
