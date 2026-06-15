@@ -1,5 +1,5 @@
-import * as broker from "../src/index.js";
 import { describe, expect, test } from "vitest";
+import * as broker from "../src/index.js";
 
 describe("@united-workforce/broker public API surface", () => {
   test("exports exactly the Phase 1 names", () => {
