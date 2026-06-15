@@ -4,11 +4,12 @@ import type { WorkflowConfig } from "../types.js";
 describe("WorkflowConfig shape — engine config is LLM-free (issue #143)", () => {
   test("only requires agents, defaultAgent, agentOverrides", () => {
     const cfg: WorkflowConfig = {
-      agents: { hermes: { command: "uwf-hermes", args: [] } },
+      agents: { hermes: { host: "http://127.0.0.1:7900", gateway: "hermes" } },
       defaultAgent: "hermes",
       agentOverrides: null,
     };
-    expect(cfg.agents.hermes.command).toBe("uwf-hermes");
+    expect(cfg.agents.hermes.host).toBe("http://127.0.0.1:7900");
+    expect(cfg.agents.hermes.gateway).toBe("hermes");
     expect(cfg.defaultAgent).toBe("hermes");
     expect(cfg.agentOverrides).toBeNull();
   });
