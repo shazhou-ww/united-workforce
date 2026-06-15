@@ -1,30 +1,54 @@
 # @united-workforce/broker
 
-Session-mapping persistence layer for the uwf broker.
+Session-mapping persistence + Sumeru HTTP client for the uwf broker.
 
-## Phase 1 Scope (#378)
+## Scope
 
-This package currently exposes the SQLite-backed session-mapping store used to
-remember which Sumeru session a given `(threadId, role)` pair is talking to.
-It does NOT include the HTTP broker, agent process management, or any CLI
-integration — those are tracked separately:
+| Phase | Issue | Status |
+|-------|-------|--------|
+| Parent broker design | #364 | — |
+| Phase 1 — session-mapping persistence | #378 | ✅ shipped |
+| Phase 2 — Sumeru HTTP client + `broker.send()` | #379 | ✅ this release |
+| Phase 3 — CLI integration | #380 | upcoming |
+| Phase 4 — lifecycle / GC | #381 | upcoming |
 
-- #364 — parent broker design
-- #378 — Phase 1: session-mapping persistence (this package, today)
-- #379 — Phase 2: Sumeru HTTP client
-- #380 — Phase 3: CLI integration
-- #381 — Phase 4: lifecycle / GC
+This package is the in-process broker library. CLI plumbing is intentionally
+out of scope for Phases 1–2; that lands in Phase 3.
 
 ## Public API
 
 ```typescript
-import { createSessionStore } from "@united-workforce/broker";
+import {
+  // Phase 1 — session store
+  createSessionStore,
+  // Phase 2 — Sumeru HTTP client
+  createSumeruClient,
+  SumeruSessionNotFoundError,
+  SUMERU_SESSION_NOT_FOUND,
+  // Phase 2 — orchestrator
+  createBroker,
+} from "@united-workforce/broker";
 import type {
   SessionInput,
   SessionRecord,
   SessionStore,
+  SumeruClient,
+  SumeruSendOutcome,
+  CreateSessionArgs,
+  SendMessageArgs,
+  AgentRoute,
+  AgentRouteResolver,
+  Broker,
+  CreateBrokerOptions,
+  SendArgs,
+  SendResult,
+  SumeruClientFactory,
 } from "@united-workforce/broker";
+```
 
+### Session store (Phase 1)
+
+```typescript
 const store = createSessionStore({ dbPath: "/tmp/sessions.db" });
 
 // upsertSession: insert OR replace (preserves createdAt on update)
@@ -50,7 +74,79 @@ store.close();
 
 When `dbPath` is omitted, the store opens
 `<getDefaultStorageRoot()>/broker/sessions.db` (e.g. `~/.uwf/broker/sessions.db`).
-The directory is created on first use.
+
+### Sumeru HTTP client (Phase 2)
+
+```typescript
+const client = createSumeruClient("http://127.0.0.1:7900");
+
+// POST /gateways/:gw/sessions, returns the new session id.
+// Body is `{}` when cwd is null, `{"workspaceRoot": cwd}` otherwise.
+const sessionId = await client.createSession({
+  gateway: "claude-code",
+  cwd: process.cwd(),
+});
+
+// POST /gateways/:gw/sessions/:id/messages, consumes the SSE stream.
+// Returns the LAST assistant turn's raw content + the `done` summary.
+// Throws `SumeruSessionNotFoundError` on 404 session_not_found so callers
+// can recognise it and trigger the fallback path.
+const outcome = await client.sendMessage({
+  gateway: "claude-code",
+  sessionId,
+  content: "hello",
+});
+console.log(outcome.output);                  // last assistant turn (raw)
+console.log(outcome.assistantTurnCount);      // count of assistant turns
+console.log(outcome.done);                    // { turnCount, tokens, durationMs }
+```
+
+The client is stateless — `host` is captured in the closure and trailing
+slashes are normalised so subsequent path joins never produce `//gateways/`.
+No I/O happens at construction time.
+
+### Broker orchestration (Phase 2)
+
+```typescript
+const broker = createBroker({
+  sessionStore: store,
+  resolveRoute: (role) => ({
+    host: "http://127.0.0.1:7900",
+    gateway: "claude-code",
+    cwd: process.cwd(),
+  }),
+  clientFactory: null, // defaults to createSumeruClient
+});
+
+const result = await broker.send({
+  threadId: "06FCHRTFS6STQY3ET1355NXYS0",
+  role: "planner",
+  prompt: "next step",
+});
+console.log(result.output);    // raw last-assistant-turn content
+console.log(result.sessionId); // session that handled the request
+console.log(result.reused);    // true on cache hit, false on cold start / fallback
+```
+
+`broker.send()` resolves the cached session for `(threadId, role)`. On a
+cache hit it sends to the cached session id; on a cache miss it creates a
+new session, **upserts the mapping BEFORE the first message** (write-before-
+stream invariant), then sends.
+
+If the cached session id is rejected with HTTP 404 / `session_not_found`,
+broker silently:
+
+1. Logs a warn via `createLogger` (tag `M4Q7QHSF`).
+2. Creates a fresh session via the route's host/gateway.
+3. Upserts the new session id.
+4. Retries the same prompt verbatim on the new session.
+
+A second 404 propagates as a normal error — the retry runs at most once.
+Non-404 errors propagate without any retry.
+
+> Phase 2 explicitly does **not** do frontmatter extraction. `result.output`
+> is the assistant content byte-for-byte; Phase 3 adds schema-aware
+> extraction on top.
 
 ## Storage
 
