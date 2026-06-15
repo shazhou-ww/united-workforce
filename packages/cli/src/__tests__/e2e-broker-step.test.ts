@@ -248,7 +248,16 @@ describe("executeBrokerStep — Sumeru HTTP integration", () => {
     expect(JSON.parse(calls[0].body)).toEqual({ workspaceRoot: "/tmp/work" });
     expect(calls[1].method).toBe("POST");
     expect(calls[1].url).toBe(`${HOST}/gateways/${GATEWAY}/sessions/${SESSION_ID}/messages`);
-    expect(JSON.parse(calls[1].body)).toEqual({ content: "make a plan" });
+    // The broker now receives the fully assembled prompt (role goal/procedure,
+    // output-format instruction, thread progress, task, edge prompt) rather than
+    // the bare edge prompt.
+    const sentContent = JSON.parse(calls[1].body).content as string;
+    expect(sentContent).toContain("produce a plan"); // role goal
+    expect(sentContent).toContain("think hard"); // role procedure
+    expect(sentContent).toContain("Deliverable Format"); // output-format instruction
+    expect(sentContent).toContain("## Thread Progress"); // thread progress
+    expect(sentContent).toContain("## Task"); // task section
+    expect(sentContent).toContain("make a plan"); // edge prompt
 
     // Step persisted to CAS with the right linkage.
     const stepNode = uwf.store.cas.get(result.stepHash);
@@ -260,6 +269,12 @@ describe("executeBrokerStep — Sumeru HTTP integration", () => {
     expect(payload.agent).toBe(GATEWAY);
     expect(payload.edgePrompt).toBe("make a plan");
     expect(payload.detail).toBe(result.detailHash);
+
+    // The assembled prompt is persisted as a CAS text node for `step read --prompt`.
+    expect(payload.assembledPrompt).not.toBeNull();
+    const promptNode = uwf.store.cas.get(payload.assembledPrompt as CasRef);
+    expect(promptNode?.payload).toContain("produce a plan");
+    expect(promptNode?.payload).toContain("make a plan");
 
     // Broker session store remembers the (threadId, role) → sessionId mapping.
     const sessionStore = openBrokerSessionStore(tmpDir);
