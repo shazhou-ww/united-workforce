@@ -1,5 +1,118 @@
 # @united-workforce/cli
 
+## 0.7.0
+
+### Minor Changes
+
+- aeb2449: feat(cli, protocol, util-agent): wire broker into `uwf thread exec` (Phase 3 / #380)
+
+  Phase 3 of the broker rollout. Replaces the legacy `spawnAgent` /
+  `executeAgentCommand` / last-stdout-line JSON path in `uwf thread exec`
+  with a direct `broker.send()` call against the Sumeru HTTP API. The CLI
+  now drives frontmatter extraction directly on `result.output` rather than
+  delegating to the broker.
+
+  Breaking changes (0.x):
+
+  - **`AgentConfig` shape** — `{command, args}` is replaced by
+    `{host, gateway}`. `agents.<alias>.command` and `agents.<alias>.args`
+    are now rejected by `uwf config set` and by the engine config
+    validator. Update existing `~/.uwf/config.yaml` entries:
+
+    ```yaml
+    # before
+    agents:
+      hermes:
+        command: uwf-hermes
+        args: ["--verbose"]
+
+    # after
+    agents:
+      hermes:
+        host: http://127.0.0.1:7900
+        gateway: hermes
+    ```
+
+  - **`--agent` override** — the inline override accepts an alias from
+    `agents.*` OR a `"<host> <gateway>"` pair; the legacy bare-command
+    override is removed.
+
+  - **`step ask` / `step fork`** — disabled in this phase (deferred to
+    Phase 4). The commands return a clear "not yet supported in Phase 3"
+    error instead of silently using the legacy path.
+
+  Highlights:
+
+  - **`executeBrokerStep()`** — single entrypoint that resolves the agent
+    route from the config, calls `broker.send({ threadId, role, prompt })`,
+    runs the frontmatter fast-path on `result.output`, and persists a
+    `StepNode` with the extracted role output schema, edge prompt, and
+    accumulated usage.
+  - **Multi-step session reuse** — the broker SQLite session store rows
+    the `(threadId, role) → sessionId` mapping; subsequent steps for the
+    same role reuse the cached Sumeru session, with silent retry on stale
+    `sumeru_session_not_found`.
+  - **Resume** — `uwf thread resume` reuses the same Sumeru session via
+    the cached row. No new session is created on resume.
+  - **e2e tests** — new `e2e-broker-step.test.ts` stubs `globalThis.fetch`
+    with deterministic Sumeru `createSession` and SSE `sendMessage`
+    responses. Verifies the route, frontmatter extraction, persisted
+    `StepNode`, and the broker session store row. The legacy
+    `e2e-mock-agent`, `thread-poke`, `thread-resume`, `thread-suspend-step`,
+    `thread-agent-failure-suspended`, and `step-ask` test suites are
+    marked `describe.skip` while their broker equivalents land in later
+    phases.
+
+  Documentation:
+
+  - **`packages/cli/README.md`** — overview rewritten to describe the
+    broker / Sumeru HTTP path, plus a new "Breaking Changes (Phase 3 /
+    #380)" migration section covering the `{command, args}` →
+    `{host, gateway}` rewrite, the new `--agent` override semantics, and
+    the `step ask` / `step fork` deferral.
+  - **Root `README.md`** — overview paragraph rewritten so it no longer
+    describes agents as spawned CLI subprocesses; `--agent` quick-start
+    hint updated to use the new alias / `"<host> <gateway>"` syntax.
+  - **`@united-workforce/util` (patch)** — `usage-reference`,
+    `cli-reference`, and `adapter-developing-reference` (the bodies
+    surfaced by `uwf prompt usage` / `uwf prompt adapter-developing`)
+    updated to use the new `--agent` syntax and the `{host, gateway}`
+    agent registration sample. `prompt.ts` bootstrap text aligned with
+    the same shape.
+
+### Patch Changes
+
+- bd25399: fix(cli): assemble the full agent prompt before `broker.send()` (#387)
+
+  The broker path (`executeBrokerStep`) previously sent only the bare moderator
+  edge prompt (a short graph-edge sentence) to `broker.send()`, dropping the rich
+  context the legacy spawned-agent path assembled. Agents therefore lacked their
+  role definition, output-format instruction, and thread history.
+
+  `executeBrokerStep` now assembles the same five-part prompt the legacy
+  `buildClaudeCodePrompt` produced before sending it to the broker:
+
+  1. output-format instruction — derived from the role's frontmatter schema
+  2. thread progress — step count and role visit count
+  3. role prompt — Goal / Capabilities / Prepare / Procedure / Output sections
+  4. task prompt — the thread's initial user prompt
+  5. continuation context — steps since the last visit (re-entry) or the edge
+     prompt (first visit), with recent step content on a first visit that already
+     has history
+
+  The fully assembled prompt is also persisted as a CAS text node on the
+  `StepNode` (`assembledPrompt`), so `uwf step read --prompt` surfaces exactly
+  what was sent. This reuses the existing `buildRolePrompt`,
+  `buildOutputFormatInstruction`, `buildThreadProgress`, and
+  `buildContinuationPrompt` helpers from `@united-workforce/util-agent`.
+
+- Updated dependencies [aeb2449]
+- Updated dependencies [2da4a1a]
+  - @united-workforce/protocol@0.4.0
+  - @united-workforce/util-agent@0.3.0
+  - @united-workforce/util@0.2.1
+  - @united-workforce/broker@0.2.0
+
 ## 0.6.1
 
 ### Patch Changes
