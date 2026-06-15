@@ -103,6 +103,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Phase 3 (#380) breaking change: agents are routed through the broker via
+ * `host` + `gateway` instead of the legacy `command` + `args` CLI binary path.
+ *
+ * Legacy configs are detected explicitly and rejected with a migration error so
+ * stale configs fail loudly the first time they are used.
+ */
 function normalizeAgents(raw: unknown): Record<AgentAlias, AgentConfig> {
   if (raw === undefined || raw === null) {
     return {};
@@ -115,15 +122,20 @@ function normalizeAgents(raw: unknown): Record<AgentAlias, AgentConfig> {
     if (!isRecord(entry)) {
       throw new Error(`config.agents.${name} must be a mapping`);
     }
-    const command = entry.command;
-    const argsRaw = entry.args;
-    if (typeof command !== "string") {
-      throw new Error(`config.agents.${name} requires command`);
+    if ("command" in entry || "args" in entry) {
+      throw new Error(
+        `config.agents.${name} uses legacy {command, args} fields — Phase 3 (#380) replaced these with {host, gateway}. Rewrite ~/.uwf/config.yaml: each agents.<alias> block must declare host (e.g. http://127.0.0.1:7900) and gateway (e.g. ${name}). See packages/cli/README.md for the migration note.`,
+      );
     }
-    const args = Array.isArray(argsRaw)
-      ? argsRaw.filter((a): a is string => typeof a === "string")
-      : [];
-    agents[name] = { command, args };
+    const host = entry.host;
+    const gateway = entry.gateway;
+    if (typeof host !== "string" || host === "") {
+      throw new Error(`config.agents.${name}.host is required`);
+    }
+    if (typeof gateway !== "string" || gateway === "") {
+      throw new Error(`config.agents.${name}.gateway is required`);
+    }
+    agents[name] = { host, gateway };
   }
   return agents;
 }
