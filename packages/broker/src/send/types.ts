@@ -7,7 +7,7 @@
 import type { RoleName, ThreadId } from "@united-workforce/protocol";
 
 import type { SessionStore } from "../session-store/index.js";
-import type { SumeruClient, SumeruDoneValue } from "../sumeru-client/index.js";
+import type { SumeruClient, SumeruClientOptions, SumeruDoneValue } from "../sumeru-client/index.js";
 
 /**
  * Resolved routing for a `(threadId, role)` pair: which Sumeru host to talk
@@ -29,7 +29,7 @@ export type AgentRoute = Readonly<{
 export type AgentRouteResolver = (role: RoleName) => Promise<AgentRoute> | AgentRoute;
 
 /** Factory for the per-host `SumeruClient` cache. Default is `createSumeruClient`. */
-export type SumeruClientFactory = (host: string) => SumeruClient;
+export type SumeruClientFactory = (host: string, options?: SumeruClientOptions) => SumeruClient;
 
 /** Inputs to `broker.send`. */
 export type SendArgs = Readonly<{

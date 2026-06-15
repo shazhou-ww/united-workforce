@@ -18,12 +18,15 @@ export type {
   CreateSessionArgs,
   SendMessageArgs,
   SumeruClient,
+  SumeruClientOptions,
   SumeruDoneValue,
   SumeruSendOutcome,
   SumeruTurnValue,
 } from "./sumeru-client/index.js";
 export {
   createSumeruClient,
+  DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
+  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
   SUMERU_SESSION_NOT_FOUND,
   SumeruSessionNotFoundError,
 } from "./sumeru-client/index.js";

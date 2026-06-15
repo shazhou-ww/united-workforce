@@ -11,6 +11,32 @@
 export const SUMERU_SESSION_NOT_FOUND = "sumeru_session_not_found";
 
 /**
+ * Default wall-clock cap for one `sendMessage` SSE consumption. Five minutes
+ * is long enough for slow ReAct loops but short enough that a stuck thread
+ * fails within reasonable wall time.
+ */
+export const DEFAULT_SSE_TOTAL_TIMEOUT_MS = 300_000;
+
+/**
+ * Default per-event watchdog window. 45s = 3× the Sumeru server-side
+ * `sseHeartbeatMs` default of 15s — survives one missed heartbeat with
+ * headroom.
+ */
+export const DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS = 45_000;
+
+/**
+ * Optional construction options for `createSumeruClient`. Both knobs accept
+ * `T | null` (per the project convention forbidding optional `?:` fields):
+ * `null` (or omitted) means "use the default".
+ */
+export type SumeruClientOptions = Readonly<{
+  /** Wall-clock cap on one sendMessage SSE consumption. Defaults to 300_000ms. */
+  sseTotalTimeoutMs: number | null;
+  /** Per-event watchdog window. Defaults to 45_000ms (3x server heartbeat). */
+  sseHeartbeatTimeoutMs: number | null;
+}>;
+
+/**
  * Shape of a `value` field inside a Sumeru `turn` SSE event.
  *
  * Mirrors `@sumeru/core`'s `Turn` type but only requires the fields the
