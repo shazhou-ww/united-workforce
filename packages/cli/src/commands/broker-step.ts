@@ -464,10 +464,9 @@ function brokerUsage(result: SendResult): Usage | null {
   if (done === null || typeof done !== "object") {
     return null;
   }
-  const record = done as Record<string, unknown>;
-  const turns = typeof record.turns === "number" ? record.turns : result.assistantTurnCount;
-  const inputTokens = typeof record.inputTokens === "number" ? record.inputTokens : 0;
-  const outputTokens = typeof record.outputTokens === "number" ? record.outputTokens : 0;
-  const duration = typeof record.duration === "number" ? record.duration : 0;
+  const turns = done.turnCount;
+  const inputTokens = done.tokens !== null ? done.tokens.in : 0;
+  const outputTokens = done.tokens !== null ? done.tokens.out : 0;
+  const duration = done.durationMs;
   return { turns, inputTokens, outputTokens, duration };
 }

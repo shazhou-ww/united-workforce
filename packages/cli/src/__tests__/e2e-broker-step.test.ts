@@ -236,7 +236,10 @@ describe("executeBrokerStep — Sumeru HTTP integration", () => {
     expect(result.frontmatter).toEqual({ $status: "done", plan: "ship it" });
     expect(result.body.trim()).toBe(PLANNER_BODY);
     expect(result.usage).not.toBeNull();
-    expect(result.usage?.inputTokens).toBe(0); // sumeru `done` here uses tokens.in (not inputTokens) — broker drops unknown fields
+    expect(result.usage?.inputTokens).toBe(9);
+    expect(result.usage?.outputTokens).toBe(4);
+    expect(result.usage?.duration).toBe(42);
+    expect(result.usage?.turns).toBe(2);
 
     // Two requests: createSession then sendMessage.
     expect(calls.length).toBe(2);
