@@ -13,7 +13,7 @@ This monorepo implements **uwf**, a workflow engine with no long-running daemon.
 
 Workflow state lives entirely on disk: CAS nodes under `~/.ocas/` for definitions and step payloads, and `~/.ocas/variables.db` for all metadata (`@uwf/registry/*` for workflow name→hash mappings, `@uwf/thread/*` for active thread head pointers, `@uwf/history/*` for completed/cancelled threads). Config is at `~/.uwf/config.yaml`. Because there is no server process, workflows are easy to debug, fork, and inspect with ordinary CLI tools.
 
-Agents are pluggable CLI binaries (`uwf-hermes`, `uwf-builtin`, `uwf-claude-code`, or custom commands). The engine spawns the configured agent with `<thread-id>` and `<role>`, sets `UWF_EDGE_PROMPT` from the graph transition, and captures both the agent's markdown output and a detail CAS node for session replay.
+Agents are pluggable Sumeru gateways reachable over HTTP (`hermes`, `builtin`, `claude-code`, or any custom gateway). The engine no longer spawns CLI subprocesses — instead, it calls `broker.send({ threadId, role, prompt })` against the Sumeru endpoint declared as `{host, gateway}` in `~/.uwf/config.yaml`. The broker keeps a `(threadId, role) → sessionId` map in a SQLite store so subsequent steps for the same role reuse the same Sumeru session, and the CLI runs frontmatter extraction on the broker's reply to produce the StepNode and detail CAS node for session replay.
 
 ## Workflow YAML Format
 
@@ -57,7 +57,7 @@ uwf thread start solve-issue -p "Fix the login redirect bug"
 uwf thread exec <thread-id>
 ```
 
-Use `-c, --count <number>` on `thread exec` to run multiple steps in one invocation. Override the agent with `--agent <cmd>`.
+Use `-c, --count <number>` on `thread exec` to run multiple steps in one invocation. Override the agent with `--agent <alias>` (an entry from your `agents` map) or with an inline `--agent "<host> <gateway>"` pair.
 
 ## Architecture
 

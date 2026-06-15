@@ -377,8 +377,8 @@ Register your adapter in \`~/.uwf/config.yaml\`:
 \`\`\`yaml
 agents:
   my-agent:
-    command: uwf-my-agent
-    args: []
+    host: http://127.0.0.1:7900
+    gateway: my-agent
 \`\`\`
 
 Use it:

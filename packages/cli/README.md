@@ -4,7 +4,7 @@
 
 ## Overview
 
-Layer 4 entry point for the workflow engine. The `uwf` binary orchestrates one step per invocation: load thread head from `threads.yaml`, run the moderator, spawn the configured agent CLI, run extract, append a CAS step node, and update the head pointer (or archive when `$END`).
+Layer 4 entry point for the workflow engine. The `uwf` binary orchestrates one step per invocation: load the thread head, run the moderator, dispatch the role to the configured agent **over the Sumeru HTTP API via the broker** (`broker.send()`), run frontmatter extraction on the agent's reply, append a CAS step node, and update the head pointer (or archive when `$END`). Agents are no longer spawned as CLI subprocesses — `~/.uwf/config.yaml` declares an `agents` map keyed by alias, where each entry resolves to a `{host, gateway}` Sumeru endpoint that the broker contacts directly.
 
 ### Four-Layer Architecture
 
@@ -173,6 +173,79 @@ Engine config: `~/.uwf/config.yaml` (LLM-free — only `agents`, `defaultAgent`,
 | `uwf log clean [--before YYYY-MM-DD]` | Delete old log files |
 
 ## Migration Guide
+
+### Breaking Changes (Phase 3 / #380) — broker integration & `{host, gateway}` agents
+
+Phase 3 of the broker rollout removes the legacy `spawnAgent` /
+`executeAgentCommand` / last-stdout-line JSON path from `uwf thread exec`.
+The CLI now calls `broker.send({ threadId, role, prompt })` against the
+Sumeru HTTP API and runs frontmatter extraction on the broker's
+`result.output`. The CLI itself never starts an agent process.
+
+This is a breaking 0.x change to `~/.uwf/config.yaml`:
+
+| Old (`{command, args}`) | New (`{host, gateway}`) |
+|-------------------------|-------------------------|
+| `agents.<alias>.command` | `agents.<alias>.host` |
+| `agents.<alias>.args` | `agents.<alias>.gateway` |
+
+Rewrite each agent entry. Before:
+
+```yaml
+agents:
+  hermes:
+    command: uwf-hermes
+    args: ["--verbose"]
+  claude-code:
+    command: uwf-claude-code
+    args: []
+defaultAgent: hermes
+agentOverrides: {}
+```
+
+After:
+
+```yaml
+agents:
+  hermes:
+    host: http://127.0.0.1:7900
+    gateway: hermes
+  claude-code:
+    host: http://127.0.0.1:7900
+    gateway: claude-code
+defaultAgent: hermes
+agentOverrides: {}
+```
+
+The engine config validator (`normalizeAgents` in
+`@united-workforce/util-agent`) now rejects any entry that still carries
+`command` or `args` with a clear migration error. `uwf config set
+agents.<alias>.command ...` is likewise rejected.
+
+#### `--agent` override
+
+`uwf thread exec --agent <value>` now accepts two shapes:
+
+- An alias declared in `agents.*` (e.g. `--agent hermes`).
+- An inline `"<host> <gateway>"` pair (e.g.
+  `--agent "http://127.0.0.1:7900 claude-code"`).
+
+The legacy bare command override (`--agent uwf-hermes`) is removed.
+
+#### `step ask` / `step fork` deferred to Phase 4
+
+`uwf step ask` and `uwf step fork` are temporarily disabled in this
+phase. Invoking them returns a clear "not yet supported in Phase 3"
+error rather than silently using the legacy spawn path. Both will be
+restored in Phase 4 once the broker exposes the per-step session
+replay APIs they require.
+
+#### Multi-step session reuse & resume
+
+The broker rows the `(threadId, role) → sessionId` mapping in its
+SQLite session store. Subsequent steps for the same role on the same
+thread reuse the cached Sumeru session. `uwf thread resume` reuses the
+same cached session — no new Sumeru session is created on resume.
 
 ### Breaking Changes (v0.5 → v0.6) — output envelope
 

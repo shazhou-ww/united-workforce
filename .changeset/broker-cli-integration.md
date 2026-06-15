@@ -2,6 +2,7 @@
 "@united-workforce/cli": minor
 "@united-workforce/protocol": minor
 "@united-workforce/util-agent": minor
+"@united-workforce/util": patch
 ---
 
 feat(cli, protocol, util-agent): wire broker into `uwf thread exec` (Phase 3 / #380)
@@ -62,3 +63,20 @@ Highlights:
   `thread-agent-failure-suspended`, and `step-ask` test suites are
   marked `describe.skip` while their broker equivalents land in later
   phases.
+
+Documentation:
+
+- **`packages/cli/README.md`** — overview rewritten to describe the
+  broker / Sumeru HTTP path, plus a new "Breaking Changes (Phase 3 /
+  #380)" migration section covering the `{command, args}` →
+  `{host, gateway}` rewrite, the new `--agent` override semantics, and
+  the `step ask` / `step fork` deferral.
+- **Root `README.md`** — overview paragraph rewritten so it no longer
+  describes agents as spawned CLI subprocesses; `--agent` quick-start
+  hint updated to use the new alias / `"<host> <gateway>"` syntax.
+- **`@united-workforce/util` (patch)** — `usage-reference`,
+  `cli-reference`, and `adapter-developing-reference` (the bodies
+  surfaced by `uwf prompt usage` / `uwf prompt adapter-developing`)
+  updated to use the new `--agent` syntax and the `{host, gateway}`
+  agent registration sample. `prompt.ts` bootstrap text aligned with
+  the same shape.

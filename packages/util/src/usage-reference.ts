@@ -73,7 +73,7 @@ Three placement strategies, in priority order:
 \`\`\`
 uwf thread start <workflow> -p <prompt>            # create thread
 uwf thread exec <thread-id>                        # execute one step
-               [--agent <cmd>]                     # override agent
+               [--agent <alias|"host gw">]         # override agent (alias from agents map, or inline "<host> <gateway>")
                [-c, --count <n>]                   # run n steps
                [--background]                      # run in background
 uwf thread show <thread-id>                        # show head pointer
@@ -90,9 +90,9 @@ uwf thread read <thread-id>                        # render context as markdown
                [--start]                           # include start step
 uwf thread resume <thread-id>                      # resume a suspended thread
                [-p, --prompt <text>]              # supplementary info appended to resume prompt
-               [--agent <cmd>]                     # override agent
+               [--agent <alias|"host gw">]         # override agent (alias from agents map, or inline "<host> <gateway>")
 uwf thread poke <thread-id> -p <prompt>            # re-run head step agent (replaces head step)
-               [--agent <cmd>]                     # override agent
+               [--agent <alias|"host gw">]         # override agent (alias from agents map, or inline "<host> <gateway>")
 uwf thread stop <thread-id>                        # stop background execution
 uwf thread cancel <thread-id>                      # cancel and archive thread
 \`\`\`
@@ -262,9 +262,9 @@ uwf thread cancel <thread-id>
 uwf step list <thread-id>         # list all steps
 uwf step show <step-hash>         # show step details
 uwf step fork <step-hash>         # fork thread from a step (branch)
-uwf step ask <step-hash> -p <prompt> [--agent <cmd>] [--no-fork]
+uwf step ask <step-hash> -p <prompt> [--agent <alias|"host gw">] [--no-fork]
                                   # ask a follow-up question to the step's agent
-                                  # (read-only; no new step, no thread mutation)
+                                  # (deferred to Phase 4; currently disabled)
 \`\`\`
 
 Forking creates a new thread that shares history up to the fork point — useful for retrying from a known-good state.
