@@ -30,7 +30,7 @@ describe("cmdSetup — non-interactive, no LLM args (issue #143)", () => {
     tempDir = mkdtempSync(join(tmpdir(), "uwf-setup-"));
     writeFileSync(
       join(tempDir, "config.yaml"),
-      "agents:\n  hermes: { command: uwf-hermes, args: [] }\ndefaultAgent: hermes\nagentOverrides:\n  solve-issue:\n    coder: claude-code\n",
+      "agents:\n  hermes: { host: 'http://127.0.0.1:7900', gateway: hermes }\ndefaultAgent: hermes\nagentOverrides:\n  solve-issue:\n    coder: claude-code\n",
       "utf8",
     );
     await cmdSetup({ agent: "hermes", storageRoot: tempDir });
@@ -50,7 +50,10 @@ describe("cmdSetup — non-interactive, no LLM args (issue #143)", () => {
     >;
     expect(cfg.defaultAgent).toBe("claude-code");
     const agents = cfg.agents as Record<string, unknown>;
-    expect(agents["claude-code"]).toEqual({ command: "uwf-claude-code", args: [] });
+    expect(agents["claude-code"]).toEqual({
+      host: "http://127.0.0.1:7900",
+      gateway: "claude-code",
+    });
   });
 });
 

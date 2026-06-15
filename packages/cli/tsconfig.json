@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [{ "path": "../protocol" }, { "path": "../util-agent" }]
+  "references": [{ "path": "../protocol" }, { "path": "../util-agent" }, { "path": "../broker" }]
 }

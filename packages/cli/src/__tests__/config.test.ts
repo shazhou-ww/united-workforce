@@ -21,18 +21,15 @@ describe("config command", () => {
     return configPath;
   }
 
-  // Sample test config — engine-only (no providers/models/defaultModel/modelOverrides)
+  // Sample test config — engine-only (no providers/models/defaultModel/modelOverrides).
+  // Phase 3 (#380) replaced the legacy {command, args} agent shape with {host, gateway}.
   const sampleConfig = `agents:
   hermes:
-    command: uwf-hermes
-    args:
-      - --provider
-      - dashscope
+    host: http://127.0.0.1:7900
+    gateway: hermes
   claude-code:
-    command: claude-code
-    args:
-      - --profile
-      - work
+    host: http://127.0.0.1:7901
+    gateway: claude-code
 defaultAgent: hermes
 `;
 
@@ -41,7 +38,7 @@ defaultAgent: hermes
       test("splits dot notation correctly", () => {
         expect(parseDotPath("a.b.c")).toEqual(["a", "b", "c"]);
         expect(parseDotPath("defaultAgent")).toEqual(["defaultAgent"]);
-        expect(parseDotPath("agents.hermes.command")).toEqual(["agents", "hermes", "command"]);
+        expect(parseDotPath("agents.hermes.host")).toEqual(["agents", "hermes", "host"]);
       });
     });
 
@@ -85,7 +82,7 @@ defaultAgent: hermes
     describe("maskApiKeys", () => {
       test("returns deep clone (no mutation) — engine config has no apiKey to mask", () => {
         const config = {
-          agents: { hermes: { command: "uwf-hermes", args: [] } },
+          agents: { hermes: { host: "http://127.0.0.1:7900", gateway: "hermes" } },
           defaultAgent: "hermes",
         };
         const masked = maskApiKeys(config);
@@ -153,12 +150,12 @@ defaultAgent: hermes
       }
     });
 
-    test("retrieves array value (agents.hermes.args)", async () => {
+    test("retrieves nested string value (agents.hermes.host)", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
-        const result = await cmdConfigGet(tempDir, "agents.hermes.args");
-        expect(result).toEqual(["--provider", "dashscope"]);
+        const result = await cmdConfigGet(tempDir, "agents.hermes.host");
+        expect(result).toBe("http://127.0.0.1:7900");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
@@ -208,18 +205,17 @@ defaultAgent: hermes
       }
     });
 
-    test("sets array value for args key with valid JSON array", async () => {
+    test("sets nested string value (agents.hermes.host)", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
-        const newArgs = '["--new", "--flags"]';
-        const result = await cmdConfigSet(tempDir, "agents.hermes.args", newArgs);
+        const result = await cmdConfigSet(tempDir, "agents.hermes.host", "http://10.0.0.1:7900");
         expect(result).toEqual({
-          key: "agents.hermes.args",
-          value: ["--new", "--flags"],
+          key: "agents.hermes.host",
+          value: "http://10.0.0.1:7900",
         });
-        const updated = await cmdConfigGet(tempDir, "agents.hermes.args");
-        expect(updated).toEqual(["--new", "--flags"]);
+        const updated = await cmdConfigGet(tempDir, "agents.hermes.host");
+        expect(updated).toBe("http://10.0.0.1:7900");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
@@ -230,8 +226,8 @@ defaultAgent: hermes
       try {
         createTestConfig(tempDir, sampleConfig);
         await cmdConfigSet(tempDir, "defaultAgent", "claude-code");
-        const cmd = await cmdConfigGet(tempDir, "agents.hermes.command");
-        expect(cmd).toBe("uwf-hermes");
+        const host = await cmdConfigGet(tempDir, "agents.hermes.host");
+        expect(host).toBe("http://127.0.0.1:7900");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
@@ -260,29 +256,29 @@ defaultAgent: hermes
       }
     });
 
-    test("throws error when array value is invalid JSON for args key", async () => {
+    test("throws error when value for unknown nested field is invalid", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
-        await expect(
-          cmdConfigSet(tempDir, "agents.hermes.args", "[invalid json"),
-        ).rejects.toThrow();
+        await expect(cmdConfigSet(tempDir, "agents.hermes.args", "[invalid json")).rejects.toThrow(
+          /Unknown field/,
+        );
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
     });
 
-    test("sets agent command (agents.claude-code.command)", async () => {
+    test("sets agent gateway (agents.claude-code.gateway)", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
-        const result = await cmdConfigSet(tempDir, "agents.claude-code.command", "new-command");
+        const result = await cmdConfigSet(tempDir, "agents.claude-code.gateway", "new-gateway");
         expect(result).toEqual({
-          key: "agents.claude-code.command",
-          value: "new-command",
+          key: "agents.claude-code.gateway",
+          value: "new-gateway",
         });
-        const updated = await cmdConfigGet(tempDir, "agents.claude-code.command");
-        expect(updated).toBe("new-command");
+        const updated = await cmdConfigGet(tempDir, "agents.claude-code.gateway");
+        expect(updated).toBe("new-gateway");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }
@@ -392,12 +388,12 @@ defaultAgent: hermes
       const tempDir = mkdtempSync(join(tmpdir(), "test-config-"));
       try {
         createTestConfig(tempDir, sampleConfig);
-        await cmdConfigSet(tempDir, "agents.hermes.command", "uwf-hermes");
-        await cmdConfigSet(tempDir, "agents.hermes.args", '["--flag"]');
-        const command = await cmdConfigGet(tempDir, "agents.hermes.command");
-        const args = await cmdConfigGet(tempDir, "agents.hermes.args");
-        expect(command).toBe("uwf-hermes");
-        expect(args).toEqual(["--flag"]);
+        await cmdConfigSet(tempDir, "agents.hermes.host", "http://example:7900");
+        await cmdConfigSet(tempDir, "agents.hermes.gateway", "hermes-gw");
+        const host = await cmdConfigGet(tempDir, "agents.hermes.host");
+        const gateway = await cmdConfigGet(tempDir, "agents.hermes.gateway");
+        expect(host).toBe("http://example:7900");
+        expect(gateway).toBe("hermes-gw");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }

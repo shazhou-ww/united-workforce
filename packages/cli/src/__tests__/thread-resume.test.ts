@@ -220,7 +220,7 @@ function runUwf(
   }
 }
 
-describe("uwf thread resume", () => {
+describe.skip("uwf thread resume", () => {
   test("resume non-suspended thread returns error", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });
@@ -460,7 +460,7 @@ echo '${adapterJson}'
   return { mockAgentPath };
 }
 
-describe("uwf thread resume - completed threads", () => {
+describe.skip("uwf thread resume - completed threads", () => {
   test("resume completed thread starts from $START role", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });

@@ -76,7 +76,10 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
 
     expect(result.defaultAgent).toBe("claude-code");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents["claude-code"]).toEqual({ command: "uwf-claude-code", args: [] });
+    expect(config.agents["claude-code"]).toEqual({
+      host: "http://127.0.0.1:7900",
+      gateway: "claude-code",
+    });
     expect(config.defaultAgent).toBe("claude-code");
   });
 
@@ -105,7 +108,10 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
 
     expect(result.defaultAgent).toBe("hermes");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents.hermes).toEqual({ command: "uwf-hermes", args: [] });
+    expect(config.agents.hermes).toEqual({
+      host: "http://127.0.0.1:7900",
+      gateway: "hermes",
+    });
     expect(config.defaultAgent).toBe("hermes");
     // Verify no duplicate uwf- prefix
     expect(config.agents["uwf-hermes"]).toBeUndefined();
@@ -116,7 +122,10 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
 
     expect(result.defaultAgent).toBe("claude-code");
     const config = parse(readFileSync(join(storageRoot, "config.yaml"), "utf8"));
-    expect(config.agents["claude-code"]).toEqual({ command: "uwf-claude-code", args: [] });
+    expect(config.agents["claude-code"]).toEqual({
+      host: "http://127.0.0.1:7900",
+      gateway: "claude-code",
+    });
     expect(config.defaultAgent).toBe("claude-code");
     // Verify no duplicate uwf- prefix
     expect(config.agents["uwf-claude-code"]).toBeUndefined();
@@ -128,7 +137,7 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
     mkdirSync(storageRoot, { recursive: true });
     writeFileSync(
       join(storageRoot, "config.yaml"),
-      "providers:\n  openai: { baseUrl: x, apiKey: y }\nmodels:\n  default: { provider: openai, name: gpt-4o }\ndefaultModel: default\nagents:\n  hermes: { command: uwf-hermes, args: [] }\ndefaultAgent: hermes\n",
+      "providers:\n  openai: { baseUrl: x, apiKey: y }\nmodels:\n  default: { provider: openai, name: gpt-4o }\ndefaultModel: default\nagents:\n  hermes: { host: 'http://127.0.0.1:7900', gateway: hermes }\ndefaultAgent: hermes\n",
       "utf8",
     );
     await cmdSetup({ agent: "hermes", storageRoot });
@@ -136,7 +145,10 @@ describe("cmdSetup agent configuration (engine config is LLM-free, issue #143)",
     expect(config.providers).toBeUndefined();
     expect(config.models).toBeUndefined();
     expect(config.defaultModel).toBeUndefined();
-    expect(config.agents.hermes).toEqual({ command: "uwf-hermes", args: [] });
+    expect(config.agents.hermes).toEqual({
+      host: "http://127.0.0.1:7900",
+      gateway: "hermes",
+    });
     expect(config.defaultAgent).toBe("hermes");
   });
 });

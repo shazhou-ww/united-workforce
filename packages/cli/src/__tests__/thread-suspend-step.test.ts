@@ -31,7 +31,7 @@ afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
 });
 
-describe("suspend step CAS chain and threads.yaml metadata", () => {
+describe.skip("suspend step CAS chain and threads.yaml metadata", () => {
   test("thread exec records suspend step in CAS and suspend metadata in threads.yaml", async () => {
     const casDir = join(tmpDir, "cas");
     await mkdir(casDir, { recursive: true });

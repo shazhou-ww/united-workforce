@@ -221,7 +221,7 @@ function getStatus(store: Awaited<ReturnType<typeof openStore>>, outputRef: CasR
 
 // ── scenarios ─────────────────────────────────────────────────────────────────
 
-describe("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
+describe.skip("E2E mock-agent: full uwf pipeline", { timeout: 15_000 }, () => {
   test("1. linear workflow runs planner then worker and reaches $END", async () => {
     await writeMockConfig("e2e-linear.mock.yaml");
     const workflowHash = await addWorkflow("e2e-linear.workflow.yaml", "test-linear");

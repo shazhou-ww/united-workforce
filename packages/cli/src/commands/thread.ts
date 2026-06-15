@@ -1,11 +1,9 @@
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
 import type { VarStore } from "@ocas/core";
 import { validate } from "@ocas/core";
 import type {
-  AgentAlias,
-  AgentConfig,
   CasRef,
   StartNodePayload,
   StartOutput,
@@ -31,7 +29,6 @@ import {
   generateUlid,
   type ProcessLogger,
 } from "@united-workforce/util";
-import type { AdapterOutput } from "@united-workforce/util-agent";
 import { getEnvPath, loadWorkflowConfig } from "@united-workforce/util-agent";
 import { config as loadDotenv } from "dotenv";
 import { parse } from "yaml";
@@ -61,6 +58,7 @@ import {
 } from "../store.js";
 import { checkWorkflowFilenameConsistency, isCasRef, parseWorkflowPayload } from "../validate.js";
 import { validateWorkflow } from "../validate-semantic.js";
+import { type BrokerStepResult, executeBrokerStep } from "./broker-step.js";
 import {
   getConfigPath,
   getNestedValue,
@@ -213,7 +211,6 @@ function resolveCurrentRole(uwf: UwfStore, head: CasRef, workflowRef: CasRef): s
 
 const PL_THREAD_START = "7HNQ4B2X";
 const PL_MODERATOR = "M3K8V9T1";
-const PL_AGENT_SPAWN = "R5J2W8N4";
 const PL_AGENT_DONE = "C6P9E3H7";
 const PL_AGENT_ERROR = "Z3F7K8M2";
 const PL_THREAD_ARCHIVED = "F4D8Q2K5";
@@ -1120,140 +1117,6 @@ function loadWorkflowPayload(uwf: UwfStore, workflowRef: CasRef): WorkflowPayloa
   return node.payload as WorkflowPayload;
 }
 
-function parseAgentOverride(override: string): AgentConfig {
-  const parts = override
-    .trim()
-    .split(/\s+/)
-    .filter((p) => p.length > 0);
-  const command = parts[0];
-  if (command === undefined) {
-    fail("agent override must not be empty");
-  }
-  return { command, args: parts.slice(1) };
-}
-
-function resolveAgentConfig(
-  config: WorkflowConfig,
-  workflow: WorkflowPayload,
-  role: string,
-  agentOverride: string | null,
-): AgentConfig {
-  if (agentOverride !== null) {
-    // Try config alias first (e.g. "hermes" → config.agents.hermes),
-    // then fall back to raw command name (e.g. "uwf-hermes" or "/usr/bin/agent").
-    const fromAlias = config.agents[agentOverride as AgentAlias];
-    if (fromAlias !== undefined) {
-      return fromAlias;
-    }
-    return parseAgentOverride(agentOverride);
-  }
-
-  let alias: AgentAlias = config.defaultAgent;
-  if (config.agentOverrides !== null) {
-    const roleOverrides = config.agentOverrides[workflow.name];
-    if (roleOverrides !== undefined && roleOverrides[role] !== undefined) {
-      alias = roleOverrides[role];
-    }
-  }
-
-  const agentConfig = config.agents[alias];
-  if (agentConfig === undefined) {
-    fail(`unknown agent alias in config: ${alias}`);
-  }
-  return agentConfig;
-}
-
-function executeAgentCommand(
-  agent: AgentConfig,
-  argv: readonly string[],
-  cwd: string,
-  plog: ProcessLogger,
-): string {
-  try {
-    return execFileSync(agent.command, argv, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      maxBuffer: 50 * 1024 * 1024, // 50 MB — stream-json output can be large
-      cwd,
-    });
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr?: Buffer | string | null };
-    if (err.code === "ENOENT") {
-      failStep(
-        plog,
-        `"${agent.command}" not found in PATH. Install it or check your PATH config. Run: which ${agent.command}`,
-      );
-    }
-    const stderr =
-      err.stderr == null
-        ? ""
-        : typeof err.stderr === "string"
-          ? err.stderr
-          : err.stderr.toString("utf8");
-    const detail = stderr.trim() !== "" ? `: ${stderr.trim()}` : "";
-    failStep(plog, `agent command failed (${agent.command})${detail}`);
-  }
-}
-
-function parseAgentOutput(stdout: string, plog: ProcessLogger): unknown {
-  const line = stdout.trim().split("\n").pop()?.trim() ?? "";
-  try {
-    return JSON.parse(line);
-  } catch {
-    failStep(plog, `agent stdout last line is not valid JSON: ${line || "(empty)"}`);
-  }
-}
-
-function validateAndNormalizeOutput(
-  parsed: unknown,
-  line: string,
-  plog: ProcessLogger,
-): AdapterOutput {
-  const obj = parsed as Record<string, unknown>;
-  if (
-    typeof obj !== "object" ||
-    obj === null ||
-    typeof obj.stepHash !== "string" ||
-    !isCasRef(obj.stepHash as string)
-  ) {
-    failStep(plog, `agent stdout JSON missing valid stepHash: ${line}`);
-  }
-  // Normalize isError / errorMessage so downstream code can rely on them.
-  // Legacy adapters that don't emit these fields default to isError=false.
-  if (obj.isError !== undefined && typeof obj.isError !== "boolean") {
-    failStep(plog, `agent stdout JSON has non-boolean isError: ${line}`);
-  }
-  if (obj.isError === undefined) {
-    obj.isError = false;
-  }
-  if (
-    obj.errorMessage !== undefined &&
-    obj.errorMessage !== null &&
-    typeof obj.errorMessage !== "string"
-  ) {
-    failStep(plog, `agent stdout JSON has non-string errorMessage: ${line}`);
-  }
-  if (obj.errorMessage === undefined) {
-    obj.errorMessage = null;
-  }
-  return obj as unknown as AdapterOutput;
-}
-
-function spawnAgent(
-  plog: ProcessLogger,
-  agent: AgentConfig,
-  threadId: ThreadId,
-  role: string,
-  edgePrompt: string,
-  cwd: string,
-): AdapterOutput {
-  const argv = [...agent.args, "--thread", threadId, "--role", role, "--prompt", edgePrompt];
-  const stdout = executeAgentCommand(agent, argv, cwd, plog);
-  const line = stdout.trim().split("\n").pop()?.trim() ?? "";
-  const parsed = parseAgentOutput(stdout, plog);
-  return validateAndNormalizeOutput(parsed, line, plog);
-}
-
 function archiveThread(uwf: UwfStore, threadId: ThreadId, _workflow: CasRef, _head: CasRef): void {
   completeThread(uwf.varStore, threadId, "end");
 }
@@ -1412,6 +1275,10 @@ function resolveCurrentRoleFromChain(
  * replacing the head step's output. The new step's `prev` points to the OLD head's
  * `prev` — semantically replacing (not appending to) the head. The moderator is NOT
  * re-evaluated for routing; the role of the head step is re-used.
+ *
+ * Phase 3 (#380) — drives the broker via `executeBrokerStep` rather than the
+ * legacy `spawnAgent` path. The replace-semantics StepNode is built directly by
+ * passing `prevHash = oldHeadPayload.prev`, so no post-hoc rewrite is needed.
  */
 export async function cmdThreadPoke(
   storageRoot: string,
@@ -1431,59 +1298,71 @@ export async function cmdThreadPoke(
     context: { thread: threadId, workflow: workflowHash },
   });
 
-  // Resolve the agent: --agent override wins; otherwise read from old head step's `agent` field.
   const config = await loadWorkflowConfig(storageRoot);
   const workflow = loadWorkflowPayload(uwf, workflowHash);
   const role = oldHeadPayload.role;
-  const agent =
-    agentOverride !== null
-      ? resolveAgentConfig(config, workflow, role, agentOverride)
-      : parseAgentOverride(oldHeadPayload.agent);
-
   const effectiveCwd = oldHeadPayload.cwd !== "" ? oldHeadPayload.cwd : threadCwd;
 
-  plog.log(PL_THREAD_POKE, `poke role=${role} agent=${agent.command}`, null);
-  plog.log(PL_AGENT_SPAWN, `spawning agent command=${agent.command}`, {
-    args: [...agent.args, threadId, role].join(" "),
-  });
+  plog.log(PL_THREAD_POKE, `poke role=${role}`, null);
 
   loadDotenv({ path: getEnvPath(storageRoot) });
 
-  // Spawn the agent. The agent will create a new StepNode with prev=oldHead (it reads
-  // the active thread head). After the agent returns, we rewrite that node's prev so
-  // that the new head replaces the old head instead of appending after it.
-  let agentResult: AdapterOutput;
+  // Replace semantics: the new step's `prev` is the OLD head's prev, not the
+  // OLD head itself. `executeBrokerStep` writes the StepNode with this prev,
+  // so no post-hoc rewrite is needed.
+  let result: BrokerStepResult;
   try {
-    agentResult = spawnAgent(plog, agent, threadId, role, prompt, effectiveCwd);
+    result = await executeBrokerStep({
+      storageRoot,
+      uwf,
+      config,
+      workflow,
+      threadId,
+      role,
+      edgePrompt: prompt,
+      effectiveCwd,
+      startHash: chain.startHash,
+      prevHash: oldHeadPayload.prev,
+      agentOverride,
+      previousAttempts: null,
+      plog,
+    });
   } catch (e) {
     if (e instanceof StepFailureError) {
-      // Fatal agent failure in poke — persist suspended state before propagating
+      // Fatal broker failure in poke — persist suspended state before propagating
       const uwfErr = await createUwfStore(storageRoot);
       const errEntry = getThread(uwfErr.varStore, threadId) ?? entry;
       setThread(uwfErr.varStore, threadId, markThreadSuspended(errEntry, role, e.message));
     }
     throw e;
   }
-  const agentStepHash = agentResult.stepHash as CasRef;
 
-  plog.log(PL_AGENT_DONE, `agent returned head=${agentStepHash}`, null);
+  const replacedHash = result.stepHash;
+  plog.log(PL_AGENT_DONE, `broker returned head=${replacedHash}`, null);
 
   const uwfAfter = await createUwfStore(storageRoot);
-  const agentNode = uwfAfter.store.cas.get(agentStepHash);
-  if (agentNode === null || agentNode.type !== uwfAfter.schemas.stepNode) {
-    failStep(plog, `agent returned hash that is not a StepNode: ${agentStepHash}`);
-  }
-  const agentPayload = agentNode.payload as StepNodePayload;
 
-  // Rewrite the new step so that its `prev` points to the OLD head's prev (replace semantics).
-  const replacedPayload: StepNodePayload = {
-    ...agentPayload,
-    prev: oldHeadPayload.prev,
-  };
-  const replacedHash = await uwfAfter.store.cas.put(uwfAfter.schemas.stepNode, replacedPayload);
-  const replacedNode = uwfAfter.store.cas.get(replacedHash);
-  if (replacedNode === null || !validate(uwfAfter.store, replacedNode)) {
-    failStep(plog, "rewritten StepNode failed schema validation");
+  // Recoverable broker error: do NOT advance head, persist suspended state.
+  if (result.isError) {
+    const errorMsg = result.errorMessage ?? "broker reported error";
+    plog.log(
+      PL_AGENT_ERROR,
+      `poke recoverable failure stepHash=${replacedHash} message=${errorMsg}`,
+      null,
+    );
+    setThread(uwfAfter.varStore, threadId, markThreadSuspended(entry, role, errorMsg));
+    return {
+      workflow: workflowHash,
+      thread: threadId,
+      head: entry.head,
+      status: "suspended",
+      currentRole: role,
+      suspendedRole: role,
+      suspendMessage: errorMsg,
+      done: false,
+      background: null,
+      error: { stepHash: replacedHash, message: errorMsg },
+    };
   }
 
   // Update thread head to the replaced step. Status becomes idle (no moderator re-route).
@@ -1928,16 +1807,11 @@ async function cmdThreadStepOnce(
   const { role, edgePrompt, effectiveCwd } = targetOrOutput;
 
   const config = await loadWorkflowConfig(storageRoot);
-  const agent = resolveAgentConfig(config, workflow, role, agentOverride);
-
-  plog.log(PL_AGENT_SPAWN, `spawning agent command=${agent.command}`, {
-    args: [...agent.args, threadId, role].join(" "),
-  });
 
   loadDotenv({ path: getEnvPath(storageRoot) });
 
-  // Wrap agent execution in a try-catch: when the agent command crashes
-  // (non-zero exit, unparseable output, invalid CAS node, etc.), failStep throws
+  // Wrap broker execution in a try-catch: when the broker raises a fatal
+  // error (HTTP failure, schema validation crash, etc.), failStep throws
   // StepFailureError. We catch it to persist suspended state before re-throwing
   // so the CLI still exits non-zero.
   try {
@@ -1950,7 +1824,10 @@ async function cmdThreadStepOnce(
       role,
       edgePrompt,
       effectiveCwd,
-      agent,
+      uwf,
+      config,
+      chain.startHash,
+      agentOverride,
       plog,
     );
   } catch (e) {
@@ -1965,8 +1842,13 @@ async function cmdThreadStepOnce(
 }
 
 /**
- * Execute the agent command and process the result. Separated from cmdThreadStepOnce
+ * Execute the broker step and process the result. Separated from cmdThreadStepOnce
  * so that fatal failures (StepFailureError) can be caught and handled by the caller.
+ *
+ * Phase 3 (#380) — drives the broker via `executeBrokerStep` rather than the
+ * legacy `spawnAgent` path. The broker writes the StepNode (including the
+ * frontmatter retry chain) directly into CAS; the CLI only advances the head
+ * pointer afterwards.
  */
 async function executeAndProcessAgentStep(
   storageRoot: string,
@@ -1977,30 +1859,43 @@ async function executeAndProcessAgentStep(
   role: string,
   edgePrompt: string,
   effectiveCwd: string,
-  agent: AgentConfig,
+  uwf: UwfStore,
+  config: WorkflowConfig,
+  startHash: CasRef,
+  agentOverride: string | null,
   plog: ProcessLogger,
 ): Promise<StepOutput> {
-  const agentResult = spawnAgent(plog, agent, threadId, role, edgePrompt, effectiveCwd);
-  const newHead = agentResult.stepHash as CasRef;
+  const result = await executeBrokerStep({
+    storageRoot,
+    uwf,
+    config,
+    workflow,
+    threadId,
+    role,
+    edgePrompt,
+    effectiveCwd,
+    startHash,
+    prevHash: headHash === startHash ? null : headHash,
+    agentOverride,
+    previousAttempts: null,
+    plog,
+  });
 
-  plog.log(PL_AGENT_DONE, `agent returned head=${newHead}`, null);
+  const newHead = result.stepHash;
+  plog.log(PL_AGENT_DONE, `broker returned head=${newHead}`, null);
 
   const uwfAfter = await createUwfStore(storageRoot);
-  const newNode = uwfAfter.store.cas.get(newHead);
-  if (newNode === null || newNode.type !== uwfAfter.schemas.stepNode) {
-    failStep(plog, `agent returned hash that is not a StepNode: ${newHead}`);
-  }
 
-  // Recoverable failure: agent persisted a failed StepNode (e.g. frontmatter
+  // Recoverable failure: broker persisted a failed StepNode (e.g. frontmatter
   // validation exhausted retries) but the engine MUST NOT advance head. The
   // moderator graph is also untouched — the same role will be replayed on the
   // next exec (until eventual success records `previousAttempts` linking the
   // failed step hashes).
-  if (agentResult.isError === true) {
-    const errorMsg = agentResult.errorMessage ?? "agent reported error";
+  if (result.isError === true) {
+    const errorMsg = result.errorMessage ?? "broker reported error";
     plog.log(
       PL_AGENT_ERROR,
-      `agent reported recoverable failure stepHash=${newHead} message=${errorMsg}`,
+      `broker reported recoverable failure stepHash=${newHead} message=${errorMsg}`,
       null,
     );
 

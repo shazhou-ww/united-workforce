@@ -299,7 +299,10 @@ function runUwf(
 
 // ── Group 1: CLI argument validation ───────────────────────────────────────
 
-describe("uwf step ask - CLI argument validation", () => {
+// Phase 3 (#380): `uwf step ask` is disabled until Phase 4 once the Sumeru
+// broker exposes session-fork APIs. The legacy spawn-agent path was removed,
+// so these tests are skipped until the Phase 4 broker fork primitive lands.
+describe.skip("uwf step ask - CLI argument validation", () => {
   test("1.1 missing step-hash exits non-zero", async () => {
     const { casDir } = await setupAskFixture();
     const result = runUwf(["step", "ask"], casDir);
@@ -325,7 +328,7 @@ describe("uwf step ask - CLI argument validation", () => {
 
 // ── Group 2: CAS validation errors ────────────────────────────────────────
 
-describe("uwf step ask - CAS validation errors", () => {
+describe.skip("uwf step ask - CAS validation errors", () => {
   test("2.1 non-existent CAS hash exits non-zero with 'not found'", async () => {
     const { casDir, mockAgentPath } = await setupAskFixture();
     const result = runUwf(
@@ -360,7 +363,7 @@ describe("uwf step ask - CAS validation errors", () => {
 
 // ── Group 3: Successful ask (core behavior) ───────────────────────────────
 
-describe("uwf step ask - successful ask (core)", () => {
+describe.skip("uwf step ask - successful ask (core)", () => {
   test("3.1 stdout contains agent's response text", async () => {
     const { casDir, stepHash, mockAgentPath } = await setupAskFixture();
     const result = runUwf(
@@ -437,7 +440,7 @@ describe("uwf step ask - successful ask (core)", () => {
 
 // ── Group 4: Fork cache semantics ─────────────────────────────────────────
 
-describe("uwf step ask - fork cache", { timeout: 15_000 }, () => {
+describe.skip("uwf step ask - fork cache", { timeout: 15_000 }, () => {
   test("4.1 first ask creates a fork session and caches it", async () => {
     const { casDir, stepHash, mockAgentPath, forkSessionCapturePath } = await setupAskFixture();
 
@@ -545,7 +548,7 @@ describe("uwf step ask - fork cache", { timeout: 15_000 }, () => {
 
 // ── Group 5: Fallback (agent has no fork support) ─────────────────────────
 
-describe("uwf step ask - fallback path", () => {
+describe.skip("uwf step ask - fallback path", () => {
   test("5.1 fallback agent (no fork support) still answers via stdout", async () => {
     // Use a fallback agent that ONLY supports `ask` mode without ever being asked
     // to fork. The CLI should detect missing fork support and inject context instead.
@@ -648,7 +651,7 @@ esac
 
 // ── Group 6: Agent resolution ─────────────────────────────────────────────
 
-describe("uwf step ask - agent resolution", () => {
+describe.skip("uwf step ask - agent resolution", () => {
   test("6.1 without --agent flag, agent is resolved from step's agent field", async () => {
     // Step's agent field points at mockAgentPath by default.
     const { casDir, stepHash, modeCapturePath, promptCapturePath } = await setupAskFixture();

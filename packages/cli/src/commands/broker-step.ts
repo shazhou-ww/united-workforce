@@ -7,6 +7,7 @@
  * use this module instead of spawning per-role CLI binaries.
  */
 
+import { join } from "node:path";
 import { putSchema, validate } from "@ocas/core";
 import {
   type AgentRoute,
@@ -33,7 +34,6 @@ import {
   tryFrontmatterFastPath,
   trySuspendFastPath,
 } from "@united-workforce/util-agent";
-import { join } from "node:path";
 import type { UwfStore } from "../store.js";
 import { fail } from "./shared.js";
 
@@ -170,8 +170,6 @@ export function brokerSessionStorePath(storageRoot: string): string {
 export function openBrokerSessionStore(storageRoot: string): SessionStore {
   return createSessionStore({ dbPath: brokerSessionStorePath(storageRoot) });
 }
-
-type BuildOutputSchema = (workflow: WorkflowPayload, role: string) => Record<string, unknown> | null;
 
 /**
  * Look up the role's frontmatter / output schema in CAS so we can drive
@@ -349,11 +347,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
     // Retry on the same (threadId, role) — the broker re-uses the cached
     // Sumeru session, so the agent gets to "fix its frontmatter" with full
     // context preserved.
-    for (
-      let retry = 0;
-      retry < MAX_FRONTMATTER_RETRIES && extracted === null;
-      retry++
-    ) {
+    for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
       const roleSchema = args.uwf.store.cas.get(outputSchemaHash);
       const instruction =
         roleSchema !== null

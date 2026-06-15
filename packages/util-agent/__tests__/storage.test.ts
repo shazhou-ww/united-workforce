@@ -11,9 +11,10 @@ import {
   resolveStorageRoot,
 } from "../src/storage.js";
 
+// Phase 3 (#380) replaced the legacy {command, args} agent shape with {host, gateway}.
 const VALID_CONFIG = {
   defaultAgent: "builtin",
-  agents: { builtin: { command: "uwf-builtin", args: ["--verbose"] } },
+  agents: { builtin: { host: "http://127.0.0.1:7900", gateway: "builtin" } },
 };
 
 describe("getDefaultStorageRoot", () => {
@@ -60,8 +61,8 @@ describe("normalizeWorkflowConfig — engine config (issue #143)", () => {
   it("accepts a minimal engine config (agents + defaultAgent)", () => {
     const cfg = normalizeWorkflowConfig(VALID_CONFIG);
     expect(cfg.defaultAgent).toBe("builtin");
-    expect(cfg.agents.builtin.command).toBe("uwf-builtin");
-    expect(cfg.agents.builtin.args).toEqual(["--verbose"]);
+    expect(cfg.agents.builtin.host).toBe("http://127.0.0.1:7900");
+    expect(cfg.agents.builtin.gateway).toBe("builtin");
     expect(cfg.agentOverrides).toBeNull();
   });
 
@@ -101,7 +102,7 @@ describe("normalizeWorkflowConfig — engine config (issue #143)", () => {
     expect(() =>
       normalizeWorkflowConfig({
         defaultAgent: "hermes",
-        agents: { builtin: { command: "uwf-builtin" } },
+        agents: { builtin: { host: "http://127.0.0.1:7900", gateway: "builtin" } },
       }),
     ).toThrow('defaultAgent "hermes" not found in config.agents (available: builtin)');
   });
