@@ -316,7 +316,7 @@ describe("cmdThreadRead <output> section", () => {
 // ── cmdStepShow ───────────────────────────────────────────────────────────────
 
 describe("cmdStepShow", () => {
-  test("returns expanded detail node with turns inlined", async () => {
+  test("returns merged StepNode metadata + expanded detail with turns inlined", async () => {
     const uwf = await makeUwfStore(tmpDir);
     const detailSchemas = await registerDetailSchemas(uwf.store);
 
@@ -363,18 +363,22 @@ describe("cmdStepShow", () => {
       agent: "uwf-hermes",
     });
 
-    const result = await cmdStepShow(tmpDir, stepHash);
+    const result = (await cmdStepShow(tmpDir, stepHash)) as Record<string, unknown>;
 
-    expect(result).toMatchObject({
+    expect(result.hash).toBe(stepHash);
+    expect(result.role).toBe("coder");
+    expect(result.agent).toBe("uwf-hermes");
+    expect(result.usage).toBeNull();
+
+    const detail = result.detail as Record<string, unknown>;
+    expect(detail).toMatchObject({
       sessionId: "sess42",
       model: "gpt-4o",
       duration: 3000,
       turnCount: 1,
     });
-
-    const expanded = result as Record<string, unknown>;
-    expect(Array.isArray(expanded.turns)).toBe(true);
-    const turns = expanded.turns as unknown[];
+    expect(Array.isArray(detail.turns)).toBe(true);
+    const turns = detail.turns as unknown[];
     expect(turns).toHaveLength(1);
     expect(turns[0]).toMatchObject({
       index: 0,
@@ -817,10 +821,15 @@ describe("cmdStepShow with completed threads", () => {
     const result = await cmdStepShow(tmpDir, stepHash);
 
     expect(result).toMatchObject({
-      sessionId: "sess-active",
-      model: "model-x",
-      duration: 1234,
-      turnCount: 1,
+      hash: stepHash,
+      role: "coder",
+      agent: "uwf-hermes",
+      detail: {
+        sessionId: "sess-active",
+        model: "model-x",
+        duration: 1234,
+        turnCount: 1,
+      },
     });
   });
 
@@ -886,10 +895,15 @@ describe("cmdStepShow with completed threads", () => {
     const result = await cmdStepShow(tmpDir, stepHash);
 
     expect(result).toMatchObject({
-      sessionId: "sess-completed",
-      model: "model-y",
-      duration: 5678,
-      turnCount: 1,
+      hash: stepHash,
+      role: "reviewer",
+      agent: "uwf-hermes",
+      detail: {
+        sessionId: "sess-completed",
+        model: "model-y",
+        duration: 5678,
+        turnCount: 1,
+      },
     });
   });
 });

@@ -169,7 +169,7 @@ describe("cmdStepShow JSON serialization", () => {
     expect(jsonOutput).toContain("\\n");
 
     const parsed = JSON.parse(jsonOutput);
-    expect(parsed.turns[0].toolCalls[0].args).toContain("\n");
+    expect(parsed.detail.turns[0].toolCalls[0].args).toContain("\n");
   });
 
   test("escapes tabs in tool call args", async () => {
@@ -239,7 +239,7 @@ describe("cmdStepShow JSON serialization", () => {
 
     expect(() => JSON.parse(jsonOutput)).not.toThrow();
     const parsed = JSON.parse(jsonOutput);
-    expect(parsed.turns).toBeDefined();
+    expect(parsed.detail.turns).toBeDefined();
   });
 
   test("handles Unicode control characters", async () => {
@@ -291,7 +291,7 @@ describe("cmdStepShow JSON serialization", () => {
 
     expect(() => JSON.parse(jsonOutput)).not.toThrow();
     const parsed = JSON.parse(jsonOutput);
-    expect(parsed.turns).toHaveLength(2);
+    expect(parsed.detail.turns).toHaveLength(2);
   });
 
   test("YAML output format is unaffected", async () => {
@@ -333,7 +333,7 @@ describe("cmdStepShow JSON serialization", () => {
 
     expect(() => JSON.parse(jsonOutput)).not.toThrow();
     const parsed = JSON.parse(jsonOutput);
-    expect(parsed.turns).toBeDefined();
+    expect(parsed.detail.turns).toBeDefined();
   });
 
   test("handles large step with multiple tool calls", async () => {
@@ -369,6 +369,6 @@ describe("cmdStepShow JSON serialization", () => {
     expect(() => JSON.parse(jsonOutput)).not.toThrow();
 
     const parsed = JSON.parse(jsonOutput);
-    expect(parsed.turns).toHaveLength(25);
+    expect(parsed.detail.turns).toHaveLength(25);
   });
 });

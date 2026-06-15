@@ -106,6 +106,13 @@ export function toThreadExecPayload(results: StepOutput[]): ThreadExecPayload {
   };
 }
 
+export type StepDetailUsagePayload = {
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  duration: number;
+};
+
 export type StepDetailPayload = {
   hash: string;
   role: string;
@@ -114,38 +121,105 @@ export type StepDetailPayload = {
   startedAtMs: number | null;
   completedAtMs: number | null;
   durationMs: number | null;
+  usage: StepDetailUsagePayload | null;
   frontmatter: Record<string, unknown>;
   turns: Array<{ role: string; content: string; timestamp: number | null }>;
+  detail: Record<string, unknown> | null;
 };
+
+function normalizeUsage(value: unknown): StepDetailUsagePayload | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const u = value as Record<string, unknown>;
+  const turns = numericOrNull(u.turns);
+  const inputTokens = numericOrNull(u.inputTokens);
+  const outputTokens = numericOrNull(u.outputTokens);
+  const duration = numericOrNull(u.duration);
+  if (turns === null && inputTokens === null && outputTokens === null && duration === null) {
+    return null;
+  }
+  return {
+    turns: turns ?? 0,
+    inputTokens: inputTokens ?? 0,
+    outputTokens: outputTokens ?? 0,
+    duration: duration ?? 0,
+  };
+}
+
+function extractDetailRecord(r: Record<string, unknown>): Record<string, unknown> {
+  return r.detail !== undefined && r.detail !== null && typeof r.detail === "object"
+    ? (r.detail as Record<string, unknown>)
+    : r;
+}
+
+function stringFromSources(primary: unknown, fallback: unknown): string {
+  if (typeof primary === "string") return primary;
+  if (typeof fallback === "string") return fallback;
+  return "";
+}
+
+function extractFrontmatter(
+  r: Record<string, unknown>,
+  detailRaw: Record<string, unknown>,
+): Record<string, unknown> {
+  if (
+    r.frontmatter !== null &&
+    typeof r.frontmatter === "object" &&
+    !Array.isArray(r.frontmatter)
+  ) {
+    return r.frontmatter as Record<string, unknown>;
+  }
+  if (
+    detailRaw.frontmatter !== null &&
+    typeof detailRaw.frontmatter === "object" &&
+    !Array.isArray(detailRaw.frontmatter)
+  ) {
+    return detailRaw.frontmatter as Record<string, unknown>;
+  }
+  return {};
+}
+
+function extractStatus(
+  frontmatterSource: Record<string, unknown>,
+  r: Record<string, unknown>,
+  detailRaw: Record<string, unknown>,
+): string {
+  if (typeof frontmatterSource.$status === "string") return frontmatterSource.$status;
+  return stringFromSources(r.status, detailRaw.status);
+}
+
+function computeDurationMs(
+  r: Record<string, unknown>,
+  startedAtMs: number | null,
+  completedAtMs: number | null,
+): number | null {
+  if (typeof r.durationMs === "number" && Number.isFinite(r.durationMs)) return r.durationMs;
+  if (startedAtMs !== null && completedAtMs !== null && completedAtMs >= startedAtMs)
+    return completedAtMs - startedAtMs;
+  return null;
+}
 
 export function toStepDetailPayload(stepHash: CasRef, raw: unknown): StepDetailPayload {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const turnsIn = Array.isArray(r.turns) ? (r.turns as unknown[]) : [];
-  const startedAtMs = numericOrNull(r.startedAtMs);
-  const completedAtMs = numericOrNull(r.completedAtMs);
-  const durationMs =
-    startedAtMs !== null && completedAtMs !== null && completedAtMs >= startedAtMs
-      ? completedAtMs - startedAtMs
-      : null;
-  const frontmatter =
-    r.frontmatter !== null && typeof r.frontmatter === "object" && !Array.isArray(r.frontmatter)
-      ? (r.frontmatter as Record<string, unknown>)
-      : {};
-  const status =
-    typeof frontmatter.$status === "string"
-      ? (frontmatter.$status as string)
-      : typeof r.status === "string"
-        ? (r.status as string)
-        : "";
+  const detailRaw = extractDetailRecord(r);
+  const turnsIn = Array.isArray(detailRaw.turns) ? (detailRaw.turns as unknown[]) : [];
+  const startedAtMs = numericOrNull(r.startedAtMs ?? detailRaw.startedAtMs);
+  const completedAtMs = numericOrNull(r.completedAtMs ?? detailRaw.completedAtMs);
+  const durationMs = computeDurationMs(r, startedAtMs, completedAtMs);
+  const frontmatterSource = extractFrontmatter(r, detailRaw);
+  const status = extractStatus(frontmatterSource, r, detailRaw);
+  const usage = normalizeUsage(r.usage);
   return {
-    hash: stepHash,
-    role: typeof r.role === "string" ? r.role : "",
-    agent: typeof r.agent === "string" ? r.agent : "",
+    hash: typeof r.hash === "string" ? (r.hash as string) : stepHash,
+    role: stringFromSources(r.role, detailRaw.role),
+    agent: stringFromSources(r.agent, detailRaw.agent),
     status,
     startedAtMs,
     completedAtMs,
     durationMs,
-    frontmatter,
+    usage,
+    frontmatter: frontmatterSource,
     turns: turnsIn.map((t) => {
       const o = (t ?? {}) as Record<string, unknown>;
       return {
@@ -154,6 +228,10 @@ export function toStepDetailPayload(stepHash: CasRef, raw: unknown): StepDetailP
         timestamp: numericOrNull(o.timestamp),
       };
     }),
+    detail:
+      r.detail !== undefined && r.detail !== null && typeof r.detail === "object"
+        ? (r.detail as Record<string, unknown>)
+        : null,
   };
 }
 

@@ -208,8 +208,10 @@ describe("STEP_DETAIL_OUTPUT_SCHEMA", () => {
       startedAtMs: 1716600000000,
       completedAtMs: 1716600045200,
       durationMs: 45200,
+      usage: { turns: 3, inputTokens: 2642, outputTokens: 1200, duration: 45.2 },
       frontmatter: { $status: "done" },
       turns: [],
+      detail: null,
     });
     const node = store.cas.get(ref);
     if (node === null) throw new Error("unreachable");

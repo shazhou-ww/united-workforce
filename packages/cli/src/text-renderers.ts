@@ -81,6 +81,13 @@ type ThreadStopPayload = {
   stopped: boolean;
 };
 
+type StepDetailUsage = {
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  duration: number;
+};
+
 type StepDetailPayload = {
   hash: string;
   role: string;
@@ -89,8 +96,10 @@ type StepDetailPayload = {
   startedAtMs: number | null;
   completedAtMs: number | null;
   durationMs: number | null;
+  usage: StepDetailUsage | null;
   frontmatter: Record<string, unknown>;
   turns: Array<{ role: string; content: string; timestamp: number | null }>;
+  detail: Record<string, unknown> | null;
 };
 
 function asObject(data: unknown): Record<string, unknown> {
@@ -223,15 +232,39 @@ export function renderStepList(data: unknown): string {
   return lines.join("\n");
 }
 
+function renderUsageLine(usage: unknown): string | null {
+  if (usage === null || usage === undefined || typeof usage !== "object") return null;
+  const u = usage as StepDetailUsage;
+  const inputTokens = typeof u.inputTokens === "number" ? u.inputTokens : 0;
+  const outputTokens = typeof u.outputTokens === "number" ? u.outputTokens : 0;
+  const turns = typeof u.turns === "number" ? u.turns : 0;
+  return `Usage   ${inputTokens} in / ${outputTokens} out / ${turns} turns`;
+}
+
 export function renderStepShow(data: unknown): string {
   const p = asObject(data) as Partial<StepDetailPayload>;
-  return [
+  const lines: string[] = [
     `Step    ${asString(p.hash)}`,
     `Role    ${asString(p.role)}`,
     `Agent   ${asString(p.agent)}`,
     `Status  ${asString(p.status)}`,
     `Duration ${formatDuration(p.durationMs)}`,
-  ].join("\n");
+  ];
+  const usageLine = renderUsageLine(p.usage);
+  if (usageLine !== null) lines.push(usageLine);
+  const turnsArr = Array.isArray(p.turns) ? p.turns : [];
+  if (turnsArr.length > 0) {
+    lines.push(`Turns   ${turnsArr.length}`);
+    lines.push("");
+    lines.push("--- Content ---");
+    for (const turn of turnsArr) {
+      const t = asObject(turn);
+      const role = asString(t.role, "assistant");
+      const content = typeof t.content === "string" ? t.content : "";
+      lines.push(`[${role}] ${content}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 export function renderThreadCancel(data: unknown): string {

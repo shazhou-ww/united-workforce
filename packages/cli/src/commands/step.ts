@@ -185,7 +185,14 @@ export async function cmdStepList(
 }
 
 /**
- * Show details of a specific step (previously: thread step-details)
+ * Show details of a specific step (previously: thread step-details).
+ *
+ * Returns a merged object that combines StepNode metadata (role / agent /
+ * timing / usage) with the expanded broker-detail payload so callers can
+ * read both layers in one envelope. The detail node by itself only carries
+ * `{ sessionId, duration, turnCount, turns }` — without merging in the
+ * StepNode metadata, `step show` would render empty `Role` / `Agent` /
+ * `Status` / `-` `Duration` (issue #392).
  */
 export async function cmdStepShow(storageRoot: string, stepHash: CasRef): Promise<unknown> {
   const uwf = await createUwfStore(storageRoot);
@@ -200,7 +207,38 @@ export async function cmdStepShow(storageRoot: string, stepHash: CasRef): Promis
   if (!payload.detail) {
     fail(`step ${stepHash} has no detail`);
   }
-  return expandDeep(uwf.store, payload.detail);
+  const detail = expandDeep(uwf.store, payload.detail);
+  const output = expandOutput(uwf, payload.output);
+  const status =
+    output !== null &&
+    typeof output === "object" &&
+    !Array.isArray(output) &&
+    typeof (output as Record<string, unknown>).$status === "string"
+      ? ((output as Record<string, unknown>).$status as string)
+      : "";
+  const startedAtMs =
+    typeof payload.startedAtMs === "number" && Number.isFinite(payload.startedAtMs)
+      ? payload.startedAtMs
+      : null;
+  const completedAtMs =
+    typeof payload.completedAtMs === "number" && Number.isFinite(payload.completedAtMs)
+      ? payload.completedAtMs
+      : null;
+  const durationMs =
+    startedAtMs !== null && completedAtMs !== null && completedAtMs >= startedAtMs
+      ? completedAtMs - startedAtMs
+      : null;
+  return {
+    hash: stepHash,
+    role: payload.role,
+    agent: payload.agent,
+    status,
+    startedAtMs,
+    completedAtMs,
+    durationMs,
+    usage: payload.usage ?? null,
+    detail,
+  };
 }
 
 /**
