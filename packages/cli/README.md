@@ -16,7 +16,7 @@ workflow → thread → step → turn
 - **Workflow** (layer 1): YAML template with roles and routing graph
 - **Thread** (layer 2): Single workflow execution instance
 - **Step** (layer 3): One moderator→agent→extract cycle
-- **Turn** (layer 4): Agent-internal interactions (use `step show` or CAS to inspect)
+- **Turn** (layer 4): Agent-internal interactions (use `step turns` to query live/completed turns, or `step show` / CAS to inspect)
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
@@ -109,6 +109,7 @@ uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 | `uwf step list <thread-id>` | List all steps in a thread chronologically |
 | `uwf step show <step-hash>` | Show step metadata and frontmatter |
 | `uwf step read <step-hash> [--quota <chars>]` | Read a step's turns as human-readable markdown |
+| `uwf step turns <thread-id> [--role <r>] [--live]` | Read a step's turns live from the active var (running step), falling back to the completed step's `detail.turns` |
 | `uwf step fork <step-hash>` | Fork a thread from a specific step |
 | `uwf step ask <step-hash> -p <prompt> [--agent <cmd>] [--no-fork]` | Ask a follow-up question to a historical step's agent (read-only; no thread mutation) |
 
@@ -118,10 +119,20 @@ Examples:
 uwf step list 01ARZ3NDEKTSV4RRFFQ69G5FAV
 uwf step show 32GCDE899RRQ3
 uwf step read 32GCDE899RRQ3 --quota 2000
+uwf step turns 01ARZ3NDEKTSV4RRFFQ69G5FAV --role coder
+uwf step turns 01ARZ3NDEKTSV4RRFFQ69G5FAV --role coder --live
 uwf step fork 32GCDE899RRQ3
 uwf step ask 32GCDE899RRQ3 -p "Why did you choose this approach?"
 uwf step ask 32GCDE899RRQ3 -p "Summarise the key findings" --no-fork
 ```
+
+`step turns` is the turn-layer (layer 4) query. Unlike `step read` — which renders
+a *completed* step's `detail.turns` by step hash — `step turns` is keyed by
+`<thread-id>` + `--role` and reads the in-flight turn list from the
+`@uwf/active-turns/<thread-id>/<role>` var first, falling back to the head step's
+immutable `detail.turns` once the step completes. With `--live` it polls the
+SQLite-backed active var (not SSE) and prints each new turn as it arrives,
+exiting when the step completes.
 
 ### Workflow (Layer 1: Templates)
 

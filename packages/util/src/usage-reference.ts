@@ -261,6 +261,10 @@ uwf thread cancel <thread-id>
 \`\`\`
 uwf step list <thread-id>         # list all steps
 uwf step show <step-hash>         # show step details
+uwf step turns <thread-id> [--role <r>] [--live]
+                                  # read a step's turns: active var (running)
+                                  # → detail.turns (completed); --live follows
+                                  # the running step, printing new turns live
 uwf step fork <step-hash>         # fork thread from a step (branch)
 uwf step ask <step-hash> -p <prompt> [--agent <alias|"host gw">] [--no-fork]
                                   # ask a follow-up question to the step's agent
