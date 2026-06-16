@@ -150,7 +150,7 @@ The default format also changed from `json` to `text`. Pipelines that captured s
 | Group | Commands |
 |-------|----------|
 | **thread** | `start`, `exec`, `show`, `list`, `stop`, `cancel`, `read` |
-| **step** | `list`, `show`, `read`, `fork` |
+| **step** | `list`, `show`, `read`, `turns`, `fork` |
 | **workflow** | `add`, `show`, `list` |
 | **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
 | **setup** | Interactive, or `--agent <name>` to set the default agent non-interactively |

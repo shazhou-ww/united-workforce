@@ -64,6 +64,9 @@ uwf thread cancel <thread-id>                     # cancel thread (stop + move t
 \`\`\`
 uwf step list <thread-id>        # list all steps in a thread
 uwf step show <step-hash>        # show details of a specific step
+uwf step turns <thread-id>       # read a step's turns (active var → detail.turns)
+            [--role <role>]         # role whose turns to read (default: head step's role)
+            [--live]                # follow the running step, printing new turns as they arrive
 uwf step fork <step-hash>        # fork a thread from a specific step
 \`\`\`
 

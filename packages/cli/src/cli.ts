@@ -12,7 +12,15 @@ import {
   cmdPromptWorkflowAuthoring,
 } from "./commands/prompt.js";
 import { cmdSetup, cmdSetupInteractive } from "./commands/setup.js";
-import { cmdStepAsk, cmdStepFork, cmdStepList, cmdStepRead, cmdStepShow } from "./commands/step.js";
+import {
+  cmdStepAsk,
+  cmdStepFork,
+  cmdStepList,
+  cmdStepRead,
+  cmdStepShow,
+  cmdStepTurns,
+  resolveDefaultTurnsRole,
+} from "./commands/step.js";
 import {
   cmdThreadCancel,
   cmdThreadExec,
@@ -540,6 +548,28 @@ step
         opts.prompt === true,
       );
       process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+    });
+  });
+
+step
+  .command("turns")
+  .description(
+    "Read a step's turns live from the active var, falling back to the completed step detail",
+  )
+  .argument("<thread-id>", "Thread ULID")
+  .option("--role <role>", "Workflow role whose turns to read (defaults to the head step's role)")
+  .option("--live", "Follow the running step's turns, printing each new turn as it arrives")
+  .action((threadId: string, opts: { role: string | undefined; live: boolean }) => {
+    const storageRoot = resolveStorageRoot();
+    runAction(async () => {
+      const role = opts.role ?? (await resolveDefaultTurnsRole(storageRoot, threadId as ThreadId));
+      const markdown = await cmdStepTurns(storageRoot, threadId as ThreadId, {
+        role,
+        live: opts.live === true,
+      });
+      if (markdown !== "") {
+        process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+      }
     });
   });
 

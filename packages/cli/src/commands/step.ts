@@ -9,7 +9,8 @@ import type {
   ThreadStepsOutput,
 } from "@united-workforce/protocol";
 import { createLogger, generateUlid } from "@united-workforce/util";
-import { createUwfStore, setThread, type UwfStore } from "../store.js";
+import { isThreadRunning } from "../background/index.js";
+import { createUwfStore, getThread, readActiveTurns, setThread, type UwfStore } from "../store.js";
 import {
   collectOrderedSteps,
   expandDeep,
@@ -485,6 +486,241 @@ export async function cmdStepRead(
   const selectedTurns = selectTurnsForQuota(turnData, availableQuota);
 
   return formatStepMarkdown(stepHash, payload.role, payload.agent, turnData, selectedTurns);
+}
+
+// ── step turns ────────────────────────────────────────────────────────────────
+//
+// Phase 4 (#400) — the consumer side of the realtime-turns RFC. Unlike
+// `step read` (which addresses a settled StepNode by hash), `step turns` is keyed
+// by `<thread-id>` + `--role` because the in-flight turn list lives in the
+// `@uwf/active-turns/<threadId>/<role>` var while the step is still running.
+//
+// Read order: active var first (running step) → `detail.turns` fallback
+// (completed step). Both sources are a `CasRef[]` of pure `{role, content}` turn
+// nodes, so rendering reuses the SAME `loadTurnData` → `formatTurnBody` pipeline
+// as `step read`.
+
+/** Default poll interval for `--live` (ms). Small + fixed; injectable for tests. */
+export const STEP_TURNS_POLL_INTERVAL_MS = 400;
+
+export type CmdStepTurnsOptions = {
+  /** Workflow role whose `(threadId, role)` active var / detail to read. */
+  role: string;
+  /** Follow the running step's active var, printing new turns as they arrive. */
+  live: boolean;
+  /** Poll interval override for `--live` (ms). Defaults to STEP_TURNS_POLL_INTERVAL_MS. */
+  pollIntervalMs: number | null;
+  /** Sink for `--live` incremental output. Defaults to stdout. */
+  onChunk: ((chunk: string) => void) | null;
+  /** Injectable sleep between `--live` poll ticks. Defaults to setTimeout. */
+  sleep: ((ms: number) => Promise<void>) | null;
+  /** Injectable running-step predicate for `--live`. Defaults to isThreadRunning. */
+  isRunning: (() => Promise<boolean>) | null;
+};
+
+/** Fill optional CmdStepTurnsOptions fields with their runtime defaults. */
+function resolveStepTurnsOptions(
+  storageRoot: string,
+  threadId: ThreadId,
+  options: Partial<CmdStepTurnsOptions> & { role: string; live: boolean },
+): CmdStepTurnsOptions {
+  return {
+    role: options.role,
+    live: options.live,
+    pollIntervalMs: options.pollIntervalMs ?? null,
+    onChunk: options.onChunk ?? null,
+    sleep: options.sleep ?? null,
+    isRunning:
+      options.isRunning ?? (async () => (await isThreadRunning(storageRoot, threadId)) !== null),
+  };
+}
+
+/**
+ * Resolve the completed step's `detail.turns` for a thread's head **scoped to a
+ * role**, or `[]` when the head is a StartNode (no steps yet) / the head step
+ * has no detail / the head step belongs to a *different* role than `role`.
+ *
+ * Role-awareness is the fix for review blocking issue #1/#2 (#400): a StepNode
+ * carries the role that produced it (`StepNodePayload.role`), and on a
+ * multi-role thread (e.g. `planner → coder`) the head step belongs to exactly
+ * one role while the others' turns live on earlier steps (or never ran). The
+ * fallback therefore surfaces the head step's `detail.turns` **only when**
+ * `headStepNode.role === role`; on a mismatch it returns `[]` instead of
+ * leaking the head step's turns under an unrelated `--role`. Never crashes for a
+ * StartNode head — that is the legitimate "no turns yet" case.
+ */
+function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef, role: string): CasRef[] {
+  const node = uwf.store.cas.get(headHash);
+  if (node === null || node.type !== uwf.schemas.stepNode) {
+    return [];
+  }
+  const payload = node.payload as StepNodePayload;
+  // Role-aware: the head step's turns belong to the head step's role only.
+  if (payload.role !== role) {
+    return [];
+  }
+  if (payload.detail === null) {
+    return [];
+  }
+  const detailNode = uwf.store.cas.get(payload.detail);
+  if (detailNode === null) {
+    return [];
+  }
+  const detail = detailNode.payload as Record<string, unknown>;
+  return Array.isArray(detail.turns) ? (detail.turns as CasRef[]) : [];
+}
+
+/**
+ * Resolve the turn-hash list for `(threadId, role)` with active-var precedence:
+ *   1. `readActiveTurns` — the in-flight step's live list (non-empty wins).
+ *   2. else the thread head StepNode's immutable `detail.turns`, **but only when
+ *      the head step's `role === role`** (role-aware fallback).
+ */
+function resolveTurnHashes(uwf: UwfStore, threadId: ThreadId, role: string): CasRef[] {
+  const active = readActiveTurns(uwf.store, threadId, role);
+  if (active.length > 0) {
+    return active;
+  }
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
+    fail(`thread not found: ${threadId}`);
+  }
+  return readHeadDetailTurns(uwf, entry.head, role);
+}
+
+/** Render a single turn's `## Turn N` block (1-based) via the reused pipeline. */
+function formatTurnBlock(turn: TurnData, displayIndex: number): string {
+  return `## Turn ${displayIndex}\n\n${formatTurnBody(turn)}`;
+}
+
+/** Assemble the full (non-live) markdown for a resolved turn-hash list. */
+function formatTurnsMarkdown(threadId: ThreadId, role: string, turnData: TurnData[]): string {
+  const parts: string[] = [`# Thread ${threadId} (role: ${role})`];
+  for (let i = 0; i < turnData.length; i++) {
+    const turn = turnData[i];
+    if (turn === undefined) continue;
+    parts.push("");
+    parts.push(formatTurnBlock(turn, i + 1));
+  }
+  return parts.join("\n");
+}
+
+/**
+ * `--live` follower: poll the active var, printing each new turn block exactly
+ * once (tracking how many blocks were emitted and rendering only the new tail).
+ * Exits when the step completes — active var gone AND the thread is no longer
+ * running. On exit it reconciles against the frozen `detail.turns` so a turn
+ * appended in the same instant the var was solidified is not lost.
+ */
+async function followStepTurnsLive(
+  storageRoot: string,
+  threadId: ThreadId,
+  opts: CmdStepTurnsOptions,
+): Promise<void> {
+  const emit = opts.onChunk ?? ((chunk: string) => process.stdout.write(chunk));
+  const sleep =
+    opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const isRunning =
+    opts.isRunning ?? (async () => (await isThreadRunning(storageRoot, threadId)) !== null);
+  const intervalMs = opts.pollIntervalMs ?? STEP_TURNS_POLL_INTERVAL_MS;
+
+  let printedCount = 0;
+  // Print the new tail of `hashes` beyond what has already been emitted.
+  const flush = (uwf: UwfStore, hashes: CasRef[]): void => {
+    if (hashes.length <= printedCount) {
+      return;
+    }
+    const tail = loadTurnData(uwf.store.cas, hashes.slice(printedCount));
+    for (let i = 0; i < tail.length; i++) {
+      const turn = tail[i];
+      if (turn === undefined) continue;
+      emit(`${formatTurnBlock(turn, printedCount + i + 1)}\n`);
+    }
+    printedCount = hashes.length;
+  };
+
+  while (true) {
+    const uwf = await createUwfStore(storageRoot);
+    const active = readActiveTurns(uwf.store, threadId, opts.role);
+    flush(uwf, active);
+
+    const running = await isRunning();
+    if (!running) {
+      // Step finished (or producer died). Reconcile so no turn is lost across
+      // the active→detail handoff, then stop — never hang waiting for a var
+      // that will not reappear.
+      const remaining = readActiveTurns(uwf.store, threadId, opts.role);
+      if (remaining.length > 0) {
+        // Crash / not-yet-solidified: trust the live var; the head step detail
+        // may belong to a different (previous) step, so don't fall back to it.
+        flush(uwf, remaining);
+      } else {
+        // Normal completion: the var was solidified into the head step's
+        // immutable detail.turns — flush any tail not already streamed. The
+        // fallback is role-aware (issue #1/#2): in a multi-step run the head may
+        // have advanced to a *different* role's step while the thread is still
+        // "running"; passing `opts.role` ensures we only reconcile against the
+        // followed role's head step (else `[]`), never the next role's turns.
+        const entry = getThread(uwf.varStore, threadId);
+        if (entry !== null) {
+          flush(uwf, readHeadDetailTurns(uwf, entry.head, opts.role));
+        }
+      }
+      return;
+    }
+
+    await sleep(intervalMs);
+  }
+}
+
+/**
+ * Resolve the default `--role` for `step turns <tid>` when none is given: the
+ * role of the thread's head StepNode (the running / most-recent step). Falls
+ * back to `"agent"` when the head is a StartNode (no steps yet) so a role is
+ * always concrete before reading the per-role active var. Fails with the
+ * standard `thread not found` message for an unknown thread.
+ */
+export async function resolveDefaultTurnsRole(
+  storageRoot: string,
+  threadId: ThreadId,
+): Promise<string> {
+  const uwf = await createUwfStore(storageRoot);
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
+    fail(`thread not found: ${threadId}`);
+  }
+  const node = uwf.store.cas.get(entry.head);
+  if (node !== null && node.type === uwf.schemas.stepNode) {
+    return (node.payload as StepNodePayload).role;
+  }
+  return "agent";
+}
+
+/**
+ * `uwf step turns <thread-id> [--role <r>] [--live]` — read a step's turns from
+ * the active-turns var (running) with a `detail.turns` fallback (completed),
+ * rendering through the same per-turn pipeline as `step read`. With `--live`,
+ * follow the running step's active var, printing new turns incrementally.
+ *
+ * Returns the assembled markdown (non-live); for `--live` the output is streamed
+ * to `onChunk`/stdout and the resolved string is returned empty.
+ */
+export async function cmdStepTurns(
+  storageRoot: string,
+  threadId: ThreadId,
+  options: Partial<CmdStepTurnsOptions> & { role: string; live: boolean },
+): Promise<string> {
+  const opts = resolveStepTurnsOptions(storageRoot, threadId, options);
+
+  if (opts.live) {
+    await followStepTurnsLive(storageRoot, threadId, opts);
+    return "";
+  }
+
+  const uwf = await createUwfStore(storageRoot);
+  const hashes = resolveTurnHashes(uwf, threadId, opts.role);
+  const turnData = loadTurnData(uwf.store.cas, hashes);
+  return formatTurnsMarkdown(threadId, opts.role, turnData);
 }
 
 // ── step ask ────────────────────────────────────────────────────────────────

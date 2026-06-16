@@ -69,6 +69,11 @@ describe("THREAD_LIST_TEMPLATE rendering — issue #351 ms→s for `| date`", ()
 
   test("renders multiple ms timestamps across years 2020–2030 with correct year prefix", async () => {
     const engine = makeEngine();
+    // `| date` renders in the process-local timezone, so calendar-boundary UTC
+    // instants (Jan 1 00:00, Dec 31 23:59) can land in an adjacent year under a
+    // non-UTC offset (e.g. Dec 31 2030 23:59Z → 2031-01-01 in +0800). Use
+    // mid-year, midday UTC instants so the rendered year is stable for any real
+    // timezone offset (within ±14h) while still exercising the ms→s conversion.
     const items = [
       {
         threadId: "ID1",
@@ -76,7 +81,7 @@ describe("THREAD_LIST_TEMPLATE rendering — issue #351 ms→s for `| date`", ()
         workflowName: null,
         status: "idle",
         currentRole: null,
-        startedAt: Date.UTC(2020, 0, 1, 0, 0, 0),
+        startedAt: Date.UTC(2020, 5, 15, 12, 0, 0),
         completedAt: null,
       },
       {
@@ -94,7 +99,7 @@ describe("THREAD_LIST_TEMPLATE rendering — issue #351 ms→s for `| date`", ()
         workflowName: null,
         status: "idle",
         currentRole: null,
-        startedAt: Date.UTC(2030, 11, 31, 23, 59, 0),
+        startedAt: Date.UTC(2030, 5, 15, 12, 0, 0),
         completedAt: null,
       },
     ];
