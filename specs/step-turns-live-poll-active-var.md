@@ -20,6 +20,12 @@ tags: [cli, step-turns, turns, active-var, live, poll, sqlite, integration, phas
   threadId)` returns the marker while a `thread exec` holds it, `null` once `deleteMarker` runs in the
   `finally`). The thread var status is `"running"` during exec and flips to `"idle"`/`"end"` after.
   Either signal (active var deleted, or thread no longer running) marks step completion for `--live`.
+- In a **multi-step** run (`uwf thread exec <tid> --count N`, N≥2) the running marker is held for the
+  **entire loop** (`thread.ts`), so `isThreadRunning` stays truthy while the head StepNode advances
+  through several roles (e.g. `planner → coder → reviewer`). The active var followed by `--live` is
+  per-role, so the followed role's var is solidified+deleted when *its* step ends, while the thread
+  remains "running" for subsequent roles — which is why the exit reconcile must check the head step's
+  role (see `## Then`).
 - Reuses the same per-turn renderer as `step read` (`loadTurnData` → `formatTurnBody`), so a live-
   printed turn block is identical to the same turn rendered by the non-live `step turns`
   (`step-turns-read-order-active-then-detail.md`).
@@ -52,6 +58,16 @@ tags: [cli, step-turns, turns, active-var, live, poll, sqlite, integration, phas
   the `--live` command **stops polling and exits 0**. It does not hang forever, and it does not
   reprint the now-frozen `detail.turns` as a fresh batch on exit (the turns were already streamed
   from the active var).
+- **Exit reconcile is role-aware (multi-step runs):** across a multi-step run
+  (`uwf thread exec <tid> --count N`, N≥2) the running marker is held for the **whole loop**, so the
+  thread is still "running" while the head advances through several roles. When `--live --role <r>`
+  finally exits, its reconcile flush of the head step's `detail.turns` MUST go through the same
+  **role-aware** `readHeadDetailTurns` (head used only when `headStepNode.role === r`). A
+  `--live --role coder` follower therefore **never** emits the final step's (e.g. `reviewer`) turns
+  as continued "coder" turns: if the head step at exit is a *different* role than the one being
+  followed, the reconcile contributes `[]` (the coder turns were already streamed from the coder
+  active var before the head moved on). This is the same root cause and fix as the non-live detail
+  fallback (`step-turns-role-selection.md`, review blocking issue #1/#2).
 - **No turn lost across the active→detail handoff**: every assistant turn produced by the step is
   printed exactly once by the live follower; after exit, the same turns are durably queryable via the
   non-live path (`uwf step turns <tid> --role coder` now reading `detail.turns`) — closing the loop

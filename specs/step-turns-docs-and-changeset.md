@@ -1,5 +1,5 @@
 ---
-scenario: "Phase 4 ships the turn-layer query as a discoverable command: uwf step turns is registered with help text, README/CLI help document the turn-layer query, and a @united-workforce/cli: minor changeset is added"
+scenario: "Phase 4 ships the turn-layer query as a discoverable command: uwf step turns is registered with help text, README/CLI help document the turn-layer query, and a changeset bumps every affected published package (@united-workforce/cli: minor + @united-workforce/util: patch)"
 feature: step
 tags: [cli, step-turns, docs, help, changeset, acceptance, phase4, "400"]
 ---
@@ -22,6 +22,12 @@ tags: [cli, step-turns, docs, help, changeset, acceptance, phase4, "400"]
   "@united-workforce/cli": minor
   ---
   ```
+- **A changeset must cover *every* published package whose source the PR changes** (checklist #7,
+  affected-package coverage). Besides `packages/cli`, this PR also edits the **published**
+  `@united-workforce/util` (v0.2.1, not changeset-ignored) source — the generated CLI/usage reference
+  text in `packages/util/src/cli-reference.ts` and `packages/util/src/usage-reference.ts` gains the
+  new `uwf step turns` entry. So the regenerated reference text ships inside a `@united-workforce/util`
+  release and that package must also be bumped.
 
 ## When
 - The user discovers and reads help for the new command:
@@ -45,13 +51,27 @@ tags: [cli, step-turns, docs, help, changeset, acceptance, phase4, "400"]
   running step's turns live (polling the active var) and falls back to the completed step's
   `detail.turns`. The `workflow → thread → step → turn` framing now has a user-facing command at the
   turn layer.
-- A changeset file exists under `.changeset/` whose front block is exactly
-  `"@united-workforce/cli": minor` and whose body describes the new `uwf step turns --live` consumer
-  command (referencing #400). No other package is bumped by this change (single-package, cli-only).
+- A changeset file exists under `.changeset/` whose front block bumps **both** affected published
+  packages:
+  ```markdown
+  ---
+  "@united-workforce/cli": minor
+  "@united-workforce/util": patch
+  ---
+  ```
+  - `@united-workforce/cli`: **minor** — the new `uwf step turns --live` consumer command.
+  - `@united-workforce/util`: **patch** — the regenerated CLI/usage reference text
+    (`cli-reference.ts`, `usage-reference.ts`) that now documents `uwf step turns`.
+
+  The body describes the new command and references #400. No package whose source is **unchanged** is
+  bumped; conversely **every** changed published package (here `cli` + `util`) appears — a `cli`-only
+  changeset is incomplete because the PR also edits `util` source (review blocking issue #3).
 - **CI green**: `pnpm run build` (tsc composite) succeeds, `pnpm run check` (Biome) reports no
   errors on the new/edited files, and `pnpm run test` (vitest) passes including the new
   `step turns` unit tests (`step-turns-read-order-active-then-detail.md`,
-  `step-turns-role-selection.md`, `step-turns-live-poll-active-var.md`).
+  `step-turns-role-selection.md`, `step-turns-live-poll-active-var.md`) — **including the new
+  multi-role completed-thread regression test** that pins the role-aware detail fallback
+  (`step-turns-role-selection.md`).
 
 ## Notes
 - This spec captures the **non-functional** acceptance gates of issue #400 (Step 3 docs + changeset +

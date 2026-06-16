@@ -536,16 +536,29 @@ function resolveStepTurnsOptions(
 }
 
 /**
- * Resolve the completed step's `detail.turns` for a thread's head, or `[]` when
- * the head is a StartNode (no steps yet) / the head step has no detail. Never
- * crashes for a StartNode head — that is the legitimate "no turns yet" case.
+ * Resolve the completed step's `detail.turns` for a thread's head **scoped to a
+ * role**, or `[]` when the head is a StartNode (no steps yet) / the head step
+ * has no detail / the head step belongs to a *different* role than `role`.
+ *
+ * Role-awareness is the fix for review blocking issue #1/#2 (#400): a StepNode
+ * carries the role that produced it (`StepNodePayload.role`), and on a
+ * multi-role thread (e.g. `planner → coder`) the head step belongs to exactly
+ * one role while the others' turns live on earlier steps (or never ran). The
+ * fallback therefore surfaces the head step's `detail.turns` **only when**
+ * `headStepNode.role === role`; on a mismatch it returns `[]` instead of
+ * leaking the head step's turns under an unrelated `--role`. Never crashes for a
+ * StartNode head — that is the legitimate "no turns yet" case.
  */
-function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef): CasRef[] {
+function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef, role: string): CasRef[] {
   const node = uwf.store.cas.get(headHash);
   if (node === null || node.type !== uwf.schemas.stepNode) {
     return [];
   }
   const payload = node.payload as StepNodePayload;
+  // Role-aware: the head step's turns belong to the head step's role only.
+  if (payload.role !== role) {
+    return [];
+  }
   if (payload.detail === null) {
     return [];
   }
@@ -560,7 +573,8 @@ function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef): CasRef[] {
 /**
  * Resolve the turn-hash list for `(threadId, role)` with active-var precedence:
  *   1. `readActiveTurns` — the in-flight step's live list (non-empty wins).
- *   2. else the thread head StepNode's immutable `detail.turns`.
+ *   2. else the thread head StepNode's immutable `detail.turns`, **but only when
+ *      the head step's `role === role`** (role-aware fallback).
  */
 function resolveTurnHashes(uwf: UwfStore, threadId: ThreadId, role: string): CasRef[] {
   const active = readActiveTurns(uwf.store, threadId, role);
@@ -571,7 +585,7 @@ function resolveTurnHashes(uwf: UwfStore, threadId: ThreadId, role: string): Cas
   if (entry === null) {
     fail(`thread not found: ${threadId}`);
   }
-  return readHeadDetailTurns(uwf, entry.head);
+  return readHeadDetailTurns(uwf, entry.head, role);
 }
 
 /** Render a single turn's `## Turn N` block (1-based) via the reused pipeline. */
@@ -642,10 +656,14 @@ async function followStepTurnsLive(
         flush(uwf, remaining);
       } else {
         // Normal completion: the var was solidified into the head step's
-        // immutable detail.turns — flush any tail not already streamed.
+        // immutable detail.turns — flush any tail not already streamed. The
+        // fallback is role-aware (issue #1/#2): in a multi-step run the head may
+        // have advanced to a *different* role's step while the thread is still
+        // "running"; passing `opts.role` ensures we only reconcile against the
+        // followed role's head step (else `[]`), never the next role's turns.
         const entry = getThread(uwf.varStore, threadId);
         if (entry !== null) {
-          flush(uwf, readHeadDetailTurns(uwf, entry.head));
+          flush(uwf, readHeadDetailTurns(uwf, entry.head, opts.role));
         }
       }
       return;

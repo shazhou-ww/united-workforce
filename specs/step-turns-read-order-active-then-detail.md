@@ -54,8 +54,9 @@ tags: [cli, step-turns, turns, active-var, detail, read-order, render-reuse, pha
   1. `const active = readActiveTurns(uwf.store, threadId, role)`. If `active.length > 0`, those are
      the turns to render (the in-flight step).
   2. Otherwise (active var absent/empty) it falls back to the **completed** step: resolve the
-     thread head StepNode (via the thread var, as `resolveHeadHash` does), load its `detail`, and
-     use `detail.turns`.
+     thread head StepNode (via the thread var, as `resolveHeadHash` does), and use its `detail.turns`
+     **only when the head StepNode's `role === role`** (`readHeadDetailTurns` is role-aware); on a
+     role mismatch it yields `[]` rather than the head step's turns (see `step-turns-role-selection.md`).
 - **Running case output** lists all turns produced so far (here all 3), each rendered through the
   reused `loadTurnData` + `formatTurnBody` pipeline: a `## Turn N` header followed by
   `**Turn role:** assistant` and the turn `content`, in arrival order (`t1`, `t2`, `t3`).
@@ -72,6 +73,13 @@ tags: [cli, step-turns, turns, active-var, detail, read-order, render-reuse, pha
     rendered (header only, e.g. `# Thread 06FCY... (role: coder)` with no `## Turn` blocks), exit 0.
   - No active var **and** head StepNode has `detail === null` or `detail.turns === []` → same
     empty-list rendering, exit 0.
+  - No active var **and** the head StepNode's `role !== ` the queried role → empty-list rendering,
+    exit 0. The detail fallback (`readHeadDetailTurns`) is **role-aware**: it returns the head step's
+    `detail.turns` only when `headStepNode.role === role`, else `[]`. So on a completed multi-role
+    thread (e.g. `planner → coder`, head = coder step) `--role planner` / `--role reviewer` do **not**
+    inherit the coder head step's turns — they render empty. (Role selection is specified in
+    `step-turns-role-selection.md`; called out here because it is part of the same
+    active-var-precedence → detail-fallback resolution and shares the `readHeadDetailTurns` helper.)
   - Unknown thread → fails with the existing `thread not found: <id>` message (matching
     `resolveHeadHash`), exit non-zero.
 

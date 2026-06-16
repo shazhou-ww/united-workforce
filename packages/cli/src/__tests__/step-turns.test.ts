@@ -112,6 +112,66 @@ async function seedCompletedStep(
   });
 }
 
+/**
+ * Seed a *completed multi-role* chain `planner → coder` whose head is the coder
+ * step. Each step carries its own immutable `detail.turns`; the thread head var
+ * points at the coder step (role `"coder"`), and the prior planner step (role
+ * `"planner"`) is reachable only via `prev`. No active var remains (both roles
+ * solidified + deleted). This is the `06FCZ...` fixture from
+ * `step-turns-role-selection.md` — used to pin the role-aware detail fallback.
+ */
+async function seedCompletedTwoRoleChain(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  plannerTurns: CasRef[],
+  coderTurns: CasRef[],
+): Promise<void> {
+  const workflowHash = (await uwf.store.cas.put(uwf.schemas.workflow, {
+    version: 1,
+    name: "turns-wf",
+    description: "phase4",
+    roles: {},
+    graph: {},
+  })) as CasRef;
+  const startHash = (await uwf.store.cas.put(uwf.schemas.startNode, {
+    workflow: workflowHash,
+    prompt: "task",
+    cwd: "/tmp/work",
+  })) as CasRef;
+  const detailSchemaHash = await putSchema(uwf.store, DETAIL_SCHEMA);
+  const outputHash = (await uwf.store.cas.put(uwf.schemas.text, "output")) as CasRef;
+
+  const mkStep = async (role: string, turns: CasRef[], prev: CasRef | null): Promise<CasRef> => {
+    const detailHash = (await uwf.store.cas.put(detailSchemaHash, {
+      sessionId: `ses_${role}`,
+      duration: 5,
+      turnCount: turns.length,
+      turns,
+    })) as CasRef;
+    return (await uwf.store.cas.put(uwf.schemas.stepNode, {
+      start: startHash,
+      prev,
+      role,
+      output: outputHash,
+      detail: detailHash,
+      agent: "uwf-test",
+      edgePrompt: "",
+      startedAtMs: 1000,
+      completedAtMs: 6000,
+    })) as CasRef;
+  };
+
+  const plannerStep = await mkStep("planner", plannerTurns, null);
+  const coderStep = await mkStep("coder", coderTurns, plannerStep);
+  setThread(uwf.varStore, threadId, {
+    head: coderStep,
+    status: "idle",
+    suspendedRole: null,
+    suspendMessage: null,
+    completedAt: null,
+  });
+}
+
 /** Seed a thread whose head is only a StartNode (no steps yet). */
 async function seedStartOnly(uwf: UwfStore, threadId: ThreadId): Promise<void> {
   const workflowHash = (await uwf.store.cas.put(uwf.schemas.workflow, {
@@ -284,6 +344,74 @@ describe("cmdStepTurns --role selection", () => {
   });
 });
 
+// ── role-aware detail fallback on a completed multi-role thread ───────────────
+// Regression for review blocking issue #1/#2 (#400): the completed-step fallback
+// `readHeadDetailTurns` reads the thread head StepNode's `detail.turns` WITHOUT
+// comparing the head step's role to the queried role. On a multi-role thread
+// (`planner → coder`, head = coder step) this leaked the coder head step's turns
+// for ANY `--role`. The prior suite only seeded single-role threads (head role ==
+// queried role) or a StartNode head, so this case was untested. The fallback must
+// be role-aware: use the head's `detail.turns` only when `headStepNode.role ===
+// role`, else `[]`.
+
+const MULTIROLE_THREAD_ID = "06FCZTURNSPHASE4MULTIROLE1" as ThreadId;
+
+describe("cmdStepTurns detail fallback is role-aware (multi-role completed thread)", () => {
+  test("--role coder (head IS the coder step) renders the head step's turns", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const p1 = putTurn(uwf.store, "p1");
+    const c1 = putTurn(uwf.store, "c1");
+    const c2 = putTurn(uwf.store, "c2");
+    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
+
+    const coder = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
+      role: "coder",
+      live: false,
+    });
+    expect(coder).toContain("## Turn 1");
+    expect(coder).toContain("## Turn 2");
+    expect(coder).not.toContain("## Turn 3");
+    expect(coder).toContain("c1");
+    expect(coder).toContain("c2");
+    expect(coder.indexOf("c1")).toBeLessThan(coder.indexOf("c2"));
+  });
+
+  test("--role planner (head is the coder step) renders EMPTY, not the coder head turns", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const p1 = putTurn(uwf.store, "p1");
+    const c1 = putTurn(uwf.store, "c1");
+    const c2 = putTurn(uwf.store, "c2");
+    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
+
+    const planner = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
+      role: "planner",
+      live: false,
+    });
+    // The head StepNode is the coder step → its detail.turns MUST NOT surface
+    // under --role planner. The fallback returns [] on role mismatch.
+    expect(planner).not.toContain("## Turn");
+    expect(planner).not.toContain("c1");
+    expect(planner).not.toContain("c2");
+    expect(planner).toContain("planner"); // header line only
+  });
+
+  test("--role reviewer (never ran on this thread) renders EMPTY, not the coder head turns", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const p1 = putTurn(uwf.store, "p1");
+    const c1 = putTurn(uwf.store, "c1");
+    const c2 = putTurn(uwf.store, "c2");
+    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
+
+    const reviewer = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
+      role: "reviewer",
+      live: false,
+    });
+    expect(reviewer).not.toContain("## Turn");
+    expect(reviewer).not.toContain("c1");
+    expect(reviewer).not.toContain("c2");
+  });
+});
+
 // ── --live incremental polling ───────────────────────────────────────────────
 
 describe("cmdStepTurns --live poll", () => {
@@ -347,5 +475,61 @@ describe("cmdStepTurns --live poll", () => {
     expect(joined).toContain("D1");
     expect(joined).toContain("D2");
     expect(joined.match(/D1/g) ?? []).toHaveLength(1);
+  });
+
+  test("multi-step run: exit reconcile is role-aware — never emits a different head role's turns", async () => {
+    // Regression for review blocking issue #2 (#400). In a multi-step run
+    // (`exec --count N≥2`) the running marker is held for the whole loop, so the
+    // thread stays "running" while the head advances through roles
+    // (coder → reviewer). A `--live --role coder` follower streams the coder
+    // turns from the coder active var; by the time it exits, the head StepNode is
+    // the *reviewer* step. The exit reconcile flush of the head's `detail.turns`
+    // MUST be role-aware (head used only when its role === "coder"), else the
+    // follower续吐 the reviewer step's turns as continued "coder" turns.
+    const uwf = await createUwfStore(tmpDir);
+    await seedStartOnly(uwf, THREAD_ID);
+
+    const c1 = putTurn(uwf.store, "LC1");
+    const c2 = putTurn(uwf.store, "LC2");
+    const r1 = putTurn(uwf.store, "LR1");
+    const r2 = putTurn(uwf.store, "LR2");
+    const r3 = putTurn(uwf.store, "LR3");
+
+    const printed: string[] = [];
+    let tick = 0;
+    await cmdStepTurns(tmpDir, THREAD_ID, {
+      role: "coder",
+      live: true,
+      pollIntervalMs: 0,
+      onChunk: (chunk: string) => printed.push(chunk),
+      // Thread is "running" for the whole multi-step loop until tick >= 3.
+      isRunning: async () => tick < 3,
+      sleep: async () => {
+        tick += 1;
+        if (tick === 1) appendActiveTurn(uwf.store, THREAD_ID, "coder", c1);
+        else if (tick === 2) appendActiveTurn(uwf.store, THREAD_ID, "coder", c2);
+        else if (tick === 3) {
+          // coder step ends: its active var is solidified+deleted and the head
+          // advances to the (completed) reviewer step — but the thread is still
+          // "running" for the rest of the loop. Reviewer produced MORE turns (3)
+          // than the coder follower printed (2): a count-blind reconcile flush
+          // of the reviewer head's detail.turns would leak its tail (LR3) as a
+          // continued coder turn. The role-aware fallback returns [] instead.
+          clearActiveTurns(uwf.store, THREAD_ID, "coder");
+          await seedCompletedStep(uwf, THREAD_ID, "reviewer", [r1, r2, r3]);
+        }
+      },
+    });
+
+    const joined = printed.join("\n");
+    // The coder turns were streamed live, exactly once each.
+    expect(joined.match(/LC1/g) ?? []).toHaveLength(1);
+    expect(joined.match(/LC2/g) ?? []).toHaveLength(1);
+    // The reviewer head step's turns MUST NOT be flushed under the coder follower
+    // (the count-blind leak would surface the reviewer tail LR3 as coder Turn 3).
+    expect(joined).not.toContain("LR1");
+    expect(joined).not.toContain("LR2");
+    expect(joined).not.toContain("LR3");
+    expect(joined).not.toContain("## Turn 3");
   });
 });
