@@ -19,7 +19,6 @@ import {
   cmdStepRead,
   cmdStepShow,
   cmdStepTurns,
-  resolveDefaultTurnsRole,
 } from "./commands/step.js";
 import {
   cmdThreadCancel,
@@ -316,6 +315,25 @@ function parsePaginationOptions(
   return { skip: skipVal, take: takeVal };
 }
 
+/**
+ * Parse a `step turns` `--limit`/`--offset` value into a non-negative integer, or
+ * `null` when the flag is absent (the OCAS `ListOptions` "no limit" / offset-0
+ * convention). `--limit 0` is a legal value (renders no turns); negative or
+ * non-numeric values are a CLI usage error (exit non-zero). The `flag` label is
+ * used verbatim in the error message.
+ */
+function parseTurnsPageOption(flag: string, value: string | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    process.stderr.write(`${flag} must be a non-negative integer\n`);
+    process.exit(1);
+  }
+  return Number.parseInt(trimmed, 10);
+}
+
 thread
   .command("list")
   .description("List threads (defaults to active: idle + running + corrupt)")
@@ -554,24 +572,42 @@ step
 step
   .command("turns")
   .description(
-    "Read a step's turns live from the active var, falling back to the completed step detail",
+    "Show all turns across a thread's steps (the whole-chain panorama), marking the in-progress step 进行中; --live follows it",
   )
   .argument("<thread-id>", "Thread ULID")
-  .option("--role <role>", "Workflow role whose turns to read (defaults to the head step's role)")
-  .option("--live", "Follow the running step's turns, printing each new turn as it arrives")
-  .action((threadId: string, opts: { role: string | undefined; live: boolean }) => {
-    const storageRoot = resolveStorageRoot();
-    runAction(async () => {
-      const role = opts.role ?? (await resolveDefaultTurnsRole(storageRoot, threadId as ThreadId));
-      const markdown = await cmdStepTurns(storageRoot, threadId as ThreadId, {
-        role,
-        live: opts.live === true,
+  .option(
+    "--role <role>",
+    "Filter the panorama to one role's steps across the whole chain (default: all roles)",
+  )
+  .option("--live", "Follow the in-flight step's turns, printing each new turn as it arrives")
+  .option("--limit <n>", "Max turns to show from the flattened cross-step sequence (default: all)")
+  .option("--offset <n>", "Skip the first N turns of the flattened cross-step sequence")
+  .action(
+    (
+      threadId: string,
+      opts: {
+        role: string | undefined;
+        live: boolean;
+        limit: string | undefined;
+        offset: string | undefined;
+      },
+    ) => {
+      const storageRoot = resolveStorageRoot();
+      runAction(async () => {
+        const limit = parseTurnsPageOption("--limit", opts.limit);
+        const offset = parseTurnsPageOption("--offset", opts.offset) ?? 0;
+        const markdown = await cmdStepTurns(storageRoot, threadId as ThreadId, {
+          role: opts.role ?? null,
+          live: opts.live === true,
+          limit,
+          offset,
+        });
+        if (markdown !== "") {
+          process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
+        }
       });
-      if (markdown !== "") {
-        process.stdout.write(markdown.endsWith("\n") ? markdown : `${markdown}\n`);
-      }
-    });
-  });
+    },
+  );
 
 step
   .command("fork")

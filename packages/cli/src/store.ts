@@ -79,6 +79,41 @@ export function readActiveTurns(store: Store, threadId: ThreadId, role: string):
 }
 
 /**
+ * Discover every in-flight role for a thread by scanning the
+ * `@uwf/active-turns/<threadId>/` var namespace. Returns each role whose active
+ * var currently holds a **non-empty** ordered turn-hash list, in var-creation
+ * order (a chronological proxy for "which in-flight step started first"). Used by
+ * `step turns` to append the running step(s) to the whole-chain panorama — the
+ * in-flight step has no settled StepNode hash, so it is found via its
+ * `(threadId, role)` active var rather than the chain.
+ */
+export function readActiveTurnRoles(
+  store: Store,
+  threadId: ThreadId,
+): { role: string; turns: CasRef[] }[] {
+  const prefix = `${ACTIVE_TURNS_VAR_PREFIX}${threadId}/`;
+  const vars = store.var.list({ namePrefix: prefix });
+  const sorted = [...vars].sort((a, b) => a.created - b.created);
+  const result: { role: string; turns: CasRef[] }[] = [];
+  for (const v of sorted) {
+    const role = v.name.slice(prefix.length);
+    if (role === "" || role.includes("/")) {
+      continue;
+    }
+    const node = store.cas.get(v.value as CasRef);
+    if (node === null || !Array.isArray(node.payload)) {
+      continue;
+    }
+    const turns = node.payload as CasRef[];
+    if (turns.length === 0) {
+      continue;
+    }
+    result.push({ role, turns });
+  }
+  return result;
+}
+
+/**
  * Append a turn hash to `@uwf/active-turns/<threadId>/<role>` (read-modify-write
  * on the array node, then re-point the var). The var is a single mutable
  * pointer re-pointed on each append — not one var per turn. Returns the full

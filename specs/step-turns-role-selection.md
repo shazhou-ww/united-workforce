@@ -1,93 +1,97 @@
 ---
-scenario: "uwf step turns selects which active-turns var to read via --role; the role keys the @uwf/active-turns/<tid>/<role> var, and concurrent roles on the same thread are addressed independently"
+scenario: "uwf step turns <thread-id> --role X filters the chain panorama to that role's steps (across the whole thread), so on a multi-step thread whose head is a different role, --role developer returns the developer step's turns — fixing #409 where it returned empty"
 feature: step
-tags: [cli, step-turns, turns, active-var, role, phase4, "400"]
+tags: [cli, step-turns, turns, role, chain, regression, "409", "408", "400"]
 ---
 
 ## Given
-- Phase 4 of the realtime-turns RFC (`docs/rfc-realtime-turns.md`). The active-turns var is keyed by
-  **both** thread id and role: `activeTurnsVarName(threadId, role) =
-  "@uwf/active-turns/<threadId>/<role>"` (`packages/cli/src/store.ts`, #398). A single thread can
-  therefore have multiple concurrent active-turns vars — one per role that has run/ is running.
-- `readActiveTurns(store, threadId, role)` reads **exactly** the `(threadId, role)` var; it does not
-  merge across roles. `clearActiveTurns` / `appendActiveTurn` are likewise role-scoped (Phase 2:
-  "Targets the exact `(threadId, role)` var only — concurrent active vars for other roles/threads
-  are untouched").
-- broker-step appends turns under the role the moderator resolved for the step
-  (`executeBrokerStep`'s `args.role`), so the var name's `<role>` segment is the workflow role name
-  (e.g. `coder`, `planner`, `reviewer`).
-- A thread `06FCY...` mid-run has two active-turns vars seeded:
-  `@uwf/active-turns/06FCY.../coder` → `[h(c1), h(c2)]` and
-  `@uwf/active-turns/06FCY.../planner` → `[h(p1)]`.
-- The **completed-step fallback is itself role-scoped.** When the active var is gone, `cmdStepTurns`
-  falls back to the thread **head** StepNode's immutable `detail.turns` (`readHeadDetailTurns`). But a
-  StepNode carries the role that produced it (`StepNodePayload.role`, the same field
-  `resolveDefaultTurnsRole` reads at `packages/cli/src/commands/step.ts`). On a **multi-role** thread
-  the head step belongs to exactly one role; the other roles' completed turns live on **earlier**
-  steps in the chain (or were never produced). Therefore the fallback may surface the head step's
-  `detail.turns` **only when the head StepNode's `role === ` the queried role** — otherwise those
-  turns are not this role's and the resolved list is `[]`. (Without this guard the fallback returns the
-  head step's turns for *any* `--role`, which is the bug fixed on this branch — see `## Then` below.)
-- A thread `06FCZ...` is a **completed two-role run `planner → coder`**: the head StepNode is the
-  **coder** step (`role: "coder"`, `detail.turns = [h(c1), h(c2)]`); the active vars for both roles
-  have been solidified + deleted, so no `@uwf/active-turns/06FCZ.../*` var remains. The prior planner
-  step is no longer the head.
+- Issue #409. The new `step turns` walks the **whole** thread chain and groups
+  turns by their owning step/role (`step-turns-chain-panorama.md`). `--role X`
+  is now a **filter over that panorama**: keep only the steps whose
+  `StepNodePayload.role === X` (plus the in-flight step when its active var is
+  the `(threadId, X)` var), then render those steps' turns.
+- **The bug being fixed**: previously `--role` was resolved via
+  `readHeadDetailTurns(uwf, entry.head, role)` — reading **only the thread
+  head** StepNode's `detail.turns`, "role-aware" by returning `[]` when the
+  head step's `role !== role`. On a completed multi-step thread whose head is a
+  *different* role, the queried role's turns live on an **earlier** step in the
+  chain and were therefore **unreachable** — `--role` returned empty. The #408
+  role guard correctly stopped the head's turns leaking under the wrong role,
+  but the underlying head-only read was the real defect: it should have walked
+  the chain to the role's own step.
+- The fix reuses the chain traversal `cmdStepList` already uses (`walkChain` +
+  `collectOrderedSteps`, `shared.ts:29`/`172`); after collecting all steps it
+  filters by `StepNodePayload.role`. No `readHeadDetailTurns` head-role hack is
+  needed — each step's turns are read from that step's own `detail.turns`.
+- Fixture thread `06FCYMS8GH6PWF1M278F27KWA0`: 9 steps
+  `planner → developer → reviewer → tester → committer` (two rounds),
+  head = `committer`. `uwf step read 8WGMP2A3T9ZSF` (the developer step) reads
+  the developer turns fine; the `--role developer` query is what regressed.
+- Fixture thread `06FCZ...`: a completed two-role run `planner → coder`, head =
+  the **coder** step (`role:"coder"`, `detail.turns=[h(c1),h(c2)]`); the planner
+  step (`detail.turns=[h(p1)]`) is reachable only via `prev`.
 
 ## When
-- The user scopes the query to a role:
+- The user filters the panorama to one role on a multi-step thread:
   ```bash
-  uwf step turns 06FCY... --role coder
-  uwf step turns 06FCY... --role planner
+  uwf step turns 06FCYMS8GH6PWF1M278F27KWA0 --role developer   # head is committer
+  uwf step turns 06FCZ... --role planner                       # head is coder
+  uwf step turns 06FCZ... --role coder
+  uwf step turns 06FCZ... --role reviewer                      # never ran
   ```
-- Unit test (issue #400, Step 1) — drives `cmdStepTurns(storageRoot, threadId, { role, live:false })`
-  once per role against the two-role seed above.
-- The user queries a **completed** multi-role thread whose head is a *different* role's step:
-  ```bash
-  uwf step turns 06FCZ... --role coder      # head IS the coder step
-  uwf step turns 06FCZ... --role planner    # head is coder; planner is an earlier step
-  uwf step turns 06FCZ... --role reviewer   # reviewer never ran on this thread
-  ```
-- Unit test (this branch, regression for the review's blocking issue #1) — seeds `06FCZ...` via the
-  completed-step helper with head `role: "coder"` and drives `cmdStepTurns(..., { role, live:false })`
-  for `coder`, `planner`, and `reviewer`.
+- Unit test (#409 core regression): seed the completed multi-step chain with
+  head = a *late* role (e.g. `committer`/`coder`) and per-step `detail.turns`,
+  then drive `cmdStepTurns(..., { role: "developer"/"planner", live:false })`
+  and assert the **earlier** role's turns are returned (the case that returned
+  empty before).
 
 ## Then
-- `--role coder` renders **only** the coder var's turns — 2 turns whose contents are
-  `["c1", "c2"]`, in order — and never the planner turn.
-- `--role planner` renders **only** the planner var's turn — 1 turn whose content is `"p1"`.
-- The role passed on the CLI is threaded verbatim into `activeTurnsVarName(threadId, role)` /
-  `readActiveTurns(..., role)`; selecting a role with no active var (and no matching completed step
-  detail) yields an empty turn list rendered without error (exit 0), not a crash.
-- Role handling is exact-match on the var-name segment: `--role coder` does not match
-  `@uwf/active-turns/06FCY.../coder-2` or any other role; the lookup is `exactName`-scoped (Phase 2
-  `readActiveTurns` uses `store.var.list({ exactName })`).
-- **Completed multi-role thread `06FCZ...` (head = coder step), detail fallback is role-aware:**
-  - `--role coder` renders the head step's 2 turns `["c1", "c2"]` — the head StepNode's
-    `role === "coder"` matches the query, so its `detail.turns` is used.
-  - `--role planner` renders **empty** (header only, no `## Turn` blocks, exit 0). The head step is
-    the coder step, so `readHeadDetailTurns` returns `[]` — it MUST NOT return the coder step's turns
-    under the planner role. (If a future producer persists the planner step's own `detail.turns`
-    role-addressably, the planner query MAY return *planner's* turns; what is forbidden is returning
-    the **head/coder** step's turns for `--role planner`.)
-  - `--role reviewer` (a role that never ran) renders **empty** (header only, exit 0) — never the
-    head step's turns.
-  - This is the explicit contract "selecting a role with **no matching completed step detail** yields
-    an empty turn list"; the fallback compares `headStepNode.role` to the queried role and returns
-    `[]` on mismatch, instead of unconditionally returning the head step's `detail.turns`.
+- **`--role developer` on a `head=committer` thread returns the developer step's
+  turns** (the chain is walked to the developer step and its `detail.turns`
+  rendered) — **not empty**. This is the explicit regression the issue calls
+  out: "step turns --role developer 必须返回 developer step 的 turn（当前返回
+  空——这是本 issue 要修的核心）".
+- On `06FCZ...` (head = coder step):
+  - `--role coder` renders the coder step's turns `["c1","c2"]` in order;
+  - `--role planner` renders the **planner** step's turns `["p1"]` — reached by
+    walking `prev` from the coder head to the earlier planner step — **not
+    empty** (the pre-#409 behaviour) and never the coder head step's turns;
+  - `--role reviewer` (a role with no step on this thread) renders **empty**
+    (header/role line only, no `## Turn` blocks, exit 0) — there is simply no
+    step matching that role to include.
+- **Multiple steps of the same role aggregate**: if a role ran more than once
+  (e.g. `developer` in both rounds of the 9-step fixture), `--role developer`
+  includes **all** developer steps in chronological order — `--role` filters the
+  whole-chain step list, it is not limited to the most recent occurrence.
+- The filtered output preserves the panorama's per-step grouping and markers
+  (`step-turns-chain-panorama.md`): each retained step keeps its `## developer ✓
+  (N turns)` (or `🔄 进行中` for an in-flight matching step) header; only
+  non-matching-role steps are dropped.
+- `--role` is exact-match on the role name (same `exactName` semantics the
+  active var uses): `--role coder` matches neither `coder-2` nor any other role.
+- **No leakage, structurally**: because turns are sourced per-step from each
+  step's own `detail.turns`, a wrong-role step's turns can never surface under
+  `--role X` — the #408 head-role guard is unnecessary and removed. The contract
+  "selecting a role with no matching step yields an empty turn list (exit 0)"
+  still holds, now because the filtered step set is empty, not because a head
+  guard returned `[]`.
+- `--role` composes with pagination: filter by role first, **then** apply
+  `--limit`/`--offset` to the flattened turn sequence (`step-turns-pagination.md`).
 
 ## Notes
-- Whether `--role` is **required** or **defaulted** (e.g. to the thread's current/last role from the
-  head StepNode) is an implementation choice; the asserted contract is that **when a role is given
-  it deterministically selects the matching `(threadId, role)` var**. If a default is offered, it
-  MUST still resolve to a single concrete role before calling `readActiveTurns` (the var is
-  per-role, never a wildcard). A sensible default is the role of the running/head step so that
-  `uwf step turns <tid>` with no `--role` "does the obvious thing" for a single-role-in-flight
-  thread.
-- This per-role scoping is what lets `--live` (see `step-turns-live-poll-active-var.md`) follow one
-  role's progress while another role's turns accumulate independently on the same thread.
-- **Regression coverage (review blocking issue #1):** the existing suite only seeded single-role
-  threads (head role == queried role) or a StartNode head, so the "head is a completed step of a
-  *different* role" case was untested and the role-blind fallback passed silently. This branch adds a
-  test that seeds a completed `planner → coder` thread (head = coder step) and asserts
-  `--role planner` / `--role reviewer` return **empty** while `--role coder` returns the head step's
-  turns — pinning the role-aware fallback against regression.
+- This supersedes the pre-#409 contract in the prior revision of this spec, where
+  `--role planner` on a `head=coder` thread rendered **empty** "by design"
+  (head-only role-aware fallback). Under #409 the chain is walked, so
+  `--role planner` now correctly returns the planner step's turns. The forbidden
+  behaviour — returning the **head/coder** step's turns under `--role planner` —
+  remains forbidden, but the right answer is now *planner's own* turns, not
+  empty.
+- Default `--role` (when omitted): the panorama shows **all** roles' steps
+  (`step-turns-chain-panorama.md`), so omitting `--role` no longer needs to
+  pick a single "head role" — it shows everything. (`resolveDefaultTurnsRole`'s
+  head-role default existed only because the old command could read one role at
+  a time; the whole-chain panorama makes a single default role unnecessary.)
+- Cross-refs: `step-turns-chain-panorama.md` (traversal + grouping),
+  `step-turns-pagination.md` (filter-then-paginate ordering),
+  `step-turns-live-poll-active-var.md` (`--live` follows one role's in-flight
+  step).

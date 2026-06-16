@@ -64,9 +64,11 @@ uwf thread cancel <thread-id>                     # cancel thread (stop + move t
 \`\`\`
 uwf step list <thread-id>        # list all steps in a thread
 uwf step show <step-hash>        # show details of a specific step
-uwf step turns <thread-id>       # read a step's turns (active var → detail.turns)
-            [--role <role>]         # role whose turns to read (default: head step's role)
-            [--live]                # follow the running step, printing new turns as they arrive
+uwf step turns <thread-id>       # show ALL turns across a thread's steps (whole-chain panorama)
+            [--role <role>]         # filter to one role's steps across the chain (default: all roles)
+            [--live]                # follow the in-flight step (🔄 进行中), printing new turns as they arrive
+            [--limit <n>]           # max turns from the flattened cross-step sequence (default: all)
+            [--offset <n>]          # skip the first n turns of the flattened sequence
 uwf step fork <step-hash>        # fork a thread from a specific step
 \`\`\`
 

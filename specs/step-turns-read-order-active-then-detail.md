@@ -1,100 +1,103 @@
 ---
-scenario: "uwf step turns <thread-id> reads the running step's turns from the @uwf/active-turns var first and falls back to the completed step's immutable detail.turns once the var is gone; both render the same turns via the reused step-read markdown pipeline"
+scenario: "Within the chain panorama, each step's turns are sourced per-step: a completed step from its immutable detail.turns, the in-flight step from its @uwf/active-turns var; both render via the same step-read pipeline, and the active→detail handoff loses no turn"
 feature: step
-tags: [cli, step-turns, turns, active-var, detail, read-order, render-reuse, phase4, "400"]
+tags: [cli, step-turns, turns, active-var, detail, read-order, render-reuse, chain, "409", "400"]
 ---
 
 ## Given
-- Phase 4 of the realtime-turns RFC (`docs/rfc-realtime-turns.md`, "Phase 4: CLI `uwf step turns
-  --live` 消费端"). Depends on the already-merged Phase 2 (#398) which provides the active-turns
-  var API in `packages/cli/src/store.ts`:
-  - `ACTIVE_TURNS_VAR_PREFIX = "@uwf/active-turns/"` and
-    `activeTurnsVarName(threadId, role) = "@uwf/active-turns/<threadId>/<role>"`.
-  - `readActiveTurns(store, threadId, role): CasRef[]` — resolves the var → its array node →
-    the ordered `CasRef[]` of turn hashes; returns `[]` when the var is absent (no turns appended
-    yet, or already solidified/cleared).
-  - On step completion `storeBrokerDetail` solidifies that same ordered list into the immutable
-    `detail.turns` (`detail.turnCount === detail.turns.length`) and **deletes** the active var
+- Issue #409 redefines `uwf step turns <thread-id>` as a whole-chain panorama
+  (`step-turns-chain-panorama.md`). The active-var-first / `detail.turns`
+  fallback read-order is now applied **per step**, not once for the thread head.
+- Active-turns var API (#398, `packages/cli/src/store.ts`):
+  - `activeTurnsVarName(threadId, role) = "@uwf/active-turns/<threadId>/<role>"`;
+  - `readActiveTurns(store, threadId, role): CasRef[]` — the in-flight step's
+    live ordered turn-hash list; `[]` when absent (not started, or already
+    solidified+cleared).
+  - On step completion `storeBrokerDetail` solidifies that same ordered list into
+    the step's immutable `detail.turns` (`detail.turnCount === detail.turns.length`)
+    and **deletes** the active var
     (`cli-broker-step-solidify-detail-turns.md`).
-- The turn nodes are the pure `{ role: "assistant", content }` shape (`TURN_SCHEMA`), identical
-  whether referenced from the active var or from `detail.turns` (RFC appendix A: turn nodes stay
-  pure content; linkage lives in the var / detail array).
-- Single-package change: `@united-workforce/cli` only — a new `uwf step turns` subcommand wired in
-  `packages/cli/src/cli.ts` and a `cmdStepTurns` in `packages/cli/src/commands/step.ts`. No broker,
-  protocol, or Sumeru changes.
-- The command's positional argument is a **`<thread-id>`** (a `ThreadId`), NOT a `<step-hash>` like
-  `step read` / `step show`. This is deliberate: the in-flight turn list is keyed by
-  `(threadId, role)` in the active var, so the running step has no settled StepNode hash to address.
-- Reuse anchor — the existing `step read` renderer in `packages/cli/src/commands/step.ts`:
-  `loadTurnData(store, turns: CasRef[]) → TurnData[]` (via `parseSingleTurn`), then
-  `formatTurnBody(turn)` and the `## Turn N` block assembly in `formatStepMarkdown`. Both the active
-  var and `detail.turns` are a `CasRef[]` of `{role, content}` turn nodes — exactly the input
-  `loadTurnData` already consumes — so Phase 4 renders turns through **the same** helpers rather
-  than a parallel renderer.
-- A thread `06FCY...` whose currently-running (or just-completed) step has produced exactly 3
-  assistant turns `["t1","t2","t3"]` for role `coder`.
+- Turn nodes are the pure `{ role, content }` shape, identical whether referenced
+  from an active var or from a step's `detail.turns` (RFC appendix A). Rendering
+  reuses the `step read` pipeline: `loadTurnData(store, turns)` → `TurnData[]`
+  (via `parseSingleTurn`) → `formatTurnBody` (`step.ts:308`), so per-turn blocks
+  are byte-identical across sources and across `step read` / `step turns`.
+- The positional argument is a **`<thread-id>`** (a `ThreadId`), NOT a
+  `<step-hash>`: the panorama is thread-scoped and the in-flight step has no
+  settled StepNode hash to address — its turns live in the `(threadId, role)`
+  active var.
+- A thread `06FCY...` mid-run: steps `planner` and `developer` are completed
+  (each with its own `detail.turns`), and a `reviewer` step is in flight with
+  `@uwf/active-turns/06FCY.../reviewer = [h(r1),h(r2),h(r3)]` and no settled
+  StepNode yet.
 
 ## When
-- **Running case** — while the step is still in flight (active var present), the user runs:
+- **Running case** — while `reviewer` is in flight, the user runs:
   ```bash
-  uwf step turns 06FCY... --role coder
+  uwf step turns 06FCY...
   ```
-- **Completed case** — after the step completes (active var deleted, turns solidified into
-  `detail.turns`), the user runs the same command again:
+- **Completed case** — after `reviewer` completes (its active var deleted, turns
+  solidified into that step's `detail.turns`), the user runs the same command:
   ```bash
-  uwf step turns 06FCY... --role coder
+  uwf step turns 06FCY...
   ```
-- Unit test (issue #400, Step 1) — drives `cmdStepTurns(storageRoot, threadId, { role: "coder",
-  live: false })` against a store seeded two ways for the **same** 3 turn hashes: (a) an
-  `@uwf/active-turns/<tid>/coder` var pointing at `[h(t1),h(t2),h(t3)]`, and (b) the var removed +
-  a head StepNode whose `detail.turns === [h(t1),h(t2),h(t3)]`.
+- Unit test (#409): seed the same step's turns two ways for the **same** hashes —
+  (a) as an `@uwf/active-turns/<tid>/<role>` var, and (b) the var removed + that
+  step's `detail.turns` set to the same `[h(r1),h(r2),h(r3)]` — and assert the
+  rendered turn blocks for that step are identical.
 
 ## Then
-- **Read order** — `cmdStepTurns` resolves the turn-hash list with active-var precedence:
-  1. `const active = readActiveTurns(uwf.store, threadId, role)`. If `active.length > 0`, those are
-     the turns to render (the in-flight step).
-  2. Otherwise (active var absent/empty) it falls back to the **completed** step: resolve the
-     thread head StepNode (via the thread var, as `resolveHeadHash` does), and use its `detail.turns`
-     **only when the head StepNode's `role === role`** (`readHeadDetailTurns` is role-aware); on a
-     role mismatch it yields `[]` rather than the head step's turns (see `step-turns-role-selection.md`).
-- **Running case output** lists all turns produced so far (here all 3), each rendered through the
-  reused `loadTurnData` + `formatTurnBody` pipeline: a `## Turn N` header followed by
-  `**Turn role:** assistant` and the turn `content`, in arrival order (`t1`, `t2`, `t3`).
-- **Completed case output** renders the **same 3 turns** from `detail.turns` with **byte-identical
-  per-turn blocks** — because the solidified `detail.turns` equals the active var's contents
-  captured at completion (`cli-broker-step-solidify-detail-turns.md`) and the **same** renderer is
-  used. Read-order is transparent to the user: the turn blocks for `06FCY... --role coder` are the
-  same before and after completion.
-- Each rendered turn's `content` matches the stored turn node's `content` exactly (no trimming /
-  re-parse), and each turn hash in the resolved list is gettable in CAS as a
-  `{ role: "assistant", content }` node.
-- Empty / edge handling (graceful, no crash):
-  - No active var **and** head is a StartNode (thread has no steps yet) → an empty turn list is
-    rendered (header only, e.g. `# Thread 06FCY... (role: coder)` with no `## Turn` blocks), exit 0.
-  - No active var **and** head StepNode has `detail === null` or `detail.turns === []` → same
-    empty-list rendering, exit 0.
-  - No active var **and** the head StepNode's `role !== ` the queried role → empty-list rendering,
-    exit 0. The detail fallback (`readHeadDetailTurns`) is **role-aware**: it returns the head step's
-    `detail.turns` only when `headStepNode.role === role`, else `[]`. So on a completed multi-role
-    thread (e.g. `planner → coder`, head = coder step) `--role planner` / `--role reviewer` do **not**
-    inherit the coder head step's turns — they render empty. (Role selection is specified in
-    `step-turns-role-selection.md`; called out here because it is part of the same
-    active-var-precedence → detail-fallback resolution and shares the `readHeadDetailTurns` helper.)
-  - Unknown thread → fails with the existing `thread not found: <id>` message (matching
-    `resolveHeadHash`), exit non-zero.
+- **Per-step read order**: for each step in the chain panorama, its turns are
+  resolved with active-var precedence:
+  1. if `readActiveTurns(store, threadId, step.role)` is non-empty (the step is
+     in flight), render those live turns and mark the step **`🔄 进行中`**;
+  2. otherwise (completed step) render that step's own immutable `detail.turns`
+     (resolved via the step's `detail` ref), marked **`✓`**.
+  This is the same active→detail precedence as before, but **scoped to each
+  step's own role**, applied while walking the chain — never only the head.
+- **Running case output**: the in-flight `reviewer` step lists all turns produced
+  so far (`r1`, `r2`, `r3`) from its active var, rendered through the reused
+  `loadTurnData` + `formatTurnBody` pipeline (`## Turn N` → `**Turn role:**
+  assistant` → `content`), in arrival order, beneath a `🔄 进行中` step header;
+  the already-completed `planner`/`developer` steps render from their
+  `detail.turns` above it.
+- **Completed case output**: the `reviewer` step renders the **same** turns from
+  its `detail.turns`, **byte-identical per-turn blocks**, now under a `✓` header —
+  because the solidified `detail.turns` equals the active var's contents captured
+  at completion (`cli-broker-step-solidify-detail-turns.md`) and the **same**
+  renderer is used. The active→detail source switch is transparent to the user at
+  the turn-block level (only the step's status mark flips `🔄 进行中` → `✓`).
+- **No turn lost across the handoff**: a turn appended in the instant the var is
+  solidified+deleted is not dropped — once a step is completed its full
+  `detail.turns` is the source of truth, so the panorama shows every produced
+  turn exactly once whether observed mid-flight or after completion.
+- Each rendered turn's `content` matches the stored turn node's `content` exactly
+  (no trimming / re-parse); each resolved turn hash is gettable in CAS as a
+  `{ role, content }` node.
+- **Edge handling** (graceful, exit 0):
+  - a step whose `detail === null` or `detail.turns === []` and with no active
+    var contributes **zero** turn blocks but still appears as a group header
+    `(0 turns)` (`step-turns-chain-panorama.md`) — it is not dropped;
+  - head is a StartNode (no steps yet) and no active var → header-only panorama,
+    no `## Turn` blocks;
+  - unknown thread → `thread not found: <id>` (matching `resolveHeadHash`),
+    exit non-zero.
 
 ## Notes
-- The headline guarantee is **read-order consistency**: the same `(threadId, role)` yields the same
-  ordered turn content whether sourced from the live active var or the frozen `detail.turns`. The
-  top-level header line MAY differ (running has no StepNode hash, so it can read e.g.
-  `# Thread <tid> (role: coder)` while the completed/`step read` path reads `# Step <stepHash>`);
-  the asserted equality is over the **per-turn `## Turn N` blocks**, which are hash/role-agnostic.
-- Because it reuses `loadTurnData`/`formatTurnBody`, `step turns` inherits their forward-compatible
-  shape handling: turns render from `{role, content}` and tolerate extra fields (`index`,
-  `toolCalls`) if a future producer writes them — see the `step-commands` card.
-- `--quota` MAY be accepted with the same default and newest-first back-fill behavior as
-  `step read` (it shares `selectTurnsForQuota`); the headline assertions here are read-order and
-  render-equivalence, not quota math, which is covered by `step-read.test.ts`.
-- The cross-process visibility of the active var that makes the running-case read possible is the
-  Phase 2 guarantee (`cli-broker-step-cross-process-visibility.md`); Phase 4 only adds the ergonomic
-  consumer command over that SQLite-backed var.
+- The headline guarantee is **source-transparency per step**: the same step's
+  turns render identically whether sourced live (active var, `🔄 进行中`) or
+  frozen (`detail.turns`, `✓`); only the step-level status marker differs. The
+  step group header MAY differ from `step read`'s `# Step <hash>` (the panorama
+  groups by role/step, e.g. `## reviewer ✓ (3 turns)`); the asserted equality is
+  over the **per-turn `## Turn N` blocks**, which are hash/role-agnostic.
+- Reusing `loadTurnData`/`formatTurnBody` inherits forward-compatible shape
+  handling: turns render from `{role, content}` and tolerate extra fields
+  (`index`, `toolCalls`) when a future producer writes them (see the
+  `step-commands` card).
+- This per-step sourcing is the mechanism behind the #409 fix: walking the chain
+  and reading **each** step's own active-or-detail turns makes the head-only
+  `readHeadDetailTurns` (and its #408 role guard) obsolete — see
+  `step-turns-role-selection.md`.
+- Cross-process visibility of the in-flight step's active var is the Phase 2
+  guarantee (`cli-broker-step-cross-process-visibility.md`); `--live` follows it
+  (`step-turns-live-poll-active-var.md`).
