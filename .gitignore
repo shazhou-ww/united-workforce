@@ -16,3 +16,7 @@ packages/workflow-template-develop/develop.esm.js
 tmp.worktrees/
 .worktrees/
 false/
+
+# proman cards / sync-knowledge generated files
+.cards-index.json
+.knowledge-sync-todo.yaml
