@@ -10,7 +10,14 @@ import type {
 } from "@united-workforce/protocol";
 import { createLogger, generateUlid } from "@united-workforce/util";
 import { isThreadRunning } from "../background/index.js";
-import { createUwfStore, getThread, readActiveTurns, setThread, type UwfStore } from "../store.js";
+import {
+  createUwfStore,
+  getThread,
+  readActiveTurnRoles,
+  readActiveTurns,
+  setThread,
+  type UwfStore,
+} from "../store.js";
 import {
   collectOrderedSteps,
   expandDeep,
@@ -490,24 +497,42 @@ export async function cmdStepRead(
 
 // ── step turns ────────────────────────────────────────────────────────────────
 //
-// Phase 4 (#400) — the consumer side of the realtime-turns RFC. Unlike
-// `step read` (which addresses a settled StepNode by hash), `step turns` is keyed
-// by `<thread-id>` + `--role` because the in-flight turn list lives in the
-// `@uwf/active-turns/<threadId>/<role>` var while the step is still running.
+// Phase 4 (#400) / #409 — the consumer side of the realtime-turns RFC. `step
+// turns <thread-id>` renders the **whole-thread turn panorama**: it walks the
+// entire thread chain (reusing the SAME `walkChain` + `collectOrderedSteps`
+// infrastructure as `cmdStepList`) and shows every step's turns in chronological
+// order, each turn attributed to its owning role/step.
 //
-// Read order: active var first (running step) → `detail.turns` fallback
-// (completed step). Both sources are a `CasRef[]` of pure `{role, content}` turn
-// nodes, so rendering reuses the SAME `loadTurnData` → `formatTurnBody` pipeline
-// as `step read`.
+// Per-step turn sourcing (active-var precedence, scoped to each step's role):
+//   - the in-flight step (its `@uwf/active-turns/<tid>/<role>` var still present)
+//     → read the live active var and mark the step `🔄 进行中`;
+//   - every completed step → read its own immutable `detail.turns` and mark `✓`.
+// Both sources are a `CasRef[]` of pure `{role, content}` turn nodes, so per-turn
+// rendering reuses the SAME `loadTurnData` → `formatTurnBody` pipeline as
+// `step read` — a turn block here is byte-identical to `step read` for that step.
+//
+// `--role X` filters the panorama to that role's steps (across the whole chain);
+// `--limit`/`--offset` paginate the flattened cross-step turn sequence (filter
+// first, then paginate). Default is full, untruncated output. Because turns are
+// always sourced per-step, role isolation (#408) falls out structurally — the
+// head-only `readHeadDetailTurns` role-guard hack is obsolete.
 
 /** Default poll interval for `--live` (ms). Small + fixed; injectable for tests. */
 export const STEP_TURNS_POLL_INTERVAL_MS = 400;
 
 export type CmdStepTurnsOptions = {
-  /** Workflow role whose `(threadId, role)` active var / detail to read. */
-  role: string;
+  /**
+   * Chain-wide role filter: keep only steps whose `StepNodePayload.role` (and the
+   * in-flight step whose active var) equals this role. `null` = no filter (show
+   * every role's steps along the chain).
+   */
+  role: string | null;
   /** Follow the running step's active var, printing new turns as they arrive. */
   live: boolean;
+  /** Pagination: max turns of the flattened cross-step sequence. `null` = no limit. */
+  limit: number | null;
+  /** Pagination: skip the first N turns of the flattened sequence. Defaults to 0. */
+  offset: number;
   /** Poll interval override for `--live` (ms). Defaults to STEP_TURNS_POLL_INTERVAL_MS. */
   pollIntervalMs: number | null;
   /** Sink for `--live` incremental output. Defaults to stdout. */
@@ -522,11 +547,13 @@ export type CmdStepTurnsOptions = {
 function resolveStepTurnsOptions(
   storageRoot: string,
   threadId: ThreadId,
-  options: Partial<CmdStepTurnsOptions> & { role: string; live: boolean },
+  options: Partial<CmdStepTurnsOptions> & { live: boolean },
 ): CmdStepTurnsOptions {
   return {
-    role: options.role,
+    role: options.role ?? null,
     live: options.live,
+    limit: options.limit ?? null,
+    offset: options.offset ?? 0,
     pollIntervalMs: options.pollIntervalMs ?? null,
     onChunk: options.onChunk ?? null,
     sleep: options.sleep ?? null,
@@ -536,29 +563,44 @@ function resolveStepTurnsOptions(
 }
 
 /**
- * Resolve the completed step's `detail.turns` for a thread's head **scoped to a
- * role**, or `[]` when the head is a StartNode (no steps yet) / the head step
- * has no detail / the head step belongs to a *different* role than `role`.
- *
- * Role-awareness is the fix for review blocking issue #1/#2 (#400): a StepNode
- * carries the role that produced it (`StepNodePayload.role`), and on a
- * multi-role thread (e.g. `planner → coder`) the head step belongs to exactly
- * one role while the others' turns live on earlier steps (or never ran). The
- * fallback therefore surfaces the head step's `detail.turns` **only when**
- * `headStepNode.role === role`; on a mismatch it returns `[]` instead of
- * leaking the head step's turns under an unrelated `--role`. Never crashes for a
- * StartNode head — that is the legitimate "no turns yet" case.
+ * Walk the thread chain from `headHash` and return the **newest** step whose
+ * `role === role`'s immutable `detail.turns`, or `[]` when no step on the chain
+ * has that role. Used by the `--live` exit reconcile to flush the followed role's
+ * own solidified turns without ever surfacing a *different* role's turns: in a
+ * multi-step run the head may have advanced past the followed step to another
+ * role, so reconciling against `head` blindly (the pre-#409 `readHeadDetailTurns`)
+ * could leak the next role's turns. Scoping to the followed role's own step on
+ * the chain is the live counterpart of the non-live per-step sourcing.
  */
-function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef, role: string): CasRef[] {
-  const node = uwf.store.cas.get(headHash);
+function readRoleDetailTurnsFromChain(uwf: UwfStore, headHash: CasRef, role: string): CasRef[] {
+  let hash: CasRef | null = headHash;
+  while (hash !== null) {
+    const node = uwf.store.cas.get(hash);
+    if (node === null || node.type !== uwf.schemas.stepNode) {
+      break;
+    }
+    const payload = node.payload as StepNodePayload;
+    if (payload.role === role) {
+      return readStepDetailTurns(uwf, hash);
+    }
+    hash = payload.prev;
+  }
+  return [];
+}
+
+/**
+ * Read a specific step's immutable `detail.turns` (the ordered `CasRef[]` of its
+ * turn nodes). Returns `[]` for a non-StepNode, a step with no detail, or a
+ * detail whose `turns` is absent/malformed. Unlike `readHeadDetailTurns` this is
+ * role-agnostic — the caller already knows which step it is reading (the chain
+ * walk attributes each step to its own role), so no head-role guard is needed.
+ */
+function readStepDetailTurns(uwf: UwfStore, stepHash: CasRef): CasRef[] {
+  const node = uwf.store.cas.get(stepHash);
   if (node === null || node.type !== uwf.schemas.stepNode) {
     return [];
   }
   const payload = node.payload as StepNodePayload;
-  // Role-aware: the head step's turns belong to the head step's role only.
-  if (payload.role !== role) {
-    return [];
-  }
   if (payload.detail === null) {
     return [];
   }
@@ -571,21 +613,83 @@ function readHeadDetailTurns(uwf: UwfStore, headHash: CasRef, role: string): Cas
 }
 
 /**
- * Resolve the turn-hash list for `(threadId, role)` with active-var precedence:
- *   1. `readActiveTurns` — the in-flight step's live list (non-empty wins).
- *   2. else the thread head StepNode's immutable `detail.turns`, **but only when
- *      the head step's `role === role`** (role-aware fallback).
+ * One step group in the whole-thread turn panorama: the owning role, whether the
+ * step is still in flight (`running` → `🔄 进行中`, else `✓`), and its turns
+ * (already materialized from CAS via `loadTurnData`).
  */
-function resolveTurnHashes(uwf: UwfStore, threadId: ThreadId, role: string): CasRef[] {
-  const active = readActiveTurns(uwf.store, threadId, role);
-  if (active.length > 0) {
-    return active;
-  }
+type TurnsPanoramaGroup = {
+  role: string;
+  running: boolean;
+  turns: TurnData[];
+};
+
+/**
+ * Build the whole-thread turn panorama (#409): walk the entire thread chain
+ * (reusing the `walkChain` + `collectOrderedSteps` infrastructure that
+ * `cmdStepList` relies on) and produce one group per step in chronological order,
+ * each turn attributed to its owning role/step.
+ *
+ * Per-step sourcing applies active-var precedence scoped to each step's role:
+ *   1. if the step's role has a non-empty `@uwf/active-turns/<tid>/<role>` var
+ *      (the step is in flight) → render those live turns, marked `🔄 进行中`;
+ *   2. otherwise (completed step) → render that step's own immutable
+ *      `detail.turns`, marked `✓`.
+ * In-flight roles that have no settled StepNode in the chain yet (the running
+ * step has no StepNode hash until `exec` writes it) are appended after the chain.
+ * Fails with the standard `thread not found` message for an unknown thread.
+ */
+function buildTurnsPanorama(uwf: UwfStore, threadId: ThreadId): TurnsPanoramaGroup[] {
   const entry = getThread(uwf.varStore, threadId);
   if (entry === null) {
     fail(`thread not found: ${threadId}`);
   }
-  return readHeadDetailTurns(uwf, entry.head, role);
+  const chain = walkChain(uwf, entry.head);
+  const ordered = collectOrderedSteps(uwf, entry.head, chain);
+  const activeRoles = readActiveTurnRoles(uwf.store, threadId);
+  const activeByRole = new Map(activeRoles.map((a) => [a.role, a.turns] as const));
+  const consumed = new Set<string>();
+  const groups: TurnsPanoramaGroup[] = [];
+
+  for (const item of ordered) {
+    const role = item.payload.role;
+    const active = activeByRole.get(role);
+    if (active !== undefined && active.length > 0 && !consumed.has(role)) {
+      groups.push({ role, running: true, turns: loadTurnData(uwf.store.cas, active) });
+      consumed.add(role);
+    } else {
+      groups.push({
+        role,
+        running: false,
+        turns: loadTurnData(uwf.store.cas, readStepDetailTurns(uwf, item.hash)),
+      });
+    }
+  }
+
+  for (const { role, turns } of activeRoles) {
+    if (consumed.has(role)) {
+      continue;
+    }
+    groups.push({ role, running: true, turns: loadTurnData(uwf.store.cas, turns) });
+    consumed.add(role);
+  }
+
+  return groups;
+}
+
+/**
+ * Filter the panorama to a single role (exact-match), or pass it through
+ * unchanged when `role === null` (show every role's steps). `--role` is a filter
+ * over the whole-chain panorama, so it keeps **all** steps of that role across
+ * the thread (e.g. a role that ran in two rounds), not just the latest.
+ */
+function filterPanoramaByRole(
+  groups: TurnsPanoramaGroup[],
+  role: string | null,
+): TurnsPanoramaGroup[] {
+  if (role === null) {
+    return groups;
+  }
+  return groups.filter((g) => g.role === role);
 }
 
 /** Render a single turn's `## Turn N` block (1-based) via the reused pipeline. */
@@ -593,24 +697,104 @@ function formatTurnBlock(turn: TurnData, displayIndex: number): string {
   return `## Turn ${displayIndex}\n\n${formatTurnBody(turn)}`;
 }
 
-/** Assemble the full (non-live) markdown for a resolved turn-hash list. */
-function formatTurnsMarkdown(threadId: ThreadId, role: string, turnData: TurnData[]): string {
-  const parts: string[] = [`# Thread ${threadId} (role: ${role})`];
-  for (let i = 0; i < turnData.length; i++) {
-    const turn = turnData[i];
-    if (turn === undefined) continue;
+/**
+ * Slice the panorama's flattened cross-step turn sequence to `[offset, offset+limit)`
+ * (`limit === null` → no upper bound, the OCAS `ListOptions` "no limit" convention),
+ * keeping each surviving turn's **global** index so numbering is consistent across
+ * the whole panorama. Returns per-group survivors paired with their group, so
+ * grouping/markers are preserved while pagination removes turns (not steps).
+ */
+function paginatePanorama(
+  groups: TurnsPanoramaGroup[],
+  offset: number,
+  limit: number | null,
+): { group: TurnsPanoramaGroup; turns: { turn: TurnData; globalIndex: number }[] }[] {
+  const start = offset > 0 ? offset : 0;
+  const end = limit === null ? Number.POSITIVE_INFINITY : start + Math.max(0, limit);
+  let globalIndex = 0;
+  const result: {
+    group: TurnsPanoramaGroup;
+    turns: { turn: TurnData; globalIndex: number }[];
+  }[] = [];
+  for (const group of groups) {
+    const survivors: { turn: TurnData; globalIndex: number }[] = [];
+    for (const turn of group.turns) {
+      const idx = globalIndex;
+      globalIndex += 1;
+      if (idx >= start && idx < end) {
+        survivors.push({ turn, globalIndex: idx });
+      }
+    }
+    result.push({ group, turns: survivors });
+  }
+  return result;
+}
+
+/** Step group header, e.g. `## developer ✓ (47 turns)` / `## reviewer 🔄 进行中 (12 turns so far)`. */
+function formatGroupHeader(group: TurnsPanoramaGroup): string {
+  const count = group.turns.length;
+  if (group.running) {
+    return `## ${group.role} 🔄 进行中 (${count} turns so far)`;
+  }
+  return `## ${group.role} ✓ (${count} turns)`;
+}
+
+/**
+ * Assemble the whole-thread turn panorama markdown (#409): a thread header, then
+ * one group per step (role + `✓`/`🔄 进行中` marker + turn count), and under each
+ * the surviving turns rendered via the reused `formatTurnBlock` pipeline with
+ * their global (cross-step) turn numbers. A group whose turns are entirely sliced
+ * out by pagination still shows its header (zero turns beneath).
+ */
+function formatPanoramaMarkdown(
+  threadId: ThreadId,
+  groups: TurnsPanoramaGroup[],
+  offset: number,
+  limit: number | null,
+): string {
+  const parts: string[] = [`# Thread ${threadId}`];
+  const paged = paginatePanorama(groups, offset, limit);
+  for (const { group, turns } of paged) {
     parts.push("");
-    parts.push(formatTurnBlock(turn, i + 1));
+    parts.push(formatGroupHeader(group));
+    for (const { turn, globalIndex } of turns) {
+      parts.push("");
+      parts.push(formatTurnBlock(turn, globalIndex + 1));
+    }
   }
   return parts.join("\n");
 }
 
 /**
- * `--live` follower: poll the active var, printing each new turn block exactly
- * once (tracking how many blocks were emitted and rendering only the new tail).
- * Exits when the step completes — active var gone AND the thread is no longer
- * running. On exit it reconciles against the frozen `detail.turns` so a turn
- * appended in the same instant the var was solidified is not lost.
+ * Resolve the turn hashes to flush when the followed step finishes (active var
+ * gone AND thread no longer running). If the live var still holds turns (crash /
+ * not-yet-solidified), trust it — the chain detail may belong to a previous step.
+ * Otherwise the var was solidified into the followed role's own step, so walk the
+ * chain to *that role's* step (#409): in a multi-step run the head may have
+ * advanced to a different role, so scoping to `followRole` ensures we never flush
+ * the next role's turns as continued turns of the followed step.
+ */
+function resolveFinalTurnHashes(uwf: UwfStore, threadId: ThreadId, followRole: string): CasRef[] {
+  const remaining = readActiveTurns(uwf.store, threadId, followRole);
+  if (remaining.length > 0) {
+    return remaining;
+  }
+  const entry = getThread(uwf.varStore, threadId);
+  if (entry === null) {
+    return [];
+  }
+  return readRoleDetailTurnsFromChain(uwf, entry.head, followRole);
+}
+
+/**
+ * `--live` follower: poll the followed step's active var, printing each new turn
+ * block exactly once (tracking how many blocks were emitted and rendering only
+ * the new tail). The followed role is `opts.role` when given, else the thread's
+ * current in-flight role (the role with an active var, falling back to the head
+ * step's role). Exits when the step completes — active var gone AND the thread is
+ * no longer running. On exit it reconciles against the followed role's own
+ * solidified `detail.turns` (located by walking the chain to that role's step, so
+ * a *different* later role's turns are never flushed under the followed step).
  */
 async function followStepTurnsLive(
   storageRoot: string,
@@ -623,6 +807,7 @@ async function followStepTurnsLive(
   const isRunning =
     opts.isRunning ?? (async () => (await isThreadRunning(storageRoot, threadId)) !== null);
   const intervalMs = opts.pollIntervalMs ?? STEP_TURNS_POLL_INTERVAL_MS;
+  const followRole = opts.role ?? (await resolveLiveFollowRole(storageRoot, threadId));
 
   let printedCount = 0;
   // Print the new tail of `hashes` beyond what has already been emitted.
@@ -641,31 +826,16 @@ async function followStepTurnsLive(
 
   while (true) {
     const uwf = await createUwfStore(storageRoot);
-    const active = readActiveTurns(uwf.store, threadId, opts.role);
+    const active = readActiveTurns(uwf.store, threadId, followRole);
     flush(uwf, active);
 
     const running = await isRunning();
     if (!running) {
       // Step finished (or producer died). Reconcile so no turn is lost across
       // the active→detail handoff, then stop — never hang waiting for a var
-      // that will not reappear.
-      const remaining = readActiveTurns(uwf.store, threadId, opts.role);
-      if (remaining.length > 0) {
-        // Crash / not-yet-solidified: trust the live var; the head step detail
-        // may belong to a different (previous) step, so don't fall back to it.
-        flush(uwf, remaining);
-      } else {
-        // Normal completion: the var was solidified into the head step's
-        // immutable detail.turns — flush any tail not already streamed. The
-        // fallback is role-aware (issue #1/#2): in a multi-step run the head may
-        // have advanced to a *different* role's step while the thread is still
-        // "running"; passing `opts.role` ensures we only reconcile against the
-        // followed role's head step (else `[]`), never the next role's turns.
-        const entry = getThread(uwf.varStore, threadId);
-        if (entry !== null) {
-          flush(uwf, readHeadDetailTurns(uwf, entry.head, opts.role));
-        }
-      }
+      // that will not reappear. `resolveFinalTurnHashes` scopes the reconcile to
+      // the followed role's own step (#409) so a later role's turns never leak.
+      flush(uwf, resolveFinalTurnHashes(uwf, threadId, followRole));
       return;
     }
 
@@ -674,20 +844,22 @@ async function followStepTurnsLive(
 }
 
 /**
- * Resolve the default `--role` for `step turns <tid>` when none is given: the
- * role of the thread's head StepNode (the running / most-recent step). Falls
- * back to `"agent"` when the head is a StartNode (no steps yet) so a role is
- * always concrete before reading the per-role active var. Fails with the
- * standard `thread not found` message for an unknown thread.
+ * Resolve the role for `--live` to follow when `--role` is omitted: the thread's
+ * current in-flight role. Prefers a role with a live `@uwf/active-turns` var
+ * (the genuinely in-flight step); falls back to the head StepNode's role, then to
+ * `"agent"` for a StartNode head. Fails with the standard `thread not found`
+ * message for an unknown thread.
  */
-export async function resolveDefaultTurnsRole(
-  storageRoot: string,
-  threadId: ThreadId,
-): Promise<string> {
+async function resolveLiveFollowRole(storageRoot: string, threadId: ThreadId): Promise<string> {
   const uwf = await createUwfStore(storageRoot);
   const entry = getThread(uwf.varStore, threadId);
   if (entry === null) {
     fail(`thread not found: ${threadId}`);
+  }
+  const activeRoles = readActiveTurnRoles(uwf.store, threadId);
+  const lastActive = activeRoles[activeRoles.length - 1];
+  if (lastActive !== undefined) {
+    return lastActive.role;
   }
   const node = uwf.store.cas.get(entry.head);
   if (node !== null && node.type === uwf.schemas.stepNode) {
@@ -697,10 +869,14 @@ export async function resolveDefaultTurnsRole(
 }
 
 /**
- * `uwf step turns <thread-id> [--role <r>] [--live]` — read a step's turns from
- * the active-turns var (running) with a `detail.turns` fallback (completed),
- * rendering through the same per-turn pipeline as `step read`. With `--live`,
- * follow the running step's active var, printing new turns incrementally.
+ * `uwf step turns <thread-id> [--role <r>] [--live] [--limit <n>] [--offset <m>]`
+ * — render the whole-thread turn panorama (#409): walk the entire chain and show
+ * every step's turns (each completed step from its immutable `detail.turns`, the
+ * in-flight step from its active var, marked `🔄 进行中`), through the same
+ * per-turn pipeline as `step read`. `--role` filters the panorama to one role;
+ * `--limit`/`--offset` paginate the flattened cross-step turn sequence (after the
+ * role filter). With `--live`, follow the in-flight step's active var, printing
+ * new turns incrementally.
  *
  * Returns the assembled markdown (non-live); for `--live` the output is streamed
  * to `onChunk`/stdout and the resolved string is returned empty.
@@ -708,7 +884,7 @@ export async function resolveDefaultTurnsRole(
 export async function cmdStepTurns(
   storageRoot: string,
   threadId: ThreadId,
-  options: Partial<CmdStepTurnsOptions> & { role: string; live: boolean },
+  options: Partial<CmdStepTurnsOptions> & { live: boolean },
 ): Promise<string> {
   const opts = resolveStepTurnsOptions(storageRoot, threadId, options);
 
@@ -718,9 +894,9 @@ export async function cmdStepTurns(
   }
 
   const uwf = await createUwfStore(storageRoot);
-  const hashes = resolveTurnHashes(uwf, threadId, opts.role);
-  const turnData = loadTurnData(uwf.store.cas, hashes);
-  return formatTurnsMarkdown(threadId, opts.role, turnData);
+  const panorama = buildTurnsPanorama(uwf, threadId);
+  const filtered = filterPanoramaByRole(panorama, opts.role);
+  return formatPanoramaMarkdown(threadId, filtered, opts.offset, opts.limit);
 }
 
 // ── step ask ────────────────────────────────────────────────────────────────

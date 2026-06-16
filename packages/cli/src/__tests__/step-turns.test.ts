@@ -1,17 +1,24 @@
 /**
- * Phase 4 (#400) — `uwf step turns <thread-id> [--role <r>] [--live]`.
+ * #409 — `uwf step turns <thread-id>` is the whole-thread turn panorama.
  *
- * The consumer side of the realtime-turns RFC. Covers the issue's testing
- * checklist via the three behavioral specs:
- *   - step-turns-read-order-active-then-detail.md  (Step 1)
- *   - step-turns-role-selection.md
- *   - step-turns-live-poll-active-var.md           (Step 2)
+ * It walks the entire thread chain (reusing `walkChain` + `collectOrderedSteps`,
+ * the same infra `cmdStepList` uses) and renders every step's turns in order —
+ * each completed step from its own immutable `detail.turns` (marked `✓`), the
+ * in-flight step from its `@uwf/active-turns/<tid>/<role>` var (marked
+ * `🔄 进行中`). `--role` filters the panorama to one role's steps across the
+ * whole chain; `--limit`/`--offset` paginate the flattened cross-step turn
+ * sequence (filter first, then paginate). Default is full + untruncated.
  *
- * `cmdStepTurns` resolves the turn list with active-var-first / detail.turns
- * fallback and renders it through the SAME per-turn pipeline as `step read`
- * (loadTurnData → formatTurnBody). `--live` polls the SQLite-backed active var
- * and prints each new turn exactly once, exiting when the step completes
- * (active var deleted and/or thread no longer running).
+ * Covers the issue's testing checklist via the six specs:
+ *   - step-turns-chain-panorama.md
+ *   - step-turns-role-selection.md            (the #409 regression)
+ *   - step-turns-read-order-active-then-detail.md
+ *   - step-turns-pagination.md
+ *   - step-turns-live-poll-active-var.md
+ *
+ * Per-turn blocks reuse the SAME pipeline as `step read`
+ * (loadTurnData → formatTurnBody), so a turn block here is byte-identical to the
+ * same turn under `uwf step read`.
  */
 
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -65,13 +72,7 @@ function putTurn(store: Store, content: string): CasRef {
   return store.cas.put(schemaHash, { role: "assistant", content }) as CasRef;
 }
 
-/** Seed a completed step chain whose head detail.turns === the given hashes. */
-async function seedCompletedStep(
-  uwf: UwfStore,
-  threadId: ThreadId,
-  role: string,
-  turnHashes: CasRef[],
-): Promise<void> {
+async function putWorkflowAndStart(uwf: UwfStore): Promise<CasRef> {
   const workflowHash = (await uwf.store.cas.put(uwf.schemas.workflow, {
     version: 1,
     name: "turns-wf",
@@ -79,11 +80,21 @@ async function seedCompletedStep(
     roles: {},
     graph: {},
   })) as CasRef;
-  const startHash = (await uwf.store.cas.put(uwf.schemas.startNode, {
+  return (await uwf.store.cas.put(uwf.schemas.startNode, {
     workflow: workflowHash,
     prompt: "task",
     cwd: "/tmp/work",
   })) as CasRef;
+}
+
+/** Seed a completed step chain whose head detail.turns === the given hashes. */
+async function seedCompletedStep(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  role: string,
+  turnHashes: CasRef[],
+): Promise<void> {
+  const startHash = await putWorkflowAndStart(uwf);
   const detailSchemaHash = await putSchema(uwf.store, DETAIL_SCHEMA);
   const detailHash = (await uwf.store.cas.put(detailSchemaHash, {
     sessionId: "ses_x",
@@ -113,79 +124,60 @@ async function seedCompletedStep(
 }
 
 /**
- * Seed a *completed multi-role* chain `planner → coder` whose head is the coder
- * step. Each step carries its own immutable `detail.turns`; the thread head var
- * points at the coder step (role `"coder"`), and the prior planner step (role
- * `"planner"`) is reachable only via `prev`. No active var remains (both roles
- * solidified + deleted). This is the `06FCZ...` fixture from
- * `step-turns-role-selection.md` — used to pin the role-aware detail fallback.
+ * Seed a linear completed chain of `steps` (oldest → newest), each carrying its
+ * own immutable `detail.turns`. The thread head points at the last step; earlier
+ * steps are reachable only via `prev`. Returns the per-step CAS hashes in order.
+ * A step with `detail: null` is requested by passing `turns: null`.
  */
-async function seedCompletedTwoRoleChain(
+async function seedLinearChain(
   uwf: UwfStore,
   threadId: ThreadId,
-  plannerTurns: CasRef[],
-  coderTurns: CasRef[],
-): Promise<void> {
-  const workflowHash = (await uwf.store.cas.put(uwf.schemas.workflow, {
-    version: 1,
-    name: "turns-wf",
-    description: "phase4",
-    roles: {},
-    graph: {},
-  })) as CasRef;
-  const startHash = (await uwf.store.cas.put(uwf.schemas.startNode, {
-    workflow: workflowHash,
-    prompt: "task",
-    cwd: "/tmp/work",
-  })) as CasRef;
+  steps: { role: string; turns: CasRef[] | null }[],
+): Promise<CasRef[]> {
+  const startHash = await putWorkflowAndStart(uwf);
   const detailSchemaHash = await putSchema(uwf.store, DETAIL_SCHEMA);
   const outputHash = (await uwf.store.cas.put(uwf.schemas.text, "output")) as CasRef;
-
-  const mkStep = async (role: string, turns: CasRef[], prev: CasRef | null): Promise<CasRef> => {
-    const detailHash = (await uwf.store.cas.put(detailSchemaHash, {
-      sessionId: `ses_${role}`,
-      duration: 5,
-      turnCount: turns.length,
-      turns,
-    })) as CasRef;
-    return (await uwf.store.cas.put(uwf.schemas.stepNode, {
+  const hashes: CasRef[] = [];
+  let prev: CasRef | null = null;
+  let i = 0;
+  for (const step of steps) {
+    let detail: CasRef | null = null;
+    if (step.turns !== null) {
+      detail = (await uwf.store.cas.put(detailSchemaHash, {
+        sessionId: `ses_${step.role}_${i}`,
+        duration: 5,
+        turnCount: step.turns.length,
+        turns: step.turns,
+      })) as CasRef;
+    }
+    const stepHash = (await uwf.store.cas.put(uwf.schemas.stepNode, {
       start: startHash,
       prev,
-      role,
+      role: step.role,
       output: outputHash,
-      detail: detailHash,
+      detail,
       agent: "uwf-test",
       edgePrompt: "",
-      startedAtMs: 1000,
-      completedAtMs: 6000,
+      startedAtMs: 1000 + i,
+      completedAtMs: 6000 + i,
     })) as CasRef;
-  };
-
-  const plannerStep = await mkStep("planner", plannerTurns, null);
-  const coderStep = await mkStep("coder", coderTurns, plannerStep);
+    hashes.push(stepHash);
+    prev = stepHash;
+    i += 1;
+  }
   setThread(uwf.varStore, threadId, {
-    head: coderStep,
+    head: prev ?? startHash,
     status: "idle",
     suspendedRole: null,
     suspendMessage: null,
     completedAt: null,
   });
+  return hashes;
 }
 
 /** Seed a thread whose head is only a StartNode (no steps yet). */
 async function seedStartOnly(uwf: UwfStore, threadId: ThreadId): Promise<void> {
-  const workflowHash = (await uwf.store.cas.put(uwf.schemas.workflow, {
-    version: 1,
-    name: "turns-wf",
-    description: "phase4",
-    roles: {},
-    graph: {},
-  })) as CasRef;
-  const startHash = (await uwf.store.cas.put(uwf.schemas.startNode, {
-    workflow: workflowHash,
-    prompt: "task",
-    cwd: "/tmp/work",
-  })) as CasRef;
+  const startHash = await putWorkflowAndStart(uwf);
   setThread(uwf.varStore, threadId, {
     head: startHash,
     status: "idle",
@@ -216,127 +208,220 @@ afterEach(async () => {
 
 const THREAD_ID = "06FCYTURNSPHASE4CONSUMER1" as ThreadId;
 
-// ── Step 1: read order — active var first, detail.turns fallback ─────────────
+/** The per-turn block region (## Turn 1 onward) — header/markers stripped. */
+function turnBlocks(md: string): string {
+  const i = md.indexOf("## Turn ");
+  return i === -1 ? "" : md.slice(i);
+}
 
-describe("cmdStepTurns read order (active var → detail.turns)", () => {
-  test("running case: renders all turns from the active var", async () => {
+// ── chain panorama: walk the whole chain, every step's turns ─────────────────
+
+describe("cmdStepTurns chain panorama (#409)", () => {
+  test("walks the whole chain: every step group appears, attributed to its role", async () => {
     const uwf = await createUwfStore(tmpDir);
-    await seedStartOnly(uwf, THREAD_ID);
-    const t1 = putTurn(uwf.store, "t1");
-    const t2 = putTurn(uwf.store, "t2");
-    const t3 = putTurn(uwf.store, "t3");
-    for (const h of [t1, t2, t3]) {
-      appendActiveTurn(uwf.store, THREAD_ID, "coder", h);
-    }
+    const p = [putTurn(uwf.store, "p-turn")];
+    const d = [putTurn(uwf.store, "d-turn")];
+    const r = [putTurn(uwf.store, "r-turn")];
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: p },
+      { role: "developer", turns: d },
+      { role: "reviewer", turns: r },
+    ]);
 
-    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
 
-    expect(out).toContain("## Turn 1");
-    expect(out).toContain("## Turn 2");
-    expect(out).toContain("## Turn 3");
-    expect(out).toContain("**Turn role:** assistant");
-    // Arrival order preserved.
-    expect(out.indexOf("t1")).toBeLessThan(out.indexOf("t2"));
-    expect(out.indexOf("t2")).toBeLessThan(out.indexOf("t3"));
+    // All three step groups present, in chronological order.
+    expect(out).toContain("## planner");
+    expect(out).toContain("## developer");
+    expect(out).toContain("## reviewer");
+    expect(out.indexOf("## planner")).toBeLessThan(out.indexOf("## developer"));
+    expect(out.indexOf("## developer")).toBeLessThan(out.indexOf("## reviewer"));
+    // Each step shows its OWN turns (per-step sourcing).
+    expect(out.indexOf("p-turn")).toBeLessThan(out.indexOf("d-turn"));
+    expect(out.indexOf("d-turn")).toBeLessThan(out.indexOf("r-turn"));
   });
 
-  test("completed case: renders the same turn blocks from detail.turns", async () => {
+  test("completed steps are marked ✓ with their turn count", async () => {
     const uwf = await createUwfStore(tmpDir);
-    const t1 = putTurn(uwf.store, "t1");
-    const t2 = putTurn(uwf.store, "t2");
-    const t3 = putTurn(uwf.store, "t3");
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "p1"), putTurn(uwf.store, "p2")] },
+      { role: "developer", turns: [putTurn(uwf.store, "d1")] },
+    ]);
 
-    // (a) running snapshot from the active var.
-    await seedStartOnly(uwf, THREAD_ID);
-    for (const h of [t1, t2, t3]) appendActiveTurn(uwf.store, THREAD_ID, "coder", h);
-    const running = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
 
-    // (b) completed: var gone, the same hashes solidified into detail.turns.
-    clearActiveTurns(uwf.store, THREAD_ID, "coder");
-    await seedCompletedStep(uwf, THREAD_ID, "coder", [t1, t2, t3]);
-    const completed = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
-
-    // The per-turn blocks are byte-identical (header line may differ).
-    const turnBlocks = (md: string) => md.slice(md.indexOf("## Turn 1"));
-    expect(turnBlocks(completed)).toBe(turnBlocks(running));
-    expect(completed).toContain("t1");
-    expect(completed).toContain("t3");
+    expect(out).toContain("## planner ✓ (2 turns)");
+    expect(out).toContain("## developer ✓ (1 turns)");
+    expect(out).not.toContain("进行中");
   });
 
-  test("active var takes precedence over a present detail.turns", async () => {
+  test("the in-flight step (active var, no settled StepNode) is marked 🔄 进行中", async () => {
     const uwf = await createUwfStore(tmpDir);
-    // Completed step holds OLD turns…
-    const old1 = putTurn(uwf.store, "OLD-DETAIL");
-    await seedCompletedStep(uwf, THREAD_ID, "coder", [old1]);
-    // …but a fresh active var holds NEW turns: the var wins.
-    const n1 = putTurn(uwf.store, "NEW-ACTIVE");
-    appendActiveTurn(uwf.store, THREAD_ID, "coder", n1);
+    // planner + developer settled; reviewer in flight via active var only.
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "p1")] },
+      { role: "developer", turns: [putTurn(uwf.store, "d1")] },
+    ]);
+    appendActiveTurn(uwf.store, THREAD_ID, "reviewer", putTurn(uwf.store, "r-live-1"));
+    appendActiveTurn(uwf.store, THREAD_ID, "reviewer", putTurn(uwf.store, "r-live-2"));
 
-    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
 
-    expect(out).toContain("NEW-ACTIVE");
-    expect(out).not.toContain("OLD-DETAIL");
+    expect(out).toContain("## planner ✓ (1 turns)");
+    expect(out).toContain("## developer ✓ (1 turns)");
+    expect(out).toContain("## reviewer 🔄 进行中 (2 turns so far)");
+    // The in-flight step appears after the completed steps.
+    expect(out.indexOf("## developer")).toBeLessThan(out.indexOf("## reviewer"));
+    expect(out).toContain("r-live-1");
+    expect(out).toContain("r-live-2");
   });
 
-  test("empty: no active var and head is a StartNode → header only, no turn blocks", async () => {
+  test("default shows all turns: no quota cutoff, no omitted-turns notice", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const many: CasRef[] = [];
+    for (let i = 0; i < 30; i++) many.push(putTurn(uwf.store, `dev-turn-${i}`));
+    await seedLinearChain(uwf, THREAD_ID, [{ role: "developer", turns: many }]);
+
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
+
+    expect(out).toContain("dev-turn-0");
+    expect(out).toContain("dev-turn-29");
+    expect(out).not.toContain("omitted");
+    expect(out).toContain("## Turn 30");
+  });
+
+  test("empty thread (StartNode head): header only, no step groups, no turn blocks", async () => {
     const uwf = await createUwfStore(tmpDir);
     await seedStartOnly(uwf, THREAD_ID);
 
-    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
 
+    expect(out).toContain(`# Thread ${THREAD_ID}`);
     expect(out).not.toContain("## Turn");
-    expect(out).toContain("coder");
+    expect(out).not.toContain("✓");
+    expect(out).not.toContain("进行中");
   });
 
-  test("empty: completed step with detail.turns === [] → header only", async () => {
+  test("a step with turnCount === 0 keeps its (0 turns) header, is not dropped", async () => {
     const uwf = await createUwfStore(tmpDir);
-    await seedCompletedStep(uwf, THREAD_ID, "coder", []);
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "p1")] },
+      { role: "developer", turns: [] },
+      { role: "reviewer", turns: null }, // detail === null
+    ]);
 
-    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
 
-    expect(out).not.toContain("## Turn");
+    expect(out).toContain("## planner ✓ (1 turns)");
+    expect(out).toContain("## developer ✓ (0 turns)");
+    expect(out).toContain("## reviewer ✓ (0 turns)");
   });
 });
 
-// ── --role selection ─────────────────────────────────────────────────────────
+// ── --role selection: the #409 regression ────────────────────────────────────
 
-describe("cmdStepTurns --role selection", () => {
-  test("two concurrent role vars are addressed independently", async () => {
+describe("cmdStepTurns --role filters the chain panorama (#409 regression)", () => {
+  test("--role developer on a head=committer thread returns the developer step's turns (NOT empty)", async () => {
     const uwf = await createUwfStore(tmpDir);
-    await seedStartOnly(uwf, THREAD_ID);
+    const dev = [putTurn(uwf.store, "dev-1"), putTurn(uwf.store, "dev-2")];
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "plan-1")] },
+      { role: "developer", turns: dev },
+      { role: "reviewer", turns: [putTurn(uwf.store, "rev-1")] },
+      { role: "tester", turns: [putTurn(uwf.store, "test-1")] },
+      { role: "committer", turns: [putTurn(uwf.store, "commit-1")] },
+    ]);
+
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "developer", live: false });
+
+    // The chain is walked to the developer step; its turns render — not empty.
+    expect(out).toContain("## developer ✓ (2 turns)");
+    expect(out).toContain("dev-1");
+    expect(out).toContain("dev-2");
+    // Only the developer step survives the filter.
+    expect(out).not.toContain("## planner");
+    expect(out).not.toContain("## committer");
+    expect(out).not.toContain("plan-1");
+    expect(out).not.toContain("commit-1");
+  });
+
+  test("--role planner (head is coder) renders the planner step's turns, never the coder head's", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const p1 = putTurn(uwf.store, "p1");
     const c1 = putTurn(uwf.store, "c1");
     const c2 = putTurn(uwf.store, "c2");
-    const p1 = putTurn(uwf.store, "p1");
-    appendActiveTurn(uwf.store, THREAD_ID, "coder", c1);
-    appendActiveTurn(uwf.store, THREAD_ID, "coder", c2);
-    appendActiveTurn(uwf.store, THREAD_ID, "planner", p1);
-
-    const coder = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
-    expect(coder).toContain("c1");
-    expect(coder).toContain("c2");
-    expect(coder).not.toContain("p1");
-    expect(coder).toContain("## Turn 2");
-    expect(coder).not.toContain("## Turn 3");
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [p1] },
+      { role: "coder", turns: [c1, c2] },
+    ]);
 
     const planner = await cmdStepTurns(tmpDir, THREAD_ID, { role: "planner", live: false });
+    // #409: walking the chain reaches the earlier planner step — NOT empty.
+    expect(planner).toContain("## planner ✓ (1 turns)");
     expect(planner).toContain("p1");
+    // The coder head step's turns must NOT surface under --role planner.
     expect(planner).not.toContain("c1");
     expect(planner).not.toContain("c2");
+    expect(planner).not.toContain("## coder");
   });
 
-  test("role with no active var and no matching detail → empty, exit 0 (no crash)", async () => {
+  test("--role coder (head IS coder) renders the coder step's turns in order", async () => {
     const uwf = await createUwfStore(tmpDir);
-    await seedStartOnly(uwf, THREAD_ID);
-    appendActiveTurn(uwf.store, THREAD_ID, "coder", putTurn(uwf.store, "c1"));
+    const p1 = putTurn(uwf.store, "p1");
+    const c1 = putTurn(uwf.store, "c1");
+    const c2 = putTurn(uwf.store, "c2");
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [p1] },
+      { role: "coder", turns: [c1, c2] },
+    ]);
 
-    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "reviewer", live: false });
-    expect(out).not.toContain("## Turn");
+    const coder = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+    expect(coder).toContain("## coder ✓ (2 turns)");
+    expect(coder).toContain("c1");
+    expect(coder).toContain("c2");
+    expect(coder.indexOf("c1")).toBeLessThan(coder.indexOf("c2"));
+    expect(coder).not.toContain("p1");
   });
 
-  test("role match is exact: 'coder' does not match a 'coder-2' var", async () => {
+  test("--role reviewer (never ran) renders empty (no step matches), exit 0", async () => {
     const uwf = await createUwfStore(tmpDir);
-    await seedStartOnly(uwf, THREAD_ID);
-    appendActiveTurn(uwf.store, THREAD_ID, "coder-2", putTurn(uwf.store, "other-role"));
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "p1")] },
+      { role: "coder", turns: [putTurn(uwf.store, "c1")] },
+    ]);
+
+    const reviewer = await cmdStepTurns(tmpDir, THREAD_ID, { role: "reviewer", live: false });
+    expect(reviewer).toContain(`# Thread ${THREAD_ID}`);
+    expect(reviewer).not.toContain("## Turn");
+    expect(reviewer).not.toContain("p1");
+    expect(reviewer).not.toContain("c1");
+  });
+
+  test("multiple steps of the same role aggregate (two rounds of developer)", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    const d1 = putTurn(uwf.store, "dev-round1");
+    const d2 = putTurn(uwf.store, "dev-round2");
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "p1")] },
+      { role: "developer", turns: [d1] },
+      { role: "reviewer", turns: [putTurn(uwf.store, "r1")] },
+      { role: "developer", turns: [d2] },
+    ]);
+
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "developer", live: false });
+    // Both developer occurrences are kept, in chronological order.
+    expect(out).toContain("dev-round1");
+    expect(out).toContain("dev-round2");
+    expect(out.indexOf("dev-round1")).toBeLessThan(out.indexOf("dev-round2"));
+    expect((out.match(/## developer/g) ?? []).length).toBe(2);
+    expect(out).not.toContain("## reviewer");
+  });
+
+  test("--role is exact-match: 'coder' does not match a 'coder-2' step", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "coder-2", turns: [putTurn(uwf.store, "other-role")] },
+    ]);
 
     const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
     expect(out).not.toContain("other-role");
@@ -344,71 +429,173 @@ describe("cmdStepTurns --role selection", () => {
   });
 });
 
-// ── role-aware detail fallback on a completed multi-role thread ───────────────
-// Regression for review blocking issue #1/#2 (#400): the completed-step fallback
-// `readHeadDetailTurns` reads the thread head StepNode's `detail.turns` WITHOUT
-// comparing the head step's role to the queried role. On a multi-role thread
-// (`planner → coder`, head = coder step) this leaked the coder head step's turns
-// for ANY `--role`. The prior suite only seeded single-role threads (head role ==
-// queried role) or a StartNode head, so this case was untested. The fallback must
-// be role-aware: use the head's `detail.turns` only when `headStepNode.role ===
-// role`, else `[]`.
+// ── per-step read order: active var → detail, source-transparent ─────────────
 
-const MULTIROLE_THREAD_ID = "06FCZTURNSPHASE4MULTIROLE1" as ThreadId;
-
-describe("cmdStepTurns detail fallback is role-aware (multi-role completed thread)", () => {
-  test("--role coder (head IS the coder step) renders the head step's turns", async () => {
+describe("cmdStepTurns per-step read order (active → detail)", () => {
+  test("running vs completed: same step's per-turn blocks are byte-identical, marker flips", async () => {
     const uwf = await createUwfStore(tmpDir);
-    const p1 = putTurn(uwf.store, "p1");
-    const c1 = putTurn(uwf.store, "c1");
-    const c2 = putTurn(uwf.store, "c2");
-    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
+    const r1 = putTurn(uwf.store, "r1");
+    const r2 = putTurn(uwf.store, "r2");
+    const r3 = putTurn(uwf.store, "r3");
 
-    const coder = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
-      role: "coder",
-      live: false,
-    });
-    expect(coder).toContain("## Turn 1");
-    expect(coder).toContain("## Turn 2");
-    expect(coder).not.toContain("## Turn 3");
+    // (a) running snapshot: reviewer in flight via active var (StartNode head).
+    await seedStartOnly(uwf, THREAD_ID);
+    for (const h of [r1, r2, r3]) appendActiveTurn(uwf.store, THREAD_ID, "reviewer", h);
+    const running = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
+
+    // (b) completed: var gone, same hashes solidified into that step's detail.
+    clearActiveTurns(uwf.store, THREAD_ID, "reviewer");
+    await seedCompletedStep(uwf, THREAD_ID, "reviewer", [r1, r2, r3]);
+    const completed = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
+
+    // The per-turn blocks are byte-identical; only the step marker differs.
+    expect(turnBlocks(completed)).toBe(turnBlocks(running));
+    expect(running).toContain("🔄 进行中");
+    expect(completed).toContain("✓");
+    expect(completed).toContain("r1");
+    expect(completed).toContain("r3");
+  });
+
+  test("active var takes precedence over a present detail for the same step/role", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    // Completed step holds OLD turns…
+    const old1 = putTurn(uwf.store, "OLD-DETAIL");
+    await seedCompletedStep(uwf, THREAD_ID, "coder", [old1]);
+    // …but a fresh active var for the same role holds NEW turns: the var wins.
+    const n1 = putTurn(uwf.store, "NEW-ACTIVE");
+    appendActiveTurn(uwf.store, THREAD_ID, "coder", n1);
+
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
+
+    expect(out).toContain("NEW-ACTIVE");
+    expect(out).not.toContain("OLD-DETAIL");
+    expect(out).toContain("🔄 进行中");
+  });
+
+  test("two concurrent in-flight role vars are both shown, each under its own group", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedStartOnly(uwf, THREAD_ID);
+    appendActiveTurn(uwf.store, THREAD_ID, "coder", putTurn(uwf.store, "c1"));
+    appendActiveTurn(uwf.store, THREAD_ID, "planner", putTurn(uwf.store, "p1"));
+
+    const all = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
+    expect(all).toContain("## coder 🔄 进行中");
+    expect(all).toContain("## planner 🔄 进行中");
+
+    // …and --role isolates one of them.
+    const coder = await cmdStepTurns(tmpDir, THREAD_ID, { role: "coder", live: false });
     expect(coder).toContain("c1");
-    expect(coder).toContain("c2");
-    expect(coder.indexOf("c1")).toBeLessThan(coder.indexOf("c2"));
+    expect(coder).not.toContain("p1");
+  });
+});
+
+// ── pagination: default-all, --limit/--offset over the flattened sequence ─────
+
+describe("cmdStepTurns pagination (--limit / --offset)", () => {
+  // Flattened sequence: [pa, pb, da, db, dc, ra, rb] — global indices 0..6.
+  async function seedPaginationFixture(uwf: UwfStore): Promise<void> {
+    await seedLinearChain(uwf, THREAD_ID, [
+      { role: "planner", turns: [putTurn(uwf.store, "pa"), putTurn(uwf.store, "pb")] },
+      {
+        role: "developer",
+        turns: [putTurn(uwf.store, "da"), putTurn(uwf.store, "db"), putTurn(uwf.store, "dc")],
+      },
+      { role: "reviewer", turns: [putTurn(uwf.store, "ra"), putTurn(uwf.store, "rb")] },
+    ]);
+  }
+
+  test("default (no flags): all 7 turns render", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false });
+    for (const c of ["pa", "pb", "da", "db", "dc", "ra", "rb"]) expect(out).toContain(c);
+    expect(out).toContain("## Turn 7");
   });
 
-  test("--role planner (head is the coder step) renders EMPTY, not the coder head turns", async () => {
+  test("--limit 3: first 3 turns of the flattened sequence", async () => {
     const uwf = await createUwfStore(tmpDir);
-    const p1 = putTurn(uwf.store, "p1");
-    const c1 = putTurn(uwf.store, "c1");
-    const c2 = putTurn(uwf.store, "c2");
-    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
-
-    const planner = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
-      role: "planner",
-      live: false,
-    });
-    // The head StepNode is the coder step → its detail.turns MUST NOT surface
-    // under --role planner. The fallback returns [] on role mismatch.
-    expect(planner).not.toContain("## Turn");
-    expect(planner).not.toContain("c1");
-    expect(planner).not.toContain("c2");
-    expect(planner).toContain("planner"); // header line only
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, limit: 3 });
+    expect(out).toContain("pa");
+    expect(out).toContain("pb");
+    expect(out).toContain("da");
+    expect(out).not.toContain("db");
+    expect(out).not.toContain("ra");
   });
 
-  test("--role reviewer (never ran on this thread) renders EMPTY, not the coder head turns", async () => {
+  test("--offset 2: skips the first 2, spans into later steps", async () => {
     const uwf = await createUwfStore(tmpDir);
-    const p1 = putTurn(uwf.store, "p1");
-    const c1 = putTurn(uwf.store, "c1");
-    const c2 = putTurn(uwf.store, "c2");
-    await seedCompletedTwoRoleChain(uwf, MULTIROLE_THREAD_ID, [p1], [c1, c2]);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, offset: 2 });
+    expect(out).not.toContain("pa");
+    expect(out).not.toContain("pb");
+    expect(out).toContain("da");
+    expect(out).toContain("rb");
+  });
 
-    const reviewer = await cmdStepTurns(tmpDir, MULTIROLE_THREAD_ID, {
-      role: "reviewer",
-      live: false,
-    });
-    expect(reviewer).not.toContain("## Turn");
-    expect(reviewer).not.toContain("c1");
-    expect(reviewer).not.toContain("c2");
+  test("--offset 2 --limit 2: the slice [2,4) over the flat sequence, with global numbering", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, offset: 2, limit: 2 });
+    expect(out).toContain("da");
+    expect(out).toContain("db");
+    expect(out).not.toContain("pa");
+    expect(out).not.toContain("dc");
+    // Global numbering: da is global index 2 → "## Turn 3".
+    expect(out).toContain("## Turn 3");
+    expect(out).toContain("## Turn 4");
+    expect(out).not.toContain("## Turn 1");
+  });
+
+  test("a slice spanning a step boundary keeps each turn under its owning group", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    // indices 4..5 → dc (developer), ra (reviewer).
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, offset: 4, limit: 2 });
+    expect(out).toContain("## developer");
+    expect(out).toContain("## reviewer");
+    expect(out).toContain("dc");
+    expect(out).toContain("ra");
+    expect(out).not.toContain("da");
+    expect(out).not.toContain("rb");
+  });
+
+  test("filter-then-paginate: --role developer --limit 2 → first 2 developer turns only", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, role: "developer", limit: 2 });
+    expect(out).toContain("da");
+    expect(out).toContain("db");
+    expect(out).not.toContain("dc");
+    // Not the first 2 turns of the whole thread (pa/pb) filtered down.
+    expect(out).not.toContain("pa");
+    expect(out).not.toContain("pb");
+  });
+
+  test("--offset >= total turns → header/groups only, no turn blocks", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, offset: 7 });
+    expect(out).not.toContain("## Turn");
+    // Group headers still render.
+    expect(out).toContain("## planner");
+  });
+
+  test("--limit 0 → no turns (the ListOptions convention; absent limit means all)", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, limit: 0 });
+    expect(out).not.toContain("## Turn");
+    expect(out).toContain("## planner");
+  });
+
+  test("--limit larger than remaining clamps (no error)", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedPaginationFixture(uwf);
+    const out = await cmdStepTurns(tmpDir, THREAD_ID, { live: false, offset: 5, limit: 100 });
+    expect(out).toContain("ra");
+    expect(out).toContain("rb");
+    expect(out).not.toContain("dc");
   });
 });
 
@@ -425,14 +612,11 @@ describe("cmdStepTurns --live poll", () => {
     const t2 = putTurn(uwf.store, "L2");
     const t3 = putTurn(uwf.store, "L3");
 
-    // The injected clock drives the producer: turns appear over ticks, then the
-    // var is solidified+cleared, which is the stop signal.
     await cmdStepTurns(tmpDir, THREAD_ID, {
       role: "coder",
       live: true,
       pollIntervalMs: 0,
       onChunk: (chunk: string) => printed.push(chunk),
-      // Simulate a running step until the producer clears the var (tick >= 4).
       isRunning: async () => tick < 4,
       sleep: async () => {
         tick += 1;
@@ -444,14 +628,11 @@ describe("cmdStepTurns --live poll", () => {
     });
 
     const joined = printed.join("\n");
-    // Each turn content printed exactly once.
     expect(joined.match(/L1/g) ?? []).toHaveLength(1);
     expect(joined.match(/L2/g) ?? []).toHaveLength(1);
     expect(joined.match(/L3/g) ?? []).toHaveLength(1);
-    // In arrival order.
     expect(joined.indexOf("L1")).toBeLessThan(joined.indexOf("L2"));
     expect(joined.indexOf("L2")).toBeLessThan(joined.indexOf("L3"));
-    // Reused renderer.
     expect(joined).toContain("**Turn role:** assistant");
   });
 
@@ -477,15 +658,42 @@ describe("cmdStepTurns --live poll", () => {
     expect(joined.match(/D1/g) ?? []).toHaveLength(1);
   });
 
-  test("multi-step run: exit reconcile is role-aware — never emits a different head role's turns", async () => {
-    // Regression for review blocking issue #2 (#400). In a multi-step run
-    // (`exec --count N≥2`) the running marker is held for the whole loop, so the
-    // thread stays "running" while the head advances through roles
-    // (coder → reviewer). A `--live --role coder` follower streams the coder
-    // turns from the coder active var; by the time it exits, the head StepNode is
-    // the *reviewer* step. The exit reconcile flush of the head's `detail.turns`
-    // MUST be role-aware (head used only when its role === "coder"), else the
-    // follower续吐 the reviewer step's turns as continued "coder" turns.
+  test("without --role, --live follows the thread's in-flight role", async () => {
+    const uwf = await createUwfStore(tmpDir);
+    await seedStartOnly(uwf, THREAD_ID);
+    // The step is already emitting when --live starts: its active var is present
+    // at invocation, so the followed role is discovered from it (no --role given).
+    const t1 = putTurn(uwf.store, "AUTO1");
+    appendActiveTurn(uwf.store, THREAD_ID, "coder", t1);
+
+    const printed: string[] = [];
+    let tick = 0;
+    const t2 = putTurn(uwf.store, "AUTO2");
+    await cmdStepTurns(tmpDir, THREAD_ID, {
+      live: true,
+      pollIntervalMs: 0,
+      onChunk: (chunk: string) => printed.push(chunk),
+      isRunning: async () => tick < 2,
+      sleep: async () => {
+        tick += 1;
+        if (tick === 1) appendActiveTurn(uwf.store, THREAD_ID, "coder", t2);
+        else if (tick >= 2) clearActiveTurns(uwf.store, THREAD_ID, "coder");
+      },
+    });
+
+    // The coder active var was discovered and followed without an explicit --role.
+    const joined = printed.join("\n");
+    expect(joined).toContain("AUTO1");
+    expect(joined).toContain("AUTO2");
+  });
+
+  test("multi-step run: exit reconcile is role-scoped — never emits a different role's turns", async () => {
+    // Regression for #409 (live counterpart). In a multi-step run the running
+    // marker is held for the whole loop, so the thread stays "running" while the
+    // head advances coder → reviewer. A `--live --role coder` follower streams the
+    // coder turns; by exit the head StepNode is the reviewer step. The reconcile
+    // MUST walk the chain to the *coder* step (not blindly the head), else the
+    // reviewer tail leaks as continued coder turns.
     const uwf = await createUwfStore(tmpDir);
     await seedStartOnly(uwf, THREAD_ID);
 
@@ -502,19 +710,14 @@ describe("cmdStepTurns --live poll", () => {
       live: true,
       pollIntervalMs: 0,
       onChunk: (chunk: string) => printed.push(chunk),
-      // Thread is "running" for the whole multi-step loop until tick >= 3.
       isRunning: async () => tick < 3,
       sleep: async () => {
         tick += 1;
         if (tick === 1) appendActiveTurn(uwf.store, THREAD_ID, "coder", c1);
         else if (tick === 2) appendActiveTurn(uwf.store, THREAD_ID, "coder", c2);
         else if (tick === 3) {
-          // coder step ends: its active var is solidified+deleted and the head
-          // advances to the (completed) reviewer step — but the thread is still
-          // "running" for the rest of the loop. Reviewer produced MORE turns (3)
-          // than the coder follower printed (2): a count-blind reconcile flush
-          // of the reviewer head's detail.turns would leak its tail (LR3) as a
-          // continued coder turn. The role-aware fallback returns [] instead.
+          // coder step ends: its var is solidified+deleted and the head advances
+          // to the (completed) reviewer step while the thread stays "running".
           clearActiveTurns(uwf.store, THREAD_ID, "coder");
           await seedCompletedStep(uwf, THREAD_ID, "reviewer", [r1, r2, r3]);
         }
@@ -522,14 +725,10 @@ describe("cmdStepTurns --live poll", () => {
     });
 
     const joined = printed.join("\n");
-    // The coder turns were streamed live, exactly once each.
     expect(joined.match(/LC1/g) ?? []).toHaveLength(1);
     expect(joined.match(/LC2/g) ?? []).toHaveLength(1);
-    // The reviewer head step's turns MUST NOT be flushed under the coder follower
-    // (the count-blind leak would surface the reviewer tail LR3 as coder Turn 3).
     expect(joined).not.toContain("LR1");
     expect(joined).not.toContain("LR2");
     expect(joined).not.toContain("LR3");
-    expect(joined).not.toContain("## Turn 3");
   });
 });
