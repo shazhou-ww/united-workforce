@@ -504,6 +504,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
       threadId: args.threadId,
       role: args.role,
       prompt: assembledPrompt,
+      onTurn: null,
     });
 
     let extracted = await tryExtract(args.uwf, primary.output, outputSchemaHash);
@@ -524,6 +525,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
         threadId: args.threadId,
         role: args.role,
         prompt: correctionPrompt,
+        onTurn: null,
       });
       lastOutput = retryResult.output;
       lastSessionId = retryResult.sessionId;

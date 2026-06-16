@@ -22,18 +22,46 @@ import {
   type SumeruClient,
   type SumeruSendOutcome,
   SumeruSessionNotFoundError,
+  type SumeruTurnListener,
+  type SumeruTurnValue,
 } from "../sumeru-client/index.js";
 import type {
   AgentRoute,
   AgentRouteResolver,
   Broker,
+  BrokerTurn,
   CreateBrokerOptions,
+  OnTurn,
   SendArgs,
   SendResult,
   SumeruClientFactory,
 } from "./types.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
+
+/**
+ * Project a raw Sumeru turn value onto the broker's public `BrokerTurn`
+ * shape (issue #397) — narrowed to the fields callers depend on.
+ */
+function toBrokerTurn(turn: SumeruTurnValue): BrokerTurn {
+  return {
+    index: turn.index,
+    role: turn.role,
+    content: turn.content,
+    hash: turn.hash,
+    timestamp: turn.timestamp,
+  };
+}
+
+/**
+ * Adapt a caller's `onTurn` (over `BrokerTurn`) into a `SumeruTurnListener`
+ * (over `SumeruTurnValue`). Returns `undefined` when `onTurn` is `null` so the
+ * client takes its pre-Phase-1 path with zero per-turn work.
+ */
+function toTurnListener(onTurn: OnTurn | null): SumeruTurnListener | undefined {
+  if (onTurn === null) return undefined;
+  return (turn: SumeruTurnValue) => onTurn(toBrokerTurn(turn));
+}
 
 /**
  * Create a stateless broker. The session store and route resolver are
@@ -99,11 +127,14 @@ type ExistingSessionArgs = Readonly<{
 
 async function sendOnExistingSession(args: ExistingSessionArgs): Promise<SendResult> {
   try {
-    const outcome = await args.client.sendMessage({
-      gateway: args.cachedGateway,
-      sessionId: args.cachedSessionId,
-      content: args.args.prompt,
-    });
+    const outcome = await args.client.sendMessage(
+      {
+        gateway: args.cachedGateway,
+        sessionId: args.cachedSessionId,
+        content: args.args.prompt,
+      },
+      toTurnListener(args.args.onTurn),
+    );
     return buildResult(outcome, args.cachedSessionId, true);
   } catch (err) {
     if (err instanceof SumeruSessionNotFoundError) {
@@ -138,11 +169,14 @@ async function runFallback(args: ExistingSessionArgs): Promise<SendResult> {
     gateway: route.gateway,
     sessionId: newSessionId,
   });
-  const outcome = await client.sendMessage({
-    gateway: route.gateway,
-    sessionId: newSessionId,
-    content: args.args.prompt,
-  });
+  const outcome = await client.sendMessage(
+    {
+      gateway: route.gateway,
+      sessionId: newSessionId,
+      content: args.args.prompt,
+    },
+    toTurnListener(args.args.onTurn),
+  );
   return buildResult(outcome, newSessionId, false);
 }
 
@@ -167,11 +201,14 @@ async function sendOnNewSession(input: NewSessionArgs): Promise<SendResult> {
     gateway: route.gateway,
     sessionId: newSessionId,
   });
-  const outcome = await client.sendMessage({
-    gateway: route.gateway,
-    sessionId: newSessionId,
-    content: input.args.prompt,
-  });
+  const outcome = await client.sendMessage(
+    {
+      gateway: route.gateway,
+      sessionId: newSessionId,
+      content: input.args.prompt,
+    },
+    toTurnListener(input.args.onTurn),
+  );
   return buildResult(outcome, newSessionId, false);
 }
 
@@ -186,6 +223,7 @@ function buildResult(outcome: SumeruSendOutcome, sessionId: string, reused: bool
     sessionId,
     reused,
     assistantTurnCount: outcome.assistantTurnCount,
+    turns: outcome.assistantTurns.map(toBrokerTurn),
     done: outcome.done,
   };
 }

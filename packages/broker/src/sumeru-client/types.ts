@@ -72,6 +72,11 @@ export type SumeruSendOutcome = Readonly<{
   output: string;
   /** Number of assistant turns observed in this exchange. */
   assistantTurnCount: number;
+  /**
+   * Every assistant turn observed in this exchange, in arrival order
+   * (issue #397, Phase 1). `output` is the last entry's `content`.
+   */
+  assistantTurns: readonly SumeruTurnValue[];
   /** Summary delivered by the final `done` event. */
   done: SumeruDoneValue;
 }>;
@@ -91,12 +96,29 @@ export type SendMessageArgs = Readonly<{
 }>;
 
 /**
+ * Realtime per-assistant-turn listener for `client.sendMessage` (issue #397,
+ * Phase 1). Invoked synchronously inside the SSE reader loop, once per applied
+ * assistant turn, in arrival order — before `sendMessage` resolves. The
+ * argument is the raw `SumeruTurnValue`; the broker projects it to a
+ * `BrokerTurn`. Non-assistant turns never fire it.
+ */
+export type SumeruTurnListener = (turn: SumeruTurnValue) => void;
+
+/**
  * Stateless Sumeru HTTP client. Each method does its own `fetch` against the
  * configured `host`. The factory does not perform I/O at construction time.
  */
 export type SumeruClient = Readonly<{
   /** POST `/gateways/:gw/sessions`, return the new session id. */
   createSession: (args: CreateSessionArgs) => Promise<string>;
-  /** POST `/gateways/:gw/sessions/:id/messages`, consume SSE, return outcome. */
-  sendMessage: (args: SendMessageArgs) => Promise<SumeruSendOutcome>;
+  /**
+   * POST `/gateways/:gw/sessions/:id/messages`, consume SSE, return outcome.
+   * `onAssistantTurn` (issue #397) fires synchronously per assistant turn as
+   * the stream is read; omit it (or pass `undefined`) for the pre-Phase-1
+   * behavior.
+   */
+  sendMessage: (
+    args: SendMessageArgs,
+    onAssistantTurn?: SumeruTurnListener,
+  ) => Promise<SumeruSendOutcome>;
 }>;

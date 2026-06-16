@@ -63,6 +63,17 @@ function happyOutcome(content: string): SumeruSendOutcome {
   return {
     output: content,
     assistantTurnCount: 1,
+    assistantTurns: [
+      {
+        index: 1,
+        role: "assistant",
+        content,
+        timestamp: "",
+        toolCalls: null,
+        tokens: null,
+        hash: "h_happy",
+      },
+    ],
     done: HAPPY_DONE,
   };
 }
@@ -116,6 +127,7 @@ describe("broker.send — cache hit", () => {
       threadId: THREAD_A,
       role: "planner",
       prompt: "next step",
+      onTurn: null,
     });
 
     expect(result.output).toBe("hello");
@@ -179,6 +191,7 @@ describe("broker.send — cache miss (cold start)", () => {
       threadId: THREAD_A,
       role: "reviewer",
       prompt: "review this",
+      onTurn: null,
     });
 
     expect(result.output).toBe("review-output");
@@ -217,7 +230,7 @@ describe("broker.send — cache miss (cold start)", () => {
     });
 
     await expect(
-      broker.send({ threadId: THREAD_A, role: "reviewer", prompt: "x" }),
+      broker.send({ threadId: THREAD_A, role: "reviewer", prompt: "x", onTurn: null }),
     ).rejects.toThrow(/upstream-broken/);
 
     expect(store.getSession(THREAD_A, "reviewer")).toBeNull();
@@ -273,6 +286,7 @@ describe("broker.send — 404 session_not_found fallback", () => {
       threadId: THREAD_A,
       role: "planner",
       prompt: "do the thing",
+      onTurn: null,
     });
 
     expect(result.output).toBe("retry-output");
@@ -314,7 +328,7 @@ describe("broker.send — 404 session_not_found fallback", () => {
     });
 
     await expect(
-      broker.send({ threadId: THREAD_A, role: "planner", prompt: "x" }),
+      broker.send({ threadId: THREAD_A, role: "planner", prompt: "x", onTurn: null }),
     ).rejects.toBeInstanceOf(SumeruSessionNotFoundError);
     expect(sendCount).toBe(2);
   });
@@ -343,9 +357,9 @@ describe("broker.send — 404 session_not_found fallback", () => {
       clientFactory: rec.factory,
     });
 
-    await expect(broker.send({ threadId: THREAD_A, role: "planner", prompt: "x" })).rejects.toThrow(
-      /HTTP 500/,
-    );
+    await expect(
+      broker.send({ threadId: THREAD_A, role: "planner", prompt: "x", onTurn: null }),
+    ).rejects.toThrow(/HTTP 500/);
 
     // Stale row remains unchanged because no retry happened.
     expect(store.getSession(THREAD_A, "planner")?.sessionId).toBe("ses_stale");
@@ -376,6 +390,17 @@ describe("broker.send — output is raw (no frontmatter extraction)", () => {
       sendMessage: async () => ({
         output: raw,
         assistantTurnCount: 1,
+        assistantTurns: [
+          {
+            index: 1,
+            role: "assistant",
+            content: raw,
+            timestamp: "",
+            toolCalls: null,
+            tokens: null,
+            hash: "h_raw",
+          },
+        ],
         done: HAPPY_DONE,
       }),
     }));
@@ -390,6 +415,7 @@ describe("broker.send — output is raw (no frontmatter extraction)", () => {
       threadId: THREAD_A,
       role: "planner",
       prompt: "produce frontmatter",
+      onTurn: null,
     });
 
     // Verbatim — broker does NOT trim, parse, or validate frontmatter.

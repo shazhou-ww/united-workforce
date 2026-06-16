@@ -43,7 +43,9 @@ import type {
   AgentRoute,
   AgentRouteResolver,
   Broker,
+  BrokerTurn,
   CreateBrokerOptions,
+  OnTurn,
   SendArgs,
   SendResult,
   SumeruClientFactory,
@@ -151,6 +153,7 @@ const result = await broker.send({
   threadId: "06FCHRTFS6STQY3ET1355NXYS0",
   role: "planner",
   prompt: "next step",
+  onTurn: null, // realtime per-turn callback (#397); null = no callback
 });
 console.log(result.output);    // raw last-assistant-turn content
 console.log(result.sessionId); // session that handled the request
@@ -161,6 +164,51 @@ console.log(result.reused);    // true on cache hit, false on cold start / fallb
 cache hit it sends to the cached session id; on a cache miss it creates a
 new session, **upserts the mapping BEFORE the first message** (write-before-
 stream invariant), then sends.
+
+#### Realtime turns (#397)
+
+`broker.send()` surfaces each assistant turn as it arrives on the SSE stream,
+instead of only returning the final `output`. The same assistant turns are
+delivered two ways — incrementally via the `onTurn` callback, and as a full
+ordered snapshot on `result.turns`:
+
+```typescript
+const seen: BrokerTurn[] = [];
+const result = await broker.send({
+  threadId: "06FCHRTFS6STQY3ET1355NXYS0",
+  role: "planner",
+  prompt: "next step",
+  onTurn: (turn) => {
+    // Fires synchronously per assistant turn, in arrival order, BEFORE
+    // send() resolves. `turn.content` is verbatim; `turn.hash` is the
+    // Sumeru-computed hash (string | null).
+    seen.push(turn);
+  },
+});
+
+result.turns; // readonly BrokerTurn[] — the full ordered snapshot
+// Invariants:
+//   result.turns.length === result.assistantTurnCount
+//   result.turns.at(-1)?.content === result.output   (when non-empty)
+```
+
+`onTurn` / `turns` are **assistant-turn-scoped** and in arrival order:
+non-assistant (`user` / `system`) turns never fire `onTurn` and are excluded
+from `turns`. Passing `onTurn: null` preserves the exact pre-#397 behavior —
+`output`, `assistantTurnCount`, and `done` are unchanged; `turns` is purely
+additive.
+
+`BrokerTurn` is:
+
+```typescript
+type BrokerTurn = Readonly<{
+  index: number;            // SSE value.index, or -1 when absent
+  role: "user" | "assistant" | "system";
+  content: string;          // SSE value.content, verbatim
+  hash: string | null;      // Sumeru-computed value.hash, verbatim
+  timestamp: string;        // SSE value.timestamp, or "" when absent
+}>;
+```
 
 If the cached session id is rejected with HTTP 404 / `session_not_found`,
 broker silently:

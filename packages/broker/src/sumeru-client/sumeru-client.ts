@@ -23,6 +23,7 @@ import {
   type SumeruClientOptions,
   type SumeruDoneValue,
   type SumeruSendOutcome,
+  type SumeruTurnListener,
   type SumeruTurnValue,
 } from "./types.js";
 
@@ -150,7 +151,10 @@ export function createSumeruClient(host: string, options?: SumeruClientOptions):
     return body.value.id;
   }
 
-  async function sendMessage(args: SendMessageArgs): Promise<SumeruSendOutcome> {
+  async function sendMessage(
+    args: SendMessageArgs,
+    onAssistantTurn?: SumeruTurnListener,
+  ): Promise<SumeruSendOutcome> {
     const url = joinUrl(
       normalisedHost,
       `/gateways/${args.gateway}/sessions/${args.sessionId}/messages`,
@@ -193,6 +197,7 @@ export function createSumeruClient(host: string, options?: SumeruClientOptions):
       sessionId: args.sessionId,
       sseTotalTimeoutMs,
       sseHeartbeatTimeoutMs,
+      onAssistantTurn: onAssistantTurn ?? null,
     });
   }
 
@@ -205,11 +210,19 @@ type SseState = {
   totalTurns: number;
   done: SumeruDoneValue | null;
   errorMessage: string | null;
+  /** Realtime per-assistant-turn listener (issue #397); `null` ⇒ no callback. */
+  onAssistantTurn: SumeruTurnListener | null;
 };
 
 function applyOutcome(state: SseState, outcome: EventOutcome): void {
   if (outcome.errorMessage !== null) state.errorMessage = outcome.errorMessage;
-  if (outcome.assistantTurn !== null) state.assistantTurns.push(outcome.assistantTurn);
+  if (outcome.assistantTurn !== null) {
+    state.assistantTurns.push(outcome.assistantTurn);
+    // Fire synchronously, in arrival order, BEFORE the stream is drained —
+    // this is the realtime guarantee. Assistant-turn-scoped: non-assistant
+    // turns produce a null `assistantTurn` and never reach here.
+    if (state.onAssistantTurn !== null) state.onAssistantTurn(outcome.assistantTurn);
+  }
   if (outcome.anyTurn) state.totalTurns += 1;
   if (outcome.done !== null) state.done = outcome.done;
 }
@@ -277,6 +290,7 @@ function finalizeOutcome(state: SseState): SumeruSendOutcome {
   return {
     output: last.content,
     assistantTurnCount: state.assistantTurns.length,
+    assistantTurns: state.assistantTurns,
     done: state.done,
   };
 }
@@ -287,6 +301,7 @@ type ConsumeSseArgs = Readonly<{
   sessionId: string;
   sseTotalTimeoutMs: number;
   sseHeartbeatTimeoutMs: number;
+  onAssistantTurn: SumeruTurnListener | null;
 }>;
 
 type AbortKind = "total" | "watchdog";
@@ -300,6 +315,7 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
     totalTurns: 0,
     done: null,
     errorMessage: null,
+    onAssistantTurn: args.onAssistantTurn,
   };
 
   let totalTimer: ReturnType<typeof setTimeout> | null = null;
