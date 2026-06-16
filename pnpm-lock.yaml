@@ -233,6 +233,9 @@ importers:
         specifier: ^0.4.1
         version: 0.4.1
     devDependencies:
+      liquidjs:
+        specifier: ^10.27.0
+        version: 10.27.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
