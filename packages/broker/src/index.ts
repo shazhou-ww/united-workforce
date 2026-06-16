@@ -2,7 +2,9 @@ export type {
   AgentRoute,
   AgentRouteResolver,
   Broker,
+  BrokerTurn,
   CreateBrokerOptions,
+  OnTurn,
   SendArgs,
   SendResult,
   SumeruClientFactory,
@@ -21,6 +23,7 @@ export type {
   SumeruClientOptions,
   SumeruDoneValue,
   SumeruSendOutcome,
+  SumeruTurnListener,
   SumeruTurnValue,
 } from "./sumeru-client/index.js";
 export {

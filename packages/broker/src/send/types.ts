@@ -31,11 +31,47 @@ export type AgentRouteResolver = (role: RoleName) => Promise<AgentRoute> | Agent
 /** Factory for the per-host `SumeruClient` cache. Default is `createSumeruClient`. */
 export type SumeruClientFactory = (host: string, options?: SumeruClientOptions) => SumeruClient;
 
+/**
+ * A single assistant turn observed on the Sumeru SSE stream, projected for
+ * broker callers (issue #397, Phase 1). This is the realtime-progress unit
+ * delivered both incrementally via `SendArgs.onTurn` and as a full snapshot
+ * via `SendResult.turns`.
+ *
+ * Per the project convention (`T | null`, no optional `?:`), `hash` is
+ * `string | null` — non-null whenever the SSE event carries Sumeru's computed
+ * hash.
+ */
+export type BrokerTurn = Readonly<{
+  /** SSE `value.index`, or `-1` when the event omits it. */
+  index: number;
+  /** SSE `value.role` — always `"assistant"` for emitted turns. */
+  role: "user" | "assistant" | "system";
+  /** SSE `value.content`, verbatim (no trimming, no re-parse). */
+  content: string;
+  /** SSE `value.hash` (Sumeru-computed), verbatim; `null` when absent. */
+  hash: string | null;
+  /** SSE `value.timestamp`, or `""` when absent. */
+  timestamp: string;
+}>;
+
+/**
+ * Realtime per-turn callback. Invoked synchronously inside the SSE reader
+ * loop, once per assistant turn, in arrival order — all invocations complete
+ * before `send()` resolves. Assistant-turn-scoped: `user`/`system` turns do
+ * not fire it.
+ */
+export type OnTurn = (turn: BrokerTurn) => void;
+
 /** Inputs to `broker.send`. */
 export type SendArgs = Readonly<{
   threadId: ThreadId;
   role: RoleName;
   prompt: string;
+  /**
+   * Realtime per-turn callback (issue #397). `null` ⇒ no callback and exact
+   * pre-Phase-1 behavior (the only added work is accumulating `turns`).
+   */
+  onTurn: OnTurn | null;
 }>;
 
 /** Outcome of `broker.send`. */
@@ -51,6 +87,13 @@ export type SendResult = Readonly<{
   reused: boolean;
   /** Number of assistant turns observed in the SSE response. */
   assistantTurnCount: number;
+  /**
+   * Full ordered list of assistant turns observed in the SSE response
+   * (issue #397, Phase 1). Same population and ordering as the `onTurn`
+   * callbacks. Invariants: `turns.length === assistantTurnCount` and, when
+   * non-empty, `turns[turns.length - 1].content === output`.
+   */
+  turns: readonly BrokerTurn[];
   /** Per-exchange summary delivered by the final `done` event. */
   done: SumeruDoneValue;
 }>;
