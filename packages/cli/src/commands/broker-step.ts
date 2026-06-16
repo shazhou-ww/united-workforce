@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { putSchema, validate } from "@ocas/core";
 import {
   type AgentRoute,
+  type BrokerTurn,
   createBroker,
   createSessionStore,
   type SendResult,
@@ -39,7 +40,7 @@ import {
   tryFrontmatterFastPath,
   trySuspendFastPath,
 } from "@united-workforce/util-agent";
-import type { UwfStore } from "../store.js";
+import { appendActiveTurn, clearActiveTurns, readActiveTurns, type UwfStore } from "../store.js";
 import { expandOutput, fail } from "./shared.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
@@ -328,26 +329,60 @@ export function assembleBrokerPrompt(args: AssembleBrokerPromptArgs): string {
   return parts.join("\n");
 }
 
-/** Persist the raw broker.send output as a CAS detail node — single assistant turn. */
+/**
+ * Persist the step's detail node by solidifying the in-flight active-turns list
+ * (Phase 2, #398). Reads the full ordered turn-hash list accumulated under
+ * `@uwf/active-turns/<threadId>/<role>` (appended in real time by the `onTurn`
+ * callback), writes them all into the immutable detail node
+ * (`detail.turns = <all hashes>`, `detail.turnCount = turns.length`), then
+ * deletes the now-frozen active var. A step that produced zero assistant turns
+ * persists an empty `turns` list with `turnCount === 0`.
+ */
 async function storeBrokerDetail(
   uwf: UwfStore,
   result: SendResult,
+  threadId: ThreadId,
+  role: string,
   startedAtMs: number,
   completedAtMs: number,
 ): Promise<CasRef> {
-  const turnSchemaHash = await putSchema(uwf.store, TURN_SCHEMA);
   const detailSchemaHash = await putSchema(uwf.store, DETAIL_SCHEMA);
 
-  const turn = { role: "assistant", content: result.output };
-  const turnHash = await uwf.store.cas.put(turnSchemaHash, turn);
+  // Solidify the full ordered turn list captured by the realtime onTurn
+  // callback into the immutable detail, then drop the mutable pointer.
+  const turns = readActiveTurns(uwf.store, threadId, role);
+  clearActiveTurns(uwf.store, threadId, role);
 
   const detail = {
     sessionId: result.sessionId,
     duration: Math.max(0, completedAtMs - startedAtMs),
-    turnCount: 1,
-    turns: [turnHash],
+    turnCount: turns.length,
+    turns,
   };
   return uwf.store.cas.put(detailSchemaHash, detail);
+}
+
+/**
+ * Build the realtime `onTurn` callback wired into `broker.send` (Phase 2,
+ * #398). For each arriving assistant turn it (a) stores the pure
+ * `{ role: "assistant", content }` turn node in CAS under `TURN_SCHEMA`, then
+ * (b) appends its hash to `@uwf/active-turns/<threadId>/<role>` via a
+ * read-modify-write on the array node. All work is synchronous, so the active
+ * var reaches its final length before `send()` resolves — this is what makes a
+ * step's turns visible to other processes mid-flight. The turn node holds
+ * uwf's own CAS hash of `{role, content}`; `BrokerTurn.hash` (Sumeru-computed)
+ * is not persisted into the turn node.
+ */
+function makeOnTurn(uwf: UwfStore, threadId: ThreadId, role: string): (turn: BrokerTurn) => void {
+  // Register the turn schema once; putSchema is content-addressed + idempotent.
+  const turnSchemaHash = putSchema(uwf.store, TURN_SCHEMA);
+  return (turn: BrokerTurn) => {
+    const turnHash = uwf.store.cas.put(turnSchemaHash, {
+      role: "assistant",
+      content: turn.content,
+    }) as CasRef;
+    appendActiveTurn(uwf.store, threadId, role, turnHash);
+  };
 }
 
 type WriteStepNodeArgs = {
@@ -500,11 +535,20 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
     )) as CasRef;
 
     const startedAtMs = Date.now();
+
+    // Start-of-step clear (Phase 2, #398): a crash-rerun is a fresh attempt, so
+    // any residual active var from a failed prior attempt is dropped here —
+    // before any onTurn can fire — rather than appended onto. The clear is
+    // start-of-step only (NOT per-send): frontmatter retries below re-send on
+    // the cached session and must keep appending to the same attempt's var.
+    clearActiveTurns(args.uwf.store, args.threadId, args.role);
+    const onTurn = makeOnTurn(args.uwf, args.threadId, args.role);
+
     const primary = await broker.send({
       threadId: args.threadId,
       role: args.role,
       prompt: assembledPrompt,
-      onTurn: null,
+      onTurn,
     });
 
     let extracted = await tryExtract(args.uwf, primary.output, outputSchemaHash);
@@ -514,7 +558,8 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
 
     // Retry on the same (threadId, role) — the broker re-uses the cached
     // Sumeru session, so the agent gets to "fix its frontmatter" with full
-    // context preserved.
+    // context preserved. Retries carry the same onTurn and keep appending to
+    // the same attempt's active var (no clear between retries).
     for (let retry = 0; retry < MAX_FRONTMATTER_RETRIES && extracted === null; retry++) {
       const correctionPrompt = buildFrontmatterRetryPrompt(outputFormatInstruction);
       log(
@@ -525,7 +570,7 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
         threadId: args.threadId,
         role: args.role,
         prompt: correctionPrompt,
-        onTurn: null,
+        onTurn,
       });
       lastOutput = retryResult.output;
       lastSessionId = retryResult.sessionId;
@@ -537,6 +582,8 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
     const detailHash = await storeBrokerDetail(
       args.uwf,
       { ...primary, output: lastOutput, sessionId: lastSessionId },
+      args.threadId,
+      args.role,
       startedAtMs,
       completedAtMs,
     );
