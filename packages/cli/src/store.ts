@@ -4,7 +4,7 @@ import { access, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 
-import { bootstrap, type Hash, type Store, type VarStore } from "@ocas/core";
+import { bootstrap, type Hash, putSchema, type Store, type VarStore } from "@ocas/core";
 import { createFsStore, createSqliteVarStore } from "@ocas/fs";
 import type { CasRef, ThreadId, ThreadIndexEntry, ThreadsIndex } from "@united-workforce/protocol";
 import { parseThreadsIndex } from "@united-workforce/protocol";
@@ -19,6 +19,96 @@ export const REGISTRY_VAR_PREFIX = "@uwf/registry/";
 
 /** Variable name prefix for active thread entries (`@uwf/thread/<thread-id>`). */
 export const THREAD_VAR_PREFIX = "@uwf/thread/";
+
+/**
+ * Variable name prefix for the in-flight turn list of a running step
+ * (`@uwf/active-turns/<thread-id>/<role>`). Phase 2 of the realtime-turns RFC
+ * (#398): broker-step appends each assistant turn hash here as it arrives, so
+ * an independent process can observe a step's progress mid-flight. The var is a
+ * mutable head pointer at an immutable CAS array node; it is cleared at the
+ * start of each step and deleted once the turns are solidified into the
+ * step's immutable `detail.turns`.
+ */
+export const ACTIVE_TURNS_VAR_PREFIX = "@uwf/active-turns/";
+
+/**
+ * Schema for the active-turns list node: a bare ordered array of turn-hash
+ * `ocas_ref`s. Because an ocas variable is keyed by `(name, schema)` where the
+ * schema is the pointed-at node's `type`, this schema must be stable so that
+ * re-pointing the var (append), removing it (clear/solidify), and listing it by
+ * exact name all address the same variable. The hash is content-addressed and
+ * therefore identical across processes.
+ */
+export const ACTIVE_TURNS_LIST_SCHEMA = {
+  title: "uwf-active-turns",
+  type: "array" as const,
+  items: { type: "string" as const, format: "ocas_ref" },
+};
+
+/** Build the active-turns variable name for a `(threadId, role)` pair. */
+export function activeTurnsVarName(threadId: ThreadId, role: string): string {
+  return `${ACTIVE_TURNS_VAR_PREFIX}${threadId}/${role}`;
+}
+
+/**
+ * Register (idempotently) and return the CAS schema hash for the active-turns
+ * list node. Used both as the array node's type and — implicitly — as the
+ * variable's schema key.
+ */
+export function activeTurnsListSchemaHash(store: Store): Hash {
+  return putSchema(store, ACTIVE_TURNS_LIST_SCHEMA);
+}
+
+/**
+ * Read the ordered turn-hash list currently pointed at by
+ * `@uwf/active-turns/<threadId>/<role>`. Returns `[]` when the var does not
+ * exist (no turns appended yet, or already solidified/cleared).
+ */
+export function readActiveTurns(store: Store, threadId: ThreadId, role: string): CasRef[] {
+  const name = activeTurnsVarName(threadId, role);
+  const vars = store.var.list({ exactName: name });
+  const v = vars[0];
+  if (v === undefined) {
+    return [];
+  }
+  const node = store.cas.get(v.value as CasRef);
+  if (node === null || !Array.isArray(node.payload)) {
+    return [];
+  }
+  return node.payload as CasRef[];
+}
+
+/**
+ * Append a turn hash to `@uwf/active-turns/<threadId>/<role>` (read-modify-write
+ * on the array node, then re-point the var). The var is a single mutable
+ * pointer re-pointed on each append — not one var per turn. Returns the full
+ * updated list.
+ */
+export function appendActiveTurn(
+  store: Store,
+  threadId: ThreadId,
+  role: string,
+  turnHash: CasRef,
+): CasRef[] {
+  const name = activeTurnsVarName(threadId, role);
+  const current = readActiveTurns(store, threadId, role);
+  const next = [...current, turnHash];
+  const schemaHash = activeTurnsListSchemaHash(store);
+  const listHash = store.cas.put(schemaHash, next) as CasRef;
+  store.var.set(name, listHash);
+  return next;
+}
+
+/**
+ * Clear (delete) the `@uwf/active-turns/<threadId>/<role>` pointer. Removing a
+ * missing var is a no-op, so this is safe to call at the start of a clean run.
+ * Targets the exact `(threadId, role)` var only — concurrent active vars for
+ * other roles/threads are untouched.
+ */
+export function clearActiveTurns(store: Store, threadId: ThreadId, role: string): void {
+  const name = activeTurnsVarName(threadId, role);
+  store.var.remove(name);
+}
 
 /** A workflow entry discovered from the project-local .workflows/ (primary) or .workflow/ (legacy) directory. */
 export type ProjectWorkflowEntry = {
