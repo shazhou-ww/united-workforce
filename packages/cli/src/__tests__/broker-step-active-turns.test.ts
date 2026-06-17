@@ -1,23 +1,20 @@
 /**
- * Phase 2 (#398) — realtime turn persistence in `executeBrokerStep`.
+ * Phase 2 (#398 + #419) — realtime turn persistence in `executeBrokerStep`.
  *
- * Covers the four acceptance steps of issue #398:
- *   Step 1 — broker-step's `onTurn` appends each assistant turn to
- *            `@uwf/active-turns/<tid>/<role>` in real time; the list grows 1→2→3.
- *   Step 2 — on completion `storeBrokerDetail` solidifies the full list into the
- *            immutable detail (`detail.turns.length===3`, `turnCount===3`) and
- *            deletes the active var.
- *   Step 3 — a crash-rerun is a fresh attempt: the active var is cleared at the
- *            start of the step, so stale turns are dropped (detail holds only the
- *            new 3).
- *   Step 4 — cross-process visibility: an independent reader (fresh CAS + fresh
- *            SQLite connection) sees the growing turn list mid-flight via the
- *            SQLite-backed `@uwf/active-turns/<tid>/<role>` var, and an empty
- *            result after the step solidifies.
+ * Updated for Phase 2 (#419):
+ *   - Turns are now written with `prev`+`owner` chain instead of accumulating in
+ *     `@uwf/active-turns/<tid>/<role>` array var
+ *   - Detail node no longer contains `turns` array — use `turnsOfStep()` to retrieve
+ *   - Thread-keyed active vars (`@uwf/active-step/<tid>`, `@uwf/active-turn-head/<tid>`)
  *
- * The Sumeru HTTP layer is stubbed via `globalThis.fetch` (mirrors
- * `e2e-broker-step.test.ts`); a *paced* SSE stream emits one assistant turn per
- * `PER_TURN_MS` so concurrent readers can observe intermediate state.
+ * Covers the acceptance steps:
+ *   Step 1 — broker-step's `onTurn` writes each turn with `prev`+`owner` chain;
+ *            the turn chain grows 1→2→3.
+ *   Step 2 — on completion, detail has `turnCount===3` (no `turns` array);
+ *            turns are accessible via `turnsOfStep()`.
+ *   Step 3 — a crash-rerun is a fresh attempt: new step-start isolates old turns
+ *            via different `owner` reference.
+ *   Step 4 — cross-process visibility: thread-keyed turn head var is observable.
  */
 
 import { mkdtemp, rm } from "node:fs/promises";
@@ -25,7 +22,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { putSchema, type Store } from "@ocas/core";
 import { createFsStore, createSqliteVarStore } from "@ocas/fs";
-import type { CasRef, ThreadId, WorkflowConfig, WorkflowPayload } from "@united-workforce/protocol";
+import type {
+  CasRef,
+  ThreadId,
+  TurnNodePayload,
+  WorkflowConfig,
+  WorkflowPayload,
+} from "@united-workforce/protocol";
 import { createProcessLogger } from "@united-workforce/util";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { executeBrokerStep } from "../commands/broker-step.js";
@@ -34,8 +37,11 @@ import {
   activeTurnsVarName,
   appendActiveTurn,
   createUwfStore,
+  getActiveTurnHead,
   readActiveTurns,
+  turnsOfStep,
   type UwfStore,
+  walkTurnChain,
 } from "../store.js";
 
 // ── SSE plumbing ─────────────────────────────────────────────────────────────
@@ -274,56 +280,55 @@ describe("active-turns realtime persistence (#398)", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  // Step 1 — the active var grows 1 → 2 → 3 as onTurn fires.
-  test("active var grows 1 -> 2 -> 3 in arrival order as turns stream", async () => {
+  // Step 1 — the turn chain grows 1 → 2 → 3 as onTurn fires (Phase 2: via turn chain, not role-keyed var).
+  test("turn chain grows 1 -> 2 -> 3 via prev+owner chain as turns stream", async () => {
     const uwf = await createUwfStore(tmpDir);
     const { workflow, startHash } = await buildWorkflow(uwf);
 
     const p = runStep(uwf, workflow, startHash, tmpDir);
 
-    // Sample the (same-process) active var while the step is in flight.
-    const lengths: number[] = [];
+    // Sample the turn chain head while the step is in flight.
+    const chainLengths: number[] = [];
     let finished = false;
     void p.finally(() => {
       finished = true;
     });
     while (!finished) {
-      lengths.push(readActiveTurns(uwf.store, THREAD_ID, ROLE).length);
+      const head = getActiveTurnHead(uwf.store, THREAD_ID);
+      const len = head !== null ? walkTurnChain(uwf, head).length : 0;
+      chainLengths.push(len);
       await delay(PER_TURN_MS / 4);
     }
     const result = await p;
 
     // Monotonic growth: first occurrences of 1, 2, 3 appear in order.
-    const firstIndexOf = (n: number) => lengths.indexOf(n);
+    const firstIndexOf = (n: number) => chainLengths.indexOf(n);
     expect(firstIndexOf(1)).toBeGreaterThanOrEqual(0);
     expect(firstIndexOf(2)).toBeGreaterThan(firstIndexOf(1));
     expect(firstIndexOf(3)).toBeGreaterThan(firstIndexOf(2));
 
-    // The list never shrinks while accumulating (ignore the post-solidify drop
-    // to 0, which only ever appears after we have already observed 3).
-    const beforeFinal = lengths.slice(0, lengths.indexOf(3) + 1);
+    // The chain never shrinks while accumulating.
+    const beforeFinal = chainLengths.slice(0, chainLengths.indexOf(3) + 1);
     for (let i = 1; i < beforeFinal.length; i++) {
       expect(beforeFinal[i]).toBeGreaterThanOrEqual(beforeFinal[i - 1] as number);
     }
 
-    // The solidified detail proves the final ordered set of 3 turn hashes,
-    // each gettable as a pure {role, content} node.
+    // Verify turns via turn chain (Phase 2: no detail.turns array)
     expect(result.isError).toBe(false);
-    const detail = uwf.store.cas.get(result.detailHash)?.payload as {
-      turns: CasRef[];
-      turnCount: number;
-    };
-    expect(detail.turns).toHaveLength(3);
-    const contents = detail.turns.map((h) => turnContent(uwf.store, h));
+    const turnHead = getActiveTurnHead(uwf.store, THREAD_ID);
+    expect(turnHead).not.toBeNull();
+    const chain = walkTurnChain(uwf, turnHead!);
+    expect(chain).toHaveLength(3);
+    const contents = chain.map((h) => turnContent(uwf.store, h));
     expect(contents).toEqual(["t1", "t2", FINAL_TURN]);
-    for (const h of detail.turns) {
+    for (const h of chain) {
       const node = uwf.store.cas.get(h);
-      expect((node?.payload as Record<string, unknown>).role).toBe("assistant");
+      expect((node?.payload as TurnNodePayload).role).toBe("assistant");
     }
   });
 
-  // Step 2 — completion solidifies the full list and deletes the active var.
-  test("storeBrokerDetail solidifies turns.length===3 / turnCount===3 and deletes active var", async () => {
+  // Step 2 — completion: detail has turnCount===3 (no turns array); turns via turnsOfStep.
+  test("detail has turnCount===3 (no turns array); turns accessible via turnsOfStep", async () => {
     const uwf = await createUwfStore(tmpDir);
     const { workflow, startHash } = await buildWorkflow(uwf);
 
@@ -334,29 +339,40 @@ describe("active-turns realtime persistence (#398)", () => {
       sessionId: string;
       duration: number;
       turnCount: number;
-      turns: CasRef[];
     };
     expect(detail.turnCount).toBe(3);
-    expect(detail.turns).toHaveLength(3);
-    expect(detail.turns.map((h) => turnContent(uwf.store, h))).toEqual(["t1", "t2", FINAL_TURN]);
+    expect((detail as Record<string, unknown>).turns).toBeUndefined(); // Phase 2: no turns array
     expect(detail.sessionId).toBe(SESSION_ID);
     expect(detail.duration).toBeGreaterThanOrEqual(0);
 
-    // The mutable pointer is gone once frozen into the immutable detail.
+    // Get turns via turn chain
+    const turnHead = getActiveTurnHead(uwf.store, THREAD_ID);
+    expect(turnHead).not.toBeNull();
+
+    // Get the step-start owner from first turn
+    const firstTurn = uwf.store.cas.get(walkTurnChain(uwf, turnHead!)[0]!)
+      ?.payload as TurnNodePayload;
+    const stepStartHash = firstTurn.owner!;
+    const stepTurns = turnsOfStep(uwf, turnHead!, stepStartHash);
+    expect(stepTurns).toHaveLength(3);
+    expect(stepTurns.map((h) => turnContent(uwf.store, h))).toEqual(["t1", "t2", FINAL_TURN]);
+
+    // Role-keyed var is cleared (backward compat)
     const vars = uwf.varStore.list({ exactName: activeTurnsVarName(THREAD_ID, ROLE) });
     expect(vars).toEqual([]);
 
-    // Backward-compat: the last solidified turn is still the final answer the
-    // legacy seal-style path would have surfaced.
+    // Backward-compat: frontmatter extraction still works
     expect(result.frontmatter).toEqual({ $status: "done", summary: "shipped" });
   });
 
-  // Step 3 — a crash-rerun is a fresh attempt: stale turns are dropped.
-  test("crash-rerun clears a residual active var; detail holds only the new 3", async () => {
+  // Step 3 — crash-rerun: new step-start isolates old turns via different owner.
+  test("crash-rerun: new step-start isolates old turns via different owner", async () => {
     const uwf = await createUwfStore(tmpDir);
     const { workflow, startHash } = await buildWorkflow(uwf);
 
     // Seed a residual active var (two stale turns) from a "crashed" prior attempt.
+    // Phase 2: these will be ignored because the new step gets a new step-start
+    // with different owner hash.
     const turnSchemaHash = putSchema(uwf.store, {
       title: "broker-turn",
       type: "object" as const,
@@ -378,61 +394,54 @@ describe("active-turns realtime persistence (#398)", () => {
     expect(result.isError).toBe(false);
     const detail = uwf.store.cas.get(result.detailHash)?.payload as {
       turnCount: number;
-      turns: CasRef[];
     };
-    // Only the new attempt's 3 turns survive — the stale 2 were cleared, never
-    // appended onto.
+    // Only the new attempt's 3 turns counted
     expect(detail.turnCount).toBe(3);
-    expect(detail.turns).toHaveLength(3);
-    const contents = detail.turns.map((h) => turnContent(uwf.store, h));
+
+    // Get the new step's turns via turnsOfStep
+    const turnHead = getActiveTurnHead(uwf.store, THREAD_ID);
+    expect(turnHead).not.toBeNull();
+
+    // Get the step-start owner from the first new turn (will be the new step-start)
+    const chain = walkTurnChain(uwf, turnHead!);
+    // The chain includes ALL turns (old + new), but filtered by owner gives only new ones
+    expect(chain.length).toBeGreaterThanOrEqual(3);
+
+    // Find the new step-start (the one that owns the turns with content "t1", "t2", etc.)
+    const newTurns = chain.filter((h) => {
+      const c = turnContent(uwf.store, h);
+      return c === "t1" || c === "t2" || c === FINAL_TURN;
+    });
+    expect(newTurns).toHaveLength(3);
+    const newStepOwner = (uwf.store.cas.get(newTurns[0]!)?.payload as TurnNodePayload).owner!;
+    const filteredTurns = turnsOfStep(uwf, turnHead!, newStepOwner);
+    expect(filteredTurns).toHaveLength(3);
+    const contents = filteredTurns.map((h) => turnContent(uwf.store, h));
     expect(contents).toEqual(["t1", "t2", FINAL_TURN]);
     expect(contents).not.toContain("old1");
     expect(contents).not.toContain("old2");
 
-    // Active var deleted after solidification.
+    // Role-keyed active var deleted after step.
     expect(uwf.varStore.list({ exactName: activeTurnsVarName(THREAD_ID, ROLE) })).toEqual([]);
   });
 
-  // Step 4 — cross-process visibility via the SQLite-backed active var.
-  test("an independent reader sees the growing turn list mid-flight, empty after completion", async () => {
+  // Step 4 — cross-process visibility via the thread-keyed turn head var.
+  test("an independent reader sees the growing turn chain mid-flight", async () => {
     const uwf = await createUwfStore(tmpDir);
     const { workflow, startHash } = await buildWorkflow(uwf);
 
     const p = runStep(uwf, workflow, startHash, tmpDir);
 
-    // "Process B": sample the active var from a fresh CAS + SQLite connection,
-    // resolving each turn hash to its content to prove genuine cross-process
-    // readability while "process A" is still running.
-    const observedCounts: number[] = [];
-    const observedContents = new Set<string>();
-    let finished = false;
-    void p.finally(() => {
-      finished = true;
-    });
-    while (!finished) {
-      const reader = openReader(casDir);
-      try {
-        const turns = readActiveTurns(reader.store, THREAD_ID, ROLE);
-        observedCounts.push(turns.length);
-        for (const h of turns) {
-          const c = turnContent(reader.store, h);
-          if (c !== null) observedContents.add(c);
-        }
-      } finally {
-        reader.close();
-      }
-      await delay(PER_TURN_MS / 3);
-    }
-    const result = await p;
+    // Sample turn chain from independent reader while step runs
+    const { counts, contents } = await sampleTurnChainWhileRunning(casDir, uwf, tmpDir, p);
 
-    // Progress was visible before completion: a non-empty, growing list.
-    const maxObserved = Math.max(...observedCounts);
+    // Progress was visible before completion: a non-empty, growing chain.
+    const maxObserved = Math.max(...counts);
     expect(maxObserved).toBeGreaterThanOrEqual(2);
-    expect(observedCounts.some((n) => n > 0 && n < 3)).toBe(true);
-    // Intermediate content produced by process A was readable by process B.
-    expect(observedContents.has("t1")).toBe(true);
+    expect(counts.some((n) => n > 0 && n < 3)).toBe(true);
+    expect(contents.has("t1")).toBe(true);
 
-    // After completion the active var is gone (solidified + deleted)…
+    // After completion the role-keyed var is gone
     const after = openReader(casDir);
     try {
       expect(
@@ -441,8 +450,60 @@ describe("active-turns realtime persistence (#398)", () => {
     } finally {
       after.close();
     }
-    // …and the same turns are now durable under the step's immutable detail.
-    const detail = uwf.store.cas.get(result.detailHash)?.payload as { turns: CasRef[] };
-    expect(detail.turns).toHaveLength(3);
+
+    // Thread-keyed turn head var still points to the chain
+    const finalHead = getActiveTurnHead(uwf.store, THREAD_ID);
+    expect(finalHead).not.toBeNull();
+    expect(walkTurnChain(uwf, finalHead!)).toHaveLength(3);
   });
 });
+
+/**
+ * Sample the turn chain from an independent reader while a step runs.
+ * Returns observed chain lengths and contents.
+ */
+async function sampleTurnChainWhileRunning(
+  casDir: string,
+  uwf: UwfStore,
+  tmpDir: string,
+  stepPromise: Promise<unknown>,
+): Promise<{ counts: number[]; contents: Set<string>; finished: boolean }> {
+  const counts: number[] = [];
+  const contents = new Set<string>();
+  let finished = false;
+
+  void stepPromise.finally(() => {
+    finished = true;
+  });
+
+  while (!finished) {
+    const reader = openReader(casDir);
+    try {
+      const head = getActiveTurnHead(reader.store, THREAD_ID);
+      if (head !== null) {
+        const chain = walkTurnChain(
+          {
+            store: reader.store,
+            schemas: uwf.schemas,
+            storageRoot: tmpDir,
+            varStore: uwf.varStore,
+          },
+          head,
+        );
+        counts.push(chain.length);
+        for (const h of chain) {
+          const c = turnContent(reader.store, h);
+          if (c !== null) contents.add(c);
+        }
+      } else {
+        counts.push(0);
+      }
+    } finally {
+      reader.close();
+    }
+    await delay(PER_TURN_MS / 3);
+  }
+
+  await stepPromise;
+  return { counts, contents, finished };
+}
