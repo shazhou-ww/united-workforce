@@ -79,7 +79,8 @@ type TagOccurrence = {
 // decides legality. We intentionally over-collect (any 8-char string assigned
 // to a PL_/TAG const or passed as log()'s first arg) and validate each.
 const LOG_CALL_RE = /\blog\(\s*"([0-9A-Za-z]{8})"/g;
-const TAG_CONST_RE = /\bconst\s+(?:PL_[A-Z0-9_]+|[A-Z0-9_]*TAG[A-Z0-9_]*)\s*=\s*"([0-9A-Za-z]{8})"/g;
+const TAG_CONST_RE =
+  /\bconst\s+(?:PL_[A-Z0-9_]+|[A-Z0-9_]*TAG[A-Z0-9_]*)\s*=\s*"([0-9A-Za-z]{8})"/g;
 
 async function collectTagOccurrences(): Promise<TagOccurrence[]> {
   const occurrences: TagOccurrence[] = [];
@@ -111,9 +112,7 @@ describe("log tag validity (#426 regression guard)", () => {
   test("every log tag literal in cli + broker is valid Crockford Base32", async () => {
     const occurrences = await collectTagOccurrences();
     const invalid = occurrences.filter((o) => !isValidLogTag(o.tag));
-    const report = invalid
-      .map((o) => `  ${o.tag}  (${o.context})  in ${o.file}`)
-      .join("\n");
+    const report = invalid.map((o) => `  ${o.tag}  (${o.context})  in ${o.file}`).join("\n");
     expect(invalid, `Illegal Crockford Base32 log tags found:\n${report}`).toEqual([]);
   });
 
