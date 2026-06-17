@@ -4,18 +4,23 @@ import type {
   StartEntry,
   StepEntry,
   StepNodePayload,
+  StepStartPayload,
   ThreadForkOutput,
   ThreadId,
   ThreadStepsOutput,
+  TurnNodePayload,
 } from "@united-workforce/protocol";
 import { createLogger, generateUlid } from "@united-workforce/util";
 import { isThreadRunning } from "../background/index.js";
 import {
   createUwfStore,
+  getActiveStep,
+  getActiveTurnHead,
   getThread,
   readActiveTurnRoles,
   readActiveTurns,
   setThread,
+  turnsOfStep,
   type UwfStore,
 } from "../store.js";
 import {
@@ -621,21 +626,73 @@ type TurnsPanoramaGroup = {
   role: string;
   running: boolean;
   turns: TurnData[];
+  /** Step-start hash for this group (used internally for owner-based lookup). */
+  stepStartHash: CasRef | null;
 };
 
 /**
- * Build the whole-thread turn panorama (#409): walk the entire thread chain
- * (reusing the `walkChain` + `collectOrderedSteps` infrastructure that
- * `cmdStepList` relies on) and produce one group per step in chronological order,
- * each turn attributed to its owning role/step.
+ * Walk the step-start chain from a turn's owner backward via `prev` pointers.
+ * Returns step-starts in chronological order (oldest first).
+ */
+function walkStepStartChain(uwf: UwfStore, turnHead: CasRef): CasRef[] {
+  // First, find a step-start hash from any turn's owner
+  const turnChain: CasRef[] = [];
+  let currentTurn: CasRef | null = turnHead;
+
+  // Walk the turn chain to find all unique owners
+  const seenOwners = new Set<string>();
+  const owners: CasRef[] = [];
+
+  while (currentTurn !== null) {
+    turnChain.push(currentTurn);
+    const node = uwf.store.cas.get(currentTurn);
+    if (node === null) break;
+
+    const payload = node.payload as TurnNodePayload | { prev: CasRef | null; owner: CasRef | null };
+    const owner = payload.owner ?? null;
+    if (owner !== null && !seenOwners.has(owner)) {
+      seenOwners.add(owner);
+      owners.push(owner);
+    }
+    currentTurn = payload.prev ?? null;
+  }
+
+  // Now walk the step-start chain to get them in order
+  // Find the newest step-start and walk backward via prev
+  if (owners.length === 0) {
+    return [];
+  }
+
+  // Use the owners we found and order by stepIndex
+  const stepStartsWithIndex: { hash: CasRef; index: number }[] = [];
+  for (const owner of owners) {
+    const node = uwf.store.cas.get(owner);
+    if (node === null || node.type !== uwf.schemas.stepStart) continue;
+    const payload = node.payload as StepStartPayload;
+    stepStartsWithIndex.push({ hash: owner, index: payload.stepIndex });
+  }
+
+  // Sort by stepIndex to get chronological order
+  stepStartsWithIndex.sort((a, b) => a.index - b.index);
+  return stepStartsWithIndex.map((s) => s.hash);
+}
+
+/**
+ * Build the whole-thread turn panorama (#421 Phase 3): walk the step-start chain
+ * (via turn owner → step-start → prev) and produce one group per step in
+ * chronological order. Each turn is attributed to its owning step-start via the
+ * `owner` field.
  *
- * Per-step sourcing applies active-var precedence scoped to each step's role:
- *   1. if the step's role has a non-empty `@uwf/active-turns/<tid>/<role>` var
- *      (the step is in flight) → render those live turns, marked `🔄 进行中`;
- *   2. otherwise (completed step) → render that step's own immutable
- *      `detail.turns`, marked `✓`.
- * In-flight roles that have no settled StepNode in the chain yet (the running
- * step has no StepNode hash until `exec` writes it) are appended after the chain.
+ * Phase 3 changes (root-causing #412):
+ *   - Walks step-start chain instead of role-keyed active vars
+ *   - Each segment's turns sourced via `turnsOfStep(turnHead, stepStartHash)`
+ *   - In-flight detection: active-step matches step-start AND no step-complete
+ *   - edgePrompt readable directly from step-start
+ *
+ * In-flight step detection:
+ *   1. Check if `@uwf/active-step/<threadId>` points to this step-start hash
+ *   2. If match, this step is in-flight (no step-complete written yet)
+ *
  * Fails with the standard `thread not found` message for an unknown thread.
  */
 function buildTurnsPanorama(uwf: UwfStore, threadId: ThreadId): TurnsPanoramaGroup[] {
@@ -643,8 +700,56 @@ function buildTurnsPanorama(uwf: UwfStore, threadId: ThreadId): TurnsPanoramaGro
   if (entry === null) {
     fail(`thread not found: ${threadId}`);
   }
-  const chain = walkChain(uwf, entry.head);
-  const ordered = collectOrderedSteps(uwf, entry.head, chain);
+
+  // Get the turn chain head and active-step (if any)
+  const turnHead = getActiveTurnHead(uwf.store, threadId);
+  const activeStepHash = getActiveStep(uwf.store, threadId);
+
+  // If no turns yet, try the legacy path via StepNode chain
+  if (turnHead === null) {
+    return buildTurnsPanoramaLegacy(uwf, threadId, entry.head);
+  }
+
+  // Walk the step-start chain from turn owners
+  const stepStarts = walkStepStartChain(uwf, turnHead);
+  const groups: TurnsPanoramaGroup[] = [];
+
+  for (const stepStartHash of stepStarts) {
+    const node = uwf.store.cas.get(stepStartHash);
+    if (node === null || node.type !== uwf.schemas.stepStart) continue;
+
+    const payload = node.payload as StepStartPayload;
+    const role = payload.role;
+
+    // Detect in-flight: active-step points to this step-start
+    const isInFlight = activeStepHash === stepStartHash;
+
+    // Get turns for this step using owner-based filtering
+    const turnHashes = turnsOfStep(uwf, turnHead, stepStartHash);
+    const turns = loadTurnData(uwf.store.cas, turnHashes);
+
+    groups.push({
+      role,
+      running: isInFlight,
+      turns,
+      stepStartHash,
+    });
+  }
+
+  return groups;
+}
+
+/**
+ * Legacy fallback for threads without new turn chain structure.
+ * Uses the old role-keyed active vars and StepNode detail.turns.
+ */
+function buildTurnsPanoramaLegacy(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  headHash: CasRef,
+): TurnsPanoramaGroup[] {
+  const chain = walkChain(uwf, headHash);
+  const ordered = collectOrderedSteps(uwf, headHash, chain);
   const activeRoles = readActiveTurnRoles(uwf.store, threadId);
   const activeByRole = new Map(activeRoles.map((a) => [a.role, a.turns] as const));
   const consumed = new Set<string>();
@@ -654,13 +759,19 @@ function buildTurnsPanorama(uwf: UwfStore, threadId: ThreadId): TurnsPanoramaGro
     const role = item.payload.role;
     const active = activeByRole.get(role);
     if (active !== undefined && active.length > 0 && !consumed.has(role)) {
-      groups.push({ role, running: true, turns: loadTurnData(uwf.store.cas, active) });
+      groups.push({
+        role,
+        running: true,
+        turns: loadTurnData(uwf.store.cas, active),
+        stepStartHash: null,
+      });
       consumed.add(role);
     } else {
       groups.push({
         role,
         running: false,
         turns: loadTurnData(uwf.store.cas, readStepDetailTurns(uwf, item.hash)),
+        stepStartHash: null,
       });
     }
   }
@@ -669,7 +780,12 @@ function buildTurnsPanorama(uwf: UwfStore, threadId: ThreadId): TurnsPanoramaGro
     if (consumed.has(role)) {
       continue;
     }
-    groups.push({ role, running: true, turns: loadTurnData(uwf.store.cas, turns) });
+    groups.push({
+      role,
+      running: true,
+      turns: loadTurnData(uwf.store.cas, turns),
+      stepStartHash: null,
+    });
     consumed.add(role);
   }
 
@@ -767,14 +883,31 @@ function formatPanoramaMarkdown(
 
 /**
  * Resolve the turn hashes to flush when the followed step finishes (active var
- * gone AND thread no longer running). If the live var still holds turns (crash /
- * not-yet-solidified), trust it — the chain detail may belong to a previous step.
- * Otherwise the var was solidified into the followed role's own step, so walk the
- * chain to *that role's* step (#409): in a multi-step run the head may have
- * advanced to a different role, so scoping to `followRole` ensures we never flush
- * the next role's turns as continued turns of the followed step.
+ * gone AND thread no longer running). Phase 3: uses active-turn-head and owner
+ * filtering via turnsOfStep. Falls back to legacy role-keyed vars if no turn
+ * chain exists.
  */
-function resolveFinalTurnHashes(uwf: UwfStore, threadId: ThreadId, followRole: string): CasRef[] {
+function resolveFinalTurnHashesPhase3(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  activeStepStart: CasRef | null,
+): CasRef[] {
+  const turnHead = getActiveTurnHead(uwf.store, threadId);
+  if (turnHead !== null && activeStepStart !== null) {
+    return turnsOfStep(uwf, turnHead, activeStepStart);
+  }
+  // Fallback: no new turn chain, return empty
+  return [];
+}
+
+/**
+ * Legacy fallback for resolveFinalTurnHashes when thread uses role-keyed vars.
+ */
+function resolveFinalTurnHashesLegacy(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  followRole: string,
+): CasRef[] {
   const remaining = readActiveTurns(uwf.store, threadId, followRole);
   if (remaining.length > 0) {
     return remaining;
@@ -787,14 +920,78 @@ function resolveFinalTurnHashes(uwf: UwfStore, threadId: ThreadId, followRole: s
 }
 
 /**
- * `--live` follower: poll the followed step's active var, printing each new turn
- * block exactly once (tracking how many blocks were emitted and rendering only
- * the new tail). The followed role is `opts.role` when given, else the thread's
- * current in-flight role (the role with an active var, falling back to the head
- * step's role). Exits when the step completes — active var gone AND the thread is
- * no longer running. On exit it reconciles against the followed role's own
- * solidified `detail.turns` (located by walking the chain to that role's step, so
- * a *different* later role's turns are never flushed under the followed step).
+ * Get turns for the in-flight step using Phase 3 owner-based filtering.
+ * Returns turn hashes owned by the active step-start.
+ */
+function getInFlightTurns(uwf: UwfStore, threadId: ThreadId): CasRef[] {
+  const turnHead = getActiveTurnHead(uwf.store, threadId);
+  const activeStepStart = getActiveStep(uwf.store, threadId);
+
+  if (turnHead === null || activeStepStart === null) {
+    return [];
+  }
+
+  return turnsOfStep(uwf, turnHead, activeStepStart);
+}
+
+/**
+ * Check if thread uses Phase 3 turn chain (has active-turn-head var).
+ */
+function hasPhase3TurnChain(uwf: UwfStore, threadId: ThreadId): boolean {
+  return (
+    getActiveTurnHead(uwf.store, threadId) !== null || getActiveStep(uwf.store, threadId) !== null
+  );
+}
+
+/** State for live follower's flush operation. */
+type LiveFollowerState = {
+  printedCount: number;
+  lastActiveStepStart: CasRef | null;
+  usePhase3: boolean | null;
+};
+
+/** Get active turns based on Phase 3 vs legacy mode. */
+function getActiveTurnsForLive(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  state: LiveFollowerState,
+  followRole: string,
+): CasRef[] {
+  if (state.usePhase3) {
+    const activeStepStart = getActiveStep(uwf.store, threadId);
+    if (activeStepStart !== null) {
+      state.lastActiveStepStart = activeStepStart;
+    }
+    return getInFlightTurns(uwf, threadId);
+  }
+  return readActiveTurns(uwf.store, threadId, followRole);
+}
+
+/** Get final turns for reconciliation based on Phase 3 vs legacy mode. */
+function getFinalTurnsForLive(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  state: LiveFollowerState,
+  followRole: string,
+): CasRef[] {
+  if (state.usePhase3) {
+    return resolveFinalTurnHashesPhase3(uwf, threadId, state.lastActiveStepStart);
+  }
+  return resolveFinalTurnHashesLegacy(uwf, threadId, followRole);
+}
+
+/**
+ * `--live` follower: poll the in-flight step's turns via the Phase 3 turn chain,
+ * printing each new turn block exactly once (tracking how many blocks were emitted
+ * and rendering only the new tail).
+ *
+ * Phase 3 changes (#421):
+ *   - Uses `getActiveTurnHead` and `getActiveStep` instead of role-keyed vars
+ *   - Filters turns via `turnsOfStep(turnHead, activeStepStart)`
+ *   - Exits when the thread is no longer running
+ *
+ * Backward compatible: Falls back to legacy role-keyed vars for threads without
+ * Phase 3 turn chain.
  */
 async function followStepTurnsLive(
   storageRoot: string,
@@ -809,33 +1006,38 @@ async function followStepTurnsLive(
   const intervalMs = opts.pollIntervalMs ?? STEP_TURNS_POLL_INTERVAL_MS;
   const followRole = opts.role ?? (await resolveLiveFollowRole(storageRoot, threadId));
 
-  let printedCount = 0;
-  // Print the new tail of `hashes` beyond what has already been emitted.
+  const state: LiveFollowerState = {
+    printedCount: 0,
+    lastActiveStepStart: null,
+    usePhase3: null,
+  };
+
   const flush = (uwf: UwfStore, hashes: CasRef[]): void => {
-    if (hashes.length <= printedCount) {
+    if (hashes.length <= state.printedCount) {
       return;
     }
-    const tail = loadTurnData(uwf.store.cas, hashes.slice(printedCount));
+    const tail = loadTurnData(uwf.store.cas, hashes.slice(state.printedCount));
     for (let i = 0; i < tail.length; i++) {
       const turn = tail[i];
       if (turn === undefined) continue;
-      emit(`${formatTurnBlock(turn, printedCount + i + 1)}\n`);
+      emit(`${formatTurnBlock(turn, state.printedCount + i + 1)}\n`);
     }
-    printedCount = hashes.length;
+    state.printedCount = hashes.length;
   };
 
   while (true) {
     const uwf = await createUwfStore(storageRoot);
-    const active = readActiveTurns(uwf.store, threadId, followRole);
+
+    if (state.usePhase3 === null) {
+      state.usePhase3 = hasPhase3TurnChain(uwf, threadId);
+    }
+
+    const active = getActiveTurnsForLive(uwf, threadId, state, followRole);
     flush(uwf, active);
 
     const running = await isRunning();
     if (!running) {
-      // Step finished (or producer died). Reconcile so no turn is lost across
-      // the active→detail handoff, then stop — never hang waiting for a var
-      // that will not reappear. `resolveFinalTurnHashes` scopes the reconcile to
-      // the followed role's own step (#409) so a later role's turns never leak.
-      flush(uwf, resolveFinalTurnHashes(uwf, threadId, followRole));
+      flush(uwf, getFinalTurnsForLive(uwf, threadId, state, followRole));
       return;
     }
 
