@@ -148,3 +148,84 @@ export const ERROR_OUTPUT_SCHEMA: JSONSchema = {
   },
   additionalProperties: false,
 };
+
+// ── Turn Chain Schemas (Phase 1) ────────────────────────────────────
+
+/**
+ * Schema for step initiation markers — written before agent spawn.
+ * Forms a singly-linked chain via `prev` for step ordering within a thread.
+ */
+export const STEP_START_SCHEMA: JSONSchema = {
+  title: "StepStart",
+  type: "object",
+  required: ["role", "edgePrompt", "stepIndex", "prev", "start", "startedAtMs", "cwd"],
+  properties: {
+    role: { type: "string" },
+    edgePrompt: { type: "string" },
+    stepIndex: { type: "integer" },
+    prev: {
+      anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
+    },
+    start: { type: "string", format: "ocas_ref" },
+    startedAtMs: { type: "integer" },
+    cwd: { type: "string" },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * Schema for step completion records — written after agent returns.
+ * Links back to its step-start via `startRef`.
+ */
+export const STEP_COMPLETE_SCHEMA: JSONSchema = {
+  title: "StepComplete",
+  type: "object",
+  required: ["startRef", "output", "detail", "completedAtMs", "usage", "previousAttempts"],
+  properties: {
+    startRef: { type: "string", format: "ocas_ref" },
+    output: { type: "string", format: "ocas_ref" },
+    detail: { type: "string", format: "ocas_ref" },
+    completedAtMs: { type: "integer" },
+    usage: {
+      anyOf: [
+        {
+          type: "object",
+          required: ["turns", "inputTokens", "outputTokens", "duration"],
+          properties: {
+            turns: { type: "integer" },
+            inputTokens: { type: "integer" },
+            outputTokens: { type: "integer" },
+            duration: { type: "number" },
+          },
+          additionalProperties: false,
+        },
+        { type: "null" },
+      ],
+    },
+    previousAttempts: {
+      anyOf: [{ type: "array", items: { type: "string", format: "ocas_ref" } }, { type: "null" }],
+    },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * Schema for turn nodes — forms a singly-linked chain via `prev`.
+ * Each turn belongs to a step-start via `owner`.
+ */
+export const TURN_NODE_SCHEMA: JSONSchema = {
+  title: "TurnNode",
+  type: "object",
+  required: ["role", "content", "prev", "owner"],
+  properties: {
+    role: { type: "string" },
+    content: { type: "string" },
+    prev: {
+      anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
+    },
+    owner: {
+      anyOf: [{ type: "string", format: "ocas_ref" }, { type: "null" }],
+    },
+  },
+  additionalProperties: false,
+};

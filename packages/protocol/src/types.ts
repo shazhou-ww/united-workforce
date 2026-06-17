@@ -286,3 +286,60 @@ export type WorkflowConfig = {
 
 /** @uwf/thread/* variable store index */
 export type ThreadsIndex = Record<ThreadId, ThreadIndexEntry>;
+
+// ── 4.7 Turn Chain Types (Phase 1) ─────────────────────────────────
+
+/**
+ * Step initiation marker — written to CAS before agent spawn.
+ * Forms a singly-linked chain via `prev` for step ordering within a thread.
+ */
+export type StepStartPayload = {
+  /** Role name executing this step. */
+  role: string;
+  /** Moderator edge prompt that led to this step. */
+  edgePrompt: string;
+  /** 0-based index of this step in the thread. */
+  stepIndex: number;
+  /** Hash of the previous step-start (null for first step). */
+  prev: CasRef | null;
+  /** Hash of the thread's StartNode. */
+  start: CasRef;
+  /** Date.now() when step began. */
+  startedAtMs: number;
+  /** Working directory where the agent executes. */
+  cwd: string;
+};
+
+/**
+ * Step completion record — written to CAS after agent returns.
+ * Links back to its step-start via `startRef`.
+ */
+export type StepCompletePayload = {
+  /** Hash of the corresponding step-start node. */
+  startRef: CasRef;
+  /** Hash of the agent's output. */
+  output: CasRef;
+  /** Hash of the step detail node. */
+  detail: CasRef;
+  /** Date.now() when step completed. */
+  completedAtMs: number;
+  /** Token usage statistics (null for legacy). */
+  usage: Usage | null;
+  /** Hashes of failed attempts (null if no retries). */
+  previousAttempts: CasRef[] | null;
+};
+
+/**
+ * Turn node for agent output — forms a singly-linked chain via `prev`.
+ * Each turn belongs to a step-start via `owner`.
+ */
+export type TurnNodePayload = {
+  /** Role identifier (e.g., "assistant"). */
+  role: string;
+  /** Turn content. */
+  content: string;
+  /** Hash of the previous turn (null for first turn). */
+  prev: CasRef | null;
+  /** Hash of the owning step-start (null for legacy). */
+  owner: CasRef | null;
+};

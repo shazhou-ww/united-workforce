@@ -6,7 +6,14 @@ import { dirname, join, resolve as resolvePath } from "node:path";
 
 import { bootstrap, type Hash, putSchema, type Store, type VarStore } from "@ocas/core";
 import { createFsStore, createSqliteVarStore } from "@ocas/fs";
-import type { CasRef, ThreadId, ThreadIndexEntry, ThreadsIndex } from "@united-workforce/protocol";
+import type {
+  CasRef,
+  StepStartPayload,
+  ThreadId,
+  ThreadIndexEntry,
+  ThreadsIndex,
+  TurnNodePayload,
+} from "@united-workforce/protocol";
 import { parseThreadsIndex } from "@united-workforce/protocol";
 import { parse } from "yaml";
 
@@ -691,4 +698,66 @@ export function migrateHistoryVarsToThreadVars(varStore: VarStore): void {
     setThread(varStore, threadId, threadEntry);
     varStore.remove(v.name);
   }
+}
+
+// ── Turn Chain Functions (Phase 1) ─────────────────────────────────
+
+/**
+ * Write a step-start node to CAS. Returns the CAS hash.
+ */
+export function writeStepStart(uwfStore: UwfStore, payload: StepStartPayload): CasRef {
+  const hash = uwfStore.store.cas.put(uwfStore.schemas.stepStart, payload);
+  return hash as CasRef;
+}
+
+/**
+ * Write a turn node to CAS. Returns the CAS hash.
+ */
+export function writeTurnNode(uwfStore: UwfStore, payload: TurnNodePayload): CasRef {
+  const hash = uwfStore.store.cas.put(uwfStore.schemas.turnNode, payload);
+  return hash as CasRef;
+}
+
+/**
+ * Walk the turn chain from head back to the first turn via `prev` pointers.
+ * Returns turns in chronological order (oldest first).
+ */
+export function walkTurnChain(uwfStore: UwfStore, headHash: CasRef): CasRef[] {
+  const chain: CasRef[] = [];
+  let currentHash: CasRef | null = headHash;
+
+  while (currentHash !== null) {
+    chain.push(currentHash);
+    const node = uwfStore.store.cas.get(currentHash);
+    if (node === null) {
+      break;
+    }
+    const payload = node.payload as TurnNodePayload | { prev?: CasRef | null };
+    currentHash = payload.prev ?? null;
+  }
+
+  // Reverse to get chronological order (oldest first)
+  return chain.reverse();
+}
+
+/**
+ * Get turns belonging to a specific step-start by filtering the turn chain
+ * via the `owner` field. Returns turns in chronological order (oldest first).
+ */
+export function turnsOfStep(uwfStore: UwfStore, headHash: CasRef, stepStartHash: CasRef): CasRef[] {
+  const allTurns = walkTurnChain(uwfStore, headHash);
+  const result: CasRef[] = [];
+
+  for (const turnHash of allTurns) {
+    const node = uwfStore.store.cas.get(turnHash);
+    if (node === null) {
+      continue;
+    }
+    const payload = node.payload as TurnNodePayload | { owner?: CasRef | null };
+    if (payload.owner === stepStartHash) {
+      result.push(turnHash);
+    }
+  }
+
+  return result;
 }
