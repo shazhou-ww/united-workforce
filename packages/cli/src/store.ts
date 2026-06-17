@@ -35,6 +35,10 @@ export const THREAD_VAR_PREFIX = "@uwf/thread/";
  * mutable head pointer at an immutable CAS array node; it is cleared at the
  * start of each step and deleted once the turns are solidified into the
  * step's immutable `detail.turns`.
+ *
+ * @deprecated Phase 2 (#419) — role-keyed vars replaced by thread-keyed:
+ * - `@uwf/active-step/<threadId>` — current in-flight step-start hash
+ * - `@uwf/active-turn-head/<threadId>` — head of the turn chain
  */
 export const ACTIVE_TURNS_VAR_PREFIX = "@uwf/active-turns/";
 
@@ -45,6 +49,8 @@ export const ACTIVE_TURNS_VAR_PREFIX = "@uwf/active-turns/";
  * re-pointing the var (append), removing it (clear/solidify), and listing it by
  * exact name all address the same variable. The hash is content-addressed and
  * therefore identical across processes.
+ *
+ * @deprecated Phase 2 (#419) — role-keyed vars replaced by thread-keyed vars.
  */
 export const ACTIVE_TURNS_LIST_SCHEMA = {
   title: "uwf-active-turns",
@@ -52,7 +58,11 @@ export const ACTIVE_TURNS_LIST_SCHEMA = {
   items: { type: "string" as const, format: "ocas_ref" },
 };
 
-/** Build the active-turns variable name for a `(threadId, role)` pair. */
+/**
+ * Build the active-turns variable name for a `(threadId, role)` pair.
+ *
+ * @deprecated Phase 2 (#419) — role-keyed vars replaced by thread-keyed vars.
+ */
 export function activeTurnsVarName(threadId: ThreadId, role: string): string {
   return `${ACTIVE_TURNS_VAR_PREFIX}${threadId}/${role}`;
 }
@@ -61,6 +71,8 @@ export function activeTurnsVarName(threadId: ThreadId, role: string): string {
  * Register (idempotently) and return the CAS schema hash for the active-turns
  * list node. Used both as the array node's type and — implicitly — as the
  * variable's schema key.
+ *
+ * @deprecated Phase 2 (#419) — role-keyed vars replaced by thread-keyed vars.
  */
 export function activeTurnsListSchemaHash(store: Store): Hash {
   return putSchema(store, ACTIVE_TURNS_LIST_SCHEMA);
@@ -70,6 +82,8 @@ export function activeTurnsListSchemaHash(store: Store): Hash {
  * Read the ordered turn-hash list currently pointed at by
  * `@uwf/active-turns/<threadId>/<role>`. Returns `[]` when the var does not
  * exist (no turns appended yet, or already solidified/cleared).
+ *
+ * @deprecated Phase 2 (#419) — use `turnsOfStep()` with thread-keyed vars instead.
  */
 export function readActiveTurns(store: Store, threadId: ThreadId, role: string): CasRef[] {
   const name = activeTurnsVarName(threadId, role);
@@ -93,6 +107,8 @@ export function readActiveTurns(store: Store, threadId: ThreadId, role: string):
  * `step turns` to append the running step(s) to the whole-chain panorama — the
  * in-flight step has no settled StepNode hash, so it is found via its
  * `(threadId, role)` active var rather than the chain.
+ *
+ * @deprecated Phase 2 (#419) — use `getActiveStep()` with thread-keyed vars instead.
  */
 export function readActiveTurnRoles(
   store: Store,
@@ -125,6 +141,8 @@ export function readActiveTurnRoles(
  * on the array node, then re-point the var). The var is a single mutable
  * pointer re-pointed on each append — not one var per turn. Returns the full
  * updated list.
+ *
+ * @deprecated Phase 2 (#419) — turns now written directly with prev+owner chain.
  */
 export function appendActiveTurn(
   store: Store,
@@ -146,10 +164,93 @@ export function appendActiveTurn(
  * missing var is a no-op, so this is safe to call at the start of a clean run.
  * Targets the exact `(threadId, role)` var only — concurrent active vars for
  * other roles/threads are untouched.
+ *
+ * @deprecated Phase 2 (#419) — turns now written directly with prev+owner chain.
  */
 export function clearActiveTurns(store: Store, threadId: ThreadId, role: string): void {
   const name = activeTurnsVarName(threadId, role);
   store.var.remove(name);
+}
+
+// ── Thread-keyed Active Vars (Phase 2 #419) ──────────────────────────
+
+/**
+ * Variable name prefix for in-flight step (`@uwf/active-step/<thread-id>`).
+ * Phase 2 (#419): points to the current step-start hash while a step is in-flight.
+ * Cleared when the step completes (step-complete written).
+ */
+export const ACTIVE_STEP_VAR_PREFIX = "@uwf/active-step/";
+
+/**
+ * Variable name prefix for the turn chain head (`@uwf/active-turn-head/<thread-id>`).
+ * Phase 2 (#419): points to the most recent turn hash. Updated as each turn arrives.
+ * Remains after step completion (turns are immutable).
+ */
+export const ACTIVE_TURN_HEAD_VAR_PREFIX = "@uwf/active-turn-head/";
+
+/** Build the active-step variable name for a thread. */
+export function activeStepVarName(threadId: ThreadId): string {
+  return `${ACTIVE_STEP_VAR_PREFIX}${threadId}`;
+}
+
+/** Build the active-turn-head variable name for a thread. */
+export function activeTurnHeadVarName(threadId: ThreadId): string {
+  return `${ACTIVE_TURN_HEAD_VAR_PREFIX}${threadId}`;
+}
+
+/**
+ * Get the current in-flight step-start hash for a thread, or null if no step
+ * is in-flight. Phase 2 (#419): thread-keyed, not role-keyed.
+ */
+export function getActiveStep(store: Store, threadId: ThreadId): CasRef | null {
+  const name = activeStepVarName(threadId);
+  const vars = store.var.list({ exactName: name });
+  const v = vars[0];
+  if (v === undefined) {
+    return null;
+  }
+  return v.value as CasRef;
+}
+
+/**
+ * Set the in-flight step-start hash for a thread. Called at step start.
+ * Phase 2 (#419): thread-keyed, not role-keyed.
+ */
+export function setActiveStep(store: Store, threadId: ThreadId, stepStartHash: CasRef): void {
+  const name = activeStepVarName(threadId);
+  store.var.set(name, stepStartHash);
+}
+
+/**
+ * Clear the in-flight step-start for a thread. Called at step completion.
+ * Phase 2 (#419): thread-keyed, not role-keyed.
+ */
+export function clearActiveStep(store: Store, threadId: ThreadId): void {
+  const name = activeStepVarName(threadId);
+  store.var.remove(name);
+}
+
+/**
+ * Get the current turn chain head hash for a thread, or null if no turns exist.
+ * Phase 2 (#419): thread-keyed, not role-keyed.
+ */
+export function getActiveTurnHead(store: Store, threadId: ThreadId): CasRef | null {
+  const name = activeTurnHeadVarName(threadId);
+  const vars = store.var.list({ exactName: name });
+  const v = vars[0];
+  if (v === undefined) {
+    return null;
+  }
+  return v.value as CasRef;
+}
+
+/**
+ * Set the turn chain head hash for a thread. Called after each turn is written.
+ * Phase 2 (#419): thread-keyed, not role-keyed.
+ */
+export function setActiveTurnHead(store: Store, threadId: ThreadId, turnHash: CasRef): void {
+  const name = activeTurnHeadVarName(threadId);
+  store.var.set(name, turnHash);
 }
 
 /** A workflow entry discovered from the project-local .workflows/ (primary) or .workflow/ (legacy) directory. */

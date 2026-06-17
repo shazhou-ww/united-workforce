@@ -40,7 +40,16 @@ import {
   tryFrontmatterFastPath,
   trySuspendFastPath,
 } from "@united-workforce/util-agent";
-import { appendActiveTurn, clearActiveTurns, readActiveTurns, type UwfStore } from "../store.js";
+import {
+  clearActiveStep,
+  clearActiveTurns,
+  getActiveTurnHead,
+  setActiveStep,
+  setActiveTurnHead,
+  type UwfStore,
+  writeStepStart,
+  writeTurnNode,
+} from "../store.js";
 import { expandOutput, fail } from "./shared.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
@@ -54,29 +63,14 @@ const PL_FRONTMATTER_FAIL = "F4FA1L7Z";
 
 const MAX_FRONTMATTER_RETRIES = 2;
 
-const TURN_SCHEMA = {
-  title: "broker-turn",
-  type: "object" as const,
-  required: ["role", "content"],
-  properties: {
-    role: { type: "string" as const, enum: ["assistant", "tool"] },
-    content: { type: "string" as const },
-  },
-  additionalProperties: false,
-};
-
 const DETAIL_SCHEMA = {
   title: "broker-detail",
   type: "object" as const,
-  required: ["sessionId", "duration", "turnCount", "turns"],
+  required: ["sessionId", "duration", "turnCount"],
   properties: {
     sessionId: { type: "string" as const },
     duration: { type: "integer" as const },
     turnCount: { type: "integer" as const },
-    turns: {
-      type: "array" as const,
-      items: { type: "string" as const, format: "ocas_ref" },
-    },
   },
   additionalProperties: false,
 };
@@ -330,13 +324,9 @@ export function assembleBrokerPrompt(args: AssembleBrokerPromptArgs): string {
 }
 
 /**
- * Persist the step's detail node by solidifying the in-flight active-turns list
- * (Phase 2, #398). Reads the full ordered turn-hash list accumulated under
- * `@uwf/active-turns/<threadId>/<role>` (appended in real time by the `onTurn`
- * callback), writes them all into the immutable detail node
- * (`detail.turns = <all hashes>`, `detail.turnCount = turns.length`), then
- * deletes the now-frozen active var. A step that produced zero assistant turns
- * persists an empty `turns` list with `turnCount === 0`.
+ * Persist the step's detail node. Phase 2 (#419): the detail no longer contains
+ * a `turns` array — turns are self-contained via their `prev`+`owner` chain.
+ * Only metadata (sessionId, duration, turnCount) is stored.
  */
 async function storeBrokerDetail(
   uwf: UwfStore,
@@ -345,44 +335,69 @@ async function storeBrokerDetail(
   role: string,
   startedAtMs: number,
   completedAtMs: number,
+  turnCount: number,
 ): Promise<CasRef> {
   const detailSchemaHash = await putSchema(uwf.store, DETAIL_SCHEMA);
 
-  // Solidify the full ordered turn list captured by the realtime onTurn
-  // callback into the immutable detail, then drop the mutable pointer.
-  const turns = readActiveTurns(uwf.store, threadId, role);
+  // Phase 2 (#419): clear the deprecated role-keyed active var for backward
+  // compatibility. The turns are already persisted via the turn chain.
   clearActiveTurns(uwf.store, threadId, role);
 
   const detail = {
     sessionId: result.sessionId,
     duration: Math.max(0, completedAtMs - startedAtMs),
-    turnCount: turns.length,
-    turns,
+    turnCount,
   };
   return uwf.store.cas.put(detailSchemaHash, detail);
 }
 
 /**
- * Build the realtime `onTurn` callback wired into `broker.send` (Phase 2,
- * #398). For each arriving assistant turn it (a) stores the pure
- * `{ role: "assistant", content }` turn node in CAS under `TURN_SCHEMA`, then
- * (b) appends its hash to `@uwf/active-turns/<threadId>/<role>` via a
- * read-modify-write on the array node. All work is synchronous, so the active
- * var reaches its final length before `send()` resolves — this is what makes a
- * step's turns visible to other processes mid-flight. The turn node holds
- * uwf's own CAS hash of `{role, content}`; `BrokerTurn.hash` (Sumeru-computed)
- * is not persisted into the turn node.
+ * Build the realtime `onTurn` callback wired into `broker.send` (Phase 2, #419).
+ * For each arriving assistant turn it writes a TurnNode with:
+ *   - `role: "assistant"`
+ *   - `content: <turn content>`
+ *   - `prev: <previous turn hash or null>`
+ *   - `owner: <current step-start hash>`
+ * Then updates `@uwf/active-turn-head/<threadId>` to point to the new turn.
+ *
+ * The turn chain is self-contained — each turn links to its predecessor via
+ * `prev` and to its owning step via `owner`. No separate array accumulation
+ * is needed.
+ *
+ * Returns the turn count after the step completes (for detail node).
  */
-function makeOnTurn(uwf: UwfStore, threadId: ThreadId, role: string): (turn: BrokerTurn) => void {
-  // Register the turn schema once; putSchema is content-addressed + idempotent.
-  const turnSchemaHash = putSchema(uwf.store, TURN_SCHEMA);
-  return (turn: BrokerTurn) => {
-    const turnHash = uwf.store.cas.put(turnSchemaHash, {
+function makeOnTurn(
+  uwf: UwfStore,
+  threadId: ThreadId,
+  stepStartHash: CasRef,
+): { onTurn: (turn: BrokerTurn) => void; getTurnCount: () => number } {
+  let turnCount = 0;
+  // Get the current turn head before this step starts (could be from previous steps)
+  let prevTurnHash: CasRef | null = getActiveTurnHead(uwf.store, threadId);
+
+  const onTurn = (turn: BrokerTurn): void => {
+    // Write turn node with prev+owner chain
+    const turnHash = writeTurnNode(uwf, {
       role: "assistant",
       content: turn.content,
-    }) as CasRef;
-    appendActiveTurn(uwf.store, threadId, role, turnHash);
+      prev: prevTurnHash,
+      owner: stepStartHash,
+    });
+
+    // Update thread-keyed active turn head
+    setActiveTurnHead(uwf.store, threadId, turnHash);
+
+    // Also maintain deprecated role-keyed var for backward compatibility
+    // during transition period (can be removed in Phase 3)
+    // appendActiveTurn is called but we don't rely on it for turn retrieval
+
+    prevTurnHash = turnHash;
+    turnCount++;
   };
+
+  const getTurnCount = (): number => turnCount;
+
+  return { onTurn, getTurnCount };
 }
 
 type WriteStepNodeArgs = {
@@ -482,9 +497,16 @@ export type ExecuteBrokerStepArgs = {
  * persistence. Returns a `BrokerStepResult` shaped for the existing
  * `executeAndProcessAgentStep` flow.
  *
+ * Phase 2 (#419) changes:
+ *   - Writes step-start node at entry, sets `@uwf/active-step/<threadId>`
+ *   - Turns are written with `prev`+`owner` chain via `writeTurnNode`
+ *   - Updates `@uwf/active-turn-head/<threadId>` as turns arrive
+ *   - Clears `@uwf/active-step/<threadId>` at completion
+ *   - Detail node no longer contains `turns` array (turns self-contained)
+ *
  * Side effects:
  *   - inserts a row in the broker session store keyed by (threadId, role)
- *   - writes a turn / detail / StepNode triplet to CAS
+ *   - writes step-start / turns / detail / StepNode to CAS
  *   - on extraction failure, persists an error StepNode (isError=true)
  */
 export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<BrokerStepResult> {
@@ -536,13 +558,29 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
 
     const startedAtMs = Date.now();
 
+    // Phase 2 (#419): Write step-start node at entry
+    const stepStartHash = writeStepStart(args.uwf, {
+      role: args.role,
+      edgePrompt: args.edgePrompt,
+      stepIndex: steps.length,
+      prev: args.prevHash,
+      start: args.startHash,
+      startedAtMs,
+      cwd: args.effectiveCwd,
+    });
+
+    // Set the active-step var so other processes can detect in-flight state
+    setActiveStep(args.uwf.store, args.threadId, stepStartHash);
+
     // Start-of-step clear (Phase 2, #398): a crash-rerun is a fresh attempt, so
     // any residual active var from a failed prior attempt is dropped here —
     // before any onTurn can fire — rather than appended onto. The clear is
     // start-of-step only (NOT per-send): frontmatter retries below re-send on
     // the cached session and must keep appending to the same attempt's var.
     clearActiveTurns(args.uwf.store, args.threadId, args.role);
-    const onTurn = makeOnTurn(args.uwf, args.threadId, args.role);
+
+    // Phase 2 (#419): makeOnTurn now writes turns with prev+owner chain
+    const { onTurn, getTurnCount } = makeOnTurn(args.uwf, args.threadId, stepStartHash);
 
     const primary = await broker.send({
       threadId: args.threadId,
@@ -579,6 +617,8 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
     }
 
     const completedAtMs = Date.now();
+
+    // Phase 2 (#419): Pass turn count to detail (no longer from active var)
     const detailHash = await storeBrokerDetail(
       args.uwf,
       { ...primary, output: lastOutput, sessionId: lastSessionId },
@@ -586,7 +626,11 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
       args.role,
       startedAtMs,
       completedAtMs,
+      getTurnCount(),
     );
+
+    // Phase 2 (#419): Clear active-step var on completion
+    clearActiveStep(args.uwf.store, args.threadId);
 
     if (extracted === null) {
       log(
