@@ -1,7 +1,7 @@
 ---
 scenario: "acquireSlot succeeds immediately when active slots are below maxRunning"
 feature: thread
-tags: [concurrency, slot, acquire]
+tags: [concurrency, slot, acquire, walkthrough]
 ---
 
 ## Given

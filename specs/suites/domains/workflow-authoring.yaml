@@ -1,0 +1,16 @@
+suite: workflow-authoring
+description: workflow 编写：解析策略、validate、moderator 求值、authoring reference
+# 功能域回归：定向跑某个领域的全部行为 spec（12 个）
+scenarios:
+  - docs-authoring-ref-liquid-features.md
+  - examples-debate-liquid-syntax.md
+  - examples-e2e-walkthrough-liquid-syntax.md
+  - examples-normalize-bun-monorepo-liquid-syntax.md
+  - examples-solve-issue-liquid-syntax.md
+  - validate-semantic-liquidjs-render.md
+  - workflow-add-output-schema.md
+  - workflow-add-text-output.md
+  - workflow-add-text-template.md
+  - workflow-show-local-resolution.md
+  - workflow-show-resolution-strategies.md
+  - workflow-version-field.md

@@ -1,7 +1,7 @@
 ---
 scenario: "slot is released when exec process receives SIGINT or SIGTERM"
 feature: thread
-tags: [concurrency, slot, signal, cleanup]
+tags: [concurrency, slot, signal, cleanup, walkthrough]
 ---
 
 ## Given

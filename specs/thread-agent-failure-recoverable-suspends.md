@@ -1,7 +1,7 @@
 ---
 scenario: "Recoverable agent failure (isError: true) transitions thread to suspended"
 feature: thread
-tags: [agent, failure, suspended, thread-exec]
+tags: [agent, failure, suspended, thread-exec, walkthrough]
 ---
 
 ## Given

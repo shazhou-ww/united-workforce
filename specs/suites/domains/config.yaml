@@ -1,0 +1,8 @@
+suite: config
+description: config 命令：set/get/list、concurrency.maxRunning 持久化
+# 功能域回归：定向跑某个领域的全部行为 spec（4 个）
+scenarios:
+  - concurrency-config-set-max-running.md
+  - config-get-text-renderer.md
+  - config-list-text-renderer.md
+  - config-set-text-renderer.md

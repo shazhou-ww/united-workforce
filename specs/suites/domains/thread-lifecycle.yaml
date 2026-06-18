@@ -1,0 +1,32 @@
+suite: thread-lifecycle
+description: thread 生命周期：并发槽、marker 进程身份、agent 失败容错、list/cancel/stop
+# 功能域回归：定向跑某个领域的全部行为 spec（28 个）
+scenarios:
+  - concurrency-acquire-slot-blocks-at-limit.md
+  - concurrency-acquire-slot-under-limit.md
+  - concurrency-background-no-flag-forwarding.md
+  - concurrency-default-max-running.md
+  - concurrency-exec-signal-cleanup.md
+  - concurrency-exec-uses-slot.md
+  - concurrency-no-cli-flag-accepted.md
+  - concurrency-race-protection-rollback.md
+  - concurrency-resolve-from-config-only.md
+  - concurrency-stale-slot-cleanup.md
+  - loadworkflowpayload-throws-on-error.md
+  - moderator-evaluate-liquidjs.md
+  - moderator-evaluate-test-update.md
+  - thread-agent-failure-fatal-suspends.md
+  - thread-agent-failure-recoverable-suspends.md
+  - thread-agent-failure-suspended-resumable.md
+  - thread-cancel-validates-process-identity.md
+  - thread-exec-stale-marker-recovery.md
+  - thread-list-completed-missing-workflow-corrupt.md
+  - thread-list-missing-workflow-corrupt.md
+  - thread-list-output-mapper-uses-shared-ulid-decoder.md
+  - thread-list-stale-marker-cleanup.md
+  - thread-list-startedat-correct-ulid-timestamp.md
+  - thread-list-startedat-renders-as-current-year.md
+  - thread-list-wrong-type-workflow-corrupt.md
+  - thread-marker-process-identity.md
+  - thread-marker-valid-process-still-blocked.md
+  - thread-stop-validates-process-identity.md

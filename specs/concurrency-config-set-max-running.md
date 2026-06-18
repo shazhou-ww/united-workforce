@@ -1,7 +1,7 @@
 ---
 scenario: "uwf config set concurrency.maxRunning persists the concurrency limit"
 feature: config
-tags: [concurrency, config]
+tags: [concurrency, config, walkthrough]
 ---
 
 ## Given

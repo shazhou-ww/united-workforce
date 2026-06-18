@@ -1,7 +1,7 @@
 ---
 scenario: "thread list startedAt reflects the ULID-encoded creation time (no padding-bits leak)"
 feature: thread
-tags: [thread-list, output-mapper, ulid, timestamp, bugfix]
+tags: [thread-list, output-mapper, ulid, timestamp, bugfix, walkthrough]
 ---
 
 ## Given

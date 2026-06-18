@@ -1,7 +1,7 @@
 ---
 scenario: "Default maxRunning is 2 when no config is provided"
 feature: thread
-tags: [concurrency, config, default]
+tags: [concurrency, config, default, walkthrough]
 ---
 
 ## Given

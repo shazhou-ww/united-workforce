@@ -1,7 +1,7 @@
 ---
 scenario: "uwf workflow show follows correct resolution strategy priority order"
 feature: workflow
-tags: [workflow, resolution, strategy, priority]
+tags: [workflow, resolution, strategy, priority, walkthrough]
 ---
 
 ## Background

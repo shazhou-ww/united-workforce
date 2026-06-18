@@ -1,7 +1,7 @@
 ---
 scenario: "uwf-sumeru sends a message via SSE, consumes turn events, and returns the last turn's content as raw output"
 feature: agent-sumeru
-tags: [agent, sumeru, sse, http, http-streaming]
+tags: [agent, sumeru, sse, http, http-streaming, walkthrough]
 ---
 
 ## Given

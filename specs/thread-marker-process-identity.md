@@ -1,7 +1,7 @@
 ---
 scenario: "Running marker records process start time for identity verification"
 feature: thread
-tags: [background, marker, pid-recycling]
+tags: [background, marker, pid-recycling, walkthrough]
 ---
 
 ## Given

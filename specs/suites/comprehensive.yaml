@@ -1,0 +1,10 @@
+suite: comprehensive
+description: 全量回归（最慢）：全部 76 个行为 spec，按功能域聚合引用。
+# 引用功能域 suite，避免重复维护
+includes:
+  - domains/thread-lifecycle.yaml
+  - domains/agents.yaml
+  - domains/cli-output.yaml
+  - domains/workflow-authoring.yaml
+  - domains/config.yaml
+  - domains/test-infra.yaml

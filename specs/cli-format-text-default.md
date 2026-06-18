@@ -1,7 +1,7 @@
 ---
 scenario: "uwf CLI defaults to human-readable text format and accepts --format text without producing 'undefined'"
 feature: cli
-tags: [cli, format, default, text]
+tags: [cli, format, default, text, walkthrough]
 ---
 
 ## Given

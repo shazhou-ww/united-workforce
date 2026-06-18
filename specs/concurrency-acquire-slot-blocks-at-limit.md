@@ -1,7 +1,7 @@
 ---
 scenario: "acquireSlot blocks when active slots equal maxRunning, proceeds after release"
 feature: thread
-tags: [concurrency, slot, blocking]
+tags: [concurrency, slot, blocking, walkthrough]
 ---
 
 ## Given

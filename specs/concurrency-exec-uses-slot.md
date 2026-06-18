@@ -1,7 +1,7 @@
 ---
 scenario: "thread exec acquires concurrency slot before spawning agent and releases after"
 feature: thread
-tags: [concurrency, exec, integration]
+tags: [concurrency, exec, integration, walkthrough]
 ---
 
 ## Given

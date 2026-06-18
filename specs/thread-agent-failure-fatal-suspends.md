@@ -1,7 +1,7 @@
 ---
 scenario: "Fatal agent failure (command crash / unparseable output) transitions thread to suspended"
 feature: thread
-tags: [agent, failure, suspended, thread-exec, fatal]
+tags: [agent, failure, suspended, thread-exec, fatal, walkthrough]
 ---
 
 ## Given

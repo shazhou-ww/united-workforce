@@ -1,0 +1,11 @@
+suite: smoke
+description: 核心路径冒烟，确认没全崩（秒级）。每个功能域挑 1-2 条主干必过。
+scenarios:
+  - concurrency-acquire-slot-under-limit.md
+  - thread-exec-stale-marker-recovery.md
+  - thread-agent-failure-recoverable-suspends.md
+  - workflow-show-resolution-strategies.md
+  - moderator-evaluate-liquidjs.md
+  - cli-format-text-default.md
+  - config-set-text-renderer.md
+  - agent-hermes-timeout-precedence.md

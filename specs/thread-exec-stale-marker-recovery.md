@@ -1,7 +1,7 @@
 ---
 scenario: "thread exec auto-recovers when marker PID belongs to a recycled process"
 feature: thread
-tags: [background, marker, pid-recycling, stale-recovery]
+tags: [background, marker, pid-recycling, stale-recovery, walkthrough]
 ---
 
 ## Given

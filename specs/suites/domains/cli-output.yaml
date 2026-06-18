@@ -1,0 +1,18 @@
+suite: cli-output
+description: CLI 输出层：format 矩阵、text renderer、render 模板、protocol 输出 schema
+# 功能域回归：定向跑某个领域的全部行为 spec（14 个）
+scenarios:
+  - cli-envelope-writer.md
+  - cli-format-breaking-change-compat.md
+  - cli-format-text-default.md
+  - cli-format-text-renderer-registry.md
+  - cli-format-text-templates-per-command.md
+  - cli-log-list-show-text-renderer.md
+  - cli-ocas-envelope-in-repo-consumer-migration.md
+  - cli-output-format-matrix.md
+  - cli-output-render-templates.md
+  - cli-output-schemas.md
+  - cli-thread-cancel-text-renderer.md
+  - cli-thread-stop-text-renderer.md
+  - output-templates-ms-to-s-conversion-before-date-filter.md
+  - output-templates-thread-list-template-ms-to-s.md

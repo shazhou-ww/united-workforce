@@ -1,7 +1,7 @@
 ---
 scenario: "Moderator evaluate renders edge prompts and locations using LiquidJS engine"
 feature: thread
-tags: [moderator, liquidjs, template]
+tags: [moderator, liquidjs, template, walkthrough]
 ---
 
 ## Given

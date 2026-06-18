@@ -1,7 +1,7 @@
 ---
 scenario: "uwf-sumeru creates a Sumeru session on first visit and caches its (instance, gateway, sessionId) by (threadId, role)"
 feature: agent-sumeru
-tags: [agent, sumeru, session, cache, http]
+tags: [agent, sumeru, session, cache, http, walkthrough]
 ---
 
 ## Given

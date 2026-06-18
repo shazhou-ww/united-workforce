@@ -1,0 +1,18 @@
+suite: agents
+description: agent 适配器：hermes/sumeru/claude-code 的 CLI 入口、超时、会话、错误映射
+# 功能域回归：定向跑某个领域的全部行为 spec（14 个）
+scenarios:
+  - agent-claude-code-error-mapping.md
+  - agent-claude-code-prompt-debug-only.md
+  - agent-claude-code-stderr-surfaced.md
+  - agent-hermes-timeout-default.md
+  - agent-hermes-timeout-env.md
+  - agent-hermes-timeout-flag.md
+  - agent-hermes-timeout-precedence.md
+  - agent-sumeru-cli-entrypoint.md
+  - agent-sumeru-config-loading.md
+  - agent-sumeru-continue-retry.md
+  - agent-sumeru-create-agent-reuse.md
+  - agent-sumeru-session-create.md
+  - agent-sumeru-sse-consume.md
+  - test-engines-bun-guard-preserved.md

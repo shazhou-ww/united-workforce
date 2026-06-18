@@ -1,7 +1,7 @@
 ---
 scenario: "thread stop refuses to send SIGTERM when marker PID is a recycled process"
 feature: thread
-tags: [background, marker, pid-recycling, safety]
+tags: [background, marker, pid-recycling, safety, walkthrough]
 ---
 
 ## Given

@@ -1,0 +1,23 @@
+suite: e2e-walkthrough
+description: 端到端主干走查（分钟级）：配置→thread执行→失败容错→list/stop/cancel→workflow→agent 全链路。
+scenarios:
+  - concurrency-config-set-max-running.md
+  - concurrency-default-max-running.md
+  - concurrency-acquire-slot-under-limit.md
+  - concurrency-acquire-slot-blocks-at-limit.md
+  - concurrency-exec-uses-slot.md
+  - concurrency-exec-signal-cleanup.md
+  - thread-marker-process-identity.md
+  - thread-exec-stale-marker-recovery.md
+  - thread-agent-failure-recoverable-suspends.md
+  - thread-agent-failure-suspended-resumable.md
+  - thread-agent-failure-fatal-suspends.md
+  - thread-list-startedat-correct-ulid-timestamp.md
+  - thread-stop-validates-process-identity.md
+  - thread-cancel-validates-process-identity.md
+  - workflow-show-resolution-strategies.md
+  - moderator-evaluate-liquidjs.md
+  - cli-format-text-default.md
+  - agent-hermes-timeout-precedence.md
+  - agent-sumeru-session-create.md
+  - agent-sumeru-sse-consume.md

@@ -1,7 +1,7 @@
 ---
 scenario: "uwf-hermes timeout resolution honors the priority flag > env > default"
 feature: agent-hermes
-tags: [agent, hermes, timeout, precedence]
+tags: [agent, hermes, timeout, precedence, walkthrough]
 ---
 
 ## Given

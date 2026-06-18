@@ -1,0 +1,8 @@
+suite: test-infra
+description: 测试基建不变量：env 隔离、tmpdir 清理、回归守卫
+# 功能域回归：定向跑某个领域的全部行为 spec（4 个）
+scenarios:
+  - test-centralize-makeuwfstore-helper.md
+  - test-globalsetup-env-leak-detection.md
+  - test-ocas-home-restore-aftereach.md
+  - test-thread-cancel-status-cleanup.md

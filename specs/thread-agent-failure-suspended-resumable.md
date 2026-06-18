@@ -1,7 +1,7 @@
 ---
 scenario: "Thread suspended by agent failure can be resumed with uwf thread resume"
 feature: thread
-tags: [agent, failure, suspended, thread-resume]
+tags: [agent, failure, suspended, thread-resume, walkthrough]
 ---
 
 ## Given
