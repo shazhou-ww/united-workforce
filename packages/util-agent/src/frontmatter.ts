@@ -24,13 +24,19 @@ export type FrontmatterFastPathResult = {
   frontmatter: Record<string, unknown>;
 };
 
+// Independent fence detector backing parseRawFrontmatterFields. MUST stay in
+// sync with splitFrontmatter in @united-workforce/util — both tolerate leading
+// whitespace (newline / CR / space / tab / BOM `\uFEFF`) before the opening
+// fence (issue #429). If only one is trimmed, the main parse passes while raw
+// fields are dropped, producing a candidate that fails schema validation.
 function extractYamlBlock(raw: string): string | null {
   const fence = "---";
-  if (!raw.startsWith(fence)) {
+  const trimmed = raw.trimStart();
+  if (!trimmed.startsWith(fence)) {
     return null;
   }
 
-  const rest = raw.slice(fence.length);
+  const rest = trimmed.slice(fence.length);
   if (rest.length > 0 && rest[0] !== "\n" && rest[0] !== "\r") {
     return null;
   }
