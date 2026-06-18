@@ -1,11 +1,19 @@
 suite: smoke
-description: 核心路径冒烟，确认没全崩（秒级）。每个功能域挑 1-2 条主干必过。
+description: >
+  核心路径冒烟，确认没全崩（秒级）。只收"CLI 可一键走查"的场景——
+  命令能直接跑、Then 断言清晰、无需真实 agent/thread setup。
+  函数级行为（acquireSlot/evaluate 等）交给 CI 单测，不进 smoke。
+# 选型经第一轮真实走查验证：纯读/幂等为主，覆盖 config/cli-output/workflow/thread 四核心域
 scenarios:
-  - concurrency-acquire-slot-under-limit.md
-  - thread-exec-stale-marker-recovery.md
-  - thread-agent-failure-recoverable-suspends.md
-  - workflow-show-resolution-strategies.md
-  - moderator-evaluate-liquidjs.md
-  - cli-format-text-default.md
+  # config 域 —— 纯读/幂等，断言最清晰
   - config-set-text-renderer.md
-  - agent-hermes-timeout-precedence.md
+  - config-get-text-renderer.md
+  - config-list-text-renderer.md
+  # cli-output 域 —— 输出格式契约
+  - cli-format-text-default.md
+  - cli-output-format-matrix.md
+  # workflow 域 —— 解析优先级 + 非法 hash 负向报错
+  - workflow-show-resolution-strategies.md
+  # thread 域 —— list 类纯读（避开需真 agent 的 exec）
+  - thread-list-startedat-correct-ulid-timestamp.md
+  - thread-list-stale-marker-cleanup.md
