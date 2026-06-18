@@ -59,7 +59,7 @@ const PL_BROKER_SEND = "BR0KR5ND";
 /** Tag for frontmatter retry call sites. */
 const PL_FRONTMATTER_RETRY = "F4RTM4RT";
 /** Tag for frontmatter extraction failure. */
-const PL_FRONTMATTER_FAIL = "F4FA1L7Z";
+const PL_FRONTMATTER_FAIL = "F4FA117Z";
 
 const MAX_FRONTMATTER_RETRIES = 2;
 
