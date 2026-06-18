@@ -41,6 +41,83 @@ describe("parseFrontmatterMarkdown", () => {
     });
   });
 
+  // ── Leading whitespace before the opening fence (issue #429) ───────────────
+  // Agents (claude-code especially) often emit a leading newline / space / BOM
+  // before the frontmatter. Before #429 these failed extraction → frontmatter
+  // retry. The trim layer tolerates leading whitespace while the block itself
+  // must still be a complete `---\n...\n---`.
+  describe("leading whitespace before opening fence (issue #429)", () => {
+    it("clean-top (regression guard): byte-for-byte unchanged", () => {
+      const raw = "---\nstatus: done\n---\n\nBody text";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      expect(result.frontmatter?.status).toBe("done");
+      expect(result.body).toBe("Body text");
+    });
+
+    it("leading newline now extracts (was retry)", () => {
+      const raw = "\n---\nstatus: done\n---\n\nBody text";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      expect(result.frontmatter?.status).toBe("done");
+      expect(result.body).toBe("Body text");
+    });
+
+    it("leading spaces now extract (was retry)", () => {
+      const raw = "  ---\nstatus: done\n---\n\nBody text";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      expect(result.frontmatter?.status).toBe("done");
+      expect(result.body).toBe("Body text");
+    });
+
+    it("leading BOM now extracts (was retry)", () => {
+      const raw = "\uFEFF---\nstatus: done\n---\n\nBody text";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      expect(result.frontmatter?.status).toBe("done");
+      expect(result.body).toBe("Body text");
+    });
+
+    it("leading CR/tab mix now extracts and body is not corrupted", () => {
+      const raw = "\r\n\t ---\nstatus: done\n---\n\nBody text";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).not.toBeNull();
+      expect(result.frontmatter?.status).toBe("done");
+      expect(result.body).toBe("Body text");
+    });
+  });
+
+  // ── Out-of-scope inputs stay unhandled (issue #429) ────────────────────────
+  describe("out-of-scope inputs remain no-frontmatter (issue #429)", () => {
+    it("leading prose is NOT stripped → still no frontmatter", () => {
+      const raw = "Here is my output:\n---\nstatus: done\n---\n\nbody";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).toBeNull();
+      expect(result.body).toBe(raw);
+    });
+
+    it("markdown code-fence wrapping → still no frontmatter", () => {
+      const raw = "```yaml\n---\nstatus: done\n---\n```";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).toBeNull();
+      expect(result.body).toBe(raw);
+    });
+
+    it("leading whitespace but no closing fence → still no frontmatter", () => {
+      const raw = "\n---\nstatus: done\nbody with no close";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).toBeNull();
+      expect(result.body).toBe(raw);
+    });
+
+    it("only whitespace, no fence → no frontmatter", () => {
+      const raw = "   \n\n   ";
+      const result = parseFrontmatterMarkdown(raw);
+      expect(result.frontmatter).toBeNull();
+    });
+  });
+
   describe("status-only frontmatter", () => {
     it("parses status-only frontmatter", () => {
       const raw = "---\nstatus: done\n---\nbody";

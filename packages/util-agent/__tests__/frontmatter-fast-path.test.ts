@@ -46,6 +46,17 @@ const PLANNER_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Role schema carrying a non-standard `branch` field (developer role). */
+const DEVELOPER_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { anyOf: [{ type: "string" }, { type: "null" }] },
+    branch: { type: "string" },
+  },
+  required: ["status", "branch"],
+  additionalProperties: false,
+};
+
 async function makeStoreWithSchema(schema: Record<string, unknown>) {
   const store = createMemoryStore();
   bootstrap(store);
@@ -208,5 +219,32 @@ describe("tryFrontmatterFastPath — role-specific fields", () => {
 
     const result = await tryFrontmatterFastPath(raw, schemaHash, store);
     expect(result).toBeNull();
+  });
+});
+
+// ── Leading whitespace stays in sync (issue #429) ─────────────────────────────
+// extractYamlBlock (backing parseRawFrontmatterFields) must strip leading
+// whitespace in lockstep with splitFrontmatter. Otherwise the main parse passes
+// but the non-standard `branch` field is dropped → schema validation fails →
+// retry. A successful fast-path with `branch` present proves both detectors
+// agree on the same block.
+describe("tryFrontmatterFastPath — leading whitespace in sync (issue #429)", () => {
+  test.each([
+    ["clean-top", "---\nstatus: done\nbranch: fix/x\n---\n\nbody"],
+    ["leading newline", "\n---\nstatus: done\nbranch: fix/x\n---\n\nbody"],
+    ["leading spaces", "  ---\nstatus: done\nbranch: fix/x\n---\n\nbody"],
+    ["leading BOM", "\uFEFF---\nstatus: done\nbranch: fix/x\n---\n\nbody"],
+  ])("preserves non-standard branch field for %s", async (_label, raw) => {
+    const { store, schemaHash } = await makeStoreWithSchema(DEVELOPER_SCHEMA);
+
+    const result = await tryFrontmatterFastPath(raw, schemaHash, store);
+    expect(result).not.toBeNull();
+
+    const node = store.cas.get(result!.outputHash);
+    expect(node).not.toBeNull();
+    const payload = node!.payload as Record<string, unknown>;
+    expect(payload.status).toBe("done");
+    expect(payload.branch).toBe("fix/x");
+    expect(result?.body).toBe("body");
   });
 });

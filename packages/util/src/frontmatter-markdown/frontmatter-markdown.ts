@@ -13,17 +13,25 @@ const FENCE = "---";
  * Split a raw agent response into a YAML string (or null) and a markdown body.
  *
  * A frontmatter block MUST:
- *   1. Start at character position 0 with `---` (no leading whitespace / BOM).
+ *   1. Begin with `---` once leading whitespace is stripped. Leading whitespace
+ *      (newline / CR / space / tab / BOM `\uFEFF`) before the opening fence is
+ *      tolerated and ignored — agents (claude-code especially) routinely emit a
+ *      leading newline or BOM (issue #429). Leading *prose* is NOT stripped.
  *   2. Be closed by a second `---` on its own line.
  *
  * Anything that doesn't match this shape is returned verbatim as the body.
  */
 function splitFrontmatter(raw: string): { yaml: string | null; body: string } {
-  if (!raw.startsWith(FENCE)) {
+  // Tolerate leading whitespace before the opening fence — `trimStart()` strips
+  // newline / CR / space / tab and the BOM `\uFEFF` (BOM is ECMAScript
+  // WhiteSpace). The block itself must still be a complete `---\n...\n---`, and
+  // body slicing below is computed from `trimmed` so body content is preserved.
+  const trimmed = raw.trimStart();
+  if (!trimmed.startsWith(FENCE)) {
     return { yaml: null, body: raw };
   }
 
-  const rest = raw.slice(FENCE.length);
+  const rest = trimmed.slice(FENCE.length);
   // The opening `---` must be followed immediately by a newline (or end-of-string).
   if (rest.length > 0 && rest[0] !== "\n" && rest[0] !== "\r") {
     return { yaml: null, body: raw };
