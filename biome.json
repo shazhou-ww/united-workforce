@@ -11,7 +11,8 @@
       "!packages/workflow/workflow",
       "!xiaoju/scripts/bundle.ts",
       "!false",
-      "!.pnpm-approved-builds.json"
+      "!.pnpm-approved-builds.json",
+      "!docs"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
