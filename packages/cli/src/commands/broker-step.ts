@@ -17,17 +17,18 @@ import {
   type SendResult,
   type SessionStore,
 } from "@united-workforce/broker";
-import type {
-  AgentAlias,
-  AgentConfig,
-  CasRef,
-  StartNodePayload,
-  StepContext,
-  StepNodePayload,
-  ThreadId,
-  Usage,
-  WorkflowConfig,
-  WorkflowPayload,
+import {
+  type AgentAlias,
+  type AgentConfig,
+  type CasRef,
+  type StartNodePayload,
+  type StepContext,
+  type StepNodePayload,
+  SUSPEND_STATUS,
+  type ThreadId,
+  type Usage,
+  type WorkflowConfig,
+  type WorkflowPayload,
 } from "@united-workforce/protocol";
 import { createLogger, type ProcessLogger } from "@united-workforce/util";
 import {
@@ -71,6 +72,12 @@ const DETAIL_SCHEMA = {
     sessionId: { type: "string" as const },
     duration: { type: "integer" as const },
     turnCount: { type: "integer" as const },
+    // Suspend diagnostics (issue #435) — present only on a timeout-suspended
+    // step. Optional, so the completed-path detail node is byte-for-byte
+    // unchanged (same content hash).
+    nativeId: { type: "string" as const },
+    elapsedMs: { type: "integer" as const },
+    reason: { type: "string" as const },
   },
   additionalProperties: false,
 };
@@ -448,6 +455,124 @@ type ExtractOutcome = {
   body: string;
 };
 
+/**
+ * Render the engine-level suspend (coroutine yield) wire format — frontmatter
+ * with `$status: "$SUSPEND"` plus a human-readable `reason`. Round-trips through
+ * the public {@link trySuspendFastPath}, which stores it against the reserved
+ * suspend-output schema.
+ *
+ * NOTE: this mirrors the adapter-side `buildSuspendOutput` in
+ * `@united-workforce/util-agent`, kept private here on purpose — the #381
+ * public-API cleanup deliberately keeps that helper OUT of the util-agent
+ * barrel, and `broker-step.ts` is engine/CLI code (not an adapter). The string
+ * is a one-liner over `SUSPEND_STATUS`, so duplicating it costs nothing and
+ * preserves the package boundary (see public-api-no-llm.test.ts).
+ */
+function buildSuspendOutput(reason: string): string {
+  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
+}
+
+/**
+ * Suspend metadata carried by a broker `kind:"suspended"` SendResult — the
+ * fields needed to (a) build the human-readable `$SUSPEND` reason and (b)
+ * record diagnostics on the detail node for a future `--resume`.
+ */
+type SuspendInfo = Readonly<{
+  reason: "timeout";
+  nativeId: string;
+  elapsedMs: number;
+}>;
+
+type WriteSuspendedStepArgs = {
+  uwf: UwfStore;
+  threadId: ThreadId;
+  suspend: SuspendInfo;
+  sessionId: string;
+  turnCount: number;
+  startHash: CasRef;
+  prevHash: CasRef | null;
+  role: string;
+  agentName: string;
+  edgePrompt: string;
+  startedAtMs: number;
+  completedAtMs: number;
+  cwd: string;
+  assembledPromptHash: CasRef | null;
+  previousAttempts: CasRef[] | null;
+};
+
+/**
+ * Route a broker `kind:"suspended"` result through the existing engine-level
+ * `$SUSPEND` exit (issue #435, Phase 2). A send timeout is NOT an error and NOT
+ * a frontmatter failure — it is a human gate. We build a suspend output via the
+ * shared {@link buildSuspendOutput} / {@link trySuspendFastPath} helpers (the
+ * same wire format any agent that prints `$status: "$SUSPEND"` produces), store
+ * it against the reserved `suspendOutput` schema, record `nativeId`/`elapsedMs`
+ * on the detail node for diagnostics, and persist a normal StepNode. Downstream
+ * thread-status resolution maps the head step's `$status: "$SUSPEND"` output to
+ * `status: "suspended"`, and `uwf thread resume` continues from `nativeId`.
+ */
+async function writeSuspendedStep(args: WriteSuspendedStepArgs): Promise<BrokerStepResult> {
+  const reason =
+    `sumeru send timed out after ${args.suspend.elapsedMs}ms ` +
+    `(nativeId=${args.suspend.nativeId}); resume to continue`;
+  const suspendRaw = buildSuspendOutput(reason);
+  const extracted = await trySuspendFastPath(
+    suspendRaw,
+    args.uwf.schemas.suspendOutput,
+    args.uwf.store,
+  );
+  if (extracted === null) {
+    fail("broker step failed to build a $SUSPEND output node for a timeout-suspended send");
+  }
+
+  const detailSchemaHash = await putSchema(args.uwf.store, DETAIL_SCHEMA);
+  // Clear the deprecated role-keyed active var (parity with storeBrokerDetail).
+  clearActiveTurns(args.uwf.store, args.threadId, args.role);
+  const detail = {
+    sessionId: args.sessionId,
+    duration: Math.max(0, args.completedAtMs - args.startedAtMs),
+    turnCount: args.turnCount,
+    nativeId: args.suspend.nativeId,
+    elapsedMs: args.suspend.elapsedMs,
+    reason: args.suspend.reason,
+  };
+  const detailHash = await args.uwf.store.cas.put(detailSchemaHash, detail);
+
+  // Clear the active-step var: the step has reached a terminal (suspended) state.
+  clearActiveStep(args.uwf.store, args.threadId);
+
+  const stepHash = await writeBrokerStepNode({
+    uwf: args.uwf,
+    startHash: args.startHash,
+    prevHash: args.prevHash,
+    role: args.role,
+    outputHash: extracted.outputHash,
+    detailHash,
+    agentName: args.agentName,
+    edgePrompt: args.edgePrompt,
+    startedAtMs: args.startedAtMs,
+    completedAtMs: args.completedAtMs,
+    cwd: args.cwd,
+    assembledPromptHash: args.assembledPromptHash,
+    usage: null,
+    previousAttempts: args.previousAttempts,
+  });
+
+  return {
+    stepHash,
+    detailHash,
+    role: args.role,
+    frontmatter: extracted.frontmatter,
+    body: extracted.body,
+    startedAtMs: args.startedAtMs,
+    completedAtMs: args.completedAtMs,
+    usage: null,
+    isError: false,
+    errorMessage: null,
+  };
+}
+
 async function tryExtract(
   uwf: UwfStore,
   rawOutput: string,
@@ -589,6 +714,35 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
       onTurn,
     });
 
+    // Suspend gate (issue #435, Phase 2): a broker `kind:"suspended"` result
+    // means the Sumeru send hit a timeout and emitted RFC #95 `suspend`. Route
+    // it through the existing `$SUSPEND` exit BEFORE any frontmatter work —
+    // suspend is a human gate, never retried, never an error. TypeScript's
+    // discriminated union forces this narrow before any `primary.output` read.
+    if (primary.kind === "suspended") {
+      return writeSuspendedStep({
+        uwf: args.uwf,
+        threadId: args.threadId,
+        suspend: {
+          reason: primary.reason,
+          nativeId: primary.nativeId,
+          elapsedMs: primary.elapsedMs,
+        },
+        sessionId: primary.sessionId,
+        turnCount: getTurnCount(),
+        startHash: args.startHash,
+        prevHash: args.prevHash,
+        role: args.role,
+        agentName: route.gateway,
+        edgePrompt: args.edgePrompt,
+        startedAtMs,
+        completedAtMs: Date.now(),
+        cwd: args.effectiveCwd,
+        assembledPromptHash,
+        previousAttempts: args.previousAttempts,
+      });
+    }
+
     let extracted = await tryExtract(args.uwf, primary.output, outputSchemaHash);
     let accumulatedUsage: Usage | null = brokerUsage(primary);
     let lastOutput = primary.output;
@@ -610,6 +764,31 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
         prompt: correctionPrompt,
         onTurn,
       });
+      // A retry can itself time out — honor the same suspend gate rather than
+      // dereferencing `retryResult.output` on a suspended result.
+      if (retryResult.kind === "suspended") {
+        return writeSuspendedStep({
+          uwf: args.uwf,
+          threadId: args.threadId,
+          suspend: {
+            reason: retryResult.reason,
+            nativeId: retryResult.nativeId,
+            elapsedMs: retryResult.elapsedMs,
+          },
+          sessionId: retryResult.sessionId,
+          turnCount: getTurnCount(),
+          startHash: args.startHash,
+          prevHash: args.prevHash,
+          role: args.role,
+          agentName: route.gateway,
+          edgePrompt: args.edgePrompt,
+          startedAtMs,
+          completedAtMs: Date.now(),
+          cwd: args.effectiveCwd,
+          assembledPromptHash,
+          previousAttempts: args.previousAttempts,
+        });
+      }
       lastOutput = retryResult.output;
       lastSessionId = retryResult.sessionId;
       accumulatedUsage = mergeUsage(accumulatedUsage, brokerUsage(retryResult));
@@ -716,7 +895,12 @@ export async function executeBrokerStep(args: ExecuteBrokerStepArgs): Promise<Br
 
 function brokerUsage(result: SendResult): Usage | null {
   // Sumeru's `done` event reports per-exchange usage. Normalize into the
-  // engine's Usage shape so `mergeUsage` can sum across retries.
+  // engine's Usage shape so `mergeUsage` can sum across retries. A suspended
+  // result has no `done` (the discriminated union enforces this narrow) — a
+  // timeout carries no usage summary.
+  if (result.kind !== "completed") {
+    return null;
+  }
   const done = result.done;
   if (done === null || typeof done !== "object") {
     return null;

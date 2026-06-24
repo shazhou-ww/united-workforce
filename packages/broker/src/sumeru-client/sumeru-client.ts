@@ -23,6 +23,7 @@ import {
   type SumeruClientOptions,
   type SumeruDoneValue,
   type SumeruSendOutcome,
+  type SumeruSuspendValue,
   type SumeruTurnListener,
   type SumeruTurnValue,
 } from "./types.js";
@@ -209,6 +210,7 @@ type SseState = {
   assistantTurns: SumeruTurnValue[];
   totalTurns: number;
   done: SumeruDoneValue | null;
+  suspend: SumeruSuspendValue | null;
   errorMessage: string | null;
   /** Realtime per-assistant-turn listener (issue #397); `null` ⇒ no callback. */
   onAssistantTurn: SumeruTurnListener | null;
@@ -225,10 +227,11 @@ function applyOutcome(state: SseState, outcome: EventOutcome): void {
   }
   if (outcome.anyTurn) state.totalTurns += 1;
   if (outcome.done !== null) state.done = outcome.done;
+  if (outcome.suspend !== null) state.suspend = outcome.suspend;
 }
 
 function isStreamFinished(state: SseState): boolean {
-  return state.errorMessage !== null || state.done !== null;
+  return state.errorMessage !== null || state.done !== null || state.suspend !== null;
 }
 
 function processEvents(events: Iterable<SseEvent>, state: SseState): void {
@@ -278,6 +281,16 @@ function finalizeOutcome(state: SseState): SumeruSendOutcome {
   if (state.errorMessage !== null) {
     throw new Error(state.errorMessage);
   }
+  // A `suspend` terminal event (RFC #95, send timeout) takes precedence over
+  // the "no done" error: the stream legitimately ended without `done`. Retain
+  // any assistant turns gathered before the timeout (Phase 3 deepens this).
+  if (state.suspend !== null) {
+    return {
+      kind: "suspended",
+      assistantTurns: state.assistantTurns,
+      suspend: state.suspend,
+    };
+  }
   if (state.done === null) {
     throw new Error(
       `sumeru SSE stream ended after ${state.totalTurns} turn events without done or error`,
@@ -288,6 +301,7 @@ function finalizeOutcome(state: SseState): SumeruSendOutcome {
     throw new Error("sumeru SSE stream produced no assistant turns");
   }
   return {
+    kind: "completed",
     output: last.content,
     assistantTurnCount: state.assistantTurns.length,
     assistantTurns: state.assistantTurns,
@@ -314,6 +328,7 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
     assistantTurns: [],
     totalTurns: 0,
     done: null,
+    suspend: null,
     errorMessage: null,
     onAssistantTurn: args.onAssistantTurn,
   };
@@ -392,6 +407,7 @@ type EventOutcome = {
   assistantTurn: SumeruTurnValue | null;
   anyTurn: boolean;
   done: SumeruDoneValue | null;
+  suspend: SumeruSuspendValue | null;
   errorMessage: string | null;
 };
 
@@ -400,6 +416,7 @@ function handleEvent(evt: SseEvent): EventOutcome {
     assistantTurn: null,
     anyTurn: false,
     done: null,
+    suspend: null,
     errorMessage: null,
   };
   switch (evt.event) {
@@ -409,6 +426,8 @@ function handleEvent(evt: SseEvent): EventOutcome {
       return parseDoneEvent(evt.data, empty);
     case "error":
       return parseErrorEvent(evt.data, empty);
+    case "suspend":
+      return parseSuspendEvent(evt.data, empty);
     case "heartbeat":
       return empty;
     default:
@@ -509,5 +528,38 @@ function parseErrorEvent(data: string, base: EventOutcome): EventOutcome {
   return {
     ...base,
     errorMessage: message === "" ? `sumeru ${code}` : `sumeru ${code}: ${message}`,
+  };
+}
+
+function parseSuspendEvent(data: string, base: EventOutcome): EventOutcome {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    return {
+      ...base,
+      errorMessage: `sumeru SSE suspend event has malformed JSON: ${data.slice(0, 200)}`,
+    };
+  }
+  if (!isRecord(parsed) || parsed.type !== "@sumeru/suspend" || !isRecord(parsed.value)) {
+    return {
+      ...base,
+      errorMessage: "sumeru SSE suspend event missing @sumeru/suspend envelope",
+    };
+  }
+  const value = parsed.value;
+  if (
+    value.reason !== "timeout" ||
+    typeof value.nativeId !== "string" ||
+    typeof value.elapsedMs !== "number"
+  ) {
+    return {
+      ...base,
+      errorMessage: "sumeru SSE suspend event missing @sumeru/suspend envelope",
+    };
+  }
+  return {
+    ...base,
+    suspend: { reason: "timeout", nativeId: value.nativeId, elapsedMs: value.elapsedMs },
   };
 }

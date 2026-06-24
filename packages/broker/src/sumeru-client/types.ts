@@ -64,22 +64,56 @@ export type SumeruDoneValue = Readonly<{
 }>;
 
 /**
- * Outcome of consuming one SSE response — the last assistant turn's content,
- * the count of assistant turns observed, and the per-exchange `done` summary.
+ * Payload value of the RFC #95 `suspend` SSE event — a fourth terminal event
+ * (parallel to `done`/`error`) emitted by Sumeru on a send timeout (issue
+ * #435, Phase 2). `nativeId` identifies the Sumeru-native session for a future
+ * `--resume`; the broker maps it through `(threadId, role)`.
  */
-export type SumeruSendOutcome = Readonly<{
-  /** Raw content of the last assistant turn — verbatim, no trimming. */
-  output: string;
-  /** Number of assistant turns observed in this exchange. */
-  assistantTurnCount: number;
-  /**
-   * Every assistant turn observed in this exchange, in arrival order
-   * (issue #397, Phase 1). `output` is the last entry's `content`.
-   */
-  assistantTurns: readonly SumeruTurnValue[];
-  /** Summary delivered by the final `done` event. */
-  done: SumeruDoneValue;
+export type SumeruSuspendValue = Readonly<{
+  reason: "timeout";
+  nativeId: string;
+  elapsedMs: number;
 }>;
+
+/**
+ * Outcome of consuming one SSE response — a discriminated union on `kind`
+ * (issue #435, Phase 2):
+ *
+ * - `completed` — the stream ended in `done`. Carries the last assistant
+ *   turn's content, the assistant-turn count/list, and the per-exchange `done`
+ *   summary.
+ * - `suspended` — the stream ended in `suspend` (a send timeout). Carries the
+ *   `SumeruSuspendValue` and the assistant turns observed before the timeout.
+ *   It has NO `done`/`output`/`assistantTurnCount` — accessing them is a
+ *   compile error unless the caller first narrows `kind === "completed"`. This
+ *   makes "suspended ⇒ no done" hold at the type level.
+ */
+export type SumeruSendOutcome =
+  | Readonly<{
+      kind: "completed";
+      /** Raw content of the last assistant turn — verbatim, no trimming. */
+      output: string;
+      /** Number of assistant turns observed in this exchange. */
+      assistantTurnCount: number;
+      /**
+       * Every assistant turn observed in this exchange, in arrival order
+       * (issue #397, Phase 1). `output` is the last entry's `content`.
+       */
+      assistantTurns: readonly SumeruTurnValue[];
+      /** Summary delivered by the final `done` event. */
+      done: SumeruDoneValue;
+    }>
+  | Readonly<{
+      kind: "suspended";
+      /**
+       * Assistant turns observed before the timeout, in arrival order. May be
+       * empty. Phase 3 deepens retention semantics; this Phase at least does
+       * not drop already-collected turns.
+       */
+      assistantTurns: readonly SumeruTurnValue[];
+      /** The `suspend` event payload (`reason`/`nativeId`/`elapsedMs`). */
+      suspend: SumeruSuspendValue;
+    }>;
 
 /** Arguments for `client.createSession`. */
 export type CreateSessionArgs = Readonly<{

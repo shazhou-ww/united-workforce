@@ -23,6 +23,7 @@ export type {
   SumeruClientOptions,
   SumeruDoneValue,
   SumeruSendOutcome,
+  SumeruSuspendValue,
   SumeruTurnListener,
   SumeruTurnValue,
 } from "./sumeru-client/index.js";
