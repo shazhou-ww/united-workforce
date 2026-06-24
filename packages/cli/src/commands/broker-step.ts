@@ -17,17 +17,18 @@ import {
   type SendResult,
   type SessionStore,
 } from "@united-workforce/broker";
-import type {
-  AgentAlias,
-  AgentConfig,
-  CasRef,
-  StartNodePayload,
-  StepContext,
-  StepNodePayload,
-  ThreadId,
-  Usage,
-  WorkflowConfig,
-  WorkflowPayload,
+import {
+  type AgentAlias,
+  type AgentConfig,
+  type CasRef,
+  type StartNodePayload,
+  type StepContext,
+  type StepNodePayload,
+  SUSPEND_STATUS,
+  type ThreadId,
+  type Usage,
+  type WorkflowConfig,
+  type WorkflowPayload,
 } from "@united-workforce/protocol";
 import { createLogger, type ProcessLogger } from "@united-workforce/util";
 import {
@@ -35,7 +36,6 @@ import {
   buildFrontmatterRetryPrompt,
   buildOutputFormatInstruction,
   buildRolePrompt,
-  buildSuspendOutput,
   buildThreadProgress,
   mergeUsage,
   tryFrontmatterFastPath,
@@ -454,6 +454,23 @@ type ExtractOutcome = {
   frontmatter: Record<string, unknown>;
   body: string;
 };
+
+/**
+ * Render the engine-level suspend (coroutine yield) wire format — frontmatter
+ * with `$status: "$SUSPEND"` plus a human-readable `reason`. Round-trips through
+ * the public {@link trySuspendFastPath}, which stores it against the reserved
+ * suspend-output schema.
+ *
+ * NOTE: this mirrors the adapter-side `buildSuspendOutput` in
+ * `@united-workforce/util-agent`, kept private here on purpose — the #381
+ * public-API cleanup deliberately keeps that helper OUT of the util-agent
+ * barrel, and `broker-step.ts` is engine/CLI code (not an adapter). The string
+ * is a one-liner over `SUSPEND_STATUS`, so duplicating it costs nothing and
+ * preserves the package boundary (see public-api-no-llm.test.ts).
+ */
+function buildSuspendOutput(reason: string): string {
+  return `---\n$status: ${SUSPEND_STATUS}\nreason: ${reason}\n---\n`;
+}
 
 /**
  * Suspend metadata carried by a broker `kind:"suspended"` SendResult — the

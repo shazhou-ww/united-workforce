@@ -15,7 +15,7 @@ export { buildOutputFormatInstruction } from "./build-output-format-instruction.
 export { buildRolePrompt } from "./build-role-prompt.js";
 export { buildThreadProgress } from "./build-thread-progress.js";
 export type { FrontmatterFastPathResult } from "./frontmatter.js";
-export { buildSuspendOutput, tryFrontmatterFastPath, trySuspendFastPath } from "./frontmatter.js";
+export { tryFrontmatterFastPath, trySuspendFastPath } from "./frontmatter.js";
 export { buildFrontmatterRetryPrompt } from "./frontmatter-retry-prompt.js";
 export { createAgent, mergeUsage } from "./run.js";
 export { registerAgentSchemas } from "./schemas.js";

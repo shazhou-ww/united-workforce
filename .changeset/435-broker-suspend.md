@@ -1,7 +1,6 @@
 ---
 "@united-workforce/broker": minor
 "@united-workforce/cli": minor
-"@united-workforce/util-agent": minor
 ---
 
 feat(broker): recognize sumeru `event: suspend` and wire timeout → suspend → resume (#435)
@@ -29,19 +28,20 @@ continues the run by `nativeId` — no new thread status and no new command.
   narrow `result.kind === "completed"` before reading `output`/`done`, so
   "suspended ⇒ no done" holds at the type level.
 
-**`@united-workforce/util-agent`**
-
-- Re-export `buildSuspendOutput` so the broker step can synthesize a
-  `$status: "$SUSPEND"` output node for a timeout.
-
 **`@united-workforce/cli`**
 
 - `executeBrokerStep`: when `broker.send()` returns `kind:"suspended"`
   (including inside the frontmatter-retry loop), route into the existing
-  `$SUSPEND` machinery via `buildSuspendOutput` + `trySuspendFastPath`
-  rather than the error path. The thread enters `suspended` (a human gate),
-  is never retried, and records `nativeId`/`elapsedMs`/`reason` on the detail
-  node for diagnostics. The completed path is unchanged.
+  `$SUSPEND` machinery via a module-private `buildSuspendOutput` +
+  the public `trySuspendFastPath` rather than the error path. The thread
+  enters `suspended` (a human gate), is never retried, and records
+  `nativeId`/`elapsedMs`/`reason` on the detail node for diagnostics. The
+  completed path is unchanged.
+
+The `$SUSPEND` wire format is a one-liner over `SUSPEND_STATUS`, kept private
+in `broker-step.ts`: the #381 public-API cleanup deliberately keeps the
+adapter-side `buildSuspendOutput` out of the `@united-workforce/util-agent`
+barrel, and the broker step is engine/CLI code, not an adapter.
 
 The resume loop is verified, not modified: `uwf thread resume` already
 accepts `suspended` and issues a fresh `broker.send()` on the same mapped
