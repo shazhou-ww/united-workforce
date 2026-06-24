@@ -61,6 +61,7 @@ function recorderFactory(hooks: (host: string) => FakeClientHooks): ClientFactor
 
 function happyOutcome(content: string): SumeruSendOutcome {
   return {
+    kind: "completed",
     output: content,
     assistantTurnCount: 1,
     assistantTurns: [
@@ -388,6 +389,7 @@ describe("broker.send — output is raw (no frontmatter extraction)", () => {
     const rec = recorderFactory(() => ({
       createSession: async () => "ses_raw",
       sendMessage: async () => ({
+        kind: "completed",
         output: raw,
         assistantTurnCount: 1,
         assistantTurns: [

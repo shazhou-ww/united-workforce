@@ -7,6 +7,7 @@ export type {
   SumeruClientOptions,
   SumeruDoneValue,
   SumeruSendOutcome,
+  SumeruSuspendValue,
   SumeruTurnListener,
   SumeruTurnValue,
 } from "./types.js";

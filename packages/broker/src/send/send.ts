@@ -218,7 +218,19 @@ async function resolveCwd(resolveRoute: AgentRouteResolver, role: string): Promi
 }
 
 function buildResult(outcome: SumeruSendOutcome, sessionId: string, reused: boolean): SendResult {
+  if (outcome.kind === "suspended") {
+    return {
+      kind: "suspended",
+      sessionId,
+      reused,
+      reason: outcome.suspend.reason,
+      nativeId: outcome.suspend.nativeId,
+      elapsedMs: outcome.suspend.elapsedMs,
+      turns: outcome.assistantTurns.map(toBrokerTurn),
+    };
+  }
   return {
+    kind: "completed",
     output: outcome.output,
     sessionId,
     reused,

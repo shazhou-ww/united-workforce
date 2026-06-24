@@ -74,29 +74,63 @@ export type SendArgs = Readonly<{
   onTurn: OnTurn | null;
 }>;
 
-/** Outcome of `broker.send`. */
-export type SendResult = Readonly<{
-  /**
-   * Raw last-assistant-turn content from the Sumeru SSE stream — verbatim.
-   * Phase 2 explicitly does NOT do frontmatter extraction.
-   */
-  output: string;
-  /** Sumeru session id that handled the request (post-fallback if any). */
-  sessionId: string;
-  /** Whether the cached session was reused (`true`) or a new one created (`false`). */
-  reused: boolean;
-  /** Number of assistant turns observed in the SSE response. */
-  assistantTurnCount: number;
-  /**
-   * Full ordered list of assistant turns observed in the SSE response
-   * (issue #397, Phase 1). Same population and ordering as the `onTurn`
-   * callbacks. Invariants: `turns.length === assistantTurnCount` and, when
-   * non-empty, `turns[turns.length - 1].content === output`.
-   */
-  turns: readonly BrokerTurn[];
-  /** Per-exchange summary delivered by the final `done` event. */
-  done: SumeruDoneValue;
-}>;
+/** Outcome of `broker.send` — a discriminated union on `kind` (issue #435).
+ *
+ * - `completed` — the Sumeru exchange ran to a `done` event. Carries the raw
+ *   last-assistant-turn `output`, the `done` summary, and the full turn list.
+ * - `suspended` — the exchange hit a send timeout and Sumeru emitted RFC #95
+ *   `suspend`. Carries `reason`/`nativeId`/`elapsedMs` (for a future
+ *   `--resume`) and the turns gathered before the timeout, but NO `done` /
+ *   `output` / `assistantTurnCount`. Reading those without first narrowing
+ *   `kind === "completed"` is a compile error — forcing every consumer to
+ *   handle the suspended branch ("suspended ⇒ no done" holds at the type
+ *   level).
+ *
+ * Both branches always carry `sessionId`, `reused`, and `turns` so routing /
+ * resume bookkeeping is uniform.
+ */
+export type SendResult =
+  | Readonly<{
+      kind: "completed";
+      /**
+       * Raw last-assistant-turn content from the Sumeru SSE stream — verbatim.
+       * Phase 2 explicitly does NOT do frontmatter extraction.
+       */
+      output: string;
+      /** Sumeru session id that handled the request (post-fallback if any). */
+      sessionId: string;
+      /** Whether the cached session was reused (`true`) or a new one created (`false`). */
+      reused: boolean;
+      /** Number of assistant turns observed in the SSE response. */
+      assistantTurnCount: number;
+      /**
+       * Full ordered list of assistant turns observed in the SSE response
+       * (issue #397, Phase 1). Same population and ordering as the `onTurn`
+       * callbacks. Invariants: `turns.length === assistantTurnCount` and, when
+       * non-empty, `turns[turns.length - 1].content === output`.
+       */
+      turns: readonly BrokerTurn[];
+      /** Per-exchange summary delivered by the final `done` event. */
+      done: SumeruDoneValue;
+    }>
+  | Readonly<{
+      kind: "suspended";
+      /** Sumeru session id that handled the request (the future resume reuses it). */
+      sessionId: string;
+      /** Whether the cached session was reused (`true`) or a new one created (`false`). */
+      reused: boolean;
+      /** Always `"timeout"` in Phase 2 — the only suspend trigger Sumeru emits. */
+      reason: "timeout";
+      /** Sumeru-native session id to `--resume` from on continuation. */
+      nativeId: string;
+      /** Wall-clock ms the send ran before the timeout fired. */
+      elapsedMs: number;
+      /**
+       * Assistant turns gathered before the timeout, in arrival order. May be
+       * empty — turns are not dropped on suspend (Phase 3 deepens retention).
+       */
+      turns: readonly BrokerTurn[];
+    }>;
 
 /** Stateless broker exposing `send`. */
 export type Broker = Readonly<{
