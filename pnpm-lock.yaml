@@ -10,7 +10,7 @@ importers:
     devDependencies:
       '@agentclientprotocol/sdk':
         specifier: ^0.22.1
-        version: 0.22.1(zod@3.25.76)
+        version: 0.22.1(zod@4.4.3)
       '@biomejs/biome':
         specifier: ^2.4.14
         version: 2.4.16
@@ -92,6 +92,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@ocas/cli-kit':
+        specifier: ^0.2.1
+        version: 0.2.1
       '@ocas/core':
         specifier: ^0.5.0
         version: 0.5.0
@@ -110,9 +113,6 @@ importers:
       '@united-workforce/util-agent':
         specifier: workspace:^
         version: link:../util-agent
-      commander:
-        specifier: ^14.0.3
-        version: 14.0.3
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -122,6 +122,9 @@ importers:
       yaml:
         specifier: ^2.8.4
         version: 2.9.0
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
   packages/dashboard:
     dependencies:
@@ -865,6 +868,10 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@ocas/cli-kit@0.2.1':
+    resolution: {integrity: sha512-vhEwsoU9Z6XS7Rl+YS6xZjsJVkQSO2DaKX98gAbvuuT14N2KHtuR/4tclCRxZBnFCx7DnLL3GfYRDTNfwFg5vw==}
+    engines: {node: '>=24.15.0'}
 
   '@ocas/core@0.5.0':
     resolution: {integrity: sha512-5NMGWBaWdq3l9QeWcm45KeKzRQU2E8dYFP6bChuw8Hk0Dkxu+baGAG1aoVhQTilUONpX2tDZNexoFXYRCYobIA==}
@@ -3203,6 +3210,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -3220,9 +3230,9 @@ packages:
 
 snapshots:
 
-  '@agentclientprotocol/sdk@0.22.1(zod@3.25.76)':
+  '@agentclientprotocol/sdk@0.22.1(zod@4.4.3)':
     dependencies:
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -3878,6 +3888,10 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@ocas/cli-kit@0.2.1':
+    dependencies:
+      zod: 4.4.3
 
   '@ocas/core@0.5.0':
     dependencies:
@@ -5974,6 +5988,8 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
+
+  zod@4.4.3: {}
 
   zustand@4.5.7(@types/react@19.2.16)(immer@11.1.8)(react@19.2.7):
     dependencies:
