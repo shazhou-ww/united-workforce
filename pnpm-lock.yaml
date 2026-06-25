@@ -18,8 +18,8 @@ importers:
         specifier: ^2.31.0
         version: 2.31.0(@types/node@25.9.1)
       '@shazhou/proman':
-        specifier: ^0.9.3
-        version: 0.9.3(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
+        specifier: ^0.11.0
+        version: 0.11.0(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
       '@types/node':
         specifier: ^25.7.0
         version: 25.9.1
@@ -1150,8 +1150,8 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
-  '@shazhou/proman-core@0.9.2':
-    resolution: {integrity: sha512-uKAwl1FUCIdios0QZIdcynNNpYi93tqM7hiebrToH6ZfzjPy1RWzlO+7RRkfxY9PV6jyZY28n09k1AaPBB62XQ==}
+  '@shazhou/proman-core@0.10.1':
+    resolution: {integrity: sha512-NHZ4zIpGKU5NVzAl9ABB+2Jqa/AnYo66ULD/2oRluRe2hnvC5iL6ocuIagwd5ch7gxi0iL3VHA6hRLBnqNl48g==}
     peerDependencies:
       '@biomejs/biome': ^2.0.0
       typescript: ^5.0.0
@@ -1164,8 +1164,8 @@ packages:
       wrangler:
         optional: true
 
-  '@shazhou/proman@0.9.3':
-    resolution: {integrity: sha512-MbuZhEcPvz/9LFdmUAO3IXeU07C3/6k9SmlKnRqgQ8qybwmdH7o85JW07Sve2n746YlNfPmWNAlUNjFEnWA4Jw==}
+  '@shazhou/proman@0.11.0':
+    resolution: {integrity: sha512-4expeFw0J8wxU7DYX+P+h3dNqrwH/kNvOxF02BH9FLK9eFEVMWnACHKi7I3XuEWpqblqyuiHptRs2gwkxQGF6A==}
     hasBin: true
     peerDependencies:
       '@biomejs/biome': ^2.0.0
@@ -4054,7 +4054,7 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
-  '@shazhou/proman-core@0.9.2(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
+  '@shazhou/proman-core@0.10.1(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
     dependencies:
       '@biomejs/biome': 2.4.16
       typescript: 5.9.3
@@ -4063,10 +4063,10 @@ snapshots:
     optionalDependencies:
       vite: 7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
 
-  '@shazhou/proman@0.9.3(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
+  '@shazhou/proman@0.11.0(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))':
     dependencies:
       '@biomejs/biome': 2.4.16
-      '@shazhou/proman-core': 0.9.2(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
+      '@shazhou/proman-core': 0.10.1(@biomejs/biome@2.4.16)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))(vitest@3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0))
       typescript: 5.9.3
       vitest: 3.2.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@25.9.1)(typescript@5.9.3))(yaml@2.9.0)
     optionalDependencies:
