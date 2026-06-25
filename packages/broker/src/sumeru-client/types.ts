@@ -11,27 +11,23 @@
 export const SUMERU_SESSION_NOT_FOUND = "sumeru_session_not_found";
 
 /**
- * Default wall-clock cap for one `sendMessage` SSE consumption. Five minutes
- * is long enough for slow ReAct loops but short enough that a stuck thread
- * fails within reasonable wall time.
- */
-export const DEFAULT_SSE_TOTAL_TIMEOUT_MS = 300_000;
-
-/**
  * Default per-event watchdog window. 45s = 3× the Sumeru server-side
  * `sseHeartbeatMs` default of 15s — survives one missed heartbeat with
  * headroom.
+ *
+ * NOTE: there is deliberately NO wall-clock "total" timeout. How long an
+ * agent may run is decided solely by sumeru's `sendTimeoutMs` (single source
+ * of truth); the broker only guards against a *dead connection* via this
+ * per-event heartbeat watchdog. See sumeru#105 / #439.
  */
 export const DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS = 45_000;
 
 /**
- * Optional construction options for `createSumeruClient`. Both knobs accept
+ * Optional construction options for `createSumeruClient`. The knob accepts
  * `T | null` (per the project convention forbidding optional `?:` fields):
  * `null` (or omitted) means "use the default".
  */
 export type SumeruClientOptions = Readonly<{
-  /** Wall-clock cap on one sendMessage SSE consumption. Defaults to 300_000ms. */
-  sseTotalTimeoutMs: number | null;
   /** Per-event watchdog window. Defaults to 45_000ms (3x server heartbeat). */
   sseHeartbeatTimeoutMs: number | null;
 }>;

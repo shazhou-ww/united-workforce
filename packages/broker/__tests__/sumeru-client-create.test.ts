@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createSumeruClient,
   DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
-  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
 } from "../src/sumeru-client/index.js";
 
 describe("createSumeruClient", () => {
@@ -49,20 +48,17 @@ describe("createSumeruClient", () => {
     expect(() => createSumeruClient("http://127.0.0.1:7900", {} as never)).not.toThrow();
     expect(() =>
       createSumeruClient("http://127.0.0.1:7900", {
-        sseTotalTimeoutMs: 60_000,
         sseHeartbeatTimeoutMs: 30_000,
       }),
     ).not.toThrow();
     expect(() =>
       createSumeruClient("http://127.0.0.1:7900", {
-        sseTotalTimeoutMs: null,
         sseHeartbeatTimeoutMs: null,
       }),
     ).not.toThrow();
   });
 
   test("default constants are exported with the documented values", () => {
-    expect(DEFAULT_SSE_TOTAL_TIMEOUT_MS).toBe(300_000);
     expect(DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS).toBe(45_000);
   });
 });
@@ -121,34 +117,5 @@ describe("createSumeruClient — default SSE timeouts", () => {
     await expect(promise).rejects.toThrow(
       /sumeru SSE stream watchdog: no event received within 45000ms/,
     );
-  });
-
-  test("default total timeout (300_000ms) fires when watchdog is disabled", async () => {
-    vi.stubGlobal("fetch", async () => buildHungSseResponse());
-    const client = createSumeruClient("http://127.0.0.1:7900", {
-      sseTotalTimeoutMs: null,
-      sseHeartbeatTimeoutMs: 10_000_000,
-    });
-    const promise = client.sendMessage({ gateway: "g", sessionId: "s", content: "x" });
-    promise.catch(() => undefined);
-
-    // 299_999ms — must not reject yet (default 300_000ms total timeout).
-    await vi.advanceTimersByTimeAsync(DEFAULT_SSE_TOTAL_TIMEOUT_MS - 1);
-    let settled = false;
-    promise.then(
-      () => {
-        settled = true;
-      },
-      () => {
-        settled = true;
-      },
-    );
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(settled).toBe(false);
-
-    // 300_001ms — must reject with the documented message.
-    await vi.advanceTimersByTimeAsync(2);
-    await expect(promise).rejects.toThrow(/sumeru SSE stream timed out after 300000ms/);
   });
 });

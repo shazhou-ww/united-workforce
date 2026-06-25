@@ -6,7 +6,6 @@ describe("@united-workforce/broker public API surface", () => {
     const names = Object.keys(broker).sort();
     expect(names).toEqual([
       "DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS",
-      "DEFAULT_SSE_TOTAL_TIMEOUT_MS",
       "SUMERU_SESSION_NOT_FOUND",
       "SumeruSessionNotFoundError",
       "createBroker",

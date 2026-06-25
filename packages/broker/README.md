@@ -25,8 +25,7 @@ import {
   createSumeruClient,
   SumeruSessionNotFoundError,
   SUMERU_SESSION_NOT_FOUND,
-  // SSE consumption defensive timer defaults (#391)
-  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
+  // SSE consumption defensive timer default (#391)
   DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
   // Phase 2 — orchestrator
   createBroker,
@@ -111,30 +110,34 @@ The client is stateless — `host` is captured in the closure and trailing
 slashes are normalised so subsequent path joins never produce `//gateways/`.
 No I/O happens at construction time.
 
-#### SSE timeouts (#391)
+#### SSE heartbeat watchdog (#391)
 
 `createSumeruClient` accepts an optional second argument that bounds the
-SSE consumption window so a stuck Sumeru stream never hangs the broker:
+per-event window so a **dead connection** never hangs the broker:
 
 ```typescript
 const client = createSumeruClient("http://127.0.0.1:7900", {
-  // Wall-clock cap on one sendMessage SSE consumption.
-  // null (or absent) → DEFAULT_SSE_TOTAL_TIMEOUT_MS (300_000ms = 5min).
-  sseTotalTimeoutMs: 60_000,
   // Per-event watchdog — reset on every consumed event (turn / heartbeat / …).
   // null (or absent) → DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS (45_000ms ≈ 3× server heartbeat).
   sseHeartbeatTimeoutMs: 30_000,
 });
 ```
 
-When either timer fires the reader is cancelled and `sendMessage` rejects
-with one of:
+There is deliberately **no wall-clock "total" timeout**: how long an agent
+may run is decided solely by sumeru's `sendTimeoutMs` (single source of
+truth — see sumeru#105 / #439). The broker only guards against a dead
+connection. Since sumeru emits heartbeats on a fixed wall-clock interval
+(independent of whether the agent produces turns), a healthy connection
+resets the watchdog even while the agent thinks for a long time; the
+watchdog only fires when heartbeats genuinely stop arriving.
 
-- `sumeru SSE stream timed out after Nms (gateway=…, session=…)`
+When the watchdog fires the reader is cancelled and `sendMessage` rejects
+with:
+
 - `sumeru SSE stream watchdog: no event received within Nms (gateway=…, session=…)`
 
-Both timers are cleared on every exit path (success, error, or abort) so
-completed sends never leak a pending Node.js timer.
+The watchdog timer is cleared on every exit path (success, error, or abort)
+so completed sends never leak a pending Node.js timer.
 
 ### Broker orchestration (Phase 2)
 

@@ -10,7 +10,7 @@ tags: [broker, sumeru, sse, heartbeat, watchdog, defensive]
   `sseHeartbeatTimeoutMs: number | null` option. Default when `null`/absent:
   `45_000` (3× the Sumeru server-side default `sseHeartbeatMs` of 15s, which
   gives one missed heartbeat plus headroom).
-- A `SumeruClient` was created via `createSumeruClient(host, { sseTotalTimeoutMs: null, sseHeartbeatTimeoutMs: 100 })`.
+- A `SumeruClient` was created via `createSumeruClient(host, { sseHeartbeatTimeoutMs: 100 })`.
 - A session id `ses_abc` was previously created via `createSession`.
 - Sumeru emits `heartbeat` SSE events periodically (default every 15s on the
   server side) AND emits `turn` events for each agent turn.
@@ -56,7 +56,7 @@ tags: [broker, sumeru, sse, heartbeat, watchdog, defensive]
   1. Stub `globalThis.fetch` with an SSE response whose `ReadableStream` emits
      ONE `turn` frame, then goes silent indefinitely (no `done`, no further
      events, never closes).
-  2. Construct the client with `{ sseTotalTimeoutMs: null, sseHeartbeatTimeoutMs: 50 }`.
+  2. Construct the client with `{ sseHeartbeatTimeoutMs: 50 }`.
   3. `await expect(client.sendMessage(...)).rejects.toThrow(/sumeru SSE stream watchdog: no event received within 50ms/)`.
   4. Use `vi.useFakeTimers()` and advance time by 50ms after the first frame is
      consumed.

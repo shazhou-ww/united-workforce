@@ -310,7 +310,7 @@ describe("client.sendMessage — host normalisation", () => {
   });
 });
 
-describe("client.sendMessage — SSE total timeout & watchdog (issue #391)", () => {
+describe("client.sendMessage — SSE watchdog (issue #391)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -346,34 +346,12 @@ describe("client.sendMessage — SSE total timeout & watchdog (issue #391)", () 
     };
   }
 
-  test("sendMessage rejects with timeout error when total timeout elapses", async () => {
-    const built = buildControllableSseResponse();
-    vi.stubGlobal("fetch", async () => built.response);
-
-    const client = createSumeruClient("http://127.0.0.1:7900", {
-      sseTotalTimeoutMs: 50,
-      sseHeartbeatTimeoutMs: null,
-    });
-    const promise = client.sendMessage({
-      gateway: "claude-code",
-      sessionId: "ses_abc",
-      content: "hello",
-    });
-    promise.catch(() => undefined);
-
-    await vi.advanceTimersByTimeAsync(50);
-    await expect(promise).rejects.toThrow(
-      /sumeru SSE stream timed out after 50ms \(gateway=claude-code, session=ses_abc\)/,
-    );
-  });
-
   test("sendMessage rejects with watchdog error when no events arrive within heartbeat window", async () => {
     const built = buildControllableSseResponse();
     vi.stubGlobal("fetch", async () => built.response);
     const encoder = new TextEncoder();
 
     const client = createSumeruClient("http://127.0.0.1:7900", {
-      sseTotalTimeoutMs: null,
       sseHeartbeatTimeoutMs: 50,
     });
     const promise = client.sendMessage({
@@ -408,7 +386,6 @@ describe("client.sendMessage — SSE total timeout & watchdog (issue #391)", () 
     const encoder = new TextEncoder();
 
     const client = createSumeruClient("http://127.0.0.1:7900", {
-      sseTotalTimeoutMs: null,
       sseHeartbeatTimeoutMs: 50,
     });
     const promise = client.sendMessage({

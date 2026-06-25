@@ -17,7 +17,6 @@ import { createSseParser, type SseEvent } from "./sse.js";
 import {
   type CreateSessionArgs,
   DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
-  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
   type SendMessageArgs,
   type SumeruClient,
   type SumeruClientOptions,
@@ -99,19 +98,17 @@ function buildMessageErrorMessage(
  * - The returned object is frozen and exposes exactly two methods:
  *   `createSession` and `sendMessage`.
  * - `options` (issue #391):
- *   - `sseTotalTimeoutMs` — wall-clock cap on one `sendMessage` SSE
- *     consumption. Default 300_000ms. `null` (or absent) means default.
  *   - `sseHeartbeatTimeoutMs` — per-event watchdog window. Default
  *     45_000ms (3× server heartbeat). `null` (or absent) means default.
- *   `undefined`, `{}`, and `{ sseTotalTimeoutMs: null, sseHeartbeatTimeoutMs: null }`
+ *   `undefined`, `{}`, and `{ sseHeartbeatTimeoutMs: null }`
  *   are all treated identically.
+ *
+ * There is deliberately no wall-clock "total" timeout: how long an agent may
+ * run is decided solely by sumeru's `sendTimeoutMs` (single source of truth).
+ * The broker only guards against a dead connection via the heartbeat watchdog.
  */
 export function createSumeruClient(host: string, options?: SumeruClientOptions): SumeruClient {
   const normalisedHost = host.replace(/\/+$/, "");
-  const sseTotalTimeoutMs =
-    options !== undefined && options.sseTotalTimeoutMs !== null
-      ? options.sseTotalTimeoutMs
-      : DEFAULT_SSE_TOTAL_TIMEOUT_MS;
   const sseHeartbeatTimeoutMs =
     options !== undefined && options.sseHeartbeatTimeoutMs !== null
       ? options.sseHeartbeatTimeoutMs
@@ -196,7 +193,6 @@ export function createSumeruClient(host: string, options?: SumeruClientOptions):
       body: response.body,
       gateway: args.gateway,
       sessionId: args.sessionId,
-      sseTotalTimeoutMs,
       sseHeartbeatTimeoutMs,
       onAssistantTurn: onAssistantTurn ?? null,
     });
@@ -313,12 +309,11 @@ type ConsumeSseArgs = Readonly<{
   body: ReadableStream<Uint8Array>;
   gateway: string;
   sessionId: string;
-  sseTotalTimeoutMs: number;
   sseHeartbeatTimeoutMs: number;
   onAssistantTurn: SumeruTurnListener | null;
 }>;
 
-type AbortKind = "total" | "watchdog";
+type AbortKind = "watchdog";
 
 async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
   const decoder = new TextDecoder();
@@ -333,20 +328,11 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
     onAssistantTurn: args.onAssistantTurn,
   };
 
-  let totalTimer: ReturnType<typeof setTimeout> | null = null;
   let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   let abortReason: AbortKind | null = null;
   let abortReject: ((err: Error) => void) | null = null;
 
-  const totalErrorMessage = `sumeru SSE stream timed out after ${args.sseTotalTimeoutMs}ms (gateway=${args.gateway}, session=${args.sessionId})`;
   const watchdogErrorMessage = `sumeru SSE stream watchdog: no event received within ${args.sseHeartbeatTimeoutMs}ms (gateway=${args.gateway}, session=${args.sessionId})`;
-
-  function clearTotalTimer(): void {
-    if (totalTimer !== null) {
-      clearTimeout(totalTimer);
-      totalTimer = null;
-    }
-  }
 
   function clearWatchdogTimer(): void {
     if (watchdogTimer !== null) {
@@ -368,9 +354,6 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
     }, args.sseHeartbeatTimeoutMs);
   }
 
-  totalTimer = setTimeout(() => {
-    fireAbort("total", totalErrorMessage);
-  }, args.sseTotalTimeoutMs);
   resetWatchdog();
 
   const abortPromise = new Promise<never>((_resolve, reject) => {
@@ -391,7 +374,6 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
     }
     processEvents(parser.drain(), state);
   } finally {
-    clearTotalTimer();
     clearWatchdogTimer();
     try {
       await reader.cancel(abortReason === null ? undefined : abortReason);

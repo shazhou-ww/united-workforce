@@ -30,7 +30,6 @@ export type {
 export {
   createSumeruClient,
   DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS,
-  DEFAULT_SSE_TOTAL_TIMEOUT_MS,
   SUMERU_SESSION_NOT_FOUND,
   SumeruSessionNotFoundError,
 } from "./sumeru-client/index.js";
