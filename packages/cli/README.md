@@ -74,7 +74,12 @@ The `json` and `yaml` envelopes carry the schema hash on the `type` field so con
 
 ### Suspend / Resume
 
-When an agent emits `$status: "$SUSPEND"` in its frontmatter, the thread enters `suspended` status. A suspended thread **cannot be advanced with `exec`** — `exec` will detect the suspended head and return immediately without running any agent.
+A thread enters `suspended` status from **two sources**, both landing at the same `$status: "$SUSPEND"` exit:
+
+1. **Voluntary** — an agent emits `$status: "$SUSPEND"` in its frontmatter (it hits a token budget, needs human input, etc.).
+2. **Timeout checkpoint** — the agent's `send` exceeds the adapter timeout. Instead of killing the step as an error, the broker reports a `kind: "suspended"` result and the step is written as a `$SUSPEND` node carrying the timeout `reason` (and the `nativeId` needed to resume). A timeout is a **checkpoint, not a death** — work already produced is preserved and the thread can be continued.
+
+A suspended thread **cannot be advanced with `exec`** — `exec` detects the suspended head and returns immediately without running any agent.
 
 To continue a suspended thread, use `resume`:
 
@@ -82,6 +87,8 @@ To continue a suspended thread, use `resume`:
 uwf thread resume <thread-id>                    # resume with workflow's default prompt
 uwf thread resume <thread-id> -p "version 1.2.0" # resume with supplementary context
 ```
+
+`resume` issues a **fresh `send`** on the same cached `(threadId, role)` session; the underlying agent adapter resumes by its native session id (`--resume <nativeId>`), so the agent continues from its own history rather than starting over. For a timeout-suspended thread, `-p` supplies a short continuation prompt (e.g. `"continue"`) — the original prompt is not re-sent.
 
 > ⚠️ `exec` does not advance suspended threads — you **must** use `resume` to provide context and continue.
 

@@ -149,7 +149,7 @@ The default format also changed from `json` to `text`. Pipelines that captured s
 
 | Group | Commands |
 |-------|----------|
-| **thread** | `start`, `exec`, `show`, `list`, `stop`, `cancel`, `read` |
+| **thread** | `start`, `exec`, `show`, `list`, `stop`, `resume`, `poke`, `cancel`, `read` |
 | **step** | `list`, `show`, `read`, `turns`, `fork` |
 | **workflow** | `add`, `show`, `list` |
 | **cas** | `get`, `put`, `put-text`, `has`, `refs`, `walk`, `reindex`, `schema list`, `schema get` |
