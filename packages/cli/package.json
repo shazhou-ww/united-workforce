@@ -18,10 +18,11 @@
     "@united-workforce/protocol": "workspace:^",
     "@united-workforce/util": "workspace:^",
     "@united-workforce/util-agent": "workspace:^",
-    "commander": "^14.0.3",
+    "@ocas/cli-kit": "^0.2.1",
     "dotenv": "^16.6.1",
     "liquidjs": "^10.27.0",
-    "yaml": "^2.8.4"
+    "yaml": "^2.8.4",
+    "zod": "^4.1.12"
   },
   "scripts": {
     "test": "vitest run src/",
