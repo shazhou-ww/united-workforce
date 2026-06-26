@@ -8,7 +8,7 @@ import type { EvalRunConfig } from "../storage/index.js";
 import { createEvalStore } from "../storage/index.js";
 
 const log = createLogger({ sink: { kind: "stderr" } });
-const LOG_CLEANUP = "EVCLNP7Q";
+const LOG_CLEANUP = "EVC1NP7Q";
 
 type RunCliOptions = {
   agent: string;
