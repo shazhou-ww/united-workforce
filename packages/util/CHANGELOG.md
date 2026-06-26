@@ -1,5 +1,142 @@
 # Changelog
 
+## 0.3.0 — 2026-06-26
+
+- feat(cli): `uwf step turns <thread-id> [--role <r>] [--live]` consumer command (#400)
+  
+  RFC 实时 turn 持久化的 Phase 4（消费端）。新增 `uwf step turns` 子命令，在 turn 层
+  （layer 4）提供查询能力，依赖 Phase 2（#398）落地的 active-turns var API 与 step
+  完成时固化的不可变 `detail.turns`。
+  
+  - 读取顺序：active var 优先（运行中 step 的实时 turn 列表
+    `@uwf/active-turns/<threadId>/<role>`）→ 回退到 thread head StepNode 的不可变
+    `detail.turns`（step 已完成）。两个来源都是 `{role, content}` turn 节点的
+    `CasRef[]`，因此复用 `step read` 的渲染管线（`loadTurnData` → `formatTurnBody`），
+    per-turn 块逐字节一致。
+  - `--role` 选择 `(threadId, role)` var；并发角色互不干扰（exact-name 匹配）。省略时
+    默认取 head step 的角色，让 `uwf step turns <tid>` 对单角色在途线程“做显然的事”。
+  - `--live` 轮询 SQLite-backed active var（非 SSE），每个新 turn 仅打印一次（按已发出
+    块数渲染增量尾部），step 完成（active var 被固化删除且 thread 不再 running）时退出 0；
+    退出前对账 `detail.turns`，保证 active→detail 交接期间不丢 turn。
+  - 完成态 `detail.turns` 回退是 **role-aware** 的：仅当 thread head StepNode 的
+    `role === ` 查询角色时才用其 `detail.turns`，否则返回 `[]`。多角色线程
+    （如 `planner → coder`，head 为 coder step）查 `--role planner` / `--role reviewer`
+    不再续吐 coder head step 的 turns；`--live` 多 step run（`exec --count N≥2`）退出对账
+    走同一 role-aware helper，`--live --role coder` follower 永不把最终 step（如 reviewer）
+    的 turns 当作 coder turns 续吐。
+  - README / cli README / `skill cli` / `prompt usage` 参考文档更新，说明 turn 层查询能力。
+  
+  `@united-workforce/cli`：minor — 新增 `uwf step turns --live` 消费命令。
+  `@united-workforce/util`：patch — 重新生成的 CLI/usage 参考文本
+  （`cli-reference.ts`、`usage-reference.ts`）现包含 `uwf step turns` 条目，随 util release 发布。
+  只读命令，不改 broker / protocol / Sumeru。
+- fix(cli): `uwf step turns` renders the whole-thread turn panorama + `--limit`/`--offset` (#409)
+  
+  `uwf step turns <thread-id>` 由「只读 thread head 那个 step 的 turns」改为
+  「thread 到目前为止所有 turn 的全景」。底层根因修复：旧实现经
+  `resolveTurnHashes → readHeadDetailTurns(uwf, head, role)` 只读 head step 的
+  `detail.turns`，多 step thread（head 为某个角色，如 committer）下查
+  `--role developer` 因 head-role≠developer 返回空（#408 修 role 隔离的副作用）。
+  
+  新语义沿整条 chain 遍历每个 step（复用 `cmdStepList` 已有的 `walkChain` +
+  `collectOrderedSteps`，不重造），逐 turn 标注 role/step：
+  
+  - 已完成 step 读各自固化的不可变 `detail.turns`，step 级标记 `✓`；
+  - 进行中 step 读 `@uwf/active-turns/<tid>/<role>` var，step 级标记 `🔄 进行中`；
+  - per-turn 块复用 `step read` 的 `loadTurnData → formatTurnBody` 管线，逐字节一致；
+  - **默认全量不截断**（复用 OCAS `ListOptions`「limit: undefined = 无限制」约定），
+    新增 `--limit <n>` / `--offset <m>` 在展平的跨 step turn 序列上分页；
+  - `--role <r>` 改为「沿全 chain 过滤该角色的 step」，先过滤再分页；同角色多 step 聚合；
+  - `--live` 跟住进行中 step、增量去重打印，退出对账按 **followed role 的 chain step**
+    作用域（多 step run 下永不把后续角色的 turns 当作被跟随 step 的续吐）。
+  
+  role 隔离问题随之结构性消失——turns 始终按其所属 step/role 取源，head-only 的
+  `readHeadDetailTurns` role-guard hack（#408）不再需要，已移除。
+  
+  `@united-workforce/cli`: minor — `step turns` 全景语义 + `--limit`/`--offset`
+  （向后兼容的命令面新增）。
+  `@united-workforce/util`: patch — 重新生成的 CLI/usage 参考文本
+  （`cli-reference.ts`、`usage-reference.ts`）现含 `--limit`/`--offset` 与全景说明。
+  
+  Closes #409.
+- fix(frontmatter): trim leading whitespace before the fence check (#429)
+  
+  Frontmatter extraction previously required the agent output to begin at
+  character position 0 with `---`, tolerating no leading characters. Both
+  independent fence detectors used a bare `startsWith("---")`:
+  
+  - `splitFrontmatter()` in `@united-workforce/util` (main parse path)
+  - `extractYamlBlock()` in `@united-workforce/util-agent` (raw-field recovery)
+  
+  Agents (claude-code especially) routinely emit a leading newline, space, or
+  BOM before the frontmatter, so `startsWith("---")` was `false`, extraction
+  failed, and the engine fired a `frontmatter retry` — a full extra agent round
+  on the slowest steps.
+  
+  Both detectors now `trimStart()` the leading whitespace (newline / CR / space /
+  tab / BOM `\uFEFF`) before checking the opening fence, in lockstep so the main
+  parse and `parseRawFrontmatterFields` never disagree (no dropped fields). The
+  block itself must still be a complete `---\n...\n---`, and the body is computed
+  from the stripped string so its content is not corrupted.
+  
+  Scope is the trim layer only — leading prose, markdown code-fence wrapping, and
+  regex full-text scanning remain intentionally unhandled. Clean-top outputs parse
+  byte-for-byte as before (zero regression).
+- feat(thread-list): add `--limit`/`--offset` pagination to `uwf thread list` (#451)
+  
+  `uwf thread list` now accepts the canonical repo-wide `ListOptions` vocabulary
+  `--limit <n>` / `--offset <m>`, matching `uwf step turns`. Previously passing
+  `--limit` errored with `unknown option`, leaving no way to cap output when many
+  threads exist.
+  
+  - `--limit N` → return at most the N newest threads (maps to the existing
+    `take` parameter).
+  - `--offset M` → skip the M newest threads (maps to the existing `skip`
+    parameter); combined, they slice `[M, M+N)` over the newest-first list, after
+    status/time filtering and the newest-first sort.
+  - The pre-existing `--skip`/`--take` flags are retained as backward-compatible
+    aliases. When both a canonical flag and its alias are supplied, the canonical
+    `--limit`/`--offset` wins.
+  - Validation reuses the same non-negative-integer rule (and flag-named error)
+    as `step turns`; `--limit 0` yields no items while an absent `--limit` means
+    all items.
+  
+  `@united-workforce/util`: regenerated the `thread list` block in the usage /
+  CLI reference text to list `--limit`/`--offset`.
+- chore(cleanup): archive legacy per-agent CLI adapters (#381)
+  
+  Phase 4 cleanup of the broker rollout. The per-agent CLI binary packages
+  (`agent-hermes`, `agent-claude-code`, `agent-sumeru`) have moved out of
+  `packages/` into `legacy-packages/` and are no longer published — Sumeru
+  gateways are now reached through `@united-workforce/broker` over HTTP.
+  
+  - `@united-workforce/util-agent` public surface trimmed to the symbols
+    still consumed by `cli`, `broker`, `agent-builtin`, and `agent-mock`.
+    The per-agent SQLite session cache, external-CLI continuation prompt
+    builder, thread-progress hint, `buildContext`, `buildSuspendOutput`,
+    the argv parser, and the fork/cleanup adapter type aliases are no
+    longer exported (they live in the archived adapters).
+  - `@united-workforce/util` skill references (`uwf prompt usage` and
+    `uwf prompt adapter-developing`) rewritten so the rendered SKILL.md
+    describes the broker-based architecture instead of recommending
+    per-agent CLI binary installs.
+  - `@united-workforce/cli` setup/prompt commands no longer scan for or
+    recommend the per-agent CLI binaries; the `setup --agent` option
+    description in `cli.ts` was also updated so `uwf setup --help`
+    contains no legacy adapter substrings.
+  - `@united-workforce/eval`'s `eval run --agent` default flipped from
+    the now-archived `uwf-hermes` to `uwf-builtin` so the default flow
+    stays runnable post-cleanup.
+  - `scripts/publish-all.mjs` `publishOrder` updated to drop legacy
+    adapter dirs and use the post-rename workspace package directories.
+  - Repo-root `vitest.config.ts` excludes `legacy-packages/**` so archived
+    adapter test files do not run in the workspace test pass.
+  - Top-level `README.md` Architecture / Packages sections rewritten to
+    match the post-cleanup layout (broker added to Layer 3, archived
+    adapters moved into a dedicated Archived table that links into
+    `legacy-packages/`). `legacy-packages/agent-sumeru/CHANGELOG.md`
+    added so all three archived packages carry the same banner.
+
 ## 0.2.1
 
 ### Patch Changes

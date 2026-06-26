@@ -1,5 +1,304 @@
 # @united-workforce/cli
 
+## 0.8.0 — 2026-06-26
+
+- fix(cli): step show now includes StepNode metadata (role, agent, timing, usage)
+  
+  `step show` previously returned only the expanded detail node (broker-detail),
+  which lacks StepNode metadata. Now returns a merged object with `hash`, `role`,
+  `agent`, `status`, `startedAtMs`, `completedAtMs`, `durationMs`, `usage`, and
+  `detail` (the expanded broker-detail). The `frontmatter` and `turns` fields
+  remain accessible under the `detail` key.
+  
+  Fixes #392
+- feat(cli): realtime per-turn accumulation + step-completion solidification (#398)
+  
+  RFC 实时 turn 持久化的 Phase 2（本体）。broker-step 在 `broker.send` 时传入
+  `onTurn` 回调，把每个 assistant turn 实时持久化进 OCAS——既能跨进程查到运行中
+  step 的中间 turn，step 完成后再固化进不可变 step detail。
+  
+  - broker-step 调 `broker.send({onTurn})`，回调里：(a) `store.cas.put(TURN_SCHEMA,
+    {role,content})` → turnHash；(b) append turnHash 到 active var
+    `@uwf/active-turns/<threadId>/<role>`（读-改-写数组）
+  - step 开始先清空该 active var——crash 重跑是新 attempt，旧 turn 属于失败 attempt，
+    不接续 append
+  - step 完成时 `storeBrokerDetail` 读 active var 全量 turnHash 列表写进 `detail.turns`，
+    然后删除 active var；`detail.turnCount = turns.length`（不再恒为 1）
+  - store.ts 新增 active-turns var 读写 API（`appendActiveTurn` / `readActiveTurns` /
+    `clearActiveTurns` / `activeTurnsVarName` / `ACTIVE_TURNS_VAR_PREFIX`）
+  
+  依赖 Phase 1（#397，broker `onTurn` / `SendResult.turns`）。
+- feat(cli): `uwf step turns <thread-id> [--role <r>] [--live]` consumer command (#400)
+  
+  RFC 实时 turn 持久化的 Phase 4（消费端）。新增 `uwf step turns` 子命令，在 turn 层
+  （layer 4）提供查询能力，依赖 Phase 2（#398）落地的 active-turns var API 与 step
+  完成时固化的不可变 `detail.turns`。
+  
+  - 读取顺序：active var 优先（运行中 step 的实时 turn 列表
+    `@uwf/active-turns/<threadId>/<role>`）→ 回退到 thread head StepNode 的不可变
+    `detail.turns`（step 已完成）。两个来源都是 `{role, content}` turn 节点的
+    `CasRef[]`，因此复用 `step read` 的渲染管线（`loadTurnData` → `formatTurnBody`），
+    per-turn 块逐字节一致。
+  - `--role` 选择 `(threadId, role)` var；并发角色互不干扰（exact-name 匹配）。省略时
+    默认取 head step 的角色，让 `uwf step turns <tid>` 对单角色在途线程“做显然的事”。
+  - `--live` 轮询 SQLite-backed active var（非 SSE），每个新 turn 仅打印一次（按已发出
+    块数渲染增量尾部），step 完成（active var 被固化删除且 thread 不再 running）时退出 0；
+    退出前对账 `detail.turns`，保证 active→detail 交接期间不丢 turn。
+  - 完成态 `detail.turns` 回退是 **role-aware** 的：仅当 thread head StepNode 的
+    `role === ` 查询角色时才用其 `detail.turns`，否则返回 `[]`。多角色线程
+    （如 `planner → coder`，head 为 coder step）查 `--role planner` / `--role reviewer`
+    不再续吐 coder head step 的 turns；`--live` 多 step run（`exec --count N≥2`）退出对账
+    走同一 role-aware helper，`--live --role coder` follower 永不把最终 step（如 reviewer）
+    的 turns 当作 coder turns 续吐。
+  - README / cli README / `skill cli` / `prompt usage` 参考文档更新，说明 turn 层查询能力。
+  
+  `@united-workforce/cli`：minor — 新增 `uwf step turns --live` 消费命令。
+  `@united-workforce/util`：patch — 重新生成的 CLI/usage 参考文本
+  （`cli-reference.ts`、`usage-reference.ts`）现包含 `uwf step turns` 条目，随 util release 发布。
+  只读命令，不改 broker / protocol / Sumeru。
+- test(#403): guard `step show` text rendering of the `--- Content ---` turn block
+  
+  `uwf step show` (text) renders turns via `STEP_DETAIL_TEMPLATE` (post-#394) fed
+  by the `toStepDetailPayload` mapper, which flattens `detail.turns` into a
+  **top-level** `turns` array. That path shipped with no test asserting the
+  rendered text actually contains the turn bodies, so a stale build (the published
+  `protocol@0.4.0` predates #394) or an accidental retarget to `detail.turns`
+  would go undetected — the defect behind issue #403.
+  
+  Adds two regression guards (no production code change; the source template and
+  mapper were already correct at HEAD):
+  
+  - `packages/cli/src/__tests__/step-show-text.test.ts` — exercises the full text
+    path `cmdStepShow → toStepDetailPayload → writeEnvelope(text) →
+    renderEnvelopeText` and asserts the rendered output contains `--- Content ---`,
+    each turn's `content` substring, the `Turns   N` line, the `Usage` line, and
+    omits the block cleanly for zero-turn steps.
+  - `packages/protocol/src/__tests__/output-templates-step-detail.test.ts` — pins
+    `STEP_DETAIL_TEMPLATE` to the top-level `turns` / `usage` / `durationMs` shape
+    (positive + anti-regression static invariants forbidding `detail.turns`) and
+    renders it against a representative payload. Adds `liquidjs` as a protocol
+    devDependency for the render assertions.
+  
+  Both fail against the pre-#394 5-line template and pass at HEAD. The patch bumps
+  re-publish the corrected template and ship the guards to the released `uwf`
+  binary.
+  
+  Fixes #403
+- fix(cli): `uwf step turns` renders the whole-thread turn panorama + `--limit`/`--offset` (#409)
+  
+  `uwf step turns <thread-id>` 由「只读 thread head 那个 step 的 turns」改为
+  「thread 到目前为止所有 turn 的全景」。底层根因修复：旧实现经
+  `resolveTurnHashes → readHeadDetailTurns(uwf, head, role)` 只读 head step 的
+  `detail.turns`，多 step thread（head 为某个角色，如 committer）下查
+  `--role developer` 因 head-role≠developer 返回空（#408 修 role 隔离的副作用）。
+  
+  新语义沿整条 chain 遍历每个 step（复用 `cmdStepList` 已有的 `walkChain` +
+  `collectOrderedSteps`，不重造），逐 turn 标注 role/step：
+  
+  - 已完成 step 读各自固化的不可变 `detail.turns`，step 级标记 `✓`；
+  - 进行中 step 读 `@uwf/active-turns/<tid>/<role>` var，step 级标记 `🔄 进行中`；
+  - per-turn 块复用 `step read` 的 `loadTurnData → formatTurnBody` 管线，逐字节一致；
+  - **默认全量不截断**（复用 OCAS `ListOptions`「limit: undefined = 无限制」约定），
+    新增 `--limit <n>` / `--offset <m>` 在展平的跨 step turn 序列上分页；
+  - `--role <r>` 改为「沿全 chain 过滤该角色的 step」，先过滤再分页；同角色多 step 聚合；
+  - `--live` 跟住进行中 step、增量去重打印，退出对账按 **followed role 的 chain step**
+    作用域（多 step run 下永不把后续角色的 turns 当作被跟随 step 的续吐）。
+  
+  role 隔离问题随之结构性消失——turns 始终按其所属 step/role 取源，head-only 的
+  `readHeadDetailTurns` role-guard hack（#408）不再需要，已移除。
+  
+  `@united-workforce/cli`: minor — `step turns` 全景语义 + `--limit`/`--offset`
+  （向后兼容的命令面新增）。
+  `@united-workforce/util`: patch — 重新生成的 CLI/usage 参考文本
+  （`cli-reference.ts`、`usage-reference.ts`）现含 `--limit`/`--offset` 与全景说明。
+  
+  Closes #409.
+- Phase 3: Rewrite `buildTurnsPanorama` to use owner-based segmentation (#421)
+  
+  This completes the Turn Chain RFC Phase 3, root-causing #412 (recurring role in-flight
+  mis-attribution). The `uwf step turns` panorama now:
+  
+  - Walks the step-start chain via turn `owner` field instead of role-keyed vars
+  - Sources each segment's turns via `turnsOfStep(turnHead, stepStartHash)`
+  - Detects in-flight steps by matching `active-step` var to step-start hash
+  - Reads `edgePrompt` directly from step-start nodes
+  
+  Key behavioral changes:
+  - Same role running multiple rounds now correctly shows separate segments
+  - In-flight detection no longer relies on role name (which was ambiguous for recurring roles)
+  - `--live` mode now polls `active-turn-head` instead of role-keyed active vars
+  - Legacy threads (without Phase 3 turn chain) still work via fallback path
+  
+  Closes #412, #421.
+- Add CLI subprocess integration test for `uwf step turns` command with recurring role scenario (#423)
+- fix(broker-step): correct illegal Crockford log tag that crashed on frontmatter-extraction failure (#426)
+  
+  `PL_FRONTMATTER_FAIL` was `"F4FA1L7Z"` — a leet spelling of "FRONTMATTER FAIL"
+  that smuggled an `L` into the tag. Crockford Base32 excludes I/L/O/U, so
+  `assertValidLogTag()` throws on it. The tag is only used on the
+  frontmatter-extraction-failure path (after retries are exhausted), so it stayed
+  dormant until a planner step genuinely failed extraction — at which point the
+  failure *logger itself* crashed the `uwf thread exec` process, masking the real
+  error and leaving the thread stuck.
+  
+  - Fix the tag: `F4FA1L7Z` → `F4FA117Z` (all-valid Crockford).
+  - Add a static regression guard (`log-tag-validity.test.ts`) that scans the cli
+    + broker package sources and asserts every `log("…")` literal and `PL_*` tag
+    constant is valid Crockford Base32 — turning this whole class of bug from a
+    runtime crash into a build-time failure.
+- feat(broker): recognize sumeru `event: suspend` and wire timeout → suspend → resume (#435)
+  
+  RFC #95 Phase 2. A sumeru send that hits its timeout now emits a terminal
+  SSE `suspend` frame instead of `done`. The broker recognizes it, the CLI
+  parks the thread on the existing `$SUSPEND` exit, and `uwf thread resume`
+  continues the run by `nativeId` — no new thread status and no new command.
+  
+  **`@united-workforce/broker`**
+  
+  - `sumeru-client`: `consumeSse` now handles `event: suspend`. A new
+    `parseSuspendEvent` validates the `@sumeru/suspend` envelope
+    (`{ reason: "timeout", nativeId, elapsedMs }`), mirroring `parseErrorEvent`;
+    malformed JSON or a missing envelope surface a descriptive stream error.
+    Suspend is terminal — a trailing `done` is ignored.
+  - New exported type `SumeruSuspendValue = Readonly<{ reason: "timeout";
+    nativeId: string; elapsedMs: number }>`.
+  - `SumeruSendOutcome` is now a discriminated union on `kind`
+    (`"completed" | "suspended"`); `output`/`done`/`assistantTurnCount` live
+    only on the completed branch.
+  - **Breaking (pre-1.0):** `SendResult` is likewise a discriminated union —
+    `kind:"completed"` carries `output` + required `done`; `kind:"suspended"`
+    carries `reason`/`nativeId`/`elapsedMs` and no `done`. Consumers must
+    narrow `result.kind === "completed"` before reading `output`/`done`, so
+    "suspended ⇒ no done" holds at the type level.
+  
+  **`@united-workforce/cli`**
+  
+  - `executeBrokerStep`: when `broker.send()` returns `kind:"suspended"`
+    (including inside the frontmatter-retry loop), route into the existing
+    `$SUSPEND` machinery via a module-private `buildSuspendOutput` +
+    the public `trySuspendFastPath` rather than the error path. The thread
+    enters `suspended` (a human gate), is never retried, and records
+    `nativeId`/`elapsedMs`/`reason` on the detail node for diagnostics. The
+    completed path is unchanged.
+  
+  The `$SUSPEND` wire format is a one-liner over `SUSPEND_STATUS`, kept private
+  in `broker-step.ts`: the #381 public-API cleanup deliberately keeps the
+  adapter-side `buildSuspendOutput` out of the `@united-workforce/util-agent`
+  barrel, and the broker step is engine/CLI code, not an adapter.
+  
+  The resume loop is verified, not modified: `uwf thread resume` already
+  accepts `suspended` and issues a fresh `broker.send()` on the same mapped
+  `(threadId, role)` session, so the sumeru adapter resumes from its own
+  history by `nativeId`.
+- feat(thread-list): add `--limit`/`--offset` pagination to `uwf thread list` (#451)
+  
+  `uwf thread list` now accepts the canonical repo-wide `ListOptions` vocabulary
+  `--limit <n>` / `--offset <m>`, matching `uwf step turns`. Previously passing
+  `--limit` errored with `unknown option`, leaving no way to cap output when many
+  threads exist.
+  
+  - `--limit N` → return at most the N newest threads (maps to the existing
+    `take` parameter).
+  - `--offset M` → skip the M newest threads (maps to the existing `skip`
+    parameter); combined, they slice `[M, M+N)` over the newest-first list, after
+    status/time filtering and the newest-first sort.
+  - The pre-existing `--skip`/`--take` flags are retained as backward-compatible
+    aliases. When both a canonical flag and its alias are supplied, the canonical
+    `--limit`/`--offset` wins.
+  - Validation reuses the same non-negative-integer rule (and flag-named error)
+    as `step turns`; `--limit 0` yields no items while an absent `--limit` means
+    all items.
+  
+  `@united-workforce/util`: regenerated the `thread list` block in the usage /
+  CLI reference text to list `--limit`/`--offset`.
+- docs: document timeout-as-suspend in the Suspend / Resume section (RFC #95 Phase 3)
+  
+  The CLI README's Suspend / Resume section only covered *voluntary* suspend (an
+  agent emitting `$status: "$SUSPEND"`). Phase 2 (#435) added a second source —
+  **timeout-as-suspend**: when a `send` exceeds the adapter timeout the broker now
+  yields a `kind: "suspended"` result that lands at the same `$SUSPEND` exit, so a
+  timeout becomes a recoverable checkpoint instead of a fatal error.
+  
+  - Document both suspend sources (voluntary + timeout checkpoint) and how `resume`
+    issues a fresh `send` that reuses the cached session / native `--resume <id>`.
+  - Add the previously-missing `resume` and `poke` thread commands to the top-level
+    README command table.
+  
+  Docs only — no behavior change.
+- chore(cleanup): archive legacy per-agent CLI adapters (#381)
+  
+  Phase 4 cleanup of the broker rollout. The per-agent CLI binary packages
+  (`agent-hermes`, `agent-claude-code`, `agent-sumeru`) have moved out of
+  `packages/` into `legacy-packages/` and are no longer published — Sumeru
+  gateways are now reached through `@united-workforce/broker` over HTTP.
+  
+  - `@united-workforce/util-agent` public surface trimmed to the symbols
+    still consumed by `cli`, `broker`, `agent-builtin`, and `agent-mock`.
+    The per-agent SQLite session cache, external-CLI continuation prompt
+    builder, thread-progress hint, `buildContext`, `buildSuspendOutput`,
+    the argv parser, and the fork/cleanup adapter type aliases are no
+    longer exported (they live in the archived adapters).
+  - `@united-workforce/util` skill references (`uwf prompt usage` and
+    `uwf prompt adapter-developing`) rewritten so the rendered SKILL.md
+    describes the broker-based architecture instead of recommending
+    per-agent CLI binary installs.
+  - `@united-workforce/cli` setup/prompt commands no longer scan for or
+    recommend the per-agent CLI binaries; the `setup --agent` option
+    description in `cli.ts` was also updated so `uwf setup --help`
+    contains no legacy adapter substrings.
+  - `@united-workforce/eval`'s `eval run --agent` default flipped from
+    the now-archived `uwf-hermes` to `uwf-builtin` so the default flow
+    stays runnable post-cleanup.
+  - `scripts/publish-all.mjs` `publishOrder` updated to drop legacy
+    adapter dirs and use the post-rename workspace package directories.
+  - Repo-root `vitest.config.ts` excludes `legacy-packages/**` so archived
+    adapter test files do not run in the workspace test pass.
+  - Top-level `README.md` Architecture / Packages sections rewritten to
+    match the post-cleanup layout (broker added to Layer 3, archived
+    adapters moved into a dedicated Archived table that links into
+    `legacy-packages/`). `legacy-packages/agent-sumeru/CHANGELOG.md`
+    added so all three archived packages carry the same banner.
+- Migrate CLI from commander to @ocas/cli-kit createCLI() builder.
+- Add Turn Chain storage layer foundation (Phase 1)
+  
+  **Protocol Package:**
+  - Add `StepStartPayload` type for step initiation markers (role, edgePrompt, stepIndex, prev, start, startedAtMs, cwd)
+  - Add `StepCompletePayload` type for step completion records (startRef, output, detail, completedAtMs, usage, previousAttempts)
+  - Add `TurnNodePayload` type for turn nodes with prev/owner linking (role, content, prev, owner)
+  - Add JSON schemas `STEP_START_SCHEMA`, `STEP_COMPLETE_SCHEMA`, `TURN_NODE_SCHEMA` for CAS validation
+  
+  **CLI Package:**
+  - Register new schemas in `UwfSchemaHashes` (stepStart, stepComplete, turnNode)
+  - Add `writeStepStart(store, payload)` to create step-start nodes linked via prev pointer
+  - Add `writeTurnNode(store, payload)` to create turn nodes with prev/owner linking
+  - Add `walkTurnChain(store, headHash)` to traverse turn chain in chronological order
+  - Add `turnsOfStep(store, headHash, stepStartHash)` to filter turns by step ownership
+  - Support legacy turn nodes (prev/owner = null) without breaking existing data
+- Turn chain Phase 2 (#419): broker-step producer改造 and active var thread-keyed transition
+  
+  - **Step-start/step-complete dual nodes**: `executeBrokerStep` now writes a step-start node at entry (before broker.send) and clears the active-step var at completion. This enables crash recovery isolation and in-flight step detection.
+  
+  - **Thread-keyed active vars**: Replaced role-keyed `@uwf/active-turns/<tid>/<role>` with thread-keyed vars:
+    - `@uwf/active-step/<tid>`: Current in-flight step-start hash (cleared on completion)
+    - `@uwf/active-turn-head/<tid>`: Head of the turn chain (persists after completion)
+  
+  - **Turn chain with prev+owner**: Each turn node now includes:
+    - `prev`: Pointer to previous turn (forms global turn chain)
+    - `owner`: Reference to owning step-start (enables filtering by step)
+  
+  - **Detail node simplified**: Removed `turns` array from detail node. Turns are now self-contained via the prev+owner chain. Use `turnsOfStep(turnHead, stepStartHash)` to retrieve turns for a specific step.
+  
+  - **#412 regression fix**: Same role appearing in multiple rounds now correctly attributes turns to their respective step-starts via the `owner` field, not role name.
+  
+  Deprecated functions (will be removed in Phase 3):
+  - `appendActiveTurn`, `readActiveTurns`, `clearActiveTurns` (role-keyed)
+  - `readActiveTurnRoles`, `activeTurnsVarName`
+  
+  New functions:
+  - `setActiveStep`, `getActiveStep`, `clearActiveStep`
+  - `setActiveTurnHead`, `getActiveTurnHead`
+  - `turnsOfStep`, `walkTurnChain`, `writeStepStart`, `writeTurnNode`
+
 ## 0.7.0
 
 ### Minor Changes
