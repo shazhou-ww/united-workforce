@@ -346,9 +346,15 @@ describe("client.sendMessage — SSE watchdog (issue #391)", () => {
     };
   }
 
-  test("sendMessage rejects with watchdog error when no events arrive within heartbeat window", async () => {
+  test("sendMessage rejects when watchdog fires and reconnect fails", async () => {
     const built = buildControllableSseResponse();
-    vi.stubGlobal("fetch", async () => built.response);
+    let fetchCalls = 0;
+    vi.stubGlobal("fetch", async () => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) return built.response;
+      // Reconnect after watchdog — fail fast so sendMessage finalizes.
+      return new Response("", { status: 404 });
+    });
     const encoder = new TextEncoder();
 
     const client = createSumeruClient("http://127.0.0.1:7900", {
@@ -373,11 +379,9 @@ describe("client.sendMessage — SSE watchdog (issue #391)", () => {
     // Let microtasks settle so the reader consumes the frame & resets watchdog.
     await Promise.resolve();
     await Promise.resolve();
-    // Now go silent past the watchdog window.
+    // Now go silent past the watchdog window — reconnect fails, finalize throws.
     await vi.advanceTimersByTimeAsync(50);
-    await expect(promise).rejects.toThrow(
-      /sumeru SSE stream watchdog: no event received within 50ms \(gateway=claude-code, session=ses_abc\)/,
-    );
+    await expect(promise).rejects.toThrow(/1 turn events without done or error/);
   });
 
   test("heartbeat events reset the watchdog and allow long-running streams", async () => {
