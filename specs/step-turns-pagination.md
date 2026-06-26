@@ -68,7 +68,7 @@ tags: [cli, step-turns, turns, pagination, limit, offset, list-options, chain, "
   - `--limit`/`--offset` larger than the remaining count clamp to the available
     range (no error);
   - negative or non-numeric values are rejected as a CLI usage error
-    (commander/option parsing), exit non-zero.
+    (@ocas/cli-kit option parsing), exit non-zero.
 - **Global numbering**: because pagination is over the flattened sequence, turn
   numbering/identity is consistent across the whole panorama (a turn keeps its
   place in chain order regardless of which slice surfaces it).

@@ -20,7 +20,7 @@ workflow → thread → step → turn
 
 This package has no library `src/index.ts` — it is consumed as a CLI binary only.
 
-**Dependencies:** `@ocas/core`, `@ocas/fs`, `@united-workforce/util-agent`, `@united-workforce/protocol`, `@united-workforce/util`, `commander`, `dotenv`, `mustache`, `yaml`
+**Dependencies:** `@ocas/core`, `@ocas/cli-kit`, `@ocas/fs`, `@united-workforce/util-agent`, `@united-workforce/protocol`, `@united-workforce/util`, `dotenv`, `mustache`, `yaml`
 
 ## Installation
 

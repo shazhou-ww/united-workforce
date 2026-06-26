@@ -5,7 +5,7 @@ sources:
   - packages/cli/src/commands/broker-step.ts
 tags: [architecture, broker, step, cas, persistence, realtime-turns, phase-3]
 created: 2026-06-16
-updated: 2026-06-16
+updated: 2026-06-26
 ---
 
 # Broker-driven step execution (executeBrokerStep)
@@ -117,6 +117,33 @@ same Sumeru session with full server-side context — this is what makes
 frontmatter retries cheap and context-preserving. `onTurn: null` means this
 path does not stream per-turn callbacks (turns are reconstructed from the final
 output instead).
+
+## SSE reconnect on watchdog timeout (#446)
+
+The Sumeru client (`createSumeruClient` in `@united-workforce/broker`) bounds
+SSE consumption with a **per-event heartbeat watchdog** — default
+`DEFAULT_SSE_HEARTBEAT_TIMEOUT_MS` (45_000 ms, 3× the server heartbeat). The
+timer resets on every consumed event (turn, heartbeat, `done`, …). When **45 s
+pass with no events**, the reader is cancelled and the client attempts **one**
+reconnect before giving up:
+
+1. **Reconnect request** — `POST` to the same
+   `/gateways/{gw}/sessions/{id}/messages` URL with an **empty body** and a
+   `Last-Event-ID` header set to the last SSE `id` seen before the watchdog
+   fired.
+2. **200 response** — resume consuming the new stream into the **same shared
+   turn accumulator** used by the initial send. Turns received before and after
+   the gap merge seamlessly (e.g. assistant turn `"first"` then `"second"` with
+   a single `done` summary).
+3. **Non-200 response** — finalize with whatever partial state was accumulated
+   (assistant turns already received). If **no turns** were received at all,
+   `sendMessage` throws; otherwise the caller gets the partial outcome or an
+   error describing an incomplete stream (no `done`).
+
+This pairs with **Sumeru's CAS-backed frame persistence**: the gateway can
+replay frames after `Last-Event-ID` on reconnect, so a transient connection drop
+mid-step does not lose in-flight assistant output. See also the broker README
+(SSE heartbeat watchdog, #391) and sumeru#105 / #439 for timeout ownership.
 
 ## Extraction + retry loop: `tryExtract` / `MAX_FRONTMATTER_RETRIES`
 
