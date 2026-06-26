@@ -4,10 +4,48 @@
  * 404 typed error.
  */
 
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { createSumeruClient, SumeruSessionNotFoundError } from "../src/sumeru-client/index.js";
 import { installFetchStub, sseFrame } from "./fetch-stub.js";
+
+type RequestRecord = {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+};
+
+function buildRequestRecord(
+  req: {
+    method: string | undefined;
+    url: string | undefined;
+    headers: NodeJS.Dict<string | string[]>;
+  },
+  chunks: Buffer[],
+): RequestRecord {
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === "string") headers[k.toLowerCase()] = v;
+  }
+  return {
+    method: req.method ?? "",
+    url: req.url ?? "",
+    headers,
+    body: Buffer.concat(chunks).toString("utf8"),
+  };
+}
+
+async function stopServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 
 describe("client.sendMessage — happy path", () => {
   const fetchStub = installFetchStub();
@@ -438,4 +476,99 @@ describe("client.sendMessage — SSE watchdog (issue #391)", () => {
 
     await expect(promise).resolves.toMatchObject({ output: "ok" });
   });
+});
+
+describe("client.sendMessage — SSE reconnect (issue #446)", () => {
+  let server: Server | undefined;
+
+  afterEach(async () => {
+    if (server !== undefined) {
+      await stopServer(server);
+      server = undefined;
+    }
+  });
+
+  test("sendMessage reconnects with Last-Event-ID on watchdog timeout and merges turns", async () => {
+    let requestCount = 0;
+    const requests: RequestRecord[] = [];
+
+    server = createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (c) => {
+        chunks.push(c);
+      });
+      req.on("end", () => {
+        const record = buildRequestRecord(req, chunks);
+        requests.push(record);
+        requestCount += 1;
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache");
+
+        if (requestCount === 1) {
+          res.write(
+            sseFrame(1, "turn", {
+              type: "@sumeru/turn",
+              value: {
+                index: 0,
+                role: "assistant",
+                content: "first",
+                timestamp: "",
+                toolCalls: null,
+              },
+            }),
+          );
+          return;
+        }
+
+        res.write(
+          sseFrame(2, "turn", {
+            type: "@sumeru/turn",
+            value: {
+              index: 1,
+              role: "assistant",
+              content: "second",
+              timestamp: "",
+              toolCalls: null,
+            },
+          }),
+        );
+        res.write(
+          sseFrame(3, "done", {
+            type: "@sumeru/summary",
+            value: { turnCount: 2, tokens: { in: 5, out: 3 }, durationMs: 500 },
+          }),
+        );
+        res.end();
+      });
+    });
+
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const port = (server!.address() as AddressInfo).port;
+
+    const client = createSumeruClient(`http://127.0.0.1:${port}`, {
+      sseHeartbeatTimeoutMs: 50,
+    });
+
+    const outcome = await client.sendMessage({
+      gateway: "claude-code",
+      sessionId: "ses_abc",
+      content: "hello",
+    });
+
+    expect(outcome.kind).toBe("completed");
+    expect(outcome.assistantTurnCount).toBe(2);
+    expect(outcome.output).toBe("second");
+    expect(outcome.done).toEqual({
+      turnCount: 2,
+      tokens: { in: 5, out: 3 },
+      durationMs: 500,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0].body).toBe(JSON.stringify({ content: "hello" }));
+    expect(requests[1].body).toBe("");
+    expect(requests[1].headers["last-event-id"]).toBe("1");
+  }, 10_000);
 });
