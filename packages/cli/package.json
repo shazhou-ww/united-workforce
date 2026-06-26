@@ -1,6 +1,6 @@
 {
   "name": "@united-workforce/cli",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "files": [
     "src",
     "dist",

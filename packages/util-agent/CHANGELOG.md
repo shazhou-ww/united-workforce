@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.4.0 — 2026-06-26
+
+- fix(frontmatter): trim leading whitespace before the fence check (#429)
+  
+  Frontmatter extraction previously required the agent output to begin at
+  character position 0 with `---`, tolerating no leading characters. Both
+  independent fence detectors used a bare `startsWith("---")`:
+  
+  - `splitFrontmatter()` in `@united-workforce/util` (main parse path)
+  - `extractYamlBlock()` in `@united-workforce/util-agent` (raw-field recovery)
+  
+  Agents (claude-code especially) routinely emit a leading newline, space, or
+  BOM before the frontmatter, so `startsWith("---")` was `false`, extraction
+  failed, and the engine fired a `frontmatter retry` — a full extra agent round
+  on the slowest steps.
+  
+  Both detectors now `trimStart()` the leading whitespace (newline / CR / space /
+  tab / BOM `\uFEFF`) before checking the opening fence, in lockstep so the main
+  parse and `parseRawFrontmatterFields` never disagree (no dropped fields). The
+  block itself must still be a complete `---\n...\n---`, and the body is computed
+  from the stripped string so its content is not corrupted.
+  
+  Scope is the trim layer only — leading prose, markdown code-fence wrapping, and
+  regex full-text scanning remain intentionally unhandled. Clean-top outputs parse
+  byte-for-byte as before (zero regression).
+- chore(cleanup): archive legacy per-agent CLI adapters (#381)
+  
+  Phase 4 cleanup of the broker rollout. The per-agent CLI binary packages
+  (`agent-hermes`, `agent-claude-code`, `agent-sumeru`) have moved out of
+  `packages/` into `legacy-packages/` and are no longer published — Sumeru
+  gateways are now reached through `@united-workforce/broker` over HTTP.
+  
+  - `@united-workforce/util-agent` public surface trimmed to the symbols
+    still consumed by `cli`, `broker`, `agent-builtin`, and `agent-mock`.
+    The per-agent SQLite session cache, external-CLI continuation prompt
+    builder, thread-progress hint, `buildContext`, `buildSuspendOutput`,
+    the argv parser, and the fork/cleanup adapter type aliases are no
+    longer exported (they live in the archived adapters).
+  - `@united-workforce/util` skill references (`uwf prompt usage` and
+    `uwf prompt adapter-developing`) rewritten so the rendered SKILL.md
+    describes the broker-based architecture instead of recommending
+    per-agent CLI binary installs.
+  - `@united-workforce/cli` setup/prompt commands no longer scan for or
+    recommend the per-agent CLI binaries; the `setup --agent` option
+    description in `cli.ts` was also updated so `uwf setup --help`
+    contains no legacy adapter substrings.
+  - `@united-workforce/eval`'s `eval run --agent` default flipped from
+    the now-archived `uwf-hermes` to `uwf-builtin` so the default flow
+    stays runnable post-cleanup.
+  - `scripts/publish-all.mjs` `publishOrder` updated to drop legacy
+    adapter dirs and use the post-rename workspace package directories.
+  - Repo-root `vitest.config.ts` excludes `legacy-packages/**` so archived
+    adapter test files do not run in the workspace test pass.
+  - Top-level `README.md` Architecture / Packages sections rewritten to
+    match the post-cleanup layout (broker added to Layer 3, archived
+    adapters moved into a dedicated Archived table that links into
+    `legacy-packages/`). `legacy-packages/agent-sumeru/CHANGELOG.md`
+    added so all three archived packages carry the same banner.
+
 ## 0.3.0
 
 ### Minor Changes
