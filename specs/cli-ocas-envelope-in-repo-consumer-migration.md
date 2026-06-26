@@ -43,7 +43,7 @@ bare-value JSON is emitted, and (b) read fields under the new names/shapes.
 ### Then
 - `runUwf` for `thread start` is called with `--format raw-json` appended to
   its argument list (or with the equivalent argument placement that makes
-  `--format` apply before the subcommand, per the CLI's commander setup).
+  `--format` apply before the subcommand, per the CLI's @ocas/cli-kit setup).
 - `parseThreadId` parses the JSON and reads `obj.threadId` (string, non-empty,
   26-char Crockford Base32). It throws a clear error mentioning `threadId`
   when the field is missing, not `thread`.
@@ -112,7 +112,7 @@ accepts), and the jq paths must be updated.
 ### Then
 - Each `uwf` call in the affected phases is updated to pass `--format raw-json`
   exactly once (either as a global flag before the subcommand or wherever
-  commander accepts it; the script picks one form and uses it consistently).
+  @ocas/cli-kit accepts it; the script picks one form and uses it consistently).
 - `THREAD_ID=$(echo "$OUT" | jq -r '.threadId // empty')` (was `.thread`).
 - `thread list` parsing handles the new envelope shape: the script uses
   `jq -e '.items[] | select(.threadId=="'"$THREAD_ID"'")'` (was

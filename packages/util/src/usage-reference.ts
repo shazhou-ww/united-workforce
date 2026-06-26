@@ -80,8 +80,8 @@ uwf thread show <thread-id>                        # show head pointer
 uwf thread list                                    # list active threads (idle + running)
                [--all]                             # include end/cancelled/suspended
                [--status <filter>]                 # idle, running, suspended, end, cancelled, active (comma-separated)
-               [--after <thread-id>]               # pagination: after this thread
-               [--before <thread-id>]              # pagination: before this thread
+               [--after <date>]                    # filter: threads created after this date (ISO or relative, e.g. 2d, yesterday)
+               [--before <date>]                   # filter: threads created before this date (ISO or relative)
                [--limit <n>]                       # return at most n threads (newest first)
                [--offset <m>]                      # skip the first m threads (--take/--skip aliases)
 uwf thread read <thread-id>                        # render context as markdown

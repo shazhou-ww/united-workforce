@@ -10,7 +10,7 @@ tags: [cli, step-turns, docs, help, changeset, acceptance, chain, "409", "400"]
   (`step-turns-chain-panorama.md`) plus the new `--limit`/`--offset` pagination
   flags (`step-turns-pagination.md`); this spec captures the **non-functional**
   acceptance gates (CLI help, README, changeset, CI green).
-- The CLI uses commander: `step turns` is declared under `program.command("step")`
+- The CLI uses `@ocas/cli-kit`: `step turns` is declared under the `step` command
   in `packages/cli/src/cli.ts` with `<thread-id>`, `--role <role>`, and `--live`,
   each surfaced by `uwf step turns --help`. #409 adds `--limit <n>` and
   `--offset <n>` options to the same declaration.
