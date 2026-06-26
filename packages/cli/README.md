@@ -63,7 +63,7 @@ The `json` and `yaml` envelopes carry the schema hash on the `type` field so con
 | `uwf thread start <workflow> -p <prompt>` | Create a thread without executing |
 | `uwf thread exec <thread-id> [--agent <cmd>] [-c <count>] [--background]` | Execute one or more moderator→agent→extract cycles |
 | `uwf thread show <thread-id>` | Show thread head pointer |
-| `uwf thread list [--status <status>] [--all] [--after <date>] [--before <date>] [--skip <n>] [--take <n>]` | List threads (defaults to active: idle + running). Use `--all` to include end/cancelled/suspended, or `--status` to filter explicitly (idle, running, suspended, end, cancelled, active, or comma-separated). Supports time range and pagination. |
+| `uwf thread list [--status <status>] [--all] [--after <date>] [--before <date>] [--limit <n>] [--offset <m>]` | List threads (defaults to active: idle + running). Use `--all` to include end/cancelled/suspended, or `--status` to filter explicitly (idle, running, suspended, end, cancelled, active, or comma-separated). Supports time range and pagination (`--limit`/`--offset`; `--take`/`--skip` are accepted as aliases). |
 | `uwf thread read <thread-id> [--quota N] [--before <hash>] [--start]` | Render thread as readable markdown |
 
 `thread read`, `step list`, and `step show` work on both active and ended threads.
@@ -104,7 +104,8 @@ uwf thread list --all
 uwf thread list --status running
 uwf thread list --status active
 uwf thread list --status idle,end
-uwf thread list --after 7d --take 10
+uwf thread list --after 7d --limit 10
+uwf thread list --limit 5 --offset 10
 uwf thread read 01ARZ3NDEKTSV4RRFFQ69G5FAV --quota 8000
 uwf thread stop 01ARZ3NDEKTSV4RRFFQ69G5FAV
 ```

@@ -82,8 +82,8 @@ uwf thread list                                    # list active threads (idle +
                [--status <filter>]                 # idle, running, suspended, end, cancelled, active (comma-separated)
                [--after <thread-id>]               # pagination: after this thread
                [--before <thread-id>]              # pagination: before this thread
-               [--skip <n>]                        # skip first n results
-               [--take <n>]                        # limit results
+               [--limit <n>]                       # return at most n threads (newest first)
+               [--offset <m>]                      # skip the first m threads (--take/--skip aliases)
 uwf thread read <thread-id>                        # render context as markdown
                [--quota <chars>]                   # max output chars (default 4000)
                [--before <step-hash>]              # pagination

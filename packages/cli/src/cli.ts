@@ -209,6 +209,34 @@ function parseTurnsPageOption(flag: string, value: string | undefined): number |
   return Number.parseInt(trimmed, 10);
 }
 
+/**
+ * Resolve `thread list` pagination from both the canonical repo-wide
+ * `ListOptions` vocabulary (`--limit`/`--offset`, as used by `step turns`) and
+ * the backward-compatible legacy aliases (`--skip`/`--take`). The canonical
+ * flags map onto the existing `cmdThreadList` parameters: `--limit` → `take`
+ * (max items), `--offset` → `skip` (items skipped from the front of the
+ * newest-first list). When both a canonical flag and its legacy alias are
+ * supplied, the canonical flag wins and the alias is the fallback.
+ * `--limit`/`--offset` are validated via `parseTurnsPageOption` (same
+ * non-negative-integer rule and flag-named error as `step turns`); `--limit 0`
+ * is legal and yields no items (the `ListOptions` "no limit" convention treats
+ * an absent flag, not 0, as "all items").
+ */
+function resolveThreadListPagination(flags: {
+  skip: string | undefined;
+  take: string | undefined;
+  limit: string | undefined;
+  offset: string | undefined;
+}): { skip: number | null; take: number | null } {
+  const legacy = parsePaginationOptions(flags.skip, flags.take);
+  const limit = parseTurnsPageOption("--limit", flags.limit);
+  const offset = parseTurnsPageOption("--offset", flags.offset);
+  return {
+    skip: offset ?? legacy.skip,
+    take: limit ?? legacy.take,
+  };
+}
+
 // --- Positional arg helper (cli-kit workaround: custom missing-arg message) ---
 // cli-kit emits "Missing positional arguments" as NDJSON; tests expect a
 // plain "missing required argument" message on stderr. We don't declare
@@ -365,8 +393,10 @@ Options:
   --all               Show all threads regardless of status
   --after <date>      Filter threads created after this date
   --before <date>     Filter threads created before this date
-  --skip <n>          Skip first n threads
-  --take <n>          Return at most n threads
+  --limit <n>         Return at most n threads (newest first)
+  --offset <m>        Skip the first m threads (newest first)
+  --take <n>          Alias for --limit
+  --skip <n>          Alias for --offset
 `;
 
 const THREAD_RESUME_HELP = `Usage: uwf thread resume <thread-id> [options]
@@ -893,6 +923,8 @@ thread
   .flag("before", { type: "string" })
   .flag("skip", { type: "string" })
   .flag("take", { type: "string" })
+  .flag("limit", { type: "string" })
+  .flag("offset", { type: "string" })
   .returns(unknownSchema, "")
   .action(async (_args, flags) => {
     const storageRoot = resolveStorageRoot();
@@ -904,10 +936,12 @@ thread
         flags.before as string | undefined,
         nowMs,
       );
-      const { skip, take } = parsePaginationOptions(
-        flags.skip as string | undefined,
-        flags.take as string | undefined,
-      );
+      const { skip, take } = resolveThreadListPagination({
+        skip: flags.skip as string | undefined,
+        take: flags.take as string | undefined,
+        limit: flags.limit as string | undefined,
+        offset: flags.offset as string | undefined,
+      });
       const showAll = flags.all === true;
       const result = await cmdThreadList(
         storageRoot,
