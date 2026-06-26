@@ -8,7 +8,7 @@
  * exposing only the methods needed by `broker.send()`. `host` is normalised
  * at construction time (trailing slash stripped) so subsequent path joins
  * never produce `//gateways/...`. `options` plumbs the SSE total-timeout
- * and per-event watchdog windows used to bound `consumeSse` (see
+ * and per-event watchdog windows used to bound SSE consumption (see
  * issue #391).
  */
 
@@ -157,51 +157,118 @@ export function createSumeruClient(host: string, options?: SumeruClientOptions):
       normalisedHost,
       `/gateways/${args.gateway}/sessions/${args.sessionId}/messages`,
     );
+
+    // Phase 1 (#446): accumulate turns across attempts so a watchdog-triggered
+    // reconnect preserves already-received turns. The state is shared by
+    // reference across the initial send and (at most one) reconnect attempt.
+    const sharedState: SseState = {
+      assistantTurns: [],
+      totalTurns: 0,
+      done: null,
+      suspend: null,
+      errorMessage: null,
+      onAssistantTurn: onAssistantTurn ?? null,
+    };
+    let lastEventId: string | null = null;
+
+    // --- Initial send ---
+    const initialResponse = await fetchSseResponse(
+      url,
+      JSON.stringify({ content: args.content }),
+      null,
+      args,
+    );
+    const initialBody = initialResponse?.body;
+    if (initialBody === null || initialBody === undefined) {
+      throw new Error(
+        `sumeru SSE response has no body (gateway=${args.gateway}, session=${args.sessionId})`,
+      );
+    }
+    const initialResult = await consumeSseWithState({
+      body: initialBody,
+      gateway: args.gateway,
+      sessionId: args.sessionId,
+      sseHeartbeatTimeoutMs,
+      state: sharedState,
+    });
+
+    if (initialResult.kind === "finished") {
+      return finalizeOutcome(sharedState);
+    }
+
+    // Watchdog fired — attempt one reconnect with Last-Event-ID
+    lastEventId = initialResult.lastEventId;
+    const resumeResponse = await fetchSseResponse(url, "", lastEventId, args);
+    if (resumeResponse === null) {
+      // Reconnect got a non-200 — fall through to finalize with current state
+      return finalizeOutcome(sharedState);
+    }
+
+    await consumeSseWithState({
+      body: resumeResponse.body as ReadableStream<Uint8Array>,
+      gateway: args.gateway,
+      sessionId: args.sessionId,
+      sseHeartbeatTimeoutMs,
+      state: sharedState,
+    });
+
+    return finalizeOutcome(sharedState);
+  }
+
+  async function fetchSseResponse(
+    url: string,
+    bodyContent: string,
+    lastEventId: string | null,
+    args: SendMessageArgs,
+  ): Promise<Response | null> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    };
+    if (lastEventId !== null) {
+      headers["Last-Event-ID"] = lastEventId;
+    }
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      },
-      body: JSON.stringify({ content: args.content }),
+      headers,
+      body: bodyContent === "" ? "" : bodyContent,
     });
 
     if (!response.ok) {
-      const body = await readJsonBody(response);
-      const code = extractSumeruErrorCode(body);
-      if (response.status === 404 && code === "session_not_found") {
-        throw new SumeruSessionNotFoundError(args.gateway, args.sessionId);
-      }
-      throw new Error(
-        buildMessageErrorMessage(
-          response.status,
-          normalisedHost,
-          args.gateway,
-          args.sessionId,
-          body,
-        ),
-      );
+      // On reconnect, non-200 is expected if session/stream is gone
+      if (lastEventId !== null) return null;
+      await throwInitialSseFetchFailure(response, normalisedHost, args);
     }
 
     if (response.body === null) {
+      if (lastEventId !== null) return null;
       throw new Error(
         `sumeru SSE response has no body (gateway=${args.gateway}, session=${args.sessionId})`,
       );
     }
 
-    return consumeSse({
-      body: response.body,
-      gateway: args.gateway,
-      sessionId: args.sessionId,
-      sseHeartbeatTimeoutMs,
-      onAssistantTurn: onAssistantTurn ?? null,
-    });
+    return response;
   }
 
   return Object.freeze({ createSession, sendMessage });
 }
 
-/** Mutable accumulator for SSE consumption — owned by `consumeSse`. */
+async function throwInitialSseFetchFailure(
+  response: Response,
+  host: string,
+  args: SendMessageArgs,
+): Promise<never> {
+  const body = await readJsonBody(response);
+  const code = extractSumeruErrorCode(body);
+  if (response.status === 404 && code === "session_not_found") {
+    throw new SumeruSessionNotFoundError(args.gateway, args.sessionId);
+  }
+  throw new Error(
+    buildMessageErrorMessage(response.status, host, args.gateway, args.sessionId, body),
+  );
+}
+
+/** Mutable accumulator for SSE consumption — owned by `consumeSseWithState`. */
 type SseState = {
   assistantTurns: SumeruTurnValue[];
   totalTurns: number;
@@ -239,13 +306,40 @@ function processEvents(events: Iterable<SseEvent>, state: SseState): void {
 
 type ReadResult = { done: boolean; value: Uint8Array | undefined };
 
-async function readSseStream(
+type AbortKind = "watchdog";
+
+type ProcessSseChunkArgs = Readonly<{
+  chunk: string;
+  parser: ReturnType<typeof createSseParser>;
+  state: SseState;
+  resetWatchdog: () => void;
+  onEventId: (id: string) => void;
+}>;
+
+function processSseChunk(args: ProcessSseChunkArgs): boolean {
+  const events = args.parser.push(args.chunk);
+  let consumedAny = false;
+  for (const evt of events) {
+    consumedAny = true;
+    if (evt.id !== null) args.onEventId(evt.id);
+    applyOutcome(args.state, handleEvent(evt));
+    if (isStreamFinished(args.state)) {
+      if (consumedAny) args.resetWatchdog();
+      return true;
+    }
+  }
+  if (consumedAny) args.resetWatchdog();
+  return false;
+}
+
+async function readSseStreamWithIdTracking(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   decoder: TextDecoder,
   parser: ReturnType<typeof createSseParser>,
   state: SseState,
   abortPromise: Promise<never>,
   resetWatchdog: () => void,
+  onEventId: (id: string) => void,
 ): Promise<void> {
   while (true) {
     // Swallow late rejection from a read() that loses the race against the
@@ -259,17 +353,9 @@ async function readSseStream(
     const next = (await Promise.race([readPromise, abortPromise])) as ReadResult;
     if (next.done) return;
     const chunk = decoder.decode(next.value, { stream: true });
-    const events = parser.push(chunk);
-    let consumedAny = false;
-    for (const evt of events) {
-      consumedAny = true;
-      applyOutcome(state, handleEvent(evt));
-      if (isStreamFinished(state)) {
-        if (consumedAny) resetWatchdog();
-        return;
-      }
+    if (processSseChunk({ chunk, parser, state, resetWatchdog, onEventId })) {
+      return;
     }
-    if (consumedAny) resetWatchdog();
   }
 }
 
@@ -305,32 +391,26 @@ function finalizeOutcome(state: SseState): SumeruSendOutcome {
   };
 }
 
-type ConsumeSseArgs = Readonly<{
+type ConsumeSseWithStateArgs = Readonly<{
   body: ReadableStream<Uint8Array>;
   gateway: string;
   sessionId: string;
   sseHeartbeatTimeoutMs: number;
-  onAssistantTurn: SumeruTurnListener | null;
+  state: SseState;
 }>;
 
-type AbortKind = "watchdog";
+type ConsumeResult = { kind: "finished" } | { kind: "watchdog"; lastEventId: string };
 
-async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
+async function consumeSseWithState(args: ConsumeSseWithStateArgs): Promise<ConsumeResult> {
   const decoder = new TextDecoder();
   const parser = createSseParser();
   const reader = args.body.getReader();
-  const state: SseState = {
-    assistantTurns: [],
-    totalTurns: 0,
-    done: null,
-    suspend: null,
-    errorMessage: null,
-    onAssistantTurn: args.onAssistantTurn,
-  };
+  const state = args.state;
 
   let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   let abortReason: AbortKind | null = null;
   let abortReject: ((err: Error) => void) | null = null;
+  let lastSeenId: string | null = null;
 
   const watchdogErrorMessage = `sumeru SSE stream watchdog: no event received within ${args.sseHeartbeatTimeoutMs}ms (gateway=${args.gateway}, session=${args.sessionId})`;
 
@@ -359,30 +439,46 @@ async function consumeSse(args: ConsumeSseArgs): Promise<SumeruSendOutcome> {
   const abortPromise = new Promise<never>((_resolve, reject) => {
     abortReject = reject;
   });
-  // The abort promise may reject after `Promise.race` has already returned
-  // (e.g. when the watchdog fires concurrently with a successful drain).
-  // Attach a swallow-handler so the dangling rejection does NOT surface as
-  // an unhandled promise rejection.
   abortPromise.catch(() => undefined);
 
+  let watchdogFired = false;
   try {
-    await readSseStream(reader, decoder, parser, state, abortPromise, resetWatchdog);
-    // Drain trailing partial frame (if any) and pull final residual decode bytes.
+    await readSseStreamWithIdTracking(
+      reader,
+      decoder,
+      parser,
+      state,
+      abortPromise,
+      resetWatchdog,
+      (id) => {
+        lastSeenId = id;
+      },
+    );
     const tail = decoder.decode();
     if (tail !== "") {
       processEvents(parser.push(tail), state);
     }
     processEvents(parser.drain(), state);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (abortReason === "watchdog" || msg.includes("watchdog")) {
+      watchdogFired = true;
+    } else {
+      throw err;
+    }
   } finally {
     clearWatchdogTimer();
     try {
       await reader.cancel(abortReason === null ? undefined : abortReason);
     } catch {
-      // ignore — partial reads must not leak the underlying socket
+      // ignore
     }
   }
 
-  return finalizeOutcome(state);
+  if (watchdogFired && !isStreamFinished(state)) {
+    return { kind: "watchdog", lastEventId: lastSeenId ?? "0" };
+  }
+  return { kind: "finished" };
 }
 
 type EventOutcome = {

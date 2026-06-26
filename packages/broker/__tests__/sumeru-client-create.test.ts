@@ -88,7 +88,13 @@ describe("createSumeruClient — default SSE timeouts", () => {
   }
 
   test("createSumeruClient applies default SSE timeouts when options are omitted", async () => {
-    vi.stubGlobal("fetch", async () => buildHungSseResponse());
+    let fetchCalls = 0;
+    vi.stubGlobal("fetch", async () => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) return buildHungSseResponse();
+      // Reconnect after watchdog — fail fast so sendMessage finalizes.
+      return new Response("", { status: 404 });
+    });
     const client = createSumeruClient("http://127.0.0.1:7900");
     const promise = client.sendMessage({ gateway: "g", sessionId: "s", content: "x" });
     // Avoid an unhandled rejection if it rejects before we attach the
@@ -111,11 +117,9 @@ describe("createSumeruClient — default SSE timeouts", () => {
     await Promise.resolve();
     expect(settled).toBe(false);
 
-    // Crossing the watchdog default (45_000ms) MUST trigger a rejection
-    // because the stream emitted no events.
+    // Crossing the watchdog default (45_000ms) triggers reconnect; failed
+    // reconnect finalizes with an error because no events were received.
     await vi.advanceTimersByTimeAsync(2);
-    await expect(promise).rejects.toThrow(
-      /sumeru SSE stream watchdog: no event received within 45000ms/,
-    );
+    await expect(promise).rejects.toThrow(/0 turn events without done or error/);
   });
 });
