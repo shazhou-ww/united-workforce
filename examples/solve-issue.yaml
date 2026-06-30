@@ -21,9 +21,10 @@ roles:
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Read `specs/README.md` to understand the spec format and conventions
-      4. Assess whether the issue has enough information to produce a spec
-      5. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
-      6. Create a worktree for this issue:
+      4. **Scan existing specs:** List `specs/` recursively (`find specs/ -name '*.md'`). For each file whose directory name, `feature` tag, or `scenario` line relates to the issue, read it and note which behaviors/scenarios are already covered. These are your **existing specs** — they will be reused as-is (or lightly revised) rather than rewritten from scratch.
+      5. Assess whether the issue has enough information to produce a spec
+      6. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
+      7. Create a worktree for this issue:
          ```bash
          cd <repoPath>
          git fetch origin
@@ -31,11 +32,13 @@ roles:
          cd .worktrees/fix/<issue-number>-<short-slug>
          pnpm install
          ```
-      7. Write spec files inside the worktree's `specs/<feature>-<behavior>.md` following the Given/When/Then format:
+      8. **Write only missing specs** (supplement mode): Compare the issue's required behaviors against the existing specs found in step 4.
+         - Behaviors already covered by an existing spec/tc: **do NOT rewrite**. Include them in specFiles as-is. If a minor revision is needed (e.g. outdated precondition), edit in-place — do not create a new file.
+         - Behaviors NOT yet covered: write new spec files in `specs/<feature>/<behavior>.md` following the Given/When/Then format:
          ```markdown
          ---
          scenario: "One-line description"
-         feature: <uwf-command>
+         feature: <feature-name>
          tags: [relevant, tags]
          ---
 
@@ -51,9 +54,8 @@ roles:
          - expected outcome 2
          ```
          If the issue covers multiple behaviors, write multiple spec files.
-         If a spec file already exists for the same behavior, update it rather than creating a duplicate.
-      8. specFiles MUST be non-empty — at least one spec file must be written. If no spec can be produced, use $SUSPEND instead.
-      9. Output **$status=ready** with specFiles (list of written spec file paths relative to repo root, e.g. `specs/thread-start-from-yaml.md`), repoPath, worktree, and branch
+      9. specFiles MUST be non-empty — include both existing (reused) and newly written spec paths. If no spec can be produced, use $SUSPEND instead.
+      10. Output **$status=ready** with specFiles (list of all relevant spec file paths relative to repo root, e.g. `specs/session/delete-session.md`), repoPath, worktree, and branch
 
       **Mode B — Continue on existing PR (prompt mentions PR, branch, or review feedback):**
       YOU MUST output $status=continue (NOT ready) when in this mode.
